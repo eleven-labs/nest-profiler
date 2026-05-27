@@ -1,0 +1,17 @@
+node_modules
+dist
+coverage
+.turbo
+.DS_Store
+.idea
+.env
+.env.*
+!.env.example
+*.log
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Per-developer agent skill installs (source of truth is ./skills/)
+.claude/
+.agents/
+skills-lock.json

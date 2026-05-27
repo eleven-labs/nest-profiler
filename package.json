@@ -1,0 +1,65 @@
+{
+  "name": "nest-profiler-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NestJS profiler toolkit — pnpm + Turbo monorepo for @eleven-labs/nest-profiler and its collector packages.",
+  "license": "MIT",
+  "author": "Fabien Pasquet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eleven-labs/nest-profiler.git"
+  },
+  "homepage": "https://github.com/eleven-labs/nest-profiler#readme",
+  "bugs": {
+    "url": "https://github.com/eleven-labs/nest-profiler/issues"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "prettier": "@repo/prettier-config",
+  "scripts": {
+    "build": "turbo run build",
+    "docs:build": "pnpm --filter docs build",
+    "docs:dev": "pnpm --filter docs dev",
+    "example:dev": "turbo run start:dev --filter=example-api",
+    "example:start": "turbo run build && pnpm --filter=example-api start",
+    "clean": "turbo run clean && rm -rf node_modules .turbo coverage",
+    "changeset": "changeset",
+    "format": "prettier --write \".github/**/*.yml\" \"*.{json,md,mjs,yaml}\" && turbo run format",
+    "format:check": "prettier --check \".github/**/*.yml\" \"*.{json,md,mjs,yaml}\" && turbo run format:check",
+    "lint": "turbo run lint",
+    "pack:dry-run": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec npm pack --dry-run",
+    "publint": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec publint",
+    "release": "changeset publish",
+    "configure-github": "tsx scripts/configure-github.ts",
+    "configure-github:update": "tsx scripts/configure-github.ts --update",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "version-packages": "changeset version"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.5",
+    "@nestjs/cli": "^11.0.7",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/prettier-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@nestjs/common": "^11.1.3",
+    "@nestjs/core": "^11.1.3",
+    "@nestjs/testing": "^11.1.3",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.32",
+    "eslint": "^10.4.0",
+    "jest": "^30.4.2",
+    "prettier": "^3.5.3",
+    "publint": "^0.3.12",
+    "reflect-metadata": "^0.2.2",
+    "rimraf": "^6.0.1",
+    "rxjs": "^7.8.2",
+    "ts-jest": "^29.3.0",
+    "tsx": "^4.20.3",
+    "turbo": "^2.5.4",
+    "typescript": "^6.0.3"
+  }
+}

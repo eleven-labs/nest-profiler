@@ -1,0 +1,57 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["GITHUB_TOKEN"],
+      "inputs": [
+        "app/**",
+        "content/**",
+        "lib/**",
+        "messages/**",
+        "src/**",
+        "next.config.ts",
+        "source.config.ts",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ],
+      "outputs": [".next/**", ".source/**", "dist/**"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "format": {
+      "cache": false
+    },
+    "format:check": {
+      "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["app/**", "content/**", "lib/**", "src/**", "eslint.config.mjs", "package.json"]
+    },
+    "start:dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "app/**",
+        "content/**",
+        "lib/**",
+        "messages/**",
+        "src/**",
+        "tsconfig.json",
+        "package.json"
+      ]
+    }
+  }
+}

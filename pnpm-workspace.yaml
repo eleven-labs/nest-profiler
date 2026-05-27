@@ -1,0 +1,8 @@
+packages:
+  - 'packages/*'
+  - 'packages/configs/*'
+  - 'examples/*'
+  - 'docs'
+
+onlyBuiltDependencies:
+  - esbuild
