@@ -41,6 +41,11 @@
       "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json"]
     },
+    "test:cov": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json"],
+      "outputs": ["coverage/**"]
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": [

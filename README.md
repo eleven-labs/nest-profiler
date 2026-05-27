@@ -14,14 +14,11 @@ pnpm install        # install dependencies
 
 ## Repository Layout
 
-A pnpm + Turbo monorepo, scaffolded with shared Turbo pipelines and Changesets. Publishable packages will land under `packages/` in the following commits.
+A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything else supports them.
 
 ```text
-package.json                workspace root (Turbo pipelines, scripts)
-pnpm-workspace.yaml         pnpm workspace definition
-turbo.json                  Turbo task pipeline
-.changeset/                 Changesets versioning config
-packages/                   publishable packages (added later)
+packages/
+  configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
 ## Common Commands

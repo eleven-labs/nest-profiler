@@ -36,6 +36,7 @@
     "configure-github": "tsx scripts/configure-github.ts",
     "configure-github:update": "tsx scripts/configure-github.ts --update",
     "test": "turbo run test",
+    "test:cov": "turbo run test:cov",
     "typecheck": "turbo run typecheck",
     "version-packages": "changeset version"
   },
