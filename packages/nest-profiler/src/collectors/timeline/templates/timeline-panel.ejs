@@ -1,0 +1,75 @@
+<%
+  const spans = data || [];
+  const totalDur = profile.performance.duration || 1;
+  const phaseColors = {
+    middleware:   '#6366f1',
+    guards:       '#f59e0b',
+    interceptors: '#8b5cf6',
+    pipes:        '#f97316',
+    controller:   '#10b981',
+    serialization:'#06b6d4',
+  };
+  function phaseColor(phase) {
+    const lower = phase.toLowerCase();
+    for (const [key, color] of Object.entries(phaseColors)) {
+      if (lower.includes(key)) return color;
+    }
+    return '#64748b';
+  }
+%>
+
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-2">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Execution Timeline</h2>
+    <span class="text-foreground-faint text-xs tabular-nums"><%= totalDur %>ms total</span>
+  </div>
+
+  <% if (spans.length === 0) { %>
+    <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+      <p class="text-foreground-muted text-sm mb-2">No spans recorded.</p>
+      <p class="text-foreground-faint text-xs">Use <code class="bg-surface border border-line px-1.5 py-0.5 rounded">profilerService.startSpan('phase')</code> to instrument your code.</p>
+    </div>
+  <% } else { %>
+    <div class="space-y-2">
+      <% for (const span of spans) { %>
+        <%
+          const widthPct = Math.max((span.duration / totalDur) * 100, 0.5).toFixed(2);
+          const offsetPct = ((span.startedAt - profile.performance.startTime) / totalDur * 100).toFixed(2);
+          const color = phaseColor(span.phase);
+        %>
+        <div class="flex items-center gap-3">
+          <div class="w-28 shrink-0 text-foreground-muted text-xs truncate" title="<%= span.phase %>"><%= span.phase %></div>
+          <div class="flex-1 relative h-5 bg-surface-muted border border-line rounded overflow-hidden">
+            <div class="absolute top-0 h-full rounded"
+                 style="left:<%= offsetPct %>%;width:<%= widthPct %>%;background:<%= color %>;opacity:0.85;min-width:2px;">
+            </div>
+          </div>
+          <div class="w-14 shrink-0 text-right text-foreground-secondary text-xs tabular-nums"><%= span.duration %>ms</div>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="mt-6 rounded-lg border border-line overflow-hidden">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-surface-muted border-b border-line">
+            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Phase</th>
+            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Started at</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">% of total</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line-subtle">
+          <% for (const span of spans) { %>
+            <tr class="hover:bg-surface-muted transition-colors">
+              <td class="py-2 px-4 text-foreground text-xs font-medium"><%= span.phase %></td>
+              <td class="py-2 px-4 text-foreground-muted text-xs tabular-nums"><%= timeOnly(span.startedAt) %></td>
+              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= span.duration %>ms</td>
+              <td class="py-2 px-4 text-right text-foreground-faint text-xs tabular-nums"><%= ((span.duration / totalDur) * 100).toFixed(1) %>%</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

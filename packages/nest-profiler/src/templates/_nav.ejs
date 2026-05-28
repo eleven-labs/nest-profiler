@@ -1,0 +1,21 @@
+<header class="bg-surface border-b border-line sticky top-0 z-10">
+  <div class="max-w-7xl mx-auto px-6 flex items-center gap-5 h-12">
+    <a href="<%= profilerPath %>" class="flex items-center gap-2.5 group shrink-0">
+      <div class="w-6 h-6 rounded bg-nest flex items-center justify-center font-black text-white text-2xs shrink-0 group-hover:bg-nest-light transition-colors">N</div>
+      <span class="text-foreground font-semibold text-sm tracking-tight">NestJS Profiler</span>
+    </a>
+    <span class="w-px h-4 bg-line shrink-0"></span>
+    <a href="<%= profilerPath %>" class="text-foreground-muted hover:text-foreground transition-colors text-xs">All Profiles</a>
+    <div class="ml-auto">
+      <button onclick="toggleTheme()"
+              class="flex items-center justify-center w-8 h-8 rounded-lg text-foreground-faint hover:text-foreground hover:bg-surface-muted transition-colors"
+              title="Toggle theme" aria-label="Toggle light/dark theme">
+        <!-- Moon: visible in light mode → click to switch to dark -->
+        <svg class="dark:hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <!-- Sun: visible in dark mode → click to switch to light -->
+        <svg class="hidden dark:block" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="h-px bg-linear-to-r from-nest/60 via-nest/15 to-transparent"></div>
+</header>

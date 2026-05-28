@@ -1,0 +1,66 @@
+<%
+  const subPanels = (data && data.subPanels) ? data.subPanels : [];
+  const groupId = 'grp-' + Math.random().toString(36).slice(2, 8);
+%>
+
+<% if (subPanels.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No data available.</p>
+  </div>
+<% } else if (subPanels.length === 1) { %>
+  <%- include(subPanels[0].templatePath, { data: subPanels[0].data, panel, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+<% } else { %>
+  <div class="mb-5">
+    <div class="flex gap-0 border-b border-line mb-5" id="<%= groupId %>-tabs">
+      <% for (let i = 0; i < subPanels.length; i++) { %>
+        <% const sp = subPanels[i]; %>
+        <button
+          data-group-tab="<%= groupId %>"
+          data-panel="<%= sp.name %>"
+          class="group-tab-btn flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors
+            <%= i === 0
+              ? 'border-nest text-nest'
+              : 'border-transparent text-foreground-muted hover:text-foreground hover:border-line-active' %>">
+          <% if (sp.icon) { %><span class="w-3.5 h-3.5 shrink-0"><%- sp.icon %></span><% } %>
+          <%= sp.label %>
+        </button>
+      <% } %>
+    </div>
+
+    <% for (let i = 0; i < subPanels.length; i++) { %>
+      <% const sp = subPanels[i]; %>
+      <div
+        data-group-panel="<%= groupId %>"
+        data-panel="<%= sp.name %>"
+        class="<%= i !== 0 ? 'hidden' : '' %>">
+        <%- include(sp.templatePath, { data: sp.data, panel, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <script>
+    (function () {
+      const groupId = '<%= groupId %>';
+      const tabs = document.querySelectorAll('[data-group-tab="' + groupId + '"]');
+      const panels = document.querySelectorAll('[data-group-panel="' + groupId + '"]');
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          const target = tab.dataset.panel;
+
+          tabs.forEach(function (t) {
+            const active = t.dataset.panel === target;
+            t.classList.toggle('border-nest', active);
+            t.classList.toggle('text-nest', active);
+            t.classList.toggle('border-transparent', !active);
+            t.classList.toggle('text-foreground-muted', !active);
+          });
+
+          panels.forEach(function (p) {
+            p.classList.toggle('hidden', p.dataset.panel !== target);
+          });
+        });
+      });
+    })();
+  </script>
+<% } %>

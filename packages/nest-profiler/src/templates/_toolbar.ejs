@@ -1,0 +1,30 @@
+<aside id="profiler-toolbar" class="fixed bottom-0 left-0 right-0 z-toolbar bg-surface/95 backdrop-blur border-t border-line font-mono">
+  <div class="flex items-stretch h-8 text-xs overflow-x-auto">
+    <div class="flex items-center gap-2 px-3 border-r border-line shrink-0">
+      <div class="w-4 h-4 rounded bg-nest flex items-center justify-center font-black text-white text-2xs shrink-0">N</div>
+      <span class="text-nest font-semibold tracking-tight">Profiler</span>
+    </div>
+    <a href="<%= profilerPath %>/<%= token %>" target="_blank"
+       class="flex items-center gap-2 px-3 border-r border-line text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors group shrink-0">
+      <span class="text-foreground-faint group-hover:text-foreground-muted transition-colors">token</span>
+      <code class="text-foreground bg-surface-muted px-1.5 py-0.5 rounded text-2xs border border-line"><%= token.slice(0, 8) %></code>
+      <span class="text-foreground-faint text-2xs">↗</span>
+    </a>
+    <% if (panels && panels.length > 0) { %>
+      <% for (const panel of panels) { %>
+        <% if (panel.badgeValue !== null && panel.badgeValue !== undefined) { %>
+          <a href="<%= profilerPath %>/<%= token %>?tab=<%= panel.name %>" target="_blank"
+             class="flex items-center gap-1.5 px-3 border-r border-line text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors shrink-0">
+            <% if (panel.icon) { %><span class="w-3 h-3 shrink-0"><%- panel.icon %></span><% } %>
+            <span class="text-foreground-faint text-2xs"><%= panel.label %></span>
+            <span class="px-1.5 py-0.5 rounded-full bg-surface-muted text-foreground-muted text-2xs border border-line tabular-nums"><%= panel.badgeValue %></span>
+          </a>
+        <% } %>
+      <% } %>
+    <% } %>
+    <a href="<%= profilerPath %>" target="_blank"
+       class="flex items-center px-3 text-foreground-faint hover:text-foreground hover:bg-surface-muted transition-colors ml-auto shrink-0">
+      All profiles
+    </a>
+  </div>
+</aside>
