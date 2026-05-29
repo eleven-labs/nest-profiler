@@ -1,0 +1,137 @@
+<%
+  const requests = data || [];
+  const totalDuration = requests.reduce((sum, r) => sum + r.duration, 0);
+%>
+
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-4 text-xs text-foreground-muted">
+    <span><strong class="text-foreground"><%= requests.length %></strong> request<%= requests.length !== 1 ? 's' : '' %></span>
+    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+  </div>
+</div>
+
+<% if (requests.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No outgoing HTTP requests during this request.</p>
+  </div>
+<% } else { %>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Method</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">URL</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Status</th>
+          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (let i = 0; i < requests.length; i++) { %>
+          <% const r = requests[i]; %>
+          <%
+            const hasRequest = (r.requestHeaders && Object.keys(r.requestHeaders).length > 0) || r.requestBody != null;
+            const hasResponse = (r.responseHeaders && Object.keys(r.responseHeaders).length > 0) || r.responseBody != null;
+            const hasDetails = hasRequest || hasResponse;
+            const detailsRowId = `axios-row-details-${i}`;
+          %>
+          <tr
+            class="<%= hasDetails ? 'cursor-pointer hover:bg-surface-muted' : 'hover:bg-surface-muted' %> transition-colors align-top"
+            <% if (hasDetails) { %>
+              onclick="(function(row){var detailsId=row.getAttribute('data-details-id');var details=document.getElementById(detailsId);if(!details)return;var open=row.getAttribute('aria-expanded')==='true';details.classList.toggle('hidden',open);row.setAttribute('aria-expanded',open?'false':'true');var icon=row.querySelector('[data-axios-indicator]');if(icon){icon.textContent=open?'▸':'▾';}})(this)"
+              data-details-id="<%= detailsRowId %>"
+              aria-expanded="false"
+              role="button"
+              tabindex="0"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
+            <% } %>
+          >
+            <td class="py-2 px-4 whitespace-nowrap">
+              <div class="inline-flex items-center gap-2">
+                <% if (hasDetails) { %>
+                  <span class="inline-flex h-5 w-5 items-center justify-center rounded border border-line-subtle text-foreground-faint">
+                    <span data-axios-indicator="true" class="text-2xs leading-none">▸</span>
+                  </span>
+                <% } else { %>
+                  <span class="inline-flex h-5 w-5 items-center justify-center text-foreground-faint text-2xs">•</span>
+                <% } %>
+                <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-<%= r.method.toLowerCase() %> badge-default"><%= r.method %></span>
+              </div>
+            </td>
+            <td class="py-2 px-4 text-foreground-secondary text-xs break-all">
+              <%= r.url %>
+              <% if (r.error) { %><span class="block text-danger text-2xs mt-0.5"><%= r.error %></span><% } %>
+            </td>
+            <td class="py-2 px-4 whitespace-nowrap">
+              <% if (r.statusCode) { %>
+                <span class="px-1.5 py-0.5 rounded text-2xs font-bold <%= statusClass(r.statusCode) %>"><%= r.statusCode %></span>
+              <% } else { %>
+                <span class="text-foreground-faint text-xs">—</span>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= r.duration %>ms</td>
+            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
+          </tr>
+
+          <% if (hasDetails) { %>
+            <tr id="<%= detailsRowId %>" class="hidden bg-surface-subtle" data-axios-details="true">
+              <td colspan="5" class="px-4 py-3">
+                <div class="space-y-3">
+                  <% if (hasRequest) { %>
+                    <section class="bg-surface border border-line-subtle rounded p-2.5">
+                      <p class="text-2xs text-foreground-faint uppercase tracking-widest font-semibold mb-1.5">Request</p>
+                      <% if (r.requestHeaders && Object.keys(r.requestHeaders).length > 0) { %>
+                        <div class="mb-2">
+                          <p class="text-2xs text-foreground-muted font-semibold mb-1">Headers</p>
+                          <div class="space-y-0.5">
+                            <% for (const [k, v] of Object.entries(r.requestHeaders)) { %>
+                              <div class="flex gap-2 text-2xs font-mono leading-relaxed">
+                                <span class="text-foreground-secondary shrink-0"><%= k %>:</span>
+                                <span class="text-foreground break-all"><%= v %></span>
+                              </div>
+                            <% } %>
+                          </div>
+                        </div>
+                      <% } %>
+                      <% if (r.requestBody != null) { %>
+                        <div>
+                          <p class="text-2xs text-foreground-muted font-semibold mb-1">Body</p>
+                          <pre class="bg-surface-muted border border-line rounded p-2 overflow-x-auto text-2xs leading-relaxed"><code class="language-json"><%= toJson(r.requestBody) %></code></pre>
+                        </div>
+                      <% } %>
+                    </section>
+                  <% } %>
+
+                  <% if (hasResponse) { %>
+                    <section class="bg-surface border border-line-subtle rounded p-2.5">
+                      <p class="text-2xs text-foreground-faint uppercase tracking-widest font-semibold mb-1.5">Response</p>
+                      <% if (r.responseHeaders && Object.keys(r.responseHeaders).length > 0) { %>
+                        <div class="mb-2">
+                          <p class="text-2xs text-foreground-muted font-semibold mb-1">Headers</p>
+                          <div class="space-y-0.5">
+                            <% for (const [k, v] of Object.entries(r.responseHeaders)) { %>
+                              <div class="flex gap-2 text-2xs font-mono leading-relaxed">
+                                <span class="text-foreground-secondary shrink-0"><%= k %>:</span>
+                                <span class="text-foreground break-all"><%= v %></span>
+                              </div>
+                            <% } %>
+                          </div>
+                        </div>
+                      <% } %>
+                      <% if (r.responseBody != null) { %>
+                        <div>
+                          <p class="text-2xs text-foreground-muted font-semibold mb-1">Body</p>
+                          <pre class="bg-surface-muted border border-line rounded p-2 overflow-x-auto text-2xs leading-relaxed"><code class="language-json"><%= toJson(r.responseBody) %></code></pre>
+                        </div>
+                      <% } %>
+                    </section>
+                  <% } %>
+                </div>
+              </td>
+            </tr>
+          <% } %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
