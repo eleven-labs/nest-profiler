@@ -9,6 +9,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 Each package is a self-contained NestJS module with its own README:
 
 - [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core + Timeline panel
+- [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel
 
 ## Quickstart
 
@@ -65,6 +66,21 @@ import { ProfilerModule } from '@eleven-labs/nest-profiler';
 export class AppModule {}
 ```
 
+Add optional collectors in their respective feature modules:
+
+```bash
+pnpm add @eleven-labs/nest-profiler-typeorm
+```
+
+```ts title="products/products.module.ts"
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+@Module({
+  imports: [TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 })],
+})
+export class ProductsModule {}
+```
+
 ## Repository Layout
 
 A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything else supports them.
@@ -72,6 +88,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
+  nest-profiler-typeorm/    TypeORM collector
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
@@ -92,6 +109,7 @@ Target a single package with `--filter`:
 
 ```bash
 pnpm --filter @eleven-labs/nest-profiler test:cov
+pnpm --filter @eleven-labs/nest-profiler-typeorm build
 ```
 
 ## Publishing

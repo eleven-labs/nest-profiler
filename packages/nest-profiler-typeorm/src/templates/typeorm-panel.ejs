@@ -1,0 +1,73 @@
+<%
+  const queries = data || [];
+  const totalDuration = queries.reduce((sum, q) => sum + q.duration, 0);
+  const typeColors = {
+    SELECT: 'badge-get',
+    INSERT: 'badge-post',
+    UPDATE: 'badge-put',
+    DELETE: 'badge-delete',
+    OTHER:  'badge-default',
+  };
+%>
+
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-4 text-xs text-foreground-muted">
+    <span><strong class="text-foreground"><%= queries.length %></strong> quer<%= queries.length !== 1 ? 'ies' : 'y' %></span>
+    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% const slowCount = queries.filter(q => q.isSlow).length; %>
+    <% if (slowCount > 0) { %>
+      <span class="text-danger"><strong><%= slowCount %></strong> slow</span>
+    <% } %>
+  </div>
+</div>
+
+<% if (queries.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No queries executed during this request.</p>
+  </div>
+<% } else { %>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Type</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Query</th>
+          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (const q of queries) { %>
+          <tr class="hover:bg-surface-muted transition-colors <%= q.isSlow ? 'bg-warning-bg/30' : '' %>">
+            <td class="py-2 px-4 whitespace-nowrap align-top">
+              <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= typeColors[q.type] || 'badge-default' %>"><%= q.type %></span>
+            </td>
+            <td class="py-2 px-4 align-top">
+              <code class="text-xs text-code-text leading-relaxed break-all"><% if (typeof highlightSql === 'function') { %><%- highlightSql(q.sql) %><% } else { %><%= q.sql %><% } %></code>
+              <% if (q.parameters && q.parameters.length > 0) { %>
+                <div class="mt-2">
+                  <div class="text-2xs text-foreground-muted font-medium mb-0.5">Parameters:</div>
+                  <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.parameters) %></code></pre>
+                </div>
+              <% } %>
+              <% if (q.error) { %>
+                <div class="mt-1 text-danger text-2xs">Error: <%= q.error %></div>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-right align-top">
+              <span class="text-xs tabular-nums <%= q.isSlow ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
+              <% if (q.isSlow) { %>
+                <span class="block text-2xs text-danger/70">slow</span>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums align-top whitespace-nowrap"><%= timeOnly(q.startedAt) %></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<style>
+  .sql-keyword { color: #818cf8; font-weight: 600; }
+</style>
