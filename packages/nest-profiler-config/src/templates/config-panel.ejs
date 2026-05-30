@@ -1,0 +1,123 @@
+<%
+  const runtime = (data && data.runtime) ? data.runtime : null;
+  const config  = (data && data.config)  ? data.config  : (data || {});
+  const configEntries = Object.entries(config);
+
+  /* ── Uptime helpers ──────────────────────────────────────────── */
+  function formatUptime(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + s + 's';
+    return s + 's';
+  }
+
+  /* ── ENV badge class ─────────────────────────────────────────── */
+  function envClass(env) {
+    if (!env) return 'bg-surface border border-line text-foreground-muted';
+    const e = env.toLowerCase();
+    if (e === 'production' || e === 'prod')
+      return 'bg-danger-bg border border-danger-line text-danger';
+    if (e === 'development' || e === 'dev')
+      return 'bg-emerald-100 border border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300';
+    if (e === 'test')
+      return 'bg-amber-100 border border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300';
+    return 'bg-surface border border-line text-foreground-muted';
+  }
+%>
+
+<% if (runtime) { %>
+
+  <!-- ── Runtime badges ──────────────────────────────────────────── -->
+  <div class="flex flex-wrap gap-2 mb-6">
+    <div class="flex flex-col gap-0.5 px-3 py-2 rounded-lg border border-line bg-surface-muted">
+      <span class="text-foreground-faint text-2xs uppercase tracking-widest">NestJS</span>
+      <span class="text-foreground font-bold text-sm tabular-nums">v<%= runtime.nestVersion %></span>
+    </div>
+    <div class="flex flex-col gap-0.5 px-3 py-2 rounded-lg border border-line bg-surface-muted">
+      <span class="text-foreground-faint text-2xs uppercase tracking-widest">Node.js</span>
+      <span class="text-foreground font-bold text-sm tabular-nums"><%= runtime.nodeVersion %></span>
+    </div>
+    <div class="flex flex-col gap-0.5 px-3 py-2 rounded-lg border <%= envClass(runtime.env) %>">
+      <span class="text-2xs uppercase tracking-widest opacity-70">Environment</span>
+      <span class="font-bold text-sm"><%= runtime.env %></span>
+    </div>
+    <div class="flex flex-col gap-0.5 px-3 py-2 rounded-lg border border-line bg-surface-muted">
+      <span class="text-foreground-faint text-2xs uppercase tracking-widest">Platform</span>
+      <span class="text-foreground font-bold text-sm"><%= runtime.platform %> / <%= runtime.arch %></span>
+    </div>
+  </div>
+
+  <!-- ── Process cards ───────────────────────────────────────────── -->
+  <div class="grid grid-cols-3 gap-3 mb-6">
+    <div class="bg-surface-muted border border-line rounded-lg p-3">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1.5">Uptime</p>
+      <p class="text-foreground font-semibold text-sm tabular-nums"><%= formatUptime(process.uptime()) %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1.5">PID</p>
+      <p class="text-foreground font-semibold text-sm tabular-nums"><%= runtime.pid %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1.5">Timezone</p>
+      <p class="text-foreground font-semibold text-sm"><%= runtime.timezone %></p>
+    </div>
+  </div>
+
+<% } %>
+
+<!-- ── Application configuration ───────────────────────────────── -->
+<% if (configEntries.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg space-y-3 px-6">
+    <p class="text-foreground-muted text-sm font-medium">No application configuration to display.</p>
+    <p class="text-foreground-faint text-xs leading-relaxed">
+      This section reads from <code class="bg-surface border border-line px-1 rounded">ConfigService.internalConfig</code>,
+      which is only populated when you use <code class="bg-surface border border-line px-1 rounded">load</code> factories in <code class="bg-surface border border-line px-1 rounded">ConfigModule.forRoot()</code>.
+    </p>
+    <pre class="text-left bg-surface border border-line rounded-lg p-3 text-2xs text-code-text overflow-x-auto">// config/database.config.ts
+export default registerAs('database', () => ({
+  host: process.env.DATABASE_HOST,
+  port: +process.env.DATABASE_PORT,
+}));
+
+// app.module.ts
+ConfigModule.forRoot({
+  isGlobal: true,
+  load: [databaseConfig],
+})</pre>
+  </div>
+<% } else { %>
+  <div class="flex items-center gap-2 mb-3">
+    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Application configuration</h3>
+    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= configEntries.length %> keys</span>
+  </div>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-2/5">Key</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Value</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (const [key, value] of configEntries.sort((a, b) => a[0].localeCompare(b[0]))) { %>
+          <tr class="hover:bg-surface-muted transition-colors">
+            <td class="py-2 px-4 text-foreground-muted text-xs font-mono align-top"><%= key %></td>
+            <td class="py-2 px-4 text-xs align-top">
+              <% if (value === '***') { %>
+                <span class="text-foreground-faint font-mono">***</span>
+              <% } else if (value === null || value === undefined) { %>
+                <span class="text-foreground-faint italic">null</span>
+              <% } else if (typeof value === 'boolean') { %>
+                <span class="<%= value ? 'text-success' : 'text-danger' %> font-mono font-bold"><%= String(value) %></span>
+              <% } else { %>
+                <span class="text-foreground font-mono break-all"><%= String(value) %></span>
+              <% } %>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

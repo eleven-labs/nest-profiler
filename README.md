@@ -13,6 +13,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-axios`](packages/nest-profiler-axios/README.md) — HTTP Client panel
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
+- [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
 
 ## Quickstart
 
@@ -95,6 +96,7 @@ packages/
   nest-profiler-axios/      HTTP client (axios) collector
   nest-profiler-cache/      Cache collector
   nest-profiler-auth/       Auth/Security collector
+  nest-profiler-config/     Config collector
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
