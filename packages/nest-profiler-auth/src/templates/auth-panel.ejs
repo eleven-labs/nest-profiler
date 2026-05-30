@@ -1,0 +1,43 @@
+<%
+  const sec = data || {};
+%>
+
+<div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
+  <div>
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
+    <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= sec.isAuthenticated ? 'badge-2xx' : 'badge-4xx' %>">
+      <%= sec.isAuthenticated ? 'Authenticated' : 'Anonymous' %>
+    </span>
+  </div>
+  <% if (sec.roles && sec.roles.length > 0) { %>
+    <div>
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Roles</p>
+      <div class="flex flex-wrap gap-1">
+        <% for (const role of sec.roles) { %>
+          <span class="px-2 py-0.5 rounded text-2xs bg-surface-muted border border-line text-foreground-secondary font-mono"><%= role %></span>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<% if (sec.user && Object.keys(sec.user).length > 0) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">User</h2>
+    <%- kvTable(sec.user) %>
+  </section>
+<% } %>
+
+<% if (sec.jwtClaims && Object.keys(sec.jwtClaims).length > 0) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">JWT Claims</h2>
+    <%- kvTable(sec.jwtClaims) %>
+  </section>
+<% } %>
+
+<% if (!sec.user && !sec.jwtClaims) { %>
+  <div class="py-8 text-center">
+    <p class="text-foreground-muted text-sm">No authentication data found for this request.</p>
+    <p class="text-foreground-faint text-xs mt-1">The request was made without authentication or Passport was not used.</p>
+  </div>
+<% } %>

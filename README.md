@@ -12,6 +12,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel
 - [`@eleven-labs/nest-profiler-axios`](packages/nest-profiler-axios/README.md) — HTTP Client panel
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
+- [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 
 ## Quickstart
 
@@ -93,6 +94,7 @@ packages/
   nest-profiler-typeorm/    TypeORM collector
   nest-profiler-axios/      HTTP client (axios) collector
   nest-profiler-cache/      Cache collector
+  nest-profiler-auth/       Auth/Security collector
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
