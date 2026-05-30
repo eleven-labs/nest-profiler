@@ -1,0 +1,61 @@
+<%
+  const ops = data || [];
+  const hits = ops.filter(o => o.operation === 'GET_HIT').length;
+  const misses = ops.filter(o => o.operation === 'GET_MISS').length;
+  const sets = ops.filter(o => o.operation === 'SET').length;
+  const dels = ops.filter(o => o.operation === 'DEL').length;
+  const hitRate = hits + misses > 0 ? ((hits / (hits + misses)) * 100).toFixed(0) : null;
+  const opColors = { GET_HIT: 'badge-2xx', GET_MISS: 'badge-4xx', SET: 'badge-post', DEL: 'badge-delete' };
+%>
+
+<% if (ops.length > 0) { %>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Hits</p>
+      <p class="text-success text-xl font-bold tabular-nums"><%= hits %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Misses</p>
+      <p class="text-danger text-xl font-bold tabular-nums"><%= misses %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Sets</p>
+      <p class="text-foreground text-xl font-bold tabular-nums"><%= sets %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Hit Rate</p>
+      <p class="text-foreground text-xl font-bold tabular-nums"><%= hitRate !== null ? hitRate + '%' : '—' %></p>
+    </div>
+  </div>
+<% } %>
+
+<% if (ops.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No cache operations during this request.</p>
+  </div>
+<% } else { %>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Operation</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Key</th>
+          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (const op of ops) { %>
+          <tr class="hover:bg-surface-muted transition-colors">
+            <td class="py-2 px-4 whitespace-nowrap">
+              <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[op.operation] || 'badge-default' %>"><%= op.operation %></span>
+            </td>
+            <td class="py-2 px-4 text-foreground-secondary text-xs font-mono break-all"><%= op.key %></td>
+            <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= op.duration %>ms</td>
+            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(op.startedAt) %></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
