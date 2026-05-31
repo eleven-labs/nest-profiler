@@ -1,0 +1,87 @@
+<%
+  const queries = data || [];
+  const totalDuration = queries.reduce((sum, q) => sum + q.duration, 0);
+  const opColors = {
+    find: 'badge-get',
+    findOne: 'badge-get',
+    findOneAndUpdate: 'badge-put',
+    findOneAndDelete: 'badge-delete',
+    findOneAndReplace: 'badge-put',
+    updateOne: 'badge-put',
+    updateMany: 'badge-put',
+    deleteOne: 'badge-delete',
+    deleteMany: 'badge-delete',
+    insertOne: 'badge-post',
+    insertMany: 'badge-post',
+    aggregate: 'badge-default',
+    countDocuments: 'badge-get',
+    estimatedDocumentCount: 'badge-get',
+    distinct: 'badge-get',
+  };
+%>
+
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-4 text-xs text-foreground-muted">
+    <span><strong class="text-foreground"><%= queries.length %></strong> quer<%= queries.length !== 1 ? 'ies' : 'y' %></span>
+    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% const slowCount = queries.filter(q => q.isSlow).length; %>
+    <% if (slowCount > 0) { %>
+      <span class="text-danger"><strong><%= slowCount %></strong> slow</span>
+    <% } %>
+  </div>
+</div>
+
+<% if (queries.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No MongoDB queries executed during this request.</p>
+  </div>
+<% } else { %>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-32">Operation</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-32">Collection</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Filter</th>
+          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (const q of queries) { %>
+          <tr class="hover:bg-surface-muted transition-colors <%= q.isSlow ? 'bg-warning-bg/30' : '' %>">
+            <td class="py-2 px-4 whitespace-nowrap align-top">
+              <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[q.operation] || 'badge-default' %>"><%= q.operation %></span>
+            </td>
+            <td class="py-2 px-4 align-top">
+              <code class="text-xs text-code-text"><%= q.collection %></code>
+            </td>
+            <td class="py-2 px-4 align-top">
+              <% if (q.filter && Object.keys(q.filter).length > 0) { %>
+                <div class="text-2xs text-foreground-muted font-medium mb-0.5">Filter:</div>
+                <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.filter) %></code></pre>
+              <% } else if (q.operation === 'aggregate') { %>
+                <span class="text-xs text-foreground-faint italic">pipeline</span>
+              <% } else { %>
+                <span class="text-xs text-foreground-faint">—</span>
+              <% } %>
+              <% if (q.count !== undefined) { %>
+                <div class="mt-0.5 text-foreground-faint text-2xs"><%= q.count %> result<%= q.count !== 1 ? 's' : '' %></div>
+              <% } %>
+              <% if (q.error) { %>
+                <div class="mt-1 text-danger text-2xs">Error: <%= q.error %></div>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-right align-top">
+              <span class="text-xs tabular-nums <%= q.isSlow ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
+              <% if (q.isSlow) { %>
+                <span class="block text-2xs text-danger/70">slow</span>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums align-top whitespace-nowrap"><%= timeOnly(q.startedAt) %></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

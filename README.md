@@ -14,6 +14,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
+- [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 
 ## Quickstart
 
@@ -97,6 +98,7 @@ packages/
   nest-profiler-cache/      Cache collector
   nest-profiler-auth/       Auth/Security collector
   nest-profiler-config/     Config collector
+  nest-profiler-mongoose/   Mongoose (MongoDB) collector
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
