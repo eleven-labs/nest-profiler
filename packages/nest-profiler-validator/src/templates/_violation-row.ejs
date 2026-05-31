@@ -1,0 +1,34 @@
+<%
+  const indent = '  '.repeat(depth);
+  const hasChildren = v.children && v.children.length > 0;
+  const hasConstraints = Object.keys(v.constraints).length > 0;
+  const valueDisplay = v.value === undefined ? '—'
+    : v.value === null ? 'null'
+    : typeof v.value === 'object' ? toJson(v.value)
+    : String(v.value);
+%>
+<% if (hasConstraints) { %>
+  <tr class="hover:bg-surface-muted transition-colors">
+    <td class="py-2 px-4 align-top">
+      <code class="text-xs text-danger font-mono"><%= indent %><%= v.property %></code>
+    </td>
+    <td class="py-2 px-4 align-top">
+      <code class="text-xs text-foreground-muted font-mono break-all"><%= valueDisplay.length > 60 ? valueDisplay.slice(0, 60) + '…' : valueDisplay %></code>
+    </td>
+    <td class="py-2 px-4 align-top">
+      <ul class="space-y-1">
+        <% for (const [constraintName, message] of Object.entries(v.constraints)) { %>
+          <li class="flex items-start gap-2">
+            <code class="text-2xs bg-surface-muted border border-line px-1.5 py-0.5 rounded text-foreground-muted whitespace-nowrap shrink-0"><%= constraintName %></code>
+            <span class="text-xs text-foreground"><%= message %></span>
+          </li>
+        <% } %>
+      </ul>
+    </td>
+  </tr>
+<% } %>
+<% if (hasChildren) { %>
+  <% for (const child of v.children) { %>
+    <%- include('_violation-row', { v: child, depth: depth + 1, toJson, timeOnly }) %>
+  <% } %>
+<% } %>

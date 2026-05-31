@@ -15,6 +15,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
+- [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
 
 ## Quickstart
 
@@ -93,12 +94,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-typeorm/    TypeORM collector
-  nest-profiler-axios/      HTTP client (axios) collector
-  nest-profiler-cache/      Cache collector
-  nest-profiler-auth/       Auth/Security collector
-  nest-profiler-config/     Config collector
-  nest-profiler-mongoose/   Mongoose (MongoDB) collector
+  nest-profiler-*/          optional collectors (typeorm, axios, cache, auth, config, mongoose, validator)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 ```
 
