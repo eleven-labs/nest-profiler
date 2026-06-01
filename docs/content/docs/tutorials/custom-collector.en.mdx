@@ -1,0 +1,291 @@
+---
+title: Build a custom collector
+description: Create a custom profiler panel with your own data and an EJS template.
+---
+
+This tutorial shows how to build a custom collector that adds a new panel to the profiler UI. As an example, we'll track all `EventEmitter2` events emitted during a request.
+
+## What we'll build
+
+A collector that:
+
+- Captures every event emitted via `EventEmitter2` during a request
+- Shows them in a custom panel with event names, listener counts, and timestamps
+- Displays a badge with the event count in the toolbar
+
+## Step 1 — Create the collector class
+
+```ts title="event.collector.ts"
+import * as path from 'path';
+import { Injectable } from '@nestjs/common';
+import {
+  ProfilerCollector,
+  IProfilerCollector,
+  Profile,
+  ProfilerService,
+} from '@eleven-labs/nest-profiler';
+
+const EVENTS_ICON = `<svg viewBox="0 0 16 16" fill="currentColor">
+  <path d="M8 1l2 4h4l-3 3 1 4L8 10l-4 2 1-4-3-3h4z"/>
+</svg>`;
+
+export interface EventEntry {
+  eventName: string;
+  listenerCount: number;
+  timestamp: number;
+}
+
+export const EVENTS_KEY = '__events';
+
+@Injectable()
+@ProfilerCollector({
+  name: 'events',
+  label: 'Events',
+  icon: EVENTS_ICON,
+  priority: 60,
+})
+export class EventCollector implements IProfilerCollector {
+  readonly name = 'events';
+  readonly label = 'Events';
+  readonly icon = EVENTS_ICON;
+  readonly priority = 60;
+
+  getBadgeValue(profile: Profile): string | null {
+    const events = profile.collectors[EVENTS_KEY] as EventEntry[] | undefined;
+    return events?.length ? String(events.length) : null;
+  }
+
+  getTemplatePath(): string {
+    return path.join(__dirname, 'templates', 'events-panel.ejs');
+  }
+
+  collect(profile: Profile): EventEntry[] {
+    const events = (profile.collectors[EVENTS_KEY] as EventEntry[] | undefined) ?? [];
+    delete profile.collectors[EVENTS_KEY];
+    return events;
+  }
+}
+```
+
+## Step 2 — Emit events into the profile
+
+Create a service that patches `EventEmitter2.emit` to record events into the CLS profile:
+
+```ts title="event-patch.service.ts"
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ClsService } from 'nestjs-cls';
+import type { Profile } from '@eleven-labs/nest-profiler';
+import type { EventEntry } from './event.collector';
+import { EVENTS_KEY } from './event.collector';
+
+@Injectable()
+export class EventPatchService implements OnModuleInit {
+  constructor(
+    private readonly emitter: EventEmitter2,
+    private readonly cls: ClsService,
+  ) {}
+
+  onModuleInit(): void {
+    const cls = this.cls;
+    const originalEmit = this.emitter.emit.bind(this.emitter);
+
+    this.emitter.emit = function (event: string | symbol, ...args: unknown[]): boolean {
+      const result = originalEmit(event, ...args);
+      try {
+        const profile = cls.get<Profile | undefined>('profiler.profile');
+        if (profile) {
+          const entry: EventEntry = {
+            eventName: String(event),
+            listenerCount: emitter.listenerCount(event as string),
+            timestamp: Date.now(),
+          };
+          const existing = profile.collectors[EVENTS_KEY] as EventEntry[] | undefined;
+          const events: EventEntry[] = existing ?? [];
+          events.push(entry);
+          if (!existing) profile.collectors[EVENTS_KEY] = events;
+        }
+      } catch {
+        /* outside CLS */
+      }
+      return result;
+    };
+  }
+}
+```
+
+## Step 3 — Create the EJS panel template
+
+<Callout type="info">
+  The profiler exposes a full design system of Tailwind tokens, badge classes, duration classes, and
+  EJS helper functions. See the [Template reference](/en/docs/api-reference/template-reference) for
+  the complete list.
+</Callout>
+
+```html title="templates/events-panel.ejs"
+<% const events = data || []; %>
+
+<div class="flex items-center justify-between mb-4">
+  <span class="text-xs text-foreground-muted">
+    <strong class="text-foreground"><%= events.length %></strong>
+    event<%= events.length !== 1 ? 's' : '' %> emitted
+  </span>
+</div>
+
+<% if (events.length === 0) { %>
+<div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+  <p class="text-foreground-muted text-sm">No events emitted during this request.</p>
+</div>
+<% } else { %>
+<div class="rounded-lg border border-line overflow-hidden">
+  <table class="w-full">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th
+          class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"
+        >
+          Event
+        </th>
+        <th
+          class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24"
+        >
+          Listeners
+        </th>
+        <th
+          class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20"
+        >
+          Time
+        </th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% for (const e of events) { %>
+      <tr class="hover:bg-surface-muted transition-colors">
+        <td class="py-2 px-4 text-foreground text-xs font-mono"><%= e.eventName %></td>
+        <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums">
+          <%= e.listenerCount %>
+        </td>
+        <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums">
+          <%= timeOnly(e.timestamp) %>
+        </td>
+      </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+```
+
+## Step 4 — Register as a provider
+
+```ts title="events-profiler.module.ts"
+import { Module } from '@nestjs/common';
+import { EventCollector } from './event.collector';
+import { EventPatchService } from './event-patch.service';
+
+@Module({
+  providers: [EventPatchService, EventCollector],
+})
+export class EventsProfilerModule {}
+```
+
+```ts title="app.module.ts"
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    EventsProfilerModule,
+    // ...
+  ],
+})
+export class AppModule {}
+```
+
+## Step 5 — Test it
+
+Emit some events in a controller:
+
+```ts
+@Get('order')
+async createOrder() {
+  this.eventEmitter.emit('order.created', { id: 1 });
+  this.eventEmitter.emit('order.payment.requested', { amount: 99.99 });
+  return { status: 'created' };
+}
+```
+
+Open `/_profiler/{token}` → **Events** tab. The toolbar badge shows `2`.
+
+## IProfilerCollector interface summary
+
+| Member              | Required | Description                                               |
+| ------------------- | -------- | --------------------------------------------------------- |
+| `name`              | ✓        | Unique identifier for the collector                       |
+| `label`             |          | Display label in the tab (or sub-tab inside a group)      |
+| `icon`              |          | SVG string for the tab icon and toolbar                   |
+| `priority`          |          | Tab display order (lower = leftmost), default `100`       |
+| `group`             |          | Group key — merge several collectors into one sidebar tab |
+| `groupLabel`        |          | Sidebar label for the group tab                           |
+| `groupIcon`         |          | SVG icon for the group tab                                |
+| `groupPriority`     |          | Sort priority of the group tab                            |
+| `getBadgeValue()`   |          | Badge value shown in the sidebar and toolbar              |
+| `getTemplatePath()` |          | Absolute path to a custom EJS panel template              |
+| `collect()`         | ✓        | Returns data to store for this profile                    |
+
+The `collect()` method is called after the request completes (in the interceptor). Data written to `profile.collectors['__myKey']` during the request is available to read in `collect()`.
+
+## Grouping collectors into a single tab
+
+Multiple collectors can share a single sidebar tab by declaring the same `group` key. This is useful when two independent packages cover related concerns and should present as one unified panel to the user — for example TypeORM (SQL) and Mongoose (MongoDB) both appearing under a single **Database** tab.
+
+Each collector remains fully independent: it can be installed alone or alongside other collectors in the same group.
+
+```ts title="sql.collector.ts"
+@Injectable()
+@ProfilerCollector({
+  name: 'my-sql',
+  label: 'SQL', // sub-tab label (shown when multiple collectors share the group)
+  icon: SQL_ICON,
+  priority: 10,
+  group: 'database', // group key
+  groupLabel: 'Database', // sidebar tab label
+  groupIcon: DB_ICON,
+  groupPriority: 10, // sidebar tab sort priority
+})
+export class SqlCollector implements IProfilerCollector {
+  readonly name = 'my-sql';
+  readonly label = 'SQL';
+  readonly group = 'database';
+  readonly groupLabel = 'Database';
+  readonly groupIcon = DB_ICON;
+  readonly groupPriority = 10;
+  // ...
+}
+```
+
+```ts title="nosql.collector.ts"
+@Injectable()
+@ProfilerCollector({
+  name: 'my-nosql',
+  label: 'NoSQL',
+  icon: NOSQL_ICON,
+  priority: 15,
+  group: 'database', // same group key → merged into the same tab
+  groupLabel: 'Database',
+  groupIcon: DB_ICON,
+  groupPriority: 10,
+})
+export class NoSqlCollector implements IProfilerCollector {
+  readonly name = 'my-nosql';
+  readonly label = 'NoSQL';
+  readonly group = 'database';
+  // ...
+}
+```
+
+**Rendering behaviour:**
+
+- **One collector active** — the group tab renders the single collector's template directly, with no sub-tabs.
+- **Multiple collectors active** — the group tab renders a sub-tab switcher. Only collectors that have data for the current request are shown; empty sub-tabs are hidden automatically.
+- **Badge** — the sidebar badge concatenates each collector's individual badge (e.g. `5q · 3q`).
+
+The grouping logic is handled entirely by the core profiler (`@eleven-labs/nest-profiler`). The two collector packages do not need to know about each other.

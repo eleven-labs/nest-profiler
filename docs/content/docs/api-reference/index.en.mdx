@@ -1,0 +1,24 @@
+---
+title: API Reference
+description: Type documentation for all profiler packages, and template design system reference for custom collector authors.
+---
+
+This section documents the public TypeScript API of every package. Each page lists interfaces, types, and classes with their properties and signatures — generated directly from the source.
+
+## Package types
+
+| Page                                                                      | Package                                | Covered types                                                                                          |
+| ------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [nest-profiler](/en/docs/api-reference/nest-profiler)                     | `@eleven-labs/nest-profiler`           | `ProfilerModuleOptions`, `Profile`, `ProfilerService`, `IProfilerCollector`, `IProfilerStorageAdapter` |
+| [nest-profiler-typeorm](/en/docs/api-reference/nest-profiler-typeorm)     | `@eleven-labs/nest-profiler-typeorm`   | `TypeOrmCollectorModuleOptions`, `QueryEntry`, `QueryType`                                             |
+| [nest-profiler-axios](/en/docs/api-reference/nest-profiler-axios)         | `@eleven-labs/nest-profiler-axios`     | `HttpRequestEntry`                                                                                     |
+| [nest-profiler-cache](/en/docs/api-reference/nest-profiler-cache)         | `@eleven-labs/nest-profiler-cache`     | `CacheOperationEntry`, `CacheOperation`                                                                |
+| [nest-profiler-auth](/en/docs/api-reference/nest-profiler-auth)           | `@eleven-labs/nest-profiler-auth`      | `AuthCollectorModuleOptions`                                                                           |
+| [nest-profiler-config](/en/docs/api-reference/nest-profiler-config)       | `@eleven-labs/nest-profiler-config`    | `ConfigCollectorModuleOptions`                                                                         |
+| [nest-profiler-validator](/en/docs/api-reference/nest-profiler-validator) | `@eleven-labs/nest-profiler-validator` | `ValidationEntry`, `ViolationEntry`, `ValidationStatus`, `ValidationSource`                            |
+
+## Template design system
+
+| Page                                                            | Contents                                                                    |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [Template reference](/en/docs/api-reference/template-reference) | Color tokens, badge classes, duration classes, EJS helpers, common patterns |

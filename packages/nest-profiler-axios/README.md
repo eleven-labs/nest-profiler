@@ -2,6 +2,8 @@
 
 `@eleven-labs/nest-profiler-axios` captures outgoing HTTP requests made via `@nestjs/axios`'s `HttpService` and displays them in a dedicated **HTTP Client** panel.
 
+![HTTP Client panel — outgoing requests via HttpService with method, URL, status and duration](../../docs/public/screenshots/profiler/http-client.png)
+
 ## Installation
 
 ```bash

@@ -1,0 +1,105 @@
+---
+title: Set up the profiler
+description: Install @eleven-labs/nest-profiler and inspect HTTP requests in the profiler UI.
+---
+
+This tutorial shows how to add `@eleven-labs/nest-profiler` to a NestJS application and inspect collected request data in the built-in profiler UI.
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler nestjs-cls
+```
+
+`nestjs-cls` is required for per-request context propagation.
+
+## Step 2 — Register the module
+
+Import `ProfilerModule` in your root module:
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({
+      isGlobal: true,
+      enabled: process.env.NODE_ENV !== 'production',
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## Step 3 — Enable log capture
+
+Wrap your existing logger in `main.ts` so log entries appear in the profiler's **Logs** tab:
+
+```ts title="main.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  const profilerService = app.get(ProfilerService);
+
+  app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApplication')));
+
+  await app.listen(3000);
+}
+
+void bootstrap();
+```
+
+## Step 4 — Make a request and inspect the profile
+
+Start the application, then make any HTTP request:
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+The response includes two headers:
+
+```
+X-Debug-Token: 550e8400-e29b-...
+X-Debug-Token-Link: /_profiler/550e8400-e29b-...
+```
+
+Open `http://localhost:3000/_profiler` in your browser to see the list of recent profiles. Click a token to open the detail view with tabs:
+
+- **Request** — method, URL, headers, query params
+- **Response** — status code, headers
+- **Performance** — duration, memory delta
+- **Logs** — log entries captured during the request
+- **Exceptions** — errors thrown during the request
+
+## Step 5 — Secure the profiler (optional)
+
+Set `PROFILER_TOKEN` in your environment to restrict access to `/_profiler/*`:
+
+```bash
+PROFILER_TOKEN=my-dev-secret pnpm start:dev
+```
+
+Then access the profiler with:
+
+```bash
+curl -H "Authorization: Bearer my-dev-secret" http://localhost:3000/_profiler
+```
+
+<Callout type="warn" title="Production warning">
+  Never enable the profiler in production. It exposes internal request data including headers, query
+  parameters, and logs. Use `enabled: false` or an environment-based condition (e.g.
+  `process.env.NODE_ENV !== 'production'`) to disable it in non-development environments.
+
+When disabled, the core registers only an inert layer: `ProfilerService` stays injectable — so
+`app.useLogger(...)` and any service that injects it keep working — but all its methods are no-ops,
+and no controller, interceptor, middleware, storage or collector is registered. Collector modules
+register nothing at all.
+
+</Callout>

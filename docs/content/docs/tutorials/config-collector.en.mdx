@@ -1,0 +1,120 @@
+---
+title: Configuration profiling
+description: Inspect your application's resolved configuration values in the Config panel, with sensitive key masking.
+---
+
+This tutorial shows how to add the config collector to display resolved configuration values in the profiler's **Config** panel.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@nestjs/config` installed with **load factories** (required — see note below)
+
+<Callout type="warn" title="Load factories are required">
+  The config collector reads `ConfigService`'s internal config map. This map is only populated when
+  you use the `load` option with factory functions (the `registerAs` pattern). If you only pass
+  `envFilePath` or `ignoreEnvFile`, the internal config will be empty and the Config tab will show
+  no entries.
+</Callout>
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-config
+```
+
+## Step 2 — Define config factories with registerAs
+
+Create one factory per configuration domain:
+
+```ts title="config/database.config.ts"
+import { registerAs } from '@nestjs/config';
+
+export const databaseConfig = registerAs('database', () => ({
+  host: process.env.DB_HOST ?? 'localhost',
+  port: parseInt(process.env.DB_PORT ?? '5432', 10),
+  name: process.env.DB_NAME ?? 'myapp',
+  username: process.env.DB_USER ?? 'postgres',
+  password: process.env.DB_PASSWORD ?? '',
+}));
+```
+
+```ts title="config/app.config.ts"
+import { registerAs } from '@nestjs/config';
+
+export const appConfig = registerAs('app', () => ({
+  port: parseInt(process.env.PORT ?? '3000', 10),
+  env: process.env.NODE_ENV ?? 'development',
+  debug: process.env.DEBUG === 'true',
+}));
+```
+
+## Step 3 — Register the modules
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+import { appConfig } from './config/app.config';
+import { databaseConfig } from './config/database.config';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [appConfig, databaseConfig],
+    }),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ConfigCollectorModule.forRoot({
+      maskKeys: ['database.password'],
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+The `maskKeys` option accepts dot-notation paths. Matched values are replaced with `***` in the profiler UI.
+
+## Step 4 — Test it
+
+Start your application and open any profile:
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+Open `/_profiler/{token}` and click the **Config** tab.
+
+You will see the configuration as a flat table of dot-notation keys:
+
+| Key                 | Value         |
+| ------------------- | ------------- |
+| `app.port`          | `3000`        |
+| `app.env`           | `development` |
+| `app.debug`         | `false`       |
+| `database.host`     | `localhost`   |
+| `database.port`     | `5432`        |
+| `database.name`     | `myapp`       |
+| `database.username` | `postgres`    |
+| `database.password` | `***`         |
+
+The toolbar badge shows the total number of resolved configuration keys (e.g., `8 keys`).
+
+## Masking additional keys
+
+Any key matching the `maskKeys` array is masked. Keys are matched by their full dot-notation path:
+
+```ts
+ConfigCollectorModule.forRoot({
+  maskKeys: ['database.password', 'redis.password', 'jwt.secret'],
+});
+```
+
+Values matching `/password|secret|key|token|credential/i` are also masked automatically regardless of `maskKeys`.
+
+## How it works
+
+The collector injects `ConfigService` and reads its `internalConfig` map, which is a `Map<string, unknown>` keyed by the namespace token registered with `registerAs`. It flattens nested objects into dot-notation keys (e.g., `database.host`) and applies masking rules before returning the config snapshot.
+
+Since the config is read once per request (at collection time), it reflects the state of the config at request completion.

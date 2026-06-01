@@ -1,0 +1,128 @@
+---
+title: File-based profile storage
+description: Persist profiles to disk so they survive application restarts and can be inspected across debug sessions.
+---
+
+This tutorial shows how to configure `@eleven-labs/nest-profiler` to store profiles in files instead of memory, making them available across application restarts.
+
+## Why use file storage
+
+The default in-memory storage loses all profiles when the application restarts. File-based storage persists each profile as a JSON file on disk, which is useful when:
+
+- You want to compare profiles from different runs
+- You are debugging an issue that requires restarting the server
+- You need to share profile files with a teammate
+- Your application under load produces more profiles than memory storage can hold
+
+## Step 1 — Configure file storage
+
+Pass `storageType: 'file'` and a `storagePath` to `ProfilerModule.forRoot()`:
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({
+      isGlobal: true,
+      enabled: true,
+      storageType: 'file',
+      storagePath: '.profiler',
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+`storagePath` is resolved relative to `process.cwd()`. The directory is created automatically if it does not exist.
+
+If `storagePath` is omitted, the default path `.profiler` (relative to the current working directory) is used.
+
+## Step 2 — Add .profiler/ to .gitignore
+
+Profile files contain request data including headers and response bodies. Add the storage directory to `.gitignore`:
+
+```text title=".gitignore"
+# Profiler storage
+.profiler/
+```
+
+## What gets stored
+
+Each captured request generates one JSON file in the storage directory. The filename is the debug token (a UUID), for example:
+
+```
+.profiler/
+  550e8400-e29b-41d4-a716-446655440000.json
+  7d793037-a076-4021-bbde-f166db8ec533.json
+```
+
+Each file contains the full profile object: request/response metadata, timing, logs, exceptions, and all collector data.
+
+## LRU eviction and TTL cleanup
+
+File storage applies the same eviction policies as memory storage:
+
+- **LRU eviction** — when the maximum number of stored profiles is reached, the oldest (least recently accessed) file is deleted to make room for the new one.
+- **TTL cleanup** — on module initialization, files older than the configured TTL are deleted. Stale files are not served even if they still exist on disk.
+
+Both limits are configured via `ProfilerModule.forRoot()`:
+
+```ts
+ProfilerModule.forRoot({
+  storageType: 'file',
+  storagePath: '.profiler',
+  maxProfiles: 100, // default: 100
+  ttl: 3600000, // default: 1 hour (in ms)
+});
+```
+
+## Custom storage adapter
+
+If neither memory nor file storage fits your needs (for example, you want to store profiles in Redis or a database), implement `IProfilerStorageAdapter`:
+
+```ts title="redis-profiler-storage.adapter.ts"
+import { Injectable } from '@nestjs/common';
+import type { IProfilerStorageAdapter, Profile } from '@eleven-labs/nest-profiler';
+
+@Injectable()
+export class RedisProfilerStorageAdapter implements IProfilerStorageAdapter {
+  async save(token: string, profile: Profile): Promise<void> {
+    // store JSON in Redis with an expiry
+    await this.redis.set(`profiler:${token}`, JSON.stringify(profile), 'EX', 3600);
+  }
+
+  async get(token: string): Promise<Profile | null> {
+    const raw = await this.redis.get(`profiler:${token}`);
+    return raw ? (JSON.parse(raw) as Profile) : null;
+  }
+
+  async list(): Promise<Profile[]> {
+    const keys = await this.redis.keys('profiler:*');
+    const results = await Promise.all(keys.map((k) => this.redis.get(k)));
+    return results
+      .filter(Boolean)
+      .map((r) => JSON.parse(r!) as Profile)
+      .sort((a, b) => b.startTime - a.startTime);
+  }
+
+  async delete(token: string): Promise<void> {
+    await this.redis.del(`profiler:${token}`);
+  }
+}
+```
+
+Register the adapter in `ProfilerModule.forRoot()`:
+
+```ts
+ProfilerModule.forRoot({
+  isGlobal: true,
+  storageAdapter: new RedisProfilerStorageAdapter(redisClient),
+});
+```
+
+<Callout type="warn" title="Production warning">
+  Profile files contain sensitive request data. Never enable the profiler — regardless of storage
+  type — in production environments. Use `enabled: false` or an environment-based condition.
+</Callout>

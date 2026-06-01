@@ -1,0 +1,45 @@
+---
+title: nest-profiler-mongoose
+description: API reference for @eleven-labs/nest-profiler-mongoose — Mongoose query collector.
+---
+
+## MongooseCollectorModuleOptions
+
+Options passed to `MongooseCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-mongoose/src/mongoose-collector.module.ts"
+  name="MongooseCollectorModuleOptions"
+/>
+
+## MongooseQueryEntry
+
+One entry per Mongoose query or aggregation executed during a request.
+
+<AutoTypeTable
+  path="packages/nest-profiler-mongoose/src/mongoose-collector.interface.ts"
+  name="MongooseQueryEntry"
+/>
+
+## Public exports
+
+```ts
+import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+import { MongooseCollector } from '@eleven-labs/nest-profiler-mongoose';
+
+import type {
+  MongooseCollectorModuleOptions,
+  MongooseQueryEntry,
+} from '@eleven-labs/nest-profiler-mongoose';
+```
+
+## Setup
+
+```ts
+// In ReviewsModule (or any module that uses @nestjs/mongoose):
+MongooseCollectorModule.forRoot({
+  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+});
+```
+
+**Prerequisite:** `MongooseModule.forRoot()` must be registered in the application (provides `Connection` globally via `@InjectConnection()`).

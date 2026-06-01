@@ -1,0 +1,175 @@
+---
+title: nest-profiler
+description: API reference for @eleven-labs/nest-profiler — module options, profile structure, service, collector interface and storage adapters.
+---
+
+## ProfilerModuleOptions
+
+Options passed to `ProfilerModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/nest-profiler.builder.ts"
+  name="ProfilerModuleOptions"
+/>
+
+## ProfilerModuleAsyncOptions
+
+Options passed to `ProfilerModule.forRootAsync()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/nest-profiler.builder.ts"
+  name="ProfilerModuleAsyncOptions"
+/>
+
+## Profile
+
+Full data structure for a collected request profile.
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="Profile" />
+
+## RequestData
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="RequestData"
+/>
+
+## ResponseData
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="ResponseData"
+/>
+
+## PerformanceData
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="PerformanceData"
+/>
+
+## RouteInfo
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="RouteInfo" />
+
+## LogEntry
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="LogEntry" />
+
+## ExceptionEntry
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="ExceptionEntry"
+/>
+
+## TimelineSpan
+
+Entry written by `ProfilerService.startSpan()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="TimelineSpan"
+/>
+
+## SecurityContext
+
+Populated by the Auth collector when `request.user` is present.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="SecurityContext"
+/>
+
+## ProfilerService
+
+Injectable facade. Inject it in any provider or controller to instrument your application.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/services/nest-profiler.service.ts"
+  name="ProfilerService"
+/>
+
+## IProfilerCollector
+
+Interface to implement when building a custom collector.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/collectors/collector.interface.ts"
+  name="IProfilerCollector"
+/>
+
+## IProfilerStorageAdapter
+
+Interface for plugging in a custom storage backend.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/storage/storage-adapter.interface.ts"
+  name="IProfilerStorageAdapter"
+/>
+
+## StorageFindOptions
+
+Filter options accepted by `IProfilerStorageAdapter.findAll()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/storage/storage-adapter.interface.ts"
+  name="StorageFindOptions"
+/>
+
+## FileStorageAdapterOptions
+
+Options for the built-in file-system storage adapter.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/storage/file-storage.adapter.ts"
+  name="FileStorageAdapterOptions"
+/>
+
+## CollectorPanelInfo
+
+Panel metadata returned by `CollectorRegistry.buildPanels()`, passed to EJS templates and the toolbar.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/collectors/collector-registry.service.ts"
+  name="CollectorPanelInfo"
+/>
+
+## Public exports
+
+```ts
+import {
+  ProfilerModule,
+  ProfilerService,
+  ProfilerStorageService,
+  ProfilerViewsSetup,
+  CollectorRegistry,
+  ProfilerCollector,
+  TimelineCollector,
+  PROFILER_STORAGE_ADAPTER,
+  MemoryStorageAdapter,
+  FileStorageAdapter,
+} from '@eleven-labs/nest-profiler';
+
+import type {
+  ProfilerModuleOptions,
+  ProfilerModuleAsyncOptions,
+  IProfilerCollector,
+  IProfilerStorageAdapter,
+  StorageFindOptions,
+  FileStorageAdapterOptions,
+  MemoryStorageAdapterOptions,
+  CollectorPanelInfo,
+  Profile,
+  RequestData,
+  ResponseData,
+  PerformanceData,
+  RouteInfo,
+  LogEntry,
+  ExceptionEntry,
+  LogLevel,
+  TimelineSpan,
+  EventEntry,
+  SecurityContext,
+} from '@eleven-labs/nest-profiler';
+```

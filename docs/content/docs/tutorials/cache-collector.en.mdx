@@ -1,0 +1,118 @@
+---
+title: Cache profiling
+description: Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel.
+---
+
+This tutorial shows how to add the cache collector to profile `@nestjs/cache-manager` operations in a NestJS application.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@nestjs/cache-manager` and `cache-manager` installed
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-cache @nestjs/cache-manager cache-manager
+```
+
+## Step 2 — Register the modules
+
+```ts title="app.module.ts"
+import { CacheModule } from '@nestjs/cache-manager';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [
+    CacheModule.register({ isGlobal: true, ttl: 30000 }), // 30s TTL
+    ProfilerModule.forRoot({ isGlobal: true }),
+    CacheCollectorModule.forRoot(),
+  ],
+})
+export class AppModule {}
+```
+
+## Step 3 — Use the cache in a service or controller
+
+```ts
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+
+@Controller('posts')
+export class PostsController {
+  constructor(
+    private readonly http: HttpService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+  ) {}
+
+  @Get()
+  async getPosts(): Promise<unknown[]> {
+    const CACHE_KEY = 'posts:list';
+
+    const cached = await this.cache.get<unknown[]>(CACHE_KEY);
+    if (cached) return cached;
+
+    const { data } = await firstValueFrom(
+      this.http.get('https://jsonplaceholder.typicode.com/posts?_limit=5'),
+    );
+    await this.cache.set(CACHE_KEY, data, 30000);
+    return data;
+  }
+}
+```
+
+## Step 4 — Test it
+
+```bash
+# First call — MISS + SET
+curl http://localhost:3000/posts
+
+# Second call — HIT
+curl http://localhost:3000/posts
+```
+
+Open `/_profiler/{token}` and navigate to the **Cache** tab.
+
+**First call profile** shows:
+
+- `GET_MISS` for `posts:list`
+- `SET` for `posts:list` (after fetching from API)
+- Toolbar badge: `0H/1M`
+
+**Second call profile** shows:
+
+- `GET_HIT` for `posts:list`
+- Toolbar badge: `1H/0M`
+
+## Using Redis
+
+To use Redis as the cache store, add `@keyv/redis`:
+
+```bash
+pnpm add @keyv/redis keyv
+```
+
+```ts
+import Keyv from 'keyv';
+import { KeyvAdapter } from '@nestjs/cache-manager';
+import KeyvRedis from '@keyv/redis';
+
+CacheModule.register({
+  isGlobal: true,
+  stores: [
+    new KeyvAdapter(
+      new Keyv({ store: new KeyvRedis('redis://localhost:6379'), namespace: 'profiler' }),
+    ),
+  ],
+}),
+```
+
+The cache collector works transparently with any store since it patches the `CACHE_MANAGER` instance's methods at the NestJS abstraction layer.
+
+## How it works
+
+At `onModuleInit`, the collector wraps the `get`, `set`, and `del` methods of the `CACHE_MANAGER` instance using a JavaScript proxy function. Each wrapped call records an entry into the CLS profile for the current request.
+
+- `get` → `GET_HIT` if the value is found, `GET_MISS` if not
+- `set` → `SET`
+- `del` → `DEL`

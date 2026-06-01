@@ -1,0 +1,248 @@
+---
+title: Template reference
+description: Color tokens, utility classes, and EJS helpers available when building a custom collector panel template.
+---
+
+All profiler templates share a single design system based on **Tailwind CSS 4** (loaded via CDN) and a set of semantic CSS custom properties defined in `_head.ejs`. Any `.ejs` template registered through a custom collector automatically has access to every class and helper described here.
+
+<Callout type="info">
+  Building your first custom collector? Follow the [Build a custom
+  collector](/en/docs/tutorials/custom-collector) tutorial first, then come back here as a reference
+  while writing your EJS template.
+</Callout>
+
+## Color tokens
+
+Tokens adapt automatically to the light/dark theme. Use the Tailwind utility name (e.g. `text-foreground`) in your template — never hardcode hex values.
+
+### Neutral / surface
+
+| Tailwind class      | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `bg-background`     | Page background                                      |
+| `bg-surface`        | Card / panel background                              |
+| `bg-surface-muted`  | Dimmed surface (table header, code block background) |
+| `bg-surface-active` | Active / selected surface                            |
+
+### Text
+
+| Tailwind class              | Purpose                                   |
+| --------------------------- | ----------------------------------------- |
+| `text-foreground`           | Primary content text                      |
+| `text-foreground-secondary` | Secondary content (metadata, values)      |
+| `text-foreground-muted`     | Labels, column headers                    |
+| `text-foreground-faint`     | Timestamps, disabled states, placeholders |
+
+### Borders
+
+| Tailwind class       | Purpose                        |
+| -------------------- | ------------------------------ |
+| `border-line`        | Default border (cards, tables) |
+| `border-line-subtle` | Row divider inside a table     |
+| `border-line-active` | Focused / highlighted border   |
+
+### Status
+
+| Tailwind class                                        | Purpose                                      |
+| ----------------------------------------------------- | -------------------------------------------- |
+| `text-danger` / `bg-danger-bg` / `border-danger-line` | Error state — text, background, border       |
+| `border-danger-line-subtle`                           | Subtle danger border (stack trace separator) |
+| `text-success`                                        | Success state                                |
+| `text-code-text`                                      | Monospace code content                       |
+
+### Brand
+
+| Tailwind class                          | Purpose                                         |
+| --------------------------------------- | ----------------------------------------------- |
+| `text-nest` / `bg-nest` / `border-nest` | NestJS brand red — active tab indicator, accent |
+| `text-nest-light`                       | Lighter brand red for hover                     |
+| `text-nest-dark`                        | Darker brand red for pressed states             |
+
+---
+
+## Typography
+
+| Class       | Value             | Purpose                                      |
+| ----------- | ----------------- | -------------------------------------------- |
+| `text-2xs`  | `0.625rem` (10px) | Smallest label size — column headers, badges |
+| `text-xs`   | `0.75rem` (12px)  | Primary content in tables and panels         |
+| `font-mono` | —                 | Monospace font for code, identifiers, URLs   |
+
+---
+
+## Badge utility classes
+
+Ready-to-use semantic badges. Apply them on a `<span>` together with `px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide`.
+
+### HTTP method
+
+| Class           | Colour | Use for                    |
+| --------------- | ------ | -------------------------- |
+| `badge-get`     | Green  | GET / read operations      |
+| `badge-post`    | Blue   | POST / insert operations   |
+| `badge-put`     | Amber  | PUT / update operations    |
+| `badge-patch`   | Orange | PATCH / partial update     |
+| `badge-delete`  | Red    | DELETE / remove operations |
+| `badge-head`    | Purple | HEAD operations            |
+| `badge-options` | Slate  | OPTIONS operations         |
+| `badge-default` | Slate  | Unknown / fallback         |
+
+### HTTP status
+
+| Class       | Use for               |
+| ----------- | --------------------- |
+| `badge-2xx` | 2xx success responses |
+| `badge-3xx` | 3xx redirects         |
+| `badge-4xx` | 4xx client errors     |
+| `badge-5xx` | 5xx server errors     |
+
+### Log level
+
+| Class           | Use for |
+| --------------- | ------- |
+| `badge-log`     | LOG     |
+| `badge-warn`    | WARN    |
+| `badge-error`   | ERROR   |
+| `badge-debug`   | DEBUG   |
+| `badge-verbose` | VERBOSE |
+| `badge-fatal`   | FATAL   |
+
+---
+
+## Duration classes
+
+Colour-code a duration value based on thresholds.
+
+| Class        | Condition           | Colour     |
+| ------------ | ------------------- | ---------- |
+| `dur-fast`   | `< 100 ms`          | Green      |
+| `dur-medium` | `100 – 500 ms`      | Amber      |
+| `dur-slow`   | `> 500 ms`          | Red        |
+| `dur-none`   | Unknown / undefined | Faint grey |
+
+```ejs
+<%
+  const cls = dur < 100 ? 'dur-fast' : dur < 500 ? 'dur-medium' : 'dur-slow';
+%>
+<span class="<%= cls %> text-xl font-bold tabular-nums"><%= dur %>ms</span>
+```
+
+---
+
+## EJS helper functions
+
+These functions are automatically injected into every template.
+
+| Helper          | Signature                                       | Description                                                         |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `toJson`        | `(value) → string`                              | Pretty-prints any value as indented JSON                            |
+| `isoDate`       | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `YYYY-MM-DD HH:MM:SS`                |
+| `timeOnly`      | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `HH:MM:SS.mmm`                       |
+| `highlightSql`  | `(sql: string) → HTML string`                   | Wraps SQL keywords in `<span class="sql-keyword">` — use with `<%-` |
+| `methodClass`   | `(method: string) → string`                     | Returns the correct `badge-*` class for an HTTP method              |
+| `statusClass`   | `(status: number) → string`                     | Returns the correct `badge-*` class for an HTTP status code         |
+| `logLevelClass` | `(level: string) → string`                      | Returns the correct `badge-*` class for a log level                 |
+| `mb`            | `(bytes: number) → string`                      | Converts bytes to a human-readable `X.XX MB` string                 |
+| `kvTable`       | `(data: Record<string, unknown>) → HTML string` | Renders a key/value table — use with `<%-`                          |
+
+---
+
+## Common template patterns
+
+### Empty state
+
+```ejs
+<div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+  <p class="text-foreground-muted text-sm">No entries for this request.</p>
+</div>
+```
+
+### Summary bar
+
+```ejs
+<div class="flex items-center gap-4 text-xs text-foreground-muted mb-4">
+  <span><strong class="text-foreground"><%= items.length %></strong> entries</span>
+  <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+</div>
+```
+
+### Data table
+
+```ejs
+<div class="rounded-lg border border-line overflow-hidden">
+  <table class="w-full">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Name</th>
+        <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Duration</th>
+        <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% for (const item of items) { %>
+        <tr class="hover:bg-surface-muted transition-colors">
+          <td class="py-2 px-4 text-foreground text-xs"><%= item.name %></td>
+          <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= item.duration %>ms</td>
+          <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums"><%= timeOnly(item.startedAt) %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+```
+
+### Badge
+
+```ejs
+<span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-get">GET</span>
+```
+
+### Code block (JSON)
+
+```ejs
+<pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed">
+  <code class="language-json"><%= toJson(value) %></code>
+</pre>
+```
+
+Highlight.js runs automatically on `DOMContentLoaded` — any `<code class="language-*">` block is highlighted.
+
+### SQL with keyword highlighting
+
+```ejs
+<code class="text-xs text-code-text leading-relaxed break-all">
+  <%- highlightSql(query.sql) %>
+</code>
+<style>.sql-keyword { color: #818cf8; font-weight: 600; }</style>
+```
+
+### Error inline
+
+```ejs
+<% if (item.error) { %>
+  <div class="mt-1 text-danger text-2xs">Error: <%= item.error %></div>
+<% } %>
+```
+
+### Section with heading
+
+```ejs
+<section class="mb-6">
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">
+    My Section
+  </h2>
+  <!-- content -->
+</section>
+```
+
+---
+
+## Dark mode
+
+All semantic token classes (`text-foreground`, `bg-surface`, `border-line`, badge classes, duration classes) adapt automatically — no extra `dark:` variants needed. When you need Tailwind colour palette classes (e.g. `bg-blue-100`) always add the corresponding `dark:` variant:
+
+```ejs
+<span class="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+  INFO
+</span>
+```

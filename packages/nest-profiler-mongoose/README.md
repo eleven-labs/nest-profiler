@@ -1,6 +1,8 @@
 # @eleven-labs/nest-profiler-mongoose
 
-`@eleven-labs/nest-profiler-mongoose` captures every Mongoose query and aggregation executed during an HTTP request and displays them in a dedicated **MongoDB** panel.
+`@eleven-labs/nest-profiler-mongoose` captures every Mongoose query and aggregation executed during a profiled execution and displays them in a dedicated **MongoDB** panel.
+
+![MongoDB panel — Mongoose queries and aggregations with operation badge, collection, duration and result count](../../docs/public/screenshots/profiler/mongodb.png)
 
 ## Installation
 

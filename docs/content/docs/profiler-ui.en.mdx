@@ -1,0 +1,64 @@
+---
+title: Profiler UI
+description: A visual tour of the profiler web interface — the profiles list, the built-in tabs, and every collector panel.
+---
+
+The screenshots below come from the [example application](/docs/example-api) with every collector enabled.
+
+## Profiles list
+
+The `/_profiler` page shows captured requests, filters, HTTP statuses, durations, and global panels such as **Config**.
+
+![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
+
+## Built-in tabs
+
+The **Request** tab details the method, URL, headers, and collected body.
+
+![Request tab showing HTTP request details](/screenshots/profiler/request.png)
+
+The **Response** tab shows the status, response headers, and body returned by the handler.
+
+![Response tab showing status, headers, and JSON body](/screenshots/profiler/response.png)
+
+The **Performance** tab groups request duration, memory, and timestamps.
+
+![Performance tab with duration, memory, and request timeline](/screenshots/profiler/performance.png)
+
+The **Logs** tab lists entries captured through `profilerService.createLogger()`.
+
+![Logs tab with one log entry captured during the request](/screenshots/profiler/logs.png)
+
+The **Exceptions** tab highlights the exception thrown by the `/error` endpoint.
+
+![Exceptions tab displaying a captured BadRequestException](/screenshots/profiler/exceptions.png)
+
+## Collectors
+
+The **Timeline** collector displays spans created with `startSpan()` as synchronized bars.
+
+![Timeline tab showing slow.step.fetch, slow.step.process, and slow.step.serialize spans](/screenshots/profiler/timeline.png)
+
+The **Database** collector shows TypeORM queries with their SQL type and duration.
+
+![Database tab showing a profiled TypeORM SELECT query](/screenshots/profiler/database.png)
+
+The **HTTP Client** collector shows outgoing requests triggered by `HttpService`.
+
+![HTTP Client tab showing a GET call to JSONPlaceholder](/screenshots/profiler/http-client.png)
+
+The **Cache** collector shows `GET_HIT`, `GET_MISS`, `SET` operations and the hit rate.
+
+![Cache tab showing a GET_HIT and a 100 percent hit rate](/screenshots/profiler/cache.png)
+
+The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
+
+![Security tab showing an authenticated demo_user with the admin role](/screenshots/profiler/security.png)
+
+The **Validator** collector shows validated DTOs and failing `class-validator` constraints.
+
+![Validator tab showing two validation violations on CreatePostDto](/screenshots/profiler/validator.png)
+
+The **Config** collector is global: it appears on the profiles list and exposes flattened configuration with masked secrets.
+
+![Global Config panel showing app and database keys with database.password masked](/screenshots/profiler/config.png)

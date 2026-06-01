@@ -1,0 +1,61 @@
+---
+title: Introduction
+description: NestJS profiler — a Symfony Web Profiler-inspired toolkit for debugging and performance analysis.
+---
+
+`@eleven-labs/nest-profiler` is a **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profiled execution receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
+
+The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
+
+<Cards>
+  <Card
+    href="/en/docs/getting-started"
+    title="Getting started"
+    description="Install the core package and open the profiler UI in under 5 minutes."
+  />
+  <Card
+    href="/en/docs/packages/nest-profiler"
+    title="Packages"
+    description="Core profiler and all optional collector packages: TypeORM, Axios, Cache, Auth, Config, Validator."
+  />
+  <Card
+    href="/en/docs/example-api"
+    title="Example application"
+    description="Full NestJS app organized by module — one module per collector package."
+  />
+  <Card
+    href="/en/docs/tutorials"
+    title="Tutorials"
+    description="Step-by-step guides for every collector and storage backend."
+  />
+  <Card
+    href="/en/docs/api-reference"
+    title="API Reference"
+    description="Auto-generated type documentation for all packages."
+  />
+</Cards>
+
+## Packages
+
+| Package                                                                             | Panel           | What it captures                                                   |
+| ----------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------ |
+| [`@eleven-labs/nest-profiler`](/en/docs/packages/nest-profiler)                     | Core + Timeline | Request, response, logs, exceptions, performance spans             |
+| [`@eleven-labs/nest-profiler-typeorm`](/en/docs/packages/nest-profiler-typeorm)     | Database        | SQL queries with type, duration, slow-query highlighting           |
+| [`@eleven-labs/nest-profiler-axios`](/en/docs/packages/nest-profiler-axios)         | HTTP Client     | Outgoing requests via `HttpService`: method, URL, status, duration |
+| [`@eleven-labs/nest-profiler-cache`](/en/docs/packages/nest-profiler-cache)         | Cache           | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                |
+| [`@eleven-labs/nest-profiler-auth`](/en/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked        |
+| [`@eleven-labs/nest-profiler-config`](/en/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                       |
+| [`@eleven-labs/nest-profiler-validator`](/en/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names |
+
+## Key features
+
+- **Floating toolbar** — injected into HTML responses with per-collector badges (query count, hit ratio, violation count, …)
+- **Extensible collectors** — implement `IProfilerCollector` to add your own panel with a custom EJS template and toolbar badge
+- **Two storage backends** — in-memory LRU (default) or file-based persistence that survives restarts
+- **Request sampling & path filtering** — `sampleRate` and `ignorePaths` to control overhead in busy environments
+- **Module-per-collector pattern** — each optional package is imported in the feature module it instruments, not in the root module
+
+<Callout type="warn" title="Development only">
+  The profiler is designed for development environments. Disable it in production with `enabled:
+  false` or an environment-based condition to avoid exposing internal request data.
+</Callout>

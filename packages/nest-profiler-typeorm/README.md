@@ -1,6 +1,8 @@
 # @eleven-labs/nest-profiler-typeorm
 
-`@eleven-labs/nest-profiler-typeorm` captures every SQL query executed by TypeORM during an HTTP request and displays them in a dedicated **Database** panel.
+`@eleven-labs/nest-profiler-typeorm` captures every SQL query executed by TypeORM during a profiled execution and displays them in a dedicated **Database** panel.
+
+![Database panel — TypeORM SQL queries with type badge, duration bar and slow-query highlighting](../../docs/public/screenshots/profiler/database.png)
 
 ## Installation
 

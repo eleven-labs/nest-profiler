@@ -2,6 +2,8 @@
 
 `@eleven-labs/nest-profiler-validator` extends NestJS's `ValidationPipe` to capture every DTO validation result (valid or invalid) and display it in a dedicated **Validator** panel, inspired by Symfony's Web Profiler validator tab.
 
+![Validator panel — DTO validation results with per-property constraint violations](../../docs/public/screenshots/profiler/validator.png)
+
 ## Installation
 
 ```bash
@@ -96,10 +98,10 @@ A request with `POST /products { "name": "", "price": -5 }` produces a profile s
 
 `ProfilerValidationPipe` extends `ValidationPipe` and overrides two methods:
 
-1. **`validate()`** — called by the parent pipe with the transformed entity before checking for errors. Stores the raw `ValidationError[]` in CLS under a per-request key.
+1. **`validate()`** — called by the parent pipe with the transformed entity before checking for errors. Stores the raw `ValidationError[]` in CLS under a per-execution key.
 
 2. **`transform()`** — wraps the parent's `transform()`. On success, records a valid entry. On failure (pipe exception), reads the raw errors from CLS, maps them to `ViolationEntry[]`, and records an invalid entry. The original exception is always re-thrown.
 
-This design is concurrent-safe: CLS provides per-request isolated storage, and the raw `ValidationError[]` from class-validator are captured before they're converted to strings by the exception factory.
+This design is concurrent-safe: CLS provides per-execution isolated storage, and the raw `ValidationError[]` from class-validator are captured before they're converted to strings by the exception factory.
 
 > **Note:** The profiler interceptor captures collector data on both success and error paths, so validation failures are always recorded even when the request returns a 400.

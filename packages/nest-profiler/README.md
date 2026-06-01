@@ -1,6 +1,8 @@
 # @eleven-labs/nest-profiler
 
-`@eleven-labs/nest-profiler` provides per-request profiling for NestJS applications. Each HTTP request receives a unique token, and collected data (request, response, performance, logs, exceptions, custom collectors) can be inspected at `/_profiler/{token}`.
+`@eleven-labs/nest-profiler` provides execution profiling for NestJS applications. Each profiled execution receives a unique token, and the collected data (request, response, performance, logs, exceptions, custom collectors) can be inspected at `/_profiler/{token}`.
+
+![Profiler UI — profiles list with filters, HTTP statuses, durations and global panels](../../docs/public/screenshots/profiler/profiles-list.png)
 
 ## Installation
 
@@ -8,7 +10,7 @@
 pnpm add @eleven-labs/nest-profiler nestjs-cls
 ```
 
-`nestjs-cls` is a required peer dependency used for per-request context propagation.
+`nestjs-cls` is a required peer dependency used for per-execution context propagation.
 
 ## Configuration
 

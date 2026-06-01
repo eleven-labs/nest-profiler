@@ -1,0 +1,16 @@
+{
+  "title": "Tutorials",
+  "pages": [
+    "index",
+    "setup-profiler",
+    "typeorm-collector",
+    "mongoose-collector",
+    "axios-collector",
+    "cache-collector",
+    "auth-collector",
+    "config-collector",
+    "validator-collector",
+    "custom-collector",
+    "file-storage"
+  ]
+}

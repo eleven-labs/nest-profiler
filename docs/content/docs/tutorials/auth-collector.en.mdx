@@ -1,0 +1,111 @@
+---
+title: Auth/Security profiling
+description: Display authenticated user info and JWT claims in the Security panel.
+---
+
+This tutorial shows how to add the auth collector to capture authentication context (Passport user, JWT claims, roles) in the Security panel.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- Passport (or any auth strategy that populates `request.user`)
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-auth
+```
+
+## Step 2 — Register the module
+
+```ts title="app.module.ts"
+import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    AuthCollectorModule.forRoot({
+      maskUserFields: ['password', 'refreshToken'], // extra fields to mask
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## Step 3 — Set up authentication
+
+The auth collector reads `request.user` automatically. Any guard or middleware that sets `request.user` will work — Passport, JWT guards, API key guards, etc.
+
+**Example with a minimal JWT guard:**
+
+```ts title="jwt-auth.guard.ts"
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+
+@Injectable()
+export class JwtAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const authHeader = request.headers['authorization'];
+
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const [, payload] = authHeader.slice(7).split('.');
+        request.user = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      } catch {
+        /* invalid JWT */
+      }
+    }
+
+    return true; // always allow — auth is for display only
+  }
+}
+```
+
+Apply the guard globally or per-route:
+
+```ts title="app.module.ts"
+import { APP_GUARD } from '@nestjs/core';
+
+providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+```
+
+## Step 4 — Test it
+
+```bash
+# Without auth — Security tab shows "Anonymous"
+curl http://localhost:3000/profile
+
+# With a JWT — Security tab shows user info and claims
+TOKEN=$(curl -s "http://localhost:3000/auth/token" | jq -r .token)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/profile
+```
+
+Open `/_profiler/{token}` → **Security** tab.
+
+Authenticated profile shows:
+
+- **Status**: `Authenticated`
+- **User**: `{ sub: "42", username: "demo_user", email: "demo@example.com" }`
+- **Roles**: `["user"]`
+- **JWT Claims**: full decoded payload
+
+The toolbar badge shows the username (e.g., `demo_user`) or `anon` for unauthenticated requests.
+
+## Masking
+
+Fields matching `/password|secret|key|token|credential/i` are automatically replaced with `***`. Additional fields can be masked via `maskUserFields`:
+
+```ts
+AuthCollectorModule.forRoot({
+  maskUserFields: ['refreshToken', 'apiKey'],
+});
+```
+
+<Callout type="info">
+  The JWT is decoded **without signature verification** — the displayed claims are for debugging
+  only. Never rely on this data for authorization decisions in your application code.
+</Callout>
+
+## How it works
+
+The collector's `collect()` method reads the Express `Request` object from the CLS context (stored by the profiler middleware under `profiler.request`). It extracts `request.user` and the `Authorization` header, decodes the JWT payload using `Buffer.from(parts[1], 'base64url')`, and applies the masking rules before returning the security context.

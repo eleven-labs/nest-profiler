@@ -1,0 +1,54 @@
+---
+title: nest-profiler-typeorm
+description: API reference for @eleven-labs/nest-profiler-typeorm — TypeORM query collector.
+---
+
+## TypeOrmCollectorModuleOptions
+
+Options passed to `TypeOrmCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-typeorm/src/typeorm-collector.module.ts"
+  name="TypeOrmCollectorModuleOptions"
+/>
+
+## QueryEntry
+
+One entry per SQL query executed during a request.
+
+<AutoTypeTable
+  path="packages/nest-profiler-typeorm/src/typeorm-collector.interface.ts"
+  name="QueryEntry"
+/>
+
+## QueryType
+
+```ts
+type QueryType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'OTHER';
+```
+
+Detected from the first keyword of the SQL string.
+
+## Public exports
+
+```ts
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+import { TypeOrmCollector } from '@eleven-labs/nest-profiler-typeorm';
+
+import type {
+  TypeOrmCollectorModuleOptions,
+  QueryEntry,
+  QueryType,
+} from '@eleven-labs/nest-profiler-typeorm';
+```
+
+## Setup
+
+```ts
+// In ProductsModule (or any module that uses TypeORM):
+TypeOrmCollectorModule.forRoot({
+  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+});
+```
+
+**Prerequisite:** `TypeOrmModule.forRoot()` must be registered in the application (provides `DataSource` globally via `@InjectDataSource()`).

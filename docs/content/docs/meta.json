@@ -1,0 +1,11 @@
+{
+  "pages": [
+    "index",
+    "getting-started",
+    "packages",
+    "api-reference",
+    "example-api",
+    "profiler-ui",
+    "tutorials"
+  ]
+}

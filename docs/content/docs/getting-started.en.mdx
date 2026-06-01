@@ -1,0 +1,178 @@
+---
+title: Getting started
+description: Install and configure @eleven-labs/nest-profiler in a NestJS application.
+---
+
+## Requirements
+
+- Node.js 22 or newer
+- pnpm 10 or newer
+- A NestJS application
+
+## Installation
+
+```bash
+pnpm add @eleven-labs/nest-profiler nestjs-cls
+```
+
+The package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies. Your NestJS application should already provide them.
+
+## Configure the core module
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({
+      isGlobal: true,
+      enabled: process.env.NODE_ENV !== 'production',
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## Async configuration
+
+```ts title="app.module.ts"
+ProfilerModule.forRootAsync({
+  // synchronous bootstrap flag — not resolved by useFactory
+  enabled: process.env.NODE_ENV !== 'production',
+  useFactory: (config: ConfigService) => ({
+    storageType: config.get('PROFILER_STORAGE', 'memory'),
+  }),
+  inject: [ConfigService],
+});
+```
+
+## Enable log capture
+
+Wrap the NestJS logger in `main.ts` so that every log entry is captured in the active request profile:
+
+```ts title="main.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+
+const app = await NestFactory.create(AppModule, { bufferLogs: true });
+const profilerService = app.get(ProfilerService);
+app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApp')));
+await app.listen(3000);
+```
+
+## Optional collector packages
+
+Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments — **not** in the root module — so the dependency is co-located with the code it observes.
+
+| Package                                | Panel       | Prerequisite                                                        |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `@eleven-labs/nest-profiler-typeorm`   | Database    | `TypeOrmModule.forRoot()`                                           |
+| `@eleven-labs/nest-profiler-axios`     | HTTP Client | `HttpModule` in the same module                                     |
+| `@eleven-labs/nest-profiler-cache`     | Cache       | `CacheModule.register({ isGlobal: true })`                          |
+| `@eleven-labs/nest-profiler-auth`      | Security    | Guard or middleware that sets `request.user`                        |
+| `@eleven-labs/nest-profiler-config`    | Config      | `ConfigModule.forRoot({ load: [...] })` with `registerAs` factories |
+| `@eleven-labs/nest-profiler-validator` | Validator   | `class-validator` + `class-transformer` installed                   |
+
+### Module-per-collector pattern
+
+Each optional collector is registered in the feature module it instruments:
+
+```ts title="products/products.module.ts"
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Product]),
+    TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+  ],
+})
+export class ProductsModule {}
+```
+
+```ts title="posts/posts.module.ts"
+import { HttpModule } from '@nestjs/axios';
+import { AxiosCollectorModule } from '@eleven-labs/nest-profiler-axios';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [
+    HttpModule, // prerequisite for AxiosCollectorModule
+    AxiosCollectorModule.forRoot(),
+    CacheCollectorModule.forRoot(),
+  ],
+})
+export class PostsModule {}
+```
+
+```ts title="auth/auth.module.ts"
+import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+@Module({
+  imports: [AuthCollectorModule.forRoot({ maskUserFields: ['password'] })],
+})
+export class AuthModule {}
+```
+
+Collectors that install a global `APP_PIPE` or read global providers should remain in the root module:
+
+```ts title="app.module.ts"
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, load: [appConfig, dbConfig] }),
+    CacheModule.register({ isGlobal: true }),
+    ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }),
+    ConfigCollectorModule.forRoot({
+      enabled: process.env.NODE_ENV !== 'production',
+      maskKeys: ['database.password'],
+    }),
+    ValidatorCollectorModule.forRoot({
+      enabled: process.env.NODE_ENV !== 'production',
+      whitelist: true,
+      transform: true,
+    }),
+    // feature modules:
+    ProductsModule,
+    PostsModule,
+    AuthModule,
+  ],
+})
+export class AppModule {}
+```
+
+## Storage backends
+
+```ts
+// Default — in-memory LRU, cleared on restart
+ProfilerModule.forRoot({ storageType: 'memory', maxProfiles: 100 });
+
+// File — persists to .profiler/ as JSON files, survives restarts
+ProfilerModule.forRoot({ storageType: 'file', storagePath: '.profiler' });
+```
+
+Add `.profiler/` to `.gitignore` when using file storage.
+
+## Test with the example application
+
+```bash
+pnpm example:dev
+```
+
+Make requests to exercise each collector:
+
+```bash
+curl http://localhost:3000/products       # TypeORM SELECT (auto-seeded at startup)
+curl http://localhost:3000/posts          # Axios GET + cache SET
+curl http://localhost:3000/posts          # cache HIT
+curl http://localhost:3000/auth/token     # get demo JWT
+curl -H "Authorization: Bearer <token>" http://localhost:3000/auth/me  # Auth
+curl -X POST http://localhost:3000/posts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Hi","body":"too short"}'  # Validator violations
+curl http://localhost:3000/slow            # Timeline spans
+```
+
+Open `http://localhost:3000/_profiler` to browse all collected profiles.

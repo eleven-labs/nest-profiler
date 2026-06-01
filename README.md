@@ -1,8 +1,10 @@
 # nest-profiler
 
-A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Every HTTP request receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
+A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profiled execution receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
 
 The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
+
+![Profiler UI — profiles list with filters, HTTP statuses, durations and the global Config panel](docs/public/screenshots/profiler/profiles-list.png)
 
 ## Packages
 
@@ -17,6 +19,17 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 - [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
 
+Full guides and API reference live on the documentation site (`pnpm docs:dev`, then http://localhost:3002).
+
+### Panels at a glance
+
+|                                                                  |                                                                        |                                                                  |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![Database panel](docs/public/screenshots/profiler/database.png) | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)       |
+| **Database** (TypeORM)                                           | **HTTP Client** (Axios)                                                | **Cache**                                                        |
+| ![Security panel](docs/public/screenshots/profiler/security.png) | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Timeline panel](docs/public/screenshots/profiler/timeline.png) |
+| **Security** (JWT/Auth)                                          | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
+
 ## Quickstart
 
 Requirements: Node.js `22+`, pnpm `10+`
@@ -25,6 +38,7 @@ Requirements: Node.js `22+`, pnpm `10+`
 pnpm install        # install dependencies
 pnpm build          # build all packages
 pnpm test:cov       # run the test suite with coverage
+pnpm docs:dev       # serve the documentation site at http://localhost:3002
 ```
 
 To try the profiler against a real app, start the demo API and open `http://localhost:3000/_profiler`:
@@ -104,6 +118,7 @@ packages/
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled
+docs/                       Fumadocs documentation site
 ```
 
 ## Common Commands
@@ -116,6 +131,7 @@ pnpm typecheck      # tsc --noEmit
 pnpm test           # run unit tests
 pnpm test:cov       # run tests with coverage (enforces the 90% threshold)
 pnpm build          # build all packages
+pnpm docs:dev       # serve the docs site
 pnpm changeset      # record a version bump
 ```
 

@@ -1,0 +1,13 @@
+{
+  "title": "Packages",
+  "pages": [
+    "nest-profiler",
+    "nest-profiler-typeorm",
+    "nest-profiler-mongoose",
+    "nest-profiler-axios",
+    "nest-profiler-cache",
+    "nest-profiler-auth",
+    "nest-profiler-config",
+    "nest-profiler-validator"
+  ]
+}

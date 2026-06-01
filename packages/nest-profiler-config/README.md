@@ -2,6 +2,8 @@
 
 `@eleven-labs/nest-profiler-config` takes a snapshot of the application configuration at startup and displays it in a **Config** panel. Secret values are automatically masked.
 
+![Config panel — flattened configuration keys with secret values masked](../../docs/public/screenshots/profiler/config.png)
+
 ## Installation
 
 ```bash
@@ -51,4 +53,4 @@ Number of configuration keys loaded (e.g., `12`).
 
 ## How it works
 
-At `OnApplicationBootstrap`, the collector accesses `ConfigService`'s internal configuration store via `configService.internalConfig` (an internal property, not part of the public API). The snapshot is captured once at startup and returned for every profile — it does not re-read config on each request.
+At `OnApplicationBootstrap`, the collector accesses `ConfigService`'s internal configuration store via `configService.internalConfig` (an internal property, not part of the public API). The snapshot is captured once at startup and returned for every profile — it does not re-read config on each execution.

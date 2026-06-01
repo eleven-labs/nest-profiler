@@ -1,0 +1,98 @@
+---
+title: TypeORM query profiling
+description: Capture every SQL query executed by TypeORM and inspect them in the Database panel.
+---
+
+This tutorial shows how to add the TypeORM collector to profile SQL queries in a NestJS application that uses PostgreSQL via `@nestjs/typeorm`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@nestjs/typeorm` and `typeorm` installed with a working `DataSource`
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-typeorm
+```
+
+## Step 2 — Register the collector
+
+Add `TypeOrmCollectorModule` **after** `TypeOrmModule` in your root module:
+
+```ts title="app.module.ts"
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRootAsync({ ... }),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    TypeOrmCollectorModule.forRoot({
+      slowQueryThreshold: 100, // queries > 100ms are highlighted (default)
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+No other configuration is needed — the collector injects the `DataSource` automatically via `@InjectDataSource()`.
+
+## Step 3 — Instrument your services with spans
+
+Use `startSpan()` to add meaningful labels to the Timeline panel alongside your TypeORM calls:
+
+```ts
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+
+@Injectable()
+export class ProductsService {
+  constructor(
+    @InjectRepository(Product) private readonly repo: Repository<Product>,
+    private readonly profiler: ProfilerService,
+  ) {}
+
+  async findAll(): Promise<Product[]> {
+    const stop = this.profiler.startSpan('db.products.findAll');
+    const result = await this.repo.find({ order: { createdAt: 'DESC' } });
+    stop();
+    return result;
+  }
+}
+```
+
+## Step 4 — Test it
+
+Start your application and make a request that triggers a database query:
+
+```bash
+curl -i http://localhost:3000/products
+```
+
+Copy the `X-Debug-Token` from the response headers, open `/_profiler/{token}`, and click the **Database** tab.
+
+You will see:
+
+- Each SQL query with its type badge (`SELECT`, `INSERT`, …)
+- Duration per query with a bar chart indicator
+- Slow queries highlighted in red
+- Bound parameters
+
+The **Timeline** panel shows the `db.products.findAll` span alongside other phases.
+
+## How it works
+
+The collector patches `dataSource.createQueryRunner()` to wrap every `QueryRunner.query()` call with timing. The patch records entries directly into the CLS profile for the current request, then `TypeOrmCollector.collect()` reads and returns them.
+
+This approach captures:
+
+- All queries from TypeORM Repositories
+- All queries from the EntityManager
+- Raw queries via `dataSource.query()`
+
+Queries executed outside a request context (e.g., during module initialization) are silently ignored since there is no active CLS profile.
+
+<Callout type="warn" title="Synchronize in production">
+  Never use `synchronize: true` in production. It auto-migrates the schema on startup and can cause
+  data loss. Use TypeORM migrations instead.
+</Callout>

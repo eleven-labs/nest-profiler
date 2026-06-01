@@ -1,0 +1,59 @@
+---
+title: nest-profiler-auth
+description: API reference for @eleven-labs/nest-profiler-auth — authentication and JWT claims collector.
+---
+
+## AuthCollectorModuleOptions
+
+Options passed to `AuthCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-auth/src/auth-collector.module.ts"
+  name="AuthCollectorModuleOptions"
+/>
+
+## SecurityContext
+
+The data structure populated by the auth collector and stored in `profile.security`. Defined in `@eleven-labs/nest-profiler`.
+
+```ts
+interface SecurityContext {
+  isAuthenticated: boolean;
+  user?: Record<string, unknown>; // request.user, with masked fields
+  roles?: string[]; // user.roles or user.role (normalized)
+  jwtClaims?: Record<string, unknown>; // decoded JWT payload (no verification)
+}
+```
+
+See [`SecurityContext`](/en/docs/api-reference/nest-profiler#securitycontext) in the core package reference.
+
+## Automatic masking
+
+Fields in `user` whose name matches the pattern `/password|secret|key|token|credential|api_key|apikey/i` are replaced with `***`. Additional fields can be specified via `maskUserFields`.
+
+## Public exports
+
+```ts
+import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+import { AuthCollector } from '@eleven-labs/nest-profiler-auth';
+
+import type { AuthCollectorModuleOptions } from '@eleven-labs/nest-profiler-auth';
+```
+
+## Setup
+
+```ts
+// In AuthModule (or any module that sets request.user):
+import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+@Module({
+  imports: [
+    AuthCollectorModule.forRoot({
+      maskUserFields: ['password', 'refreshToken'],
+    }),
+  ],
+})
+export class AuthModule {}
+```
+
+**Prerequisite:** A guard or middleware that sets `request.user` (Passport, custom JWT guard, etc.). The collector reads `request.user` and the `Authorization` header from the per-request CLS context.

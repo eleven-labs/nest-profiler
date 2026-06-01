@@ -1,6 +1,8 @@
 # @eleven-labs/nest-profiler-auth
 
-`@eleven-labs/nest-profiler-auth` captures authentication context (Passport user, JWT claims, roles) during HTTP requests and displays it in a **Security** panel.
+`@eleven-labs/nest-profiler-auth` captures the authentication context (Passport user, JWT claims, roles) of the current execution and displays it in a **Security** panel.
+
+![Security panel — authenticated user, roles and decoded JWT claims with sensitive fields masked](../../docs/public/screenshots/profiler/security.png)
 
 ## Installation
 

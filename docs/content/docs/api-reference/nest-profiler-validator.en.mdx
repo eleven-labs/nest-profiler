@@ -1,0 +1,88 @@
+---
+title: nest-profiler-validator
+description: API reference for @eleven-labs/nest-profiler-validator — DTO validation collector.
+---
+
+## ValidationEntry
+
+One entry per DTO validated during a request (both valid and invalid).
+
+<AutoTypeTable
+  path="packages/nest-profiler-validator/src/validator-collector.interface.ts"
+  name="ValidationEntry"
+/>
+
+## ViolationEntry
+
+One entry per property that failed validation.
+
+<AutoTypeTable
+  path="packages/nest-profiler-validator/src/validator-collector.interface.ts"
+  name="ViolationEntry"
+/>
+
+## ValidationStatus
+
+```ts
+type ValidationStatus = 'valid' | 'invalid';
+```
+
+## ValidationSource
+
+```ts
+type ValidationSource = 'body' | 'query' | 'param' | 'custom';
+```
+
+Corresponds to the NestJS parameter decorator used: `@Body()`, `@Query()`, `@Param()`, or a custom decorator.
+
+## ProfilerValidationPipe
+
+Extends `ValidationPipe` from `@nestjs/common`. Registered as the global `APP_PIPE` by `ValidatorCollectorModule.forRoot()`.
+
+All `ValidationPipeOptions` are forwarded to the parent `ValidationPipe`:
+
+```ts
+ValidatorCollectorModule.forRoot({
+  whitelist: true,
+  transform: true,
+  forbidNonWhitelisted: false,
+  // ... any ValidationPipeOptions
+});
+```
+
+## Public exports
+
+```ts
+import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+import { ProfilerValidationPipe } from '@eleven-labs/nest-profiler-validator';
+import { ValidatorCollector } from '@eleven-labs/nest-profiler-validator';
+
+import type {
+  ValidationEntry,
+  ViolationEntry,
+  ValidationStatus,
+  ValidationSource,
+} from '@eleven-labs/nest-profiler-validator';
+```
+
+## Setup
+
+```ts
+// In AppModule — registers ProfilerValidationPipe as global APP_PIPE
+ValidatorCollectorModule.forRoot({
+  whitelist: true,
+  transform: true,
+});
+```
+
+**Important:** Use value imports (not `import type`) for DTO classes in controllers so that TypeScript emits `reflect-metadata` for the parameter type:
+
+```ts
+// ✓ value import — allows TypeScript to emit design:paramtypes
+import { CreateArticleDto } from './dto/create-article.dto';
+
+// ✗ type-only import — erases metadata, metatype shows as 'Function'
+import type { CreateArticleDto } from './dto/create-article.dto';
+```
+
+**Prerequisite:** `class-validator` and `class-transformer` must be installed as dependencies. `emitDecoratorMetadata: true` must be set in `tsconfig.json` (already the case with `@repo/typescript-config/nestjs.json`).

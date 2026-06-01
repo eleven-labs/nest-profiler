@@ -1,0 +1,104 @@
+---
+title: MongoDB query profiling
+description: Capture every Mongoose query and aggregation and inspect them in the MongoDB panel.
+---
+
+This tutorial shows how to add the Mongoose collector to profile MongoDB queries in a NestJS application that uses `@nestjs/mongoose`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@nestjs/mongoose` and `mongoose` installed with a working `MongooseModule` connection
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-mongoose
+```
+
+## Step 2 — Register the collector
+
+Add `MongooseCollectorModule` in the feature module that performs MongoDB operations:
+
+```ts title="reviews/reviews.module.ts"
+import { MongooseModule } from '@nestjs/mongoose';
+import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
+    MongooseCollectorModule.forRoot({
+      slowQueryThreshold: 50, // queries > 50ms highlighted (default: 100)
+    }),
+  ],
+})
+export class ReviewsModule {}
+```
+
+The collector injects the `Connection` automatically via `@InjectConnection()`.
+
+## Step 3 — Instrument your services with spans
+
+```ts
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+
+@Injectable()
+export class ReviewsService {
+  constructor(
+    @InjectModel(Review.name) private readonly model: Model<ReviewDocument>,
+    private readonly profiler: ProfilerService,
+  ) {}
+
+  async findAll(): Promise<ReviewDocument[]> {
+    const stop = this.profiler.startSpan('mongo.reviews.findAll');
+    const result = await this.model.find().sort({ createdAt: -1 }).exec();
+    stop();
+    return result;
+  }
+
+  async getStats() {
+    const stop = this.profiler.startSpan('mongo.reviews.aggregate');
+    const result = await this.model
+      .aggregate([
+        { $match: { status: 'approved' } },
+        { $group: { _id: '$productId', avgRating: { $avg: '$rating' } } },
+      ])
+      .exec();
+    stop();
+    return result;
+  }
+}
+```
+
+## Step 4 — Test it
+
+```bash
+curl -i http://localhost:3000/reviews
+```
+
+Copy the `X-Debug-Token` header, open `/_profiler/{token}`, and click the **MongoDB** tab.
+
+You will see:
+
+- Each query with its operation badge (`find`, `aggregate`, …)
+- Collection name
+- Filter object
+- Duration per query
+- Slow queries highlighted in red
+- Result count for find queries
+
+## How it works
+
+The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` on the Mongoose instance obtained from `connection.base`. This captures:
+
+- All `Model.find()`, `Model.findOne()`, `Model.findById()` queries
+- All `Model.updateOne()`, `Model.deleteOne()`, `Model.deleteMany()` mutations
+- All `Model.aggregate()` pipelines
+- `Model.countDocuments()`, `Model.distinct()`, and other cursor-based operations
+
+Queries executed outside a request context (e.g., during module initialization or seeding) are silently ignored since there is no active CLS profile.
+
+<Callout type="info" title="Anti-double-patch guard">
+  If multiple modules import `MongooseCollectorModule.forRoot()`, the patch is applied only once — a
+  `__profilerPatched` flag prevents double-wrapping `Query.prototype.exec`.
+</Callout>

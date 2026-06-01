@@ -1,0 +1,51 @@
+---
+title: nest-profiler-config
+description: API reference for @eleven-labs/nest-profiler-config — configuration snapshot collector.
+---
+
+## ConfigCollectorModuleOptions
+
+Options passed to `ConfigCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-config/src/config-collector.module.ts"
+  name="ConfigCollectorModuleOptions"
+/>
+
+## Automatic masking
+
+Keys matching `/password|secret|key|token|credential|api_key|apikey/i` are replaced with `***`. Additional keys can be specified via `maskKeys` (exact match or dot-notation path, e.g. `'database.password'`).
+
+## What is captured
+
+The collector reads `ConfigService.internalConfig` — the merged output of all `load` factory functions passed to `ConfigModule.forRoot()`. It does **not** read `process.env` directly.
+
+**Prerequisite:** `ConfigModule.forRoot({ isGlobal: true, load: [factory1, factory2] })` must be registered with at least one `load` factory using `registerAs`. Without `load` factories, `internalConfig` is empty and nothing is captured.
+
+```ts
+// Required setup — config factory
+import { registerAs } from '@nestjs/config';
+
+export default registerAs('database', () => ({
+  host: process.env.DATABASE_HOST,
+  password: process.env.DATABASE_PASSWORD, // auto-masked in the panel
+}));
+```
+
+## Public exports
+
+```ts
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+import { ConfigCollector } from '@eleven-labs/nest-profiler-config';
+
+import type { ConfigCollectorModuleOptions } from '@eleven-labs/nest-profiler-config';
+```
+
+## Setup
+
+```ts
+// In AppModule (alongside ConfigModule):
+ConfigCollectorModule.forRoot({
+  maskKeys: ['database.password', 'jwt.secret'],
+});
+```

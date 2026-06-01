@@ -1,0 +1,74 @@
+---
+title: Tutorials
+description: Step-by-step guides for using the profiler packages in a NestJS application.
+---
+
+These tutorials show how to integrate each profiler collector in a real NestJS application. Each tutorial starts from a concrete use case and includes the full application-side code.
+
+<Cards>
+  <Card
+    href="/en/docs/tutorials/setup-profiler"
+    title="Set up the profiler"
+    description="Install @eleven-labs/nest-profiler and inspect HTTP requests in the built-in profiler UI."
+  />
+  <Card
+    href="/en/docs/tutorials/typeorm-collector"
+    title="TypeORM query profiling"
+    description="Capture every SQL query executed by TypeORM and inspect them in the Database panel."
+  />
+  <Card
+    href="/en/docs/tutorials/cache-collector"
+    title="Cache profiling"
+    description="Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel."
+  />
+  <Card
+    href="/en/docs/tutorials/auth-collector"
+    title="Auth/Security profiling"
+    description="Display authenticated user info and JWT claims in the Security panel."
+  />
+  <Card
+    href="/en/docs/tutorials/axios-collector"
+    title="Axios/HTTP client profiling"
+    description="Capture outgoing HTTP requests made with HttpService and inspect them in the HTTP Client panel."
+  />
+  <Card
+    href="/en/docs/tutorials/config-collector"
+    title="Configuration profiling"
+    description="Inspect resolved configuration values with sensitive key masking in the Config panel."
+  />
+  <Card
+    href="/en/docs/tutorials/validator-collector"
+    title="DTO validation profiling"
+    description="Inspect DTO validations — both successful and failed — in the Validator panel."
+  />
+  <Card
+    href="/en/docs/tutorials/custom-collector"
+    title="Build a custom collector"
+    description="Create your own profiler panel with a custom EJS template and toolbar badge."
+  />
+  <Card
+    href="/en/docs/tutorials/file-storage"
+    title="File-based profile storage"
+    description="Persist profiles to disk so they survive restarts and can be inspected across debug sessions."
+  />
+</Cards>
+
+## Covered patterns
+
+| Tutorial                    | NestJS pattern                            | Package                                |
+| --------------------------- | ----------------------------------------- | -------------------------------------- |
+| Set up the profiler         | Middleware + interceptor + global guard   | `@eleven-labs/nest-profiler`           |
+| TypeORM query profiling     | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
+| Cache profiling             | CACHE_MANAGER proxy + CLS context         | `@eleven-labs/nest-profiler-cache`     |
+| Auth/Security profiling     | request.user + JWT decode                 | `@eleven-labs/nest-profiler-auth`      |
+| Axios/HTTP client profiling | Axios interceptor + axiosRef patch        | `@eleven-labs/nest-profiler-axios`     |
+| Configuration profiling     | ConfigService internalConfig + registerAs | `@eleven-labs/nest-profiler-config`    |
+| DTO validation profiling    | APP_PIPE + class-validator integration    | `@eleven-labs/nest-profiler-validator` |
+| Build a custom collector    | @ProfilerCollector + EJS template         | `@eleven-labs/nest-profiler`           |
+| File-based profile storage  | storageType: 'file' + LRU/TTL eviction    | `@eleven-labs/nest-profiler`           |
+
+<Callout type="info" title="Example application">
+  The `examples/api` directory contains a complete application demonstrating all collectors working
+  together with a real PostgreSQL database, Redis cache, and JWT authentication. See the [Example
+  application](/en/docs/example-api) page.
+</Callout>

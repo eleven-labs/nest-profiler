@@ -1,6 +1,8 @@
 # @eleven-labs/nest-profiler-cache
 
-`@eleven-labs/nest-profiler-cache` intercepts `@nestjs/cache-manager` operations (GET HIT, GET MISS, SET, DEL) during HTTP requests and displays them in a **Cache** panel with hit/miss statistics.
+`@eleven-labs/nest-profiler-cache` intercepts `@nestjs/cache-manager` operations (GET HIT, GET MISS, SET, DEL) during a profiled execution and displays them in a **Cache** panel with hit/miss statistics.
+
+![Cache panel — GET_HIT / GET_MISS / SET / DEL operations with the hit-ratio badge](../../docs/public/screenshots/profiler/cache.png)
 
 ## Installation
 

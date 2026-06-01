@@ -32,7 +32,7 @@
     "lint": "turbo run lint",
     "pack:dry-run": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec npm pack --dry-run",
     "publint": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec publint",
-    "release": "changeset publish",
+    "release": "tsx scripts/absolutize-readme-images.ts && changeset publish && git checkout -- 'packages/*/README.md'",
     "configure-github": "tsx scripts/configure-github.ts",
     "configure-github:update": "tsx scripts/configure-github.ts --update",
     "test": "turbo run test",

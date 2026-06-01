@@ -1,0 +1,49 @@
+---
+title: nest-profiler-cache
+description: API reference for @eleven-labs/nest-profiler-cache — cache operations collector.
+---
+
+## CacheOperationEntry
+
+One entry per cache operation (get, set, del) executed during a request.
+
+<AutoTypeTable
+  path="packages/nest-profiler-cache/src/cache-collector.interface.ts"
+  name="CacheOperationEntry"
+/>
+
+## CacheOperation
+
+```ts
+type CacheOperation = 'GET_HIT' | 'GET_MISS' | 'SET' | 'DEL';
+```
+
+- `GET_HIT` — cache `get()` returned a value
+- `GET_MISS` — cache `get()` returned `undefined` or `null`
+- `SET` — cache `set()` was called
+- `DEL` — cache `del()` was called
+
+## Public exports
+
+```ts
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+import { CacheCollector } from '@eleven-labs/nest-profiler-cache';
+
+import type { CacheOperationEntry, CacheOperation } from '@eleven-labs/nest-profiler-cache';
+```
+
+## Setup
+
+```ts
+// In the module that uses CACHE_MANAGER:
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [CacheCollectorModule.forRoot()],
+})
+export class PostsModule {}
+```
+
+`CacheCollectorModule.forRoot()` takes no configuration options. The collector patches the `CACHE_MANAGER`'s `get`, `set`, and `del` methods with a proxy at module initialization.
+
+**Prerequisite:** `CacheModule.register({ isGlobal: true })` from `@nestjs/cache-manager` must be registered in the application (provides `CACHE_MANAGER` globally).
