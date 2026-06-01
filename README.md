@@ -27,6 +27,12 @@ pnpm build          # build all packages
 pnpm test:cov       # run the test suite with coverage
 ```
 
+To try the profiler against a real app, start the demo API and open `http://localhost:3000/_profiler`:
+
+```bash
+pnpm example:dev
+```
+
 ## Installation
 
 Packages are published to **GitHub Packages**. Unlike the public npm registry, GitHub Packages requires authentication even for public packages.
@@ -96,6 +102,8 @@ packages/
   nest-profiler/            core profiler engine, storage, and UI
   nest-profiler-*/          optional collectors (typeorm, axios, cache, auth, config, mongoose, validator)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
+examples/
+  api/                      NestJS demo app with all collectors enabled
 ```
 
 ## Common Commands
