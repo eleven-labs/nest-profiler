@@ -1,0 +1,39 @@
+name: Support question
+description: Ask for help using one of the packages.
+title: 'support: '
+labels: ['question', 'triage']
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - '@eleven-labs/nest-profiler'
+        - '@eleven-labs/nest-profiler-typeorm'
+        - '@eleven-labs/nest-profiler-axios'
+        - '@eleven-labs/nest-profiler-cache'
+        - '@eleven-labs/nest-profiler-auth'
+        - '@eleven-labs/nest-profiler-config'
+        - '@eleven-labs/nest-profiler-mongoose'
+        - '@eleven-labs/nest-profiler-validator'
+        - 'example-api'
+        - 'Documentation'
+        - 'Other'
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain what you are trying to build.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration or code
+      render: ts

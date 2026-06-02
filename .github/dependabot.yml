@@ -1,0 +1,110 @@
+version: 2
+
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      time: '08:00'
+      timezone: 'Europe/Paris'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      time: '08:00'
+      timezone: 'Europe/Paris'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    cooldown:
+      semver-minor-days: 7
+      semver-patch-days: 7
+    labels:
+      - 'dependencies'
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+          - 'reflect-metadata'
+          - 'rxjs'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      testing:
+        patterns:
+          - 'jest'
+          - 'ts-jest'
+          - '@types/jest'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      docs:
+        patterns:
+          - 'next'
+          - 'react'
+          - 'react-dom'
+          - 'fumadocs-*'
+          - '@radix-ui/*'
+          - 'lucide-react'
+          - 'class-variance-authority'
+          - 'tailwind-merge'
+          - '@tailwindcss/*'
+          - 'tailwindcss'
+          - 'postcss'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      eslint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - 'eslint-plugin-*'
+          - '@next/eslint-plugin-next'
+          - 'globals'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      typescript-types:
+        patterns:
+          - '@types/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      tooling:
+        patterns:
+          - 'turbo'
+          - 'typescript'
+          - 'tsx'
+          - '@changesets/*'
+          - 'prettier'
+          - 'rimraf'
+          - 'publint'
+        update-types:
+          - 'minor'
+          - 'patch'

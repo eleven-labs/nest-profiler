@@ -119,6 +119,7 @@ packages/
 examples/
   api/                      NestJS demo app with all collectors enabled
 docs/                       Fumadocs documentation site
+scripts/                    repository automation and release helpers
 ```
 
 ## Common Commands
@@ -152,7 +153,7 @@ pnpm version-packages
 pnpm release
 ```
 
-Packages are published to the **GitHub Packages** registry.
+Packages are published to the **GitHub Packages** registry by the release workflow on pushes to `main`. Authentication uses `GITHUB_TOKEN` automatically — no additional secret is needed.
 
 ## License
 

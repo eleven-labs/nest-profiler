@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible bug in one of the packages.
+title: 'bug: '
+labels: ['bug', 'triage']
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - '@eleven-labs/nest-profiler'
+        - '@eleven-labs/nest-profiler-typeorm'
+        - '@eleven-labs/nest-profiler-axios'
+        - '@eleven-labs/nest-profiler-cache'
+        - '@eleven-labs/nest-profiler-auth'
+        - '@eleven-labs/nest-profiler-config'
+        - '@eleven-labs/nest-profiler-mongoose'
+        - '@eleven-labs/nest-profiler-validator'
+        - 'example-api'
+        - 'Documentation'
+        - 'Other'
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: '0.1.0'
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide a repository link or a small code sample.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - Node:
+        - pnpm:
+        - NestJS:
+        - OS:
+    validations:
+      required: true

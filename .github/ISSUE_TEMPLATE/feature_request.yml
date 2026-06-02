@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a new feature or improvement.
+title: 'feat: '
+labels: ['enhancement', 'triage']
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - '@eleven-labs/nest-profiler'
+        - '@eleven-labs/nest-profiler-typeorm'
+        - '@eleven-labs/nest-profiler-axios'
+        - '@eleven-labs/nest-profiler-cache'
+        - '@eleven-labs/nest-profiler-auth'
+        - '@eleven-labs/nest-profiler-config'
+        - '@eleven-labs/nest-profiler-mongoose'
+        - '@eleven-labs/nest-profiler-validator'
+        - 'example-api'
+        - 'Documentation'
+        - 'Other'
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem should this feature solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Breaking change
+      options:
+        - label: This proposal may require a breaking change
