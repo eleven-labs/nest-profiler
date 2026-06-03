@@ -33,4 +33,7 @@ export type {
   TimelineSpan,
   EventEntry,
   SecurityContext,
+  GraphQLInfo,
 } from './interfaces/profile.interface';
+export { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
+export type { IContextAdapter } from './adapters/context-adapter.interface';

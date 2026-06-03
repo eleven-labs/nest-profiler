@@ -1,6 +1,18 @@
 import { HELPERS } from './template-engine';
 
 describe('template-engine HELPERS', () => {
+  describe('gqlTypeClass', () => {
+    it('maps known GraphQL operation types to their badge class', () => {
+      expect(HELPERS.gqlTypeClass('query')).toBe('badge-gql-query');
+      expect(HELPERS.gqlTypeClass('mutation')).toBe('badge-gql-mutation');
+      expect(HELPERS.gqlTypeClass('subscription')).toBe('badge-gql-subscription');
+    });
+
+    it('falls back to the default class for unknown operation types', () => {
+      expect(HELPERS.gqlTypeClass('unknown')).toBe('badge-default');
+    });
+  });
+
   describe('methodClass', () => {
     it('maps known HTTP methods to their badge class', () => {
       expect(HELPERS.methodClass('GET')).toBe('badge-get');

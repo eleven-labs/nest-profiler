@@ -7,6 +7,9 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
+import type { IContextAdapter } from '../adapters/context-adapter.interface';
+import { PROFILER_REQ_KEY } from '../constants';
+import { GraphQLContextAdapter } from '../adapters/graphql-context.adapter';
 
 function makeProfile(): Profile {
   return {
@@ -28,12 +31,18 @@ function makeRes(headers: Record<string, string> = {}): PlatformResponse {
   } as unknown as PlatformResponse;
 }
 
-function makeCtx(req: Partial<PlatformRequest>, res: PlatformResponse): ExecutionContext {
+function makeCtx(
+  req: Partial<PlatformRequest>,
+  res: PlatformResponse,
+  type = 'http',
+): ExecutionContext {
   return {
+    getType: () => type,
     switchToHttp: () => ({
       getRequest: () => req as PlatformRequest,
       getResponse: () => res,
     }),
+    getArgs: () => [],
   } as unknown as ExecutionContext;
 }
 
@@ -54,19 +63,46 @@ function makeCore(): CoreMock {
   };
 }
 
+interface ClsMock {
+  get: jest.Mock;
+  run: jest.Mock;
+  set: jest.Mock;
+}
+
+function makeClsService(profile: Profile | undefined, clsThrows = false): ClsMock {
+  const store: Record<string, unknown> = {};
+  return {
+    get: jest.fn(() => {
+      if (clsThrows) throw new Error('outside CLS');
+      return profile;
+    }),
+    run: jest.fn((fn: () => void) => fn()),
+    set: jest.fn((key: string, value: unknown) => {
+      store[key] = value;
+    }),
+  };
+}
+
 function makeInterceptor(
   profile: Profile | undefined,
   core: CoreMock,
   options: ProfilerModuleOptions = {},
   clsThrows = false,
+  adapters: IContextAdapter[] = [],
 ): ProfilerInterceptor {
-  const cls = {
-    get: jest.fn(() => {
-      if (clsThrows) throw new Error('outside CLS');
-      return profile;
-    }),
-  } as unknown as ClsService;
-  return new ProfilerInterceptor(cls, core as unknown as ProfilerCoreService, options);
+  const cls = makeClsService(profile, clsThrows);
+  return new ProfilerInterceptor(
+    cls as unknown as ClsService,
+    core as unknown as ProfilerCoreService,
+    options,
+    adapters,
+  );
+}
+
+interface AdapterMock {
+  contextType: string;
+  recoverProfile: jest.Mock;
+  enrichProfile: jest.Mock;
 }
 
 function handler(value: unknown): CallHandler {
@@ -78,6 +114,35 @@ function errorHandler(err: unknown): CallHandler {
 }
 
 describe('ProfilerInterceptor', () => {
+  describe('constructor adapter normalization', () => {
+    it('accepts a single adapter (not wrapped in array)', async () => {
+      const profile = makeProfile();
+      const adapter: AdapterMock = {
+        contextType: 'graphql',
+        recoverProfile: jest.fn(() => profile),
+        enrichProfile: jest.fn(),
+      };
+      const core = makeCore();
+      const cls = makeClsService(undefined);
+      const interceptor = new ProfilerInterceptor(
+        cls as unknown as ClsService,
+        core as unknown as ProfilerCoreService,
+        {},
+        adapter,
+      );
+
+      const gqlCtx: ExecutionContext = {
+        getType: () => 'graphql',
+        getArgs: () => [],
+        switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({}) }),
+      } as unknown as ExecutionContext;
+
+      const result = await lastValueFrom(interceptor.intercept(gqlCtx, handler('ok')));
+      expect(result).toBe('ok');
+      expect(core.storage.save).toHaveBeenCalled();
+    });
+  });
+
   describe('without an active profile', () => {
     it('passes through when CLS has no profile', async () => {
       const core = makeCore();
@@ -187,6 +252,142 @@ describe('ProfilerInterceptor', () => {
       );
 
       expect(result).toEqual({ ok: true });
+    });
+  });
+
+  describe('non-HTTP context (GraphQL / RPC)', () => {
+    function makeGqlCtx(args: unknown[] = []): ExecutionContext {
+      return {
+        getType: () => 'graphql',
+        getArgs: () => args,
+        switchToHttp: () => ({
+          getRequest: () => ({}),
+          getResponse: () => ({ query: '{ _sdl }' }),
+        }),
+      } as unknown as ExecutionContext;
+    }
+
+    describe('with no adapter registered', () => {
+      it('passes through when there are no adapters', async () => {
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, []);
+
+        const result = await lastValueFrom(
+          interceptor.intercept(makeGqlCtx(), handler({ data: 1 })),
+        );
+
+        expect(result).toEqual({ data: 1 });
+        expect(core.storage.save).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('with a GraphQL adapter', () => {
+      function makeAdapter(profile: Profile | null): AdapterMock {
+        return {
+          contextType: 'graphql',
+          recoverProfile: jest.fn(() => profile),
+          enrichProfile: jest.fn(),
+        };
+      }
+
+      it('recovers profile via adapter and captures resolver result as body', async () => {
+        const profile = makeProfile();
+        const adapter = makeAdapter(profile);
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, [adapter]);
+        const resolverResult = { books: [] };
+
+        const result = await lastValueFrom(
+          interceptor.intercept(makeGqlCtx(), handler(resolverResult)),
+        );
+
+        expect(result).toBe(resolverResult);
+        expect(profile.performance.duration).toBeGreaterThanOrEqual(0);
+        expect(profile.response).toEqual({ statusCode: 200, headers: {}, body: resolverResult });
+        expect(adapter.enrichProfile).toHaveBeenCalledWith(profile, expect.any(Object));
+        expect(core.collectorRegistry.collectAll).toHaveBeenCalledWith(profile);
+        expect(core.storage.save).toHaveBeenCalledWith(profile);
+      });
+
+      it('re-establishes CLS context so ProfilerService works in resolvers', async () => {
+        const profile = makeProfile();
+        const adapter = makeAdapter(profile);
+        const core = makeCore();
+        const cls = makeClsService(undefined);
+        const interceptor = new ProfilerInterceptor(
+          cls as unknown as ClsService,
+          core as unknown as ProfilerCoreService,
+          {},
+          [adapter],
+        );
+
+        await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler('result')));
+
+        expect(cls.run.mock.calls.length).toBeGreaterThanOrEqual(1);
+        expect(cls.set).toHaveBeenCalledWith('profiler.profile', profile);
+        expect(cls.set).toHaveBeenCalledWith('profiler.token', profile.token);
+      });
+
+      it('records exceptions with status 500 for generic resolver errors', async () => {
+        const profile = makeProfile();
+        const adapter = makeAdapter(profile);
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, [adapter]);
+        const error = new Error('resolver failed');
+
+        await expect(
+          lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler(error))),
+        ).rejects.toBe(error);
+
+        expect(profile.exceptions).toHaveLength(1);
+        expect(profile.exceptions[0].message).toBe('resolver failed');
+        expect(profile.response?.statusCode).toBe(500);
+        expect(core.storage.save).toHaveBeenCalledWith(profile);
+      });
+
+      it('records HttpException status code from GraphQL resolvers', async () => {
+        const profile = makeProfile();
+        const adapter = makeAdapter(profile);
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, [adapter]);
+        const error = new BadRequestException('invalid input');
+
+        await expect(
+          lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler(error))),
+        ).rejects.toBe(error);
+
+        expect(profile.response?.statusCode).toBe(400);
+      });
+
+      it('passes through when adapter returns null (profile not on req)', async () => {
+        const adapter = makeAdapter(null);
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, [adapter]);
+
+        const result = await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler('data')));
+
+        expect(result).toBe('data');
+        expect(core.storage.save).not.toHaveBeenCalled();
+      });
+
+      it('recovers profile via gqlCtx.req[PROFILER_REQ_KEY] (integration with real adapter)', async () => {
+        const realAdapter = new GraphQLContextAdapter();
+
+        const profile = makeProfile();
+        const req = { [PROFILER_REQ_KEY]: profile };
+        const info = { fieldName: 'books', operation: { operation: 'query' } };
+        const gqlCtx = makeGqlCtx([undefined, undefined, { req }, info]);
+
+        const core = makeCore();
+        const interceptor = makeInterceptor(undefined, core, {}, false, [realAdapter]);
+
+        const result = await lastValueFrom(interceptor.intercept(gqlCtx, handler(['book1'])));
+
+        expect(result).toEqual(['book1']);
+        expect(profile.request.graphql?.operationType).toBe('query');
+        expect(profile.request.graphql?.fieldName).toBe('books');
+        expect(core.storage.save).toHaveBeenCalledWith(profile);
+      });
     });
   });
 

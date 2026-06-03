@@ -5,6 +5,7 @@ import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
 import type { Profile } from '../interfaces/profile.interface';
+import { PROFILER_REQ_KEY } from '../constants';
 
 function normalizeIncomingHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
   const result: Record<string, string | string[]> = {};
@@ -65,6 +66,8 @@ export class ProfilerMiddleware implements NestMiddleware {
       exceptions: [],
       collectors: {},
     };
+
+    (req as unknown as Record<symbol, unknown>)[PROFILER_REQ_KEY] = profile;
 
     this.cls.run(() => {
       this.cls.set('profiler.token', token);

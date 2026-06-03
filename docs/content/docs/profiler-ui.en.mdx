@@ -11,6 +11,20 @@ The `/_profiler` page shows captured requests, filters, HTTP statuses, durations
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 
+## GraphQL requests
+
+GraphQL requests appear in the list with a **GQL** badge followed by the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**). The operation name or field name is shown in place of the URL.
+
+The **Request** tab for GraphQL profiles adds a dedicated **GraphQL** section displaying:
+
+- **Operation type** badge (Query / Mutation / Subscription)
+- **Operation name** if present in the request
+- **Field name** — the entry-point resolver
+- **Query** — syntax-highlighted GraphQL document
+- **Variables** — the variables object, syntax-highlighted as JSON
+
+The HTTP method, URL, headers, and other standard fields remain visible below the GraphQL section.
+
 ## Built-in tabs
 
 The **Request** tab details the method, URL, headers, and collected body.

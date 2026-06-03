@@ -27,6 +27,8 @@ import { TemplateRendererService } from './services/template-renderer.service';
 import { ProfilerCoreService } from './services/profiler-core.service';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { TimelineCollector } from './collectors/timeline/timeline.collector';
+import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
+import { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
 
 // Minimal CLS setup shared by both layers: the profiler manages its own
 // lifecycle, so nestjs-cls auto-mounting is disabled.
@@ -73,6 +75,12 @@ const activeProviders = [
   TemplateRendererService,
   ProfilerCoreService,
   TimelineCollector,
+  GraphQLContextAdapter,
+  {
+    provide: PROFILER_CONTEXT_ADAPTERS,
+    useExisting: GraphQLContextAdapter,
+    multi: true,
+  },
   {
     provide: APP_INTERCEPTOR,
     useClass: ProfilerInterceptor,
