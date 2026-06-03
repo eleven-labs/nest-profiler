@@ -25,14 +25,15 @@ The setup command applies:
 - milestones from `milestones.json`
 - the branch ruleset from `rulesets.json`
 - repository settings for auto-merge and branch cleanup
+- the `ALLOW_MAJOR_BUMPS=false` GitHub Actions variable when it is missing
 - optional `CODEOWNERS` activation
 
 ## Updates
 
-To re-sync labels, rulesets, or repository settings later, run:
+To re-sync labels, rulesets, repository settings, or the release-policy variable later, run:
 
 ```bash
 pnpm configure-github:update
 ```
 
-Update mode does not create milestones or change `CODEOWNERS`.
+Update mode does not create milestones, change `CODEOWNERS`, or overwrite an existing `ALLOW_MAJOR_BUMPS` value.

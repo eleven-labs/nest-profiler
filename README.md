@@ -145,10 +145,54 @@ pnpm --filter @eleven-labs/nest-profiler-typeorm build
 
 ## Publishing
 
-Published packages are versioned with Changesets:
+Published packages are versioned with Changesets. The project intentionally stays in `0.x` until the public API is mature enough for a stable `1.0.0`.
+
+### Versioning Policy
+
+While packages are in `0.x`:
+
+- use `patch` for bug fixes
+- use `minor` for new features and breaking changes
+- reserve `major` for the explicit v1 transition, or another intentional major release
+
+Breaking changes in `0.x` should still be documented clearly in the changeset body with a `BREAKING:` note. CI rejects `major` changesets by default; set `ALLOW_MAJOR_BUMPS=true` only when preparing v1.
+
+The stable v0 release channel is named `stable` in scripts and is published with the npm/GitHub Packages `latest` dist-tag. Consumer-facing versions still look like `0.2.0`, `0.3.0`, and so on.
+
+### Release Channels
+
+The release workflow calls `pnpm release`, which publishes with `latest` by default and automatically uses the active Changesets prerelease tag when `.changeset/pre.json` is in `pre` mode. The channel-specific scripts are available for explicit local publishes.
+
+Stable v0 release:
 
 ```bash
 pnpm changeset
+pnpm version-packages
+pnpm release
+```
+
+Alpha release:
+
+```bash
+pnpm changeset:pre:alpha
+pnpm changeset
+pnpm version-packages
+pnpm release:alpha
+```
+
+Beta release:
+
+```bash
+pnpm changeset:pre:beta
+pnpm changeset
+pnpm version-packages
+pnpm release:beta
+```
+
+Exit prerelease mode before publishing the stable v0 version:
+
+```bash
+pnpm changeset:pre:exit
 pnpm version-packages
 pnpm release
 ```

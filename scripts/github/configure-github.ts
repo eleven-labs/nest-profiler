@@ -165,6 +165,20 @@ async function main() {
     console.error(`  ✗ Repository settings: ${(err as Error).message}`);
   }
 
+  // --- Actions variables ---
+  console.log('\nConfiguring Actions variables…');
+  try {
+    if (tryGh('variable', 'get', 'ALLOW_MAJOR_BUMPS')) {
+      console.log('  ✓ ALLOW_MAJOR_BUMPS already configured');
+    } else {
+      gh('variable', 'set', 'ALLOW_MAJOR_BUMPS', '--body', 'false');
+      console.log('  ✓ ALLOW_MAJOR_BUMPS = false');
+      applied++;
+    }
+  } catch (err) {
+    console.error(`  ✗ ALLOW_MAJOR_BUMPS: ${(err as Error).message}`);
+  }
+
   // --- CODEOWNERS (setup only) ---
   if (!isUpdate) {
     console.log('\nConfiguring CODEOWNERS…');
