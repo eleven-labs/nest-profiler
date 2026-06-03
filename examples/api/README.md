@@ -2,10 +2,23 @@
 
 The `examples/api` directory contains a feature-complete NestJS application demonstrating every built-in collector. The application is organized into **one feature module per collector package**, making each collector's setup self-contained and easy to follow.
 
+## Live demo
+
+A live instance is deployed at **[nest-profiler-example.vercel.app](https://nest-profiler-example.vercel.app/api)** with the following configuration — no database infrastructure, in-memory storage only:
+
+```
+FEATURE_TYPEORM=false       # ProductsModule and PostgreSQL disabled
+FEATURE_MONGOOSE=false      # ReviewsModule and MongoDB disabled
+PROFILER_ENABLED=true
+PROFILER_STORAGE_TYPE=memory
+```
+
+Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Config**, **Validator**.
+
 ## Prerequisites
 
-- Docker (for PostgreSQL and MongoDB)
 - Node.js 22+, pnpm 10+
+- Docker (optional — only needed when `FEATURE_TYPEORM` or `FEATURE_MONGOOSE` is enabled)
 
 ## Start the infrastructure
 
@@ -16,6 +29,23 @@ docker compose up -d
 ```
 
 This starts **PostgreSQL 16** on port `5432` for the TypeORM collector demo, and **MongoDB 7** on port `27017` for the Mongoose collector demo.
+
+## Feature flags
+
+The example app uses feature flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
+
+| Variable           | Default | Description                                              |
+| ------------------ | ------- | -------------------------------------------------------- |
+| `FEATURE_TYPEORM`  | `true`  | Load TypeORM + PostgreSQL connection + `ProductsModule`  |
+| `FEATURE_MONGOOSE` | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`     |
+| `PROFILER_ENABLED` | `true`  | Enable the profiler UI and all collectors                |
+
+Set any flag to `false` to disable the corresponding module. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
+
+```bash
+# Run without any database (Posts, Auth, Config, Validator collectors still active)
+FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm example:dev
+```
 
 ## Run the application
 
@@ -51,8 +81,10 @@ Each feature module owns the collector(s) it demonstrates:
 
 ```
 AppModule
-├── ProductsModule  → TypeOrmCollectorModule (nest-profiler-typeorm)
-├── ReviewsModule   → MongooseCollectorModule (nest-profiler-mongoose)
+├── DatabaseModule [FEATURE_TYPEORM]
+│   └── ProductsModule  → TypeOrmCollectorModule (nest-profiler-typeorm)
+├── MongoModule [FEATURE_MONGOOSE]
+│   └── ReviewsModule   → MongooseCollectorModule (nest-profiler-mongoose)
 ├── PostsModule     → AxiosCollectorModule + CacheCollectorModule
 │                     uses global ValidatorCollectorModule (POST /posts)
 ├── AuthModule      → AuthCollectorModule (nest-profiler-auth)
@@ -62,20 +94,19 @@ AppModule
 
 ### AppModule — global infrastructure
 
+`DatabaseModule` and `MongoModule` are wrapper modules loaded conditionally via `ConditionalModule.registerWhen`. Each encapsulates the database connection setup and the feature module that depends on it.
+
 ```ts title="app.module.ts"
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, mongodbConfig, appConfig] }),
-    TypeOrmModule.forRootAsync({ ... }),
-    MongooseModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({ uri: config.get<string>('mongodb.uri') }),
-    }),
+    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, mongodbConfig, appConfig, featuresConfig] }),
+    ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled),   // FEATURE_TYPEORM !== 'false'
+    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),     // FEATURE_MONGOOSE !== 'false'
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
     ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
     ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
     ValidatorCollectorModule.forRoot({ whitelist: true, transform: true }),
-    ProductsModule, ReviewsModule, AuthModule, PostsModule,
+    AuthModule, PostsModule,
   ],
 })
 export class AppModule {}

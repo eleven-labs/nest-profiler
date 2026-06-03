@@ -22,8 +22,15 @@ async function bootstrap() {
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'jwt')
     .build();
 
+  const SWAGGER_UI_DIST = 'https://unpkg.com/swagger-ui-dist@5.32.6';
+
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, document, {
+    customCssUrl: `${SWAGGER_UI_DIST}/swagger-ui.css`,
+    customJs: [
+      `${SWAGGER_UI_DIST}/swagger-ui-bundle.js`,
+      `${SWAGGER_UI_DIST}/swagger-ui-standalone-preset.js`,
+    ],
     swaggerOptions: { persistAuthorization: true },
   });
 
