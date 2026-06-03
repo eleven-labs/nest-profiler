@@ -1,17 +1,17 @@
 {
-  "name": "@eleven-labs/nest-profiler",
+  "name": "@eleven-labs/nest-profiler-graphql",
   "version": "0.0.1",
-  "description": "NestJS web profiler module inspired by Symfony's Web Profiler",
+  "description": "GraphQL support for @eleven-labs/nest-profiler — Apollo, Mercurius and graphql-yoga",
   "keywords": [
     "nestjs",
+    "graphql",
+    "apollo",
+    "mercurius",
     "profiler",
-    "web-profiler",
-    "typescript",
     "debug",
-    "performance",
     "monitoring",
     "devtools",
-    "symfony-profiler"
+    "nest-profiler"
   ],
   "license": "MIT",
   "type": "commonjs",
@@ -38,37 +38,51 @@
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json && find src -name '*.ejs' | while IFS= read -r f; do dest=\"dist/${f#src/}\"; mkdir -p \"$(dirname \"$dest\")\" && cp \"$f\" \"$dest\"; done",
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
     "clean": "rimraf dist coverage",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "lint": "eslint src",
-    "test": "jest",
-    "test:cov": "jest --coverage",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:cov": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "@eleven-labs/nest-profiler": "workspace:*",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"
   },
+  "peerDependenciesMeta": {
+    "@nestjs/graphql": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "@nestjs/common": "^11.1.24",
+    "@apollo/server": "^4.11.3",
+    "@as-integrations/express5": "^1.1.2",
+    "@nestjs/apollo": "^13.0.3",
+    "@nestjs/common": "^11.1.3",
     "@nestjs/core": "^11.1.3",
+    "@nestjs/graphql": "^13.0.3",
+    "@nestjs/mercurius": "^13.0.3",
     "@nestjs/platform-express": "^11.1.3",
+    "@nestjs/platform-fastify": "^11.1.3",
     "@nestjs/testing": "^11.1.3",
+    "@eleven-labs/nest-profiler": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/ejs": "^3.1.5",
-    "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.32",
     "@types/supertest": "^6.0.3",
+    "fastify": "^5.2.1",
+    "graphql": "^16.11.0",
     "jest": "^30.4.2",
+    "mercurius": "^16.0.0",
     "nestjs-cls": "^4.5.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
@@ -84,26 +98,15 @@
       "src/**/*.(t|j)s",
       "!src/index.ts"
     ],
-    "coverageDirectory": "coverage",
-    "coverageThreshold": {
-      "global": {
-        "branches": 88,
-        "functions": 90,
-        "lines": 90,
-        "statements": 90
-      }
-    }
-  },
-  "dependencies": {
-    "ejs": "^6.0.1"
+    "coverageDirectory": "coverage"
   },
   "author": "Fabien Pasquet",
   "repository": {
     "type": "git",
     "url": "https://github.com/eleven-labs/nest-profiler.git",
-    "directory": "packages/nest-profiler"
+    "directory": "packages/nest-profiler-graphql"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler#readme",
+  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-graphql#readme",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   }

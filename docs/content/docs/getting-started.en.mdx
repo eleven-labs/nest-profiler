@@ -143,6 +143,49 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 export class AppModule {}
 ```
 
+## GraphQL support
+
+GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphql` package. The core `ProfilerModule` is HTTP-only — without this package, GraphQL requests pass through without profiling and without errors.
+
+```bash
+pnpm add @eleven-labs/nest-profiler-graphql
+```
+
+Import `ProfilerGraphQLModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
+
+```ts title="app.module.ts — Apollo (Express / Fastify) or graphql-yoga"
+import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ProfilerGraphQLModule.forRoot(),
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      context: ({ req }) => ({ req }), // required — exposes the request to the profiler
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+```ts title="app.module.ts — Mercurius (Fastify)"
+GraphQLModule.forRoot<MercuriusDriverConfig>({
+  driver: MercuriusDriver,
+  autoSchemaFile: true,
+  context: ({ request }) => ({ request }), // Mercurius uses `request` instead of `req`
+});
+```
+
+Without the `context` factory, the profiler silently falls back to passthrough for GraphQL resolvers. Subscriptions (WebSocket transport) are not profiled at this time.
+
+Each captured GraphQL request appears in `/_profiler` with a **GQL** badge and the operation type. The **Request** tab shows the operation type, operation name, field name, syntax-highlighted query, and variables.
+
+## Custom protocol adapters
+
+`ProfilerModule` exports an `IContextAdapter` interface and a `PROFILER_CONTEXT_ADAPTERS` multi-token that let you profile any NestJS execution context beyond HTTP — gRPC, Kafka, WebSockets, and more. `@eleven-labs/nest-profiler-graphql` is the reference implementation. See the [nest-profiler package guide](/docs/packages/nest-profiler#custom-protocol-adapters) for a full adapter example.
+
 ## Storage backends
 
 ```ts
@@ -173,6 +216,33 @@ curl -X POST http://localhost:3000/posts \
   -H "Content-Type: application/json" \
   -d '{"title":"Hi","body":"too short"}'  # Validator violations
 curl http://localhost:3000/slow            # Timeline spans
+
+# GraphQL — requires FEATURE_GRAPHQL=true (default)
+# Query with operation name
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationName": "GetBooks",
+    "query": "query GetBooks { books { id title author publishedYear } }"
+  }'
+
+# Query with variable
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationName": "GetBook",
+    "query": "query GetBook($id: ID!) { book(id: $id) { id title author } }",
+    "variables": { "id": "1" }
+  }'
+
+# Mutation with operation name and variables
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationName": "CreateBook",
+    "query": "mutation CreateBook($title: String!, $author: String!, $publishedYear: Int) { createBook(input: { title: $title, author: $author, publishedYear: $publishedYear }) { id title author } }",
+    "variables": { "title": "NestJS in Action", "author": "John Doe", "publishedYear": 2024 }
+  }'
 ```
 
 Open `http://localhost:3000/_profiler` to browse all collected profiles.

@@ -7,6 +7,7 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
+import type { IContextAdapter } from '../adapters/context-adapter.interface';
 
 function makeProfile(): Profile {
   return {
@@ -28,12 +29,34 @@ function makeRes(headers: Record<string, string> = {}): PlatformResponse {
   } as unknown as PlatformResponse;
 }
 
-function makeCtx(req: Partial<PlatformRequest>, res: PlatformResponse): ExecutionContext {
+function makeResWithFinish(
+  statusCode = 200,
+  headers: Record<string, string> = {},
+): PlatformResponse & { triggerFinish(): void } {
+  let finishCb: (() => void) | undefined;
   return {
+    statusCode,
+    getHeaders: () => ({ ...headers }),
+    getHeader: (k: string) => headers[k.toLowerCase()],
+    once: (_event: string, fn: () => void) => {
+      finishCb = fn;
+    },
+    triggerFinish: () => finishCb?.(),
+  } as unknown as PlatformResponse & { triggerFinish(): void };
+}
+
+function makeCtx(
+  req: Partial<PlatformRequest>,
+  res: PlatformResponse,
+  type = 'http',
+): ExecutionContext {
+  return {
+    getType: () => type,
     switchToHttp: () => ({
       getRequest: () => req as PlatformRequest,
       getResponse: () => res,
     }),
+    getArgs: () => [],
   } as unknown as ExecutionContext;
 }
 
@@ -41,9 +64,12 @@ interface CoreMock {
   storage: { save: jest.Mock };
   collectorRegistry: { collectAll: jest.Mock; buildPanels: jest.Mock };
   routeCollector: { match: jest.Mock };
+  findContextAdapter: jest.Mock;
+  registerContextAdapter: jest.Mock;
+  enrichHttpResponse: jest.Mock;
 }
 
-function makeCore(): CoreMock {
+function makeCore(adapter?: IContextAdapter): CoreMock {
   return {
     storage: { save: jest.fn() },
     collectorRegistry: {
@@ -51,6 +77,29 @@ function makeCore(): CoreMock {
       buildPanels: jest.fn().mockReturnValue([]),
     },
     routeCollector: { match: jest.fn().mockReturnValue(undefined) },
+    findContextAdapter: jest.fn().mockReturnValue(adapter ?? undefined),
+    registerContextAdapter: jest.fn(),
+    enrichHttpResponse: jest.fn(),
+  };
+}
+
+interface ClsMock {
+  get: jest.Mock;
+  run: jest.Mock;
+  set: jest.Mock;
+}
+
+function makeClsService(profile: Profile | undefined, clsThrows = false): ClsMock {
+  const store: Record<string, unknown> = {};
+  return {
+    get: jest.fn(() => {
+      if (clsThrows) throw new Error('outside CLS');
+      return profile;
+    }),
+    run: jest.fn((fn: () => void) => fn()),
+    set: jest.fn((key: string, value: unknown) => {
+      store[key] = value;
+    }),
   };
 }
 
@@ -60,13 +109,18 @@ function makeInterceptor(
   options: ProfilerModuleOptions = {},
   clsThrows = false,
 ): ProfilerInterceptor {
-  const cls = {
-    get: jest.fn(() => {
-      if (clsThrows) throw new Error('outside CLS');
-      return profile;
-    }),
-  } as unknown as ClsService;
-  return new ProfilerInterceptor(cls, core as unknown as ProfilerCoreService, options);
+  const cls = makeClsService(profile, clsThrows);
+  return new ProfilerInterceptor(
+    cls as unknown as ClsService,
+    core as unknown as ProfilerCoreService,
+    options,
+  );
+}
+
+interface AdapterMock {
+  contextType: string;
+  recoverProfile: jest.Mock;
+  enrichProfile: jest.Mock;
 }
 
 function handler(value: unknown): CallHandler {
@@ -101,7 +155,7 @@ describe('ProfilerInterceptor', () => {
     });
   });
 
-  describe('success path', () => {
+  describe('HTTP success path', () => {
     it('finalizes the profile, runs collectors, saves and returns the body', async () => {
       const profile = makeProfile();
       const core = makeCore();
@@ -190,7 +244,171 @@ describe('ProfilerInterceptor', () => {
     });
   });
 
-  describe('error path', () => {
+  describe('non-HTTP context (GraphQL / RPC)', () => {
+    function makeGqlCtx(args: unknown[] = []): ExecutionContext {
+      return {
+        getType: () => 'graphql',
+        getArgs: () => args,
+        switchToHttp: () => ({
+          getRequest: () => ({}),
+          getResponse: () => ({ query: '{ _sdl }' }),
+        }),
+      } as unknown as ExecutionContext;
+    }
+
+    function makeAdapter(profile: Profile | null): AdapterMock {
+      return {
+        contextType: 'graphql',
+        recoverProfile: jest.fn(() => profile),
+        enrichProfile: jest.fn(),
+      };
+    }
+
+    it('passes through when no adapter is registered for the context type', async () => {
+      const core = makeCore(); // findContextAdapter returns undefined
+      const interceptor = makeInterceptor(undefined, core);
+
+      const result = await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler({ data: 1 })));
+
+      expect(result).toEqual({ data: 1 });
+      expect(core.storage.save).not.toHaveBeenCalled();
+    });
+
+    it('passes through when adapter returns null (profile not recoverable)', async () => {
+      const adapter = makeAdapter(null);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(undefined, core);
+
+      const result = await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler('data')));
+
+      expect(result).toBe('data');
+      expect(core.storage.save).not.toHaveBeenCalled();
+    });
+
+    it('recovers profile via adapter, enriches and saves when CLS is broken', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(undefined, core);
+      const resolverResult = { books: [] };
+
+      const result = await lastValueFrom(
+        interceptor.intercept(makeGqlCtx(), handler(resolverResult)),
+      );
+
+      expect(result).toBe(resolverResult);
+      expect(profile.response).toEqual({ statusCode: 200, headers: {}, body: resolverResult });
+      expect(adapter.enrichProfile).toHaveBeenCalledWith(profile, expect.any(Object));
+      expect(core.collectorRegistry.collectAll).toHaveBeenCalledWith(profile);
+      expect(core.storage.save).toHaveBeenCalledWith(profile);
+    });
+
+    it('re-establishes CLS context when profile is recovered from req', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const cls = makeClsService(undefined);
+      const interceptor = new ProfilerInterceptor(
+        cls as unknown as ClsService,
+        core as unknown as ProfilerCoreService,
+        {},
+      );
+
+      await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler('result')));
+
+      expect(cls.run.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(cls.set).toHaveBeenCalledWith('profiler.profile', profile);
+      expect(cls.set).toHaveBeenCalledWith('profiler.token', profile.token);
+    });
+
+    it('routes to processNonHttp when profile is already in CLS for a GraphQL context', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      // profile in CLS, context is 'graphql' — must NOT call processHttp
+      const interceptor = makeInterceptor(profile, core);
+
+      const result = await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler({ data: 1 })));
+
+      expect(result).toEqual({ data: 1 });
+      expect(profile.response).toEqual({ statusCode: 200, headers: {}, body: { data: 1 } });
+    });
+
+    it('records HttpException status code from GraphQL resolver errors', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(undefined, core);
+      const error = new BadRequestException('invalid input');
+
+      await expect(
+        lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler(error))),
+      ).rejects.toBe(error);
+
+      expect(profile.response?.statusCode).toBe(400);
+    });
+
+    it('does not call enrichProfile a second time when graphql info is already set', async () => {
+      const profile = makeProfile();
+      profile.request.graphql = { operationType: 'query', fieldName: 'books' };
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(profile, core);
+
+      await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler(null)));
+
+      expect(adapter.enrichProfile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('HTTP finish hook (safety net for direct-response frameworks)', () => {
+    it('saves profile via finish hook when Observable never completes', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeResWithFinish(400);
+      const interceptor = makeInterceptor(profile, core);
+
+      // The interceptor sets up the hook but we do NOT wait for the observable;
+      // instead we trigger the finish event directly (simulating Apollo 400).
+      const interceptorObs = interceptor.intercept(
+        makeCtx({ method: 'POST', url: '/graphql' }, res),
+        handler('body'),
+      );
+
+      // Trigger finish BEFORE the observable emits (simulates direct-response framework)
+      res.triggerFinish();
+      await new Promise((r) => setTimeout(r, 10));
+
+      // The finish hook should have saved the profile
+      expect(profile.response).toBeDefined();
+      expect(profile.response?.statusCode).toBe(400);
+
+      // Clean up
+      interceptorObs.subscribe().unsubscribe();
+    });
+
+    it('finish hook skips when profile.response is already set (normal path ran)', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeResWithFinish(200);
+      const interceptor = makeInterceptor(profile, core);
+
+      // Run the observable fully (normal path)
+      await lastValueFrom(
+        interceptor.intercept(makeCtx({ method: 'GET', url: '/api' }, res), handler('ok')),
+      );
+
+      const saveCount = core.storage.save.mock.calls.length;
+
+      // Trigger finish — should NOT save again since profile.response is already set
+      res.triggerFinish();
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(core.storage.save.mock.calls.length).toBe(saveCount);
+    });
+  });
+
+  describe('HTTP error path', () => {
     it('records the exception, overrides the status from HttpException, saves and rethrows', async () => {
       const profile = makeProfile();
       const core = makeCore();

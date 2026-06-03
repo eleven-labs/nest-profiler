@@ -73,9 +73,10 @@ const activeProviders = [
   TemplateRendererService,
   ProfilerCoreService,
   TimelineCollector,
+  ProfilerInterceptor,
   {
     provide: APP_INTERCEPTOR,
-    useClass: ProfilerInterceptor,
+    useExisting: ProfilerInterceptor,
   },
 ];
 

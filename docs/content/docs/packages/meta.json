@@ -8,6 +8,7 @@
     "nest-profiler-cache",
     "nest-profiler-auth",
     "nest-profiler-config",
-    "nest-profiler-validator"
+    "nest-profiler-validator",
+    "nest-profiler-graphql"
   ]
 }

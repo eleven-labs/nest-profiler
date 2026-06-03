@@ -21,6 +21,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/graphql.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', function () { hljs.highlightAll(); });</script>
   <!-- Strip hljs background so the profiler's own surface colour shows through -->
   <style>.hljs { background: transparent !important; padding: 0 !important; }</style>
@@ -118,6 +119,10 @@
       .badge-delete  { @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;     }
       .badge-head    { @apply bg-purple-100  text-purple-700  dark:bg-purple-900/40  dark:text-purple-300;  }
       .badge-options { @apply bg-slate-100   text-slate-600   dark:bg-slate-800      dark:text-slate-300;   }
+      /* ── GraphQL operation type badges ─────────────── */
+      .badge-gql-query        { @apply bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300; }
+      .badge-gql-mutation     { @apply bg-pink-100   text-pink-700   dark:bg-pink-900/40   dark:text-pink-300;   }
+      .badge-gql-subscription { @apply bg-cyan-100   text-cyan-700   dark:bg-cyan-900/40   dark:text-cyan-300;   }
       /* ── HTTP status badges ─────────────────────────── */
       .badge-2xx { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
       .badge-3xx { @apply bg-sky-100     text-sky-700     dark:bg-sky-900/40     dark:text-sky-300;     }
