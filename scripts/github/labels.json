@@ -54,11 +54,10 @@
     "color": "ffffff",
     "description": "This will not be worked on"
   },
-
   {
     "name": "priority: high",
     "color": "b91c1c",
-    "description": "Urgent — blocks release or critical users"
+    "description": "Urgent \u2014 blocks release or critical users"
   },
   {
     "name": "priority: medium",
@@ -70,7 +69,6 @@
     "color": "65a30d",
     "description": "Nice to have"
   },
-
   {
     "name": "scope: packages",
     "color": "5b21b6",
@@ -91,7 +89,6 @@
     "color": "14b8a6",
     "description": "Change to example applications"
   },
-
   {
     "name": "package: nest-profiler",
     "color": "f59e0b",
@@ -132,7 +129,11 @@
     "color": "f59e0b",
     "description": "Affects the @eleven-labs/nest-profiler-validator package"
   },
-
+  {
+    "name": "package: nest-profiler-graphql",
+    "color": "f59e0b",
+    "description": "Affects the @eleven-labs/nest-profiler-graphql package"
+  },
   {
     "name": "dependencies",
     "color": "0075ca",

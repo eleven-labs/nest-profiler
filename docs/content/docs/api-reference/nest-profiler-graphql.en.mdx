@@ -1,0 +1,95 @@
+---
+title: nest-profiler-graphql
+description: API reference for @eleven-labs/nest-profiler-graphql — GraphQL collector for Apollo, Mercurius and graphql-yoga.
+---
+
+## ProfilerGraphQLModuleOptions
+
+Options passed to `ProfilerGraphQLModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-graphql/src/profiler-graphql.module.ts"
+  name="ProfilerGraphQLModuleOptions"
+/>
+
+## GraphQLInfo
+
+GraphQL metadata attached to `profile.request.graphql` for every profiled GraphQL operation.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="GraphQLInfo"
+/>
+
+## ProfilerFilterRequest
+
+Request context passed to `ignoreRequest` predicates and pre-built filter functions. Matches the underlying Express / Fastify request without exposing framework-specific types.
+
+<AutoTypeTable path="packages/nest-profiler/src/filters.ts" name="ProfilerFilterRequest" />
+
+## IContextAdapter
+
+Interface to implement when profiling a non-HTTP protocol (gRPC, Kafka, WebSockets…). Register the implementation with the `PROFILER_CONTEXT_ADAPTERS` multi-token so `ProfilerInterceptor` picks it up automatically.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/adapters/context-adapter.interface.ts"
+  name="IContextAdapter"
+/>
+
+## Pre-built filters
+
+These are re-exported from `@eleven-labs/nest-profiler-graphql` and consumed via the `ignoreRequest` option of `ProfilerModule`.
+
+### `ignoreGraphQLPlayground`
+
+```ts
+const ignoreGraphQLPlayground: ProfilerRequestFilter;
+```
+
+Skips `GET /graphql` requests that serve the Apollo Sandbox UI (`Accept: text/html`). These requests are browser page loads and carry no meaningful GraphQL data.
+
+### `ignoreGraphQLIntrospection`
+
+```ts
+const ignoreGraphQLIntrospection: ProfilerRequestFilter;
+```
+
+Skips GraphQL introspection queries sent by the playground and other tooling to load the schema. Matches:
+
+- `operationName === 'IntrospectionQuery'` (all major clients), or
+- a POST body query containing `__schema` or `__type` (anonymous introspection).
+
+### `combineFilters` _(from `@eleven-labs/nest-profiler`)_
+
+```ts
+function combineFilters(...filters: ProfilerRequestFilter[]): ProfilerRequestFilter;
+```
+
+Combines multiple filter predicates with an OR — the request is skipped when **any** filter returns `true`.
+
+```ts
+import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
+import {
+  ignoreGraphQLPlayground,
+  ignoreGraphQLIntrospection,
+} from '@eleven-labs/nest-profiler-graphql';
+
+ProfilerModule.forRoot({
+  ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
+});
+```
+
+## Public exports
+
+```ts
+import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLContextAdapter } from '@eleven-labs/nest-profiler-graphql';
+import {
+  ignoreGraphQLPlayground,
+  ignoreGraphQLIntrospection,
+} from '@eleven-labs/nest-profiler-graphql';
+
+import type { ProfilerGraphQLModuleOptions } from '@eleven-labs/nest-profiler-graphql';
+```
+
+Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_CONTEXT_ADAPTERS`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.

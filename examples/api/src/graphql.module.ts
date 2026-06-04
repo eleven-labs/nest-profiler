@@ -14,6 +14,7 @@ import { BooksModule } from './books/books.module';
       driver: ApolloDriver,
       autoSchemaFile: true,
       introspection: true,
+      playground: false,
       // Apollo Sandbox playground — available at GET /graphql in dev
       plugins: [ApolloServerPluginLandingPageLocalDefault({ embed: true })],
       // Required for the profiler: exposes the Express request in the GraphQL context

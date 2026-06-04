@@ -19,7 +19,7 @@ function makeCtx(args: unknown[]): ExecutionContext {
   return {
     getType: () => 'graphql',
     getArgs: () => args,
-  } as unknown as ExecutionContext;
+  } as ExecutionContext;
 }
 
 describe('GraphQLContextAdapter', () => {

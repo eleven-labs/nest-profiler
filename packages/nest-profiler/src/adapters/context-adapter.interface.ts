@@ -9,11 +9,6 @@ export interface IContextAdapter {
   recoverProfile(ctx: ExecutionContext): Profile | null;
   /** Enriches the profile with protocol-specific metadata. */
   enrichProfile(profile: Profile, ctx: ExecutionContext): void;
-  /**
-   * Optional hook called by ProfilerInterceptor for every HTTP response.
-   * Adapters that handle protocols tunnelled over HTTP (e.g. GraphQL over POST)
-   * can implement this to populate profile metadata and surface errors from the
-   * response body — including cases where no resolver runs (schema validation failures).
-   */
-  enrichHttpResponse?(profile: Profile, req: Record<string, unknown>, responseBody: unknown): void;
+  /** Optional. Called for every HTTP response; implement to enrich metadata or surface errors from the response body. */
+  enrichHttpResponse?(profile: Profile, req: object, responseBody: unknown): void;
 }

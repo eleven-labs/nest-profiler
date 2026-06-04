@@ -69,6 +69,32 @@ ProfilerGraphQLModule.forRoot({
 })
 ```
 
+## Ignoring playground and introspection requests
+
+The playground and introspection requests are profiled by default. Use the
+`ignoreRequest` option of `ProfilerModule` together with the pre-built filters
+from this package to exclude them:
+
+```ts
+import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
+import {
+  ProfilerGraphQLModule,
+  ignoreGraphQLPlayground,
+  ignoreGraphQLIntrospection,
+} from '@eleven-labs/nest-profiler-graphql';
+
+ProfilerModule.forRoot({
+  isGlobal: true,
+  ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
+}),
+ProfilerGraphQLModule.forRoot(),
+```
+
+| Filter | Skips |
+|---|---|
+| `ignoreGraphQLPlayground` | `GET /graphql` with `Accept: text/html` — the Sandbox UI page load |
+| `ignoreGraphQLIntrospection` | Any POST with `operationName: IntrospectionQuery` or a query referencing `__schema` / `__type` |
+
 ## What is captured
 
 Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:

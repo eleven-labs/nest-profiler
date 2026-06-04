@@ -28,12 +28,8 @@ export class ProfilerCoreService {
     return this.contextAdapters.find((a) => a.contextType === contextType);
   }
 
-  /**
-   * Calls `enrichHttpResponse()` on every registered adapter that implements it.
-   * Invoked by ProfilerInterceptor for each HTTP response, allowing adapters to
-   * populate request metadata (e.g. GraphQL operation info) and surface errors.
-   */
-  enrichHttpResponse(profile: Profile, req: Record<string, unknown>, responseBody: unknown): void {
+  /** Calls `enrichHttpResponse` on every adapter that implements it. */
+  enrichHttpResponse(profile: Profile, req: object, responseBody: unknown): void {
     for (const adapter of this.contextAdapters) {
       adapter.enrichHttpResponse?.(profile, req, responseBody);
     }

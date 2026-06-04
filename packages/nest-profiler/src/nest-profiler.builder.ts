@@ -1,6 +1,7 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
+import type { ProfilerRequestFilter } from './filters';
 
 export interface ProfilerModuleOptions {
   /**
@@ -55,6 +56,9 @@ export interface ProfilerModuleOptions {
 
   /** Cookie names whose value should be replaced with '***'. */
   maskCookies?: string[];
+
+  /** Custom predicate called after `ignorePaths`; return `true` to skip profiling. Compose with `combineFilters` for multiple conditions. */
+  ignoreRequest?: ProfilerRequestFilter;
 }
 
 export type ProfilerModuleAsyncOptions = ConfigurableModuleAsyncOptions<ProfilerModuleOptions> & {

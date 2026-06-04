@@ -26,7 +26,7 @@ function makeRes(headers: Record<string, string> = {}): PlatformResponse {
     statusCode: 200,
     getHeaders: () => ({ ...headers }),
     getHeader: (k: string) => headers[k.toLowerCase()],
-  } as unknown as PlatformResponse;
+  } as Partial<PlatformResponse> as PlatformResponse;
 }
 
 function makeResWithFinish(
@@ -42,7 +42,9 @@ function makeResWithFinish(
       finishCb = fn;
     },
     triggerFinish: () => finishCb?.(),
-  } as unknown as PlatformResponse & { triggerFinish(): void };
+  } as Partial<PlatformResponse> & { triggerFinish(): void } as PlatformResponse & {
+    triggerFinish(): void;
+  };
 }
 
 function makeCtx(
@@ -57,7 +59,7 @@ function makeCtx(
       getResponse: () => res,
     }),
     getArgs: () => [],
-  } as unknown as ExecutionContext;
+  } as ExecutionContext;
 }
 
 interface CoreMock {
@@ -111,8 +113,8 @@ function makeInterceptor(
 ): ProfilerInterceptor {
   const cls = makeClsService(profile, clsThrows);
   return new ProfilerInterceptor(
-    cls as unknown as ClsService,
-    core as unknown as ProfilerCoreService,
+    cls as object as ClsService,
+    core as object as ProfilerCoreService,
     options,
   );
 }
@@ -253,7 +255,7 @@ describe('ProfilerInterceptor', () => {
           getRequest: () => ({}),
           getResponse: () => ({ query: '{ _sdl }' }),
         }),
-      } as unknown as ExecutionContext;
+      } as ExecutionContext;
     }
 
     function makeAdapter(profile: Profile | null): AdapterMock {
@@ -346,6 +348,20 @@ describe('ProfilerInterceptor', () => {
       ).rejects.toBe(error);
 
       expect(profile.response?.statusCode).toBe(400);
+    });
+
+    it('handles a non-Error thrown value in the non-HTTP error path', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(undefined, core);
+
+      await expect(
+        lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler('oops'))),
+      ).rejects.toBe('oops');
+
+      expect(profile.exceptions[0].message).toBe('oops');
+      expect(profile.response?.statusCode).toBe(500);
     });
 
     it('does not call enrichProfile a second time when graphql info is already set', async () => {

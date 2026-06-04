@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
+import {
+  ignoreGraphQLPlayground,
+  ignoreGraphQLIntrospection,
+} from '@eleven-labs/nest-profiler-graphql';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { AppController } from './app.controller';
@@ -54,6 +58,7 @@ import featuresConfig, {
           collectBody: true,
           sampleRate: 1.0,
           ignorePaths: ['/favicon.ico'],
+          ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
         };
       },
     }),

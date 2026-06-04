@@ -7,6 +7,7 @@ import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/h
 import type { Profile } from '../interfaces/profile.interface';
 import { PROFILER_REQ_KEY } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import type { ProfilerRequestFilter } from '../filters';
 
 function normalizeIncomingHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
   const result: Record<string, string | string[]> = {};
@@ -31,6 +32,7 @@ export class ProfilerMiddleware implements NestMiddleware {
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
   private readonly maskCookies: Set<string>;
+  private readonly ignoreRequest: ProfilerRequestFilter | undefined;
 
   constructor(
     private readonly cls: ClsService,
@@ -45,6 +47,7 @@ export class ProfilerMiddleware implements NestMiddleware {
     this.sampleRate = options.sampleRate ?? 1.0;
     this.ignorePaths = options.ignorePaths ?? [];
     this.maskCookies = new Set(options.maskCookies ?? []);
+    this.ignoreRequest = options.ignoreRequest;
   }
 
   use(req: PlatformRequest, res: PlatformResponse, next: NextFunction): void {
@@ -145,11 +148,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         body: this.collectBody ? interceptedResponseBody : undefined,
       };
 
-      this.core.enrichHttpResponse(
-        profile,
-        req as unknown as Record<string, unknown>,
-        interceptedResponseBody,
-      );
+      this.core.enrichHttpResponse(profile, req, interceptedResponseBody);
 
       void this.core.collectorRegistry
         .collectAll(profile)
@@ -161,6 +160,16 @@ export class ProfilerMiddleware implements NestMiddleware {
     const reqPath = req.path ?? req.url;
     if (reqPath.startsWith(this.profilerPath)) return true;
     if (this.sampleRate < 1.0 && Math.random() > this.sampleRate) return true;
+    if (
+      this.ignoreRequest?.({
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        headers: normalizeIncomingHeaders(req.headers),
+        body: req.body,
+      })
+    )
+      return true;
     if (this.ignorePaths.length === 0) return false;
     return this.ignorePaths.some((p) =>
       typeof p === 'string' ? reqPath.startsWith(p) : p.test(reqPath),

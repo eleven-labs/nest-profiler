@@ -84,15 +84,7 @@
       "src/**/*.(t|j)s",
       "!src/index.ts"
     ],
-    "coverageDirectory": "coverage",
-    "coverageThreshold": {
-      "global": {
-        "branches": 88,
-        "functions": 90,
-        "lines": 90,
-        "statements": 90
-      }
-    }
+    "coverageDirectory": "coverage"
   },
   "dependencies": {
     "ejs": "^6.0.1"

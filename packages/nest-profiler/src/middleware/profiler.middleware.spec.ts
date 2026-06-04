@@ -372,6 +372,18 @@ describe('ProfilerMiddleware', () => {
     });
   });
 
+  describe('ignoreRequest filter', () => {
+    it('skips profiling when ignoreRequest returns true', async () => {
+      const { middleware, cls } = await createMiddleware({ ignoreRequest: () => true });
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'POST', url: '/graphql', headers: {}, query: {} },
+        cls,
+      );
+      expect(profile).toBeUndefined();
+    });
+  });
+
   describe('finish hook (safety net for direct-response frameworks)', () => {
     /**
      * Creates a response mock that supports the finish event mechanism
@@ -407,7 +419,12 @@ describe('ProfilerMiddleware', () => {
         triggerFinish() {
           finishListener?.();
         },
-      } as unknown as PlatformResponse & {
+      } as Partial<PlatformResponse> & {
+        triggerFinish(): void;
+        json: jest.Mock;
+        send: jest.Mock;
+        statusCode: number;
+      } as PlatformResponse & {
         triggerFinish(): void;
         json: jest.Mock;
         send: jest.Mock;
@@ -435,22 +452,26 @@ describe('ProfilerMiddleware', () => {
       coreMock: CoreMockForMiddleware;
     } {
       const coreMock = makeCoreMock();
-      // Create a real ClsService-like object using the module's stored CLS
       const clsLike = {
         run: (fn: () => void) => fn(),
         set: jest.fn(),
         get: jest.fn(() => undefined),
-      } as unknown as ClsService;
+      } as object as ClsService;
       const middleware = new ProfilerMiddleware(
         clsLike,
         options,
-        coreMock as unknown as ProfilerCoreService,
+        coreMock as object as ProfilerCoreService,
       );
       return { middleware, cls: clsLike, coreMock };
     }
 
     const makeReq = (path = '/api') =>
-      ({ method: 'POST', url: path, headers: {}, query: {} }) as unknown as PlatformRequest;
+      ({
+        method: 'POST',
+        url: path,
+        headers: {},
+        query: {},
+      }) as Partial<PlatformRequest> as PlatformRequest;
 
     const waitAsync = (ms = 20) => new Promise<void>((r) => setTimeout(r, ms));
 

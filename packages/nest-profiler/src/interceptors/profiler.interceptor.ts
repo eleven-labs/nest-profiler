@@ -94,14 +94,12 @@ export class ProfilerInterceptor implements NestInterceptor {
     const res = httpCtx.getResponse<PlatformResponse>();
     const req = httpCtx.getRequest<PlatformRequest>();
 
-    // Safety net for frameworks (e.g. Apollo Server) that send the response directly
-    // without calling Express's next() function. In those cases NestJS's Observable
-    // never emits, so the normal switchMap path is never reached and the profile would
-    // be lost. The 'finish' event fires once the response is fully sent.
-    const rawRes = res as unknown as {
+    // Safety net: Apollo bypasses Express next() so the Observable never fires — rely on finish event.
+    type FinishableResponse = {
       once?: (event: 'finish', fn: () => void) => void;
       statusCode?: number;
     };
+    const rawRes = res as FinishableResponse;
     rawRes.once?.('finish', () => {
       if (capturedProfile.response) return; // normal path already ran
       capturedProfile.performance.duration = Date.now() - capturedProfile.performance.startTime;
@@ -110,11 +108,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         headers: {},
         body: undefined,
       };
-      this.core.enrichHttpResponse(
-        capturedProfile,
-        req as unknown as Record<string, unknown>,
-        undefined,
-      );
+      this.core.enrichHttpResponse(capturedProfile, req, undefined);
       void this.core.collectorRegistry
         .collectAll(capturedProfile)
         .then(() => this.core.storage.save(capturedProfile));
@@ -125,13 +119,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         this.finalize(capturedProfile, res, body);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
-        // Let registered adapters enrich metadata from HTTP request/response
-        // (e.g. GraphQL operation info from request body, errors from response body).
-        this.core.enrichHttpResponse(
-          capturedProfile,
-          req as unknown as Record<string, unknown>,
-          body,
-        );
+        this.core.enrichHttpResponse(capturedProfile, req, body);
         return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
           tap(() => {
             void this.core.storage.save(capturedProfile);

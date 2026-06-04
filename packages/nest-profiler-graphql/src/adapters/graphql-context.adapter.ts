@@ -17,10 +17,7 @@ type GqlContext = Record<string, unknown>;
 
 type GraphQLModule = { parse: (s: string) => unknown; print: (ast: unknown) => string };
 
-/**
- * Attempts to format the query using the `graphql` package's printer.
- * Returns the original string when formatting is not possible.
- */
+/** Returns original string when formatting fails. */
 function tryFormatQuery(query: string): string {
   try {
     // graphql is an optional peer dep — dynamic require avoids a hard load error when absent.
@@ -32,9 +29,6 @@ function tryFormatQuery(query: string): string {
   }
 }
 
-/**
- * Parses the GraphQL operation type from the raw query string.
- */
 function detectOperationType(query: string): GraphQLInfo['operationType'] {
   const trimmed = query.trimStart();
   if (trimmed.startsWith('mutation')) return 'mutation';
@@ -42,9 +36,6 @@ function detectOperationType(query: string): GraphQLInfo['operationType'] {
   return 'query';
 }
 
-/**
- * Extracts the entry-point field name from the raw query string.
- */
 function detectFieldName(query: string): string {
   const match = query.match(
     /(?:query|mutation|subscription)\s*\w*\s*(?:\([^)]*\))?\s*(?:@\w+\s*)*\{\s*(\w+)|^\s*\{\s*(\w+)/,
@@ -108,24 +99,19 @@ export class GraphQLContextAdapter implements IContextAdapter {
     };
   }
 
-  /**
-   * Called by ProfilerInterceptor after every HTTP response.
-   * Handles GraphQL-over-HTTP requests where no resolver may have run
-   * (e.g. schema validation failures) and surfaces GraphQL errors as exceptions.
-   */
-  enrichHttpResponse(profile: Profile, req: Record<string, unknown>, responseBody: unknown): void {
-    // Apollo 4 may handle body parsing internally, so req.body can be undefined.
-    // Fall back to profile.request.body (set by ProfilerMiddleware when collectBody: true)
-    // or to the raw body captured by Express before Apollo processes it.
+  /** Populates GraphQL metadata and surfaces errors even when no resolver ran (e.g. validation failure). */
+  enrichHttpResponse(profile: Profile, req: object, responseBody: unknown): void {
+    const reqRecord = req as Record<string, unknown>;
+    // Apollo may parse body internally — fall back to profiler-captured body.
     const body =
-      (req['body'] as Record<string, unknown> | undefined) ??
+      (reqRecord['body'] as Record<string, unknown> | undefined) ??
       (profile.request.body as Record<string, unknown> | undefined);
     if (!body || typeof body['query'] !== 'string') return;
 
     const rawQuery = body['query'];
 
-    // Populate graphql metadata when no resolver ran (e.g. validation failure)
     if (!profile.request.graphql) {
+      // No resolver ran (e.g. validation failure) — populate metadata from HTTP body.
       profile.request.graphql = {
         operationType: detectOperationType(rawQuery),
         fieldName: detectFieldName(rawQuery),
@@ -138,14 +124,13 @@ export class GraphQLContextAdapter implements IContextAdapter {
           }),
       };
     } else if (profile.request.graphql.query) {
-      // Resolver ran — still format the query for consistent display
+      // Resolver ran — still format the query for consistent display.
       profile.request.graphql = {
         ...profile.request.graphql,
         query: tryFormatQuery(profile.request.graphql.query),
       };
     }
 
-    // Surface GraphQL-level errors (validation, resolver) as profiler exceptions
     const gqlResponse = responseBody as { errors?: unknown[] } | null;
     if (!Array.isArray(gqlResponse?.errors)) return;
 
