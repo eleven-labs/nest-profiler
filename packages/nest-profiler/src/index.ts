@@ -2,6 +2,8 @@ export { NEST_PROFILER_MODULE_OPTIONS } from './nest-profiler.builder';
 export type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
 export { ProfilerModule } from './nest-profiler.module';
 export { ProfilerService } from './services/nest-profiler.service';
+export { createProfilerLogger, DEFAULT_LOG_METHODS } from './services/profiler-logger-adapter';
+export type { LogMethodMap } from './services/profiler-logger-adapter';
 export { ProfilerStorageService } from './services/profiler-storage.service';
 export { ProfilerCoreService } from './services/profiler-core.service';
 export { TemplateRendererService } from './services/template-renderer.service';

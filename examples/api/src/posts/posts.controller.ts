@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Logger, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Optional, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { HttpService } from '@nestjs/axios';
@@ -6,6 +6,7 @@ import type { Cache } from 'cache-manager';
 import { firstValueFrom } from 'rxjs';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import { CreatePostDto } from './dto/create-post.dto';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 const POSTS_CACHE_KEY = 'external:posts';
 const TODOS_CACHE_KEY = 'external:todos';
@@ -28,13 +29,19 @@ interface JphUser {
 @ApiTags('posts')
 @Controller('posts')
 export class PostsController {
-  private readonly logger = new Logger(PostsController.name);
+  // Only set when FEATURE_PINO_LOGGER=true; wrapped here because injected loggers bypass app.useLogger().
+  private readonly logger?: PinoLogger;
 
   constructor(
     private readonly profiler: ProfilerService,
     private readonly http: HttpService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
-  ) {}
+    @Optional()
+    @InjectPinoLogger(PostsController.name)
+    pinoLogger?: PinoLogger,
+  ) {
+    this.logger = pinoLogger ? this.profiler.createLogger(pinoLogger) : undefined;
+  }
 
   @Get()
   @ApiOperation({
@@ -52,12 +59,12 @@ export class PostsController {
   async getPosts(): Promise<unknown[]> {
     const cached = await this.cache.get<unknown[]>(POSTS_CACHE_KEY);
     if (cached) {
-      this.logger.log('Posts served from cache (HIT)');
+      this.logger?.info('Posts served from cache (HIT)');
       return cached;
     }
 
     // 1. Fetch posts
-    this.logger.log('Fetching posts from external API (MISS)');
+    this.logger?.info('Fetching posts from external API (MISS)');
     const stopPosts = this.profiler.startSpan('http.posts');
     const { data: posts } = await firstValueFrom(
       this.http.get<JphPost[]>('https://jsonplaceholder.typicode.com/posts?_limit=5'),
@@ -75,7 +82,7 @@ export class PostsController {
     stopUsers();
 
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data]));
-    this.logger.log(`Resolved ${userMap.size} author(s), caching enriched posts`);
+    this.logger?.info(`Resolved ${userMap.size} author(s), caching enriched posts`);
 
     // 3. Build enriched response and cache it
     const enriched = posts.map((post) => {
@@ -108,7 +115,7 @@ export class PostsController {
     description: 'Validation failed — check the Validator panel in /_profiler',
   })
   createPost(@Body() dto: CreatePostDto): Record<string, unknown> {
-    this.logger.log(`Creating post: ${dto.title}`);
+    this.logger?.info(`Creating post: ${dto.title}`);
     return {
       id: Math.floor(Math.random() * 1000) + 100,
       title: dto.title,
@@ -130,7 +137,7 @@ export class PostsController {
       'Post forwarded — check the HTTP Client panel in /_profiler for full request/response details',
   })
   async forwardPost(@Body() dto: CreatePostDto): Promise<unknown> {
-    this.logger.log(`Forwarding post to external API: ${dto.title}`);
+    this.logger?.info(`Forwarding post to external API: ${dto.title}`);
     const stop = this.profiler.startSpan('http.forward-post');
     const { data } = await firstValueFrom(
       this.http.post<unknown>('https://jsonplaceholder.typicode.com/posts', {
@@ -148,7 +155,7 @@ export class PostsController {
   @ApiResponse({ status: 200, description: 'Cache cleared' })
   async clearCache(): Promise<{ cleared: boolean }> {
     await this.cache.del(POSTS_CACHE_KEY);
-    this.logger.log('Posts cache cleared');
+    this.logger?.info('Posts cache cleared');
     return { cleared: true };
   }
 
@@ -162,11 +169,11 @@ export class PostsController {
     const key = `${TODOS_CACHE_KEY}:${id}`;
     const cached = await this.cache.get(key);
     if (cached) {
-      this.logger.log(`Todo #${id} served from cache (HIT)`);
+      this.logger?.info(`Todo #${id} served from cache (HIT)`);
       return cached;
     }
 
-    this.logger.log(`Fetching todo #${id} and assignee in parallel (MISS)`);
+    this.logger?.info(`Fetching todo #${id} and assignee in parallel (MISS)`);
     const stop = this.profiler.startSpan('http.todo');
     const [todoResponse, userResponse] = await Promise.all([
       firstValueFrom(

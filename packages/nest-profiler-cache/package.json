@@ -50,7 +50,7 @@
     "@nestjs/cache-manager": "^3.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@eleven-labs/nest-profiler": "workspace:*",
+    "@eleven-labs/nest-profiler": ">=0.0.1",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
   },

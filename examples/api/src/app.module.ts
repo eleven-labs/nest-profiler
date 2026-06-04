@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
+import { LoggerModule } from 'nestjs-pino';
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
 import {
   ignoreGraphQLPlayground,
@@ -19,6 +20,7 @@ import featuresConfig, {
   isTypeOrmEnabled,
   isMongooseEnabled,
   isGraphQLEnabled,
+  isPinoLoggerEnabled,
 } from './config/features.config';
 
 @Module({
@@ -28,6 +30,16 @@ import featuresConfig, {
       isGlobal: true,
       load: [appConfig, featuresConfig],
     }),
+
+    // Pino logger — opt-in via FEATURE_PINO_LOGGER=true; wrapped in main.ts with profilerService.createLogger.
+    ConditionalModule.registerWhen(
+      LoggerModule.forRoot({
+        pinoHttp: {
+          level: process.env['NODE_ENV'] === 'production' ? 'info' : 'debug',
+        },
+      }),
+      isPinoLoggerEnabled,
+    ),
 
     // TypeORM + ProductsModule — disabled when FEATURE_TYPEORM=false
     ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled),

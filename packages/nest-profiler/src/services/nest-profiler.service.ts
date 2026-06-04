@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { LoggerService } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import type {
   EventEntry,
@@ -8,7 +7,8 @@ import type {
   Profile,
   SecurityContext,
 } from '../interfaces/profile.interface';
-import { ProfilerLoggerAdapter } from './profiler-logger-adapter';
+import { createProfilerLogger } from './profiler-logger-adapter';
+import type { LogMethodMap } from './profiler-logger-adapter';
 
 @Injectable()
 export class ProfilerService {
@@ -60,7 +60,8 @@ export class ProfilerService {
     };
   }
 
-  createLogger(delegate: LoggerService): LoggerService {
-    return new ProfilerLoggerAdapter(delegate, this);
+  /** Wraps any logger transparently: captures log calls into the active profile while forwarding to the real logger. */
+  createLogger<T extends object>(delegate: T, logMethods?: LogMethodMap): T {
+    return createProfilerLogger(delegate, this, logMethods);
   }
 }
