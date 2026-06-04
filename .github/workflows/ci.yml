@@ -32,7 +32,12 @@ jobs:
         run: pnpm format:check
 
       - name: Lint
+        # Cap Turbo concurrency: type-aware ESLint is memory-heavy and running
+        # one process per package on a 2-core runner starves the largest one
+        # (docs), making its worker time out with "Atomics.wait() failed".
         run: pnpm lint
+        env:
+          TURBO_CONCURRENCY: 2
 
       - name: Typecheck
         run: pnpm typecheck
