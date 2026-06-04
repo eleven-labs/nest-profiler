@@ -28,6 +28,7 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage",
     "changeset": "changeset",
     "changeset:guard-major": "tsx scripts/changesets/guard-major-bumps.ts",
+    "changeset:sync-changelog": "tsx scripts/changesets/fill-synced-changelog.ts",
     "changeset:pre:alpha": "changeset pre enter alpha",
     "changeset:pre:beta": "changeset pre enter beta",
     "changeset:pre:exit": "changeset pre exit",
@@ -45,7 +46,7 @@
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
     "typecheck": "turbo run typecheck",
-    "version-packages": "pnpm changeset:guard-major && changeset version",
+    "version-packages": "pnpm changeset:guard-major && changeset version && pnpm changeset:sync-changelog",
     "prepare": "husky"
   },
   "devDependencies": {
