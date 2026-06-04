@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-typeorm",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TypeORM query collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
