@@ -22,12 +22,11 @@
 
 ## Checklist
 
-- [ ] Tests were added or updated
+<!-- Formatting, lint, typecheck, tests, build, and commit message conventions
+     are verified automatically by CI — no need to confirm them here. -->
+
+- [ ] Tests were added or updated to cover the change
 - [ ] Documentation was added or updated
-- [ ] `pnpm lint` passes
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm test` passes
-- [ ] `pnpm build` passes
 - [ ] A changeset was added, or this PR does not affect published packages
 - [ ] Breaking changes in `0.x` use a `minor` changeset with a `BREAKING:` note
 
