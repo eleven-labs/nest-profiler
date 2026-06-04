@@ -34,11 +34,12 @@ This starts **PostgreSQL 16** on port `5432` for the TypeORM collector demo, and
 
 The example app uses feature flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
 
-| Variable           | Default | Description                                              |
-| ------------------ | ------- | -------------------------------------------------------- |
-| `FEATURE_TYPEORM`  | `true`  | Load TypeORM + PostgreSQL connection + `ProductsModule`  |
-| `FEATURE_MONGOOSE` | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`     |
-| `PROFILER_ENABLED` | `true`  | Enable the profiler UI and all collectors                |
+| Variable              | Default | Description                                                         |
+| --------------------- | ------- | ------------------------------------------------------------------- |
+| `FEATURE_TYPEORM`     | `true`  | Load TypeORM + PostgreSQL connection + `ProductsModule`             |
+| `FEATURE_MONGOOSE`    | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`                |
+| `FEATURE_PINO_LOGGER` | `false` | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger` |
+| `PROFILER_ENABLED`    | `true`  | Enable the profiler UI and all collectors                           |
 
 Set any flag to `false` to disable the corresponding module. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
 
@@ -99,14 +100,18 @@ AppModule
 ```ts title="app.module.ts"
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig, mongodbConfig, appConfig, featuresConfig] }),
-    ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled),   // FEATURE_TYPEORM !== 'false'
-    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),     // FEATURE_MONGOOSE !== 'false'
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [databaseConfig, mongodbConfig, appConfig, featuresConfig],
+    }),
+    ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled), // FEATURE_TYPEORM !== 'false'
+    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled), // FEATURE_MONGOOSE !== 'false'
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
     ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
     ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
     ValidatorCollectorModule.forRoot({ whitelist: true, transform: true }),
-    AuthModule, PostsModule,
+    AuthModule,
+    PostsModule,
   ],
 })
 export class AppModule {}
@@ -299,11 +304,31 @@ Any request → **Config** tab shows `app.*` and `database.*` keys from `registe
 
 ## Log capture in `main.ts`
 
+The profiler's log collector is **logger-agnostic**: `profilerService.createLogger()` wraps any `LoggerService`, so the same capture works whether the app uses NestJS's built-in `ConsoleLogger` or a third-party logger such as `nestjs-pino`. `FEATURE_PINO_LOGGER` toggles which one is used — no profiler code changes.
+
 ```ts title="main.ts"
 const app = await NestFactory.create(AppModule, { bufferLogs: true });
 const profilerService = app.get(ProfilerService);
-app.useLogger(profilerService.createLogger(new ConsoleLogger('ExampleApi')));
+
+const baseLogger = isPinoLoggerEnabled(process.env)
+  ? app.get(PinoLogger) // nestjs-pino
+  : new ConsoleLogger('ExampleApi'); // NestJS default
+
+app.useLogger(profilerService.createLogger(baseLogger));
 await app.listen(port);
 ```
+
+Try it both ways and compare the console output — the `/_profiler` **Logs** tab captures the same entries regardless:
+
+```bash
+# default ConsoleLogger
+FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm example:dev
+# third-party nestjs-pino (JSON, request-bound)
+FEATURE_PINO_LOGGER=true FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm example:dev
+```
+
+### Capturing a directly-injected logger
+
+`app.useLogger()` only captures logs that flow through NestJS's `Logger`. `PostsController` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `profiler.createLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode, call `GET /posts/cache/clear`, and check the **Logs** tab.
 
 Open `http://localhost:3000/_profiler` to browse all profiles.

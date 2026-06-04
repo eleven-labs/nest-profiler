@@ -44,7 +44,9 @@
     "class-validator": "^0.15.1",
     "nestjs-cls": "^4.5.0",
     "mongoose": "^8.15.0",
+    "nestjs-pino": "^4.4.0",
     "pg": "^8.16.0",
+    "pino-http": "^10.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.24"

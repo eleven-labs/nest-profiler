@@ -1,54 +1,58 @@
-import type { LoggerService } from '@nestjs/common';
 import type { LogLevel } from '../interfaces/profile.interface';
 import type { ProfilerService } from './nest-profiler.service';
 
-export class ProfilerLoggerAdapter implements LoggerService {
-  constructor(
-    private readonly delegate: LoggerService,
-    private readonly profilerService: ProfilerService,
-  ) {}
+/** Method name to profiler log level; extend with custom entries (e.g. winston's 'silly') to support any logger. */
+export type LogMethodMap = Record<string, LogLevel>;
 
-  log(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('log', message, this.getContext(optionalParams));
-    this.delegate.log(message, ...optionalParams);
-  }
+/** Built-in method→level map covering NestJS, pino (`info`, `trace`) and winston (`info`). Spread and extend to add more. */
+export const DEFAULT_LOG_METHODS: LogMethodMap = {
+  log: 'log',
+  warn: 'warn',
+  error: 'error',
+  debug: 'debug',
+  verbose: 'verbose',
+  fatal: 'fatal',
+  info: 'log',
+  trace: 'verbose',
+};
 
-  error(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('error', message, this.getContext(optionalParams));
-    this.delegate.error(message, ...optionalParams);
-  }
+function extractContext(params: unknown[]): string | undefined {
+  const last = params[params.length - 1];
+  return typeof last === 'string' ? last : undefined;
+}
 
-  warn(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('warn', message, this.getContext(optionalParams));
-    this.delegate.warn(message, ...optionalParams);
-  }
+/** Wraps any logger in a Proxy: captures level-method calls into the active profile and forwards them to the real logger. */
+export function createProfilerLogger<T extends object>(
+  delegate: T,
+  profilerService: Pick<ProfilerService, 'addLog'>,
+  logMethods: LogMethodMap = DEFAULT_LOG_METHODS,
+): T {
+  return new Proxy(delegate, {
+    get(target, prop, receiver): unknown {
+      const original = Reflect.get(target, prop, receiver) as unknown;
 
-  debug(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('debug', message, this.getContext(optionalParams));
-    this.delegate.debug?.(message, ...optionalParams);
-  }
+      if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(logMethods, prop)) {
+        const level = logMethods[prop];
+        return (message: unknown, ...optionalParams: unknown[]): unknown => {
+          profilerService.addLog({
+            level,
+            message: String(message),
+            context: extractContext(optionalParams),
+            timestamp: Date.now(),
+          });
+          // Forward to the real logger; tolerate loggers that omit optional methods (e.g. no 'fatal').
+          if (typeof original === 'function') {
+            return (original as (...args: unknown[]) => unknown).apply(target, [
+              message,
+              ...optionalParams,
+            ]);
+          }
+          return undefined;
+        };
+      }
 
-  verbose(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('verbose', message, this.getContext(optionalParams));
-    this.delegate.verbose?.(message, ...optionalParams);
-  }
-
-  fatal(message: unknown, ...optionalParams: unknown[]): void {
-    this.capture('fatal', message, this.getContext(optionalParams));
-    this.delegate.fatal?.(message, ...optionalParams);
-  }
-
-  private capture(level: LogLevel, message: unknown, context?: string): void {
-    this.profilerService.addLog({
-      level,
-      message: String(message),
-      context,
-      timestamp: Date.now(),
-    });
-  }
-
-  private getContext(params: unknown[]): string | undefined {
-    const last = params[params.length - 1];
-    return typeof last === 'string' ? last : undefined;
-  }
+      // Transparent passthrough — keep `this` bound to the real logger.
+      return typeof original === 'function' ? original.bind(target) : original;
+    },
+  });
 }

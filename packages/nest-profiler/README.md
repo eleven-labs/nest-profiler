@@ -47,7 +47,7 @@ ProfilerModule.forRootAsync({
 
 ## Enable log capture
 
-Wrap any existing logger with `profilerService.createLogger()` so that every log entry is captured in the active request profile:
+Wrap any existing logger with `profilerService.createLogger()` so that every log entry is captured in the active request profile. The wrapper is a transparent proxy: it returns the **same type** as the logger you pass in, captures its level methods, and forwards everything else — so it is **logger-agnostic** and works with NestJS's `ConsoleLogger`, `nestjs-pino`, `nest-winston`, etc.
 
 ```ts title="main.ts"
 import { ConsoleLogger } from '@nestjs/common';
@@ -59,12 +59,34 @@ const profilerService = app.get(ProfilerService);
 app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApplication')));
 ```
 
+### Capturing a directly-injected logger
+
+`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too:
+
+```ts
+constructor(
+  profiler: ProfilerService,
+  @InjectPinoLogger(MyService.name) pinoLogger: PinoLogger,
+) {
+  // pino's own `info()` keeps working AND is now captured into the profile
+  this.logger = profiler.createLogger(pinoLogger);
+}
+```
+
+The default mapping already knows the common third-party method names (pino's `info` → `log`, `trace` → `verbose`, …). For an exotic logger, pass a custom map:
+
+```ts
+import { DEFAULT_LOG_METHODS } from '@eleven-labs/nest-profiler';
+
+profiler.createLogger(myLogger, { ...DEFAULT_LOG_METHODS, silly: 'verbose' });
+```
+
 ## Debug headers
 
 Every non-profiler request receives response headers:
 
-| Header               | Value                              |
-| -------------------- | ---------------------------------- |
+| Header               | Value                        |
+| -------------------- | ---------------------------- |
 | `X-Debug-Token`      | The request token (UUID v4)  |
 | `X-Debug-Token-Link` | Link to `/_profiler/{token}` |
 
@@ -272,7 +294,11 @@ The in-memory index is reconstructed from disk on startup — expired profiles a
 Implement `IProfilerStorageAdapter` to plug in any backend (Redis, database, …):
 
 ```ts
-import type { IProfilerStorageAdapter, StorageFindOptions, Profile } from '@eleven-labs/nest-profiler';
+import type {
+  IProfilerStorageAdapter,
+  StorageFindOptions,
+  Profile,
+} from '@eleven-labs/nest-profiler';
 
 export class RedisStorageAdapter implements IProfilerStorageAdapter {
   async save(profile: Profile): Promise<void> {
@@ -328,16 +354,16 @@ import type {
 
 ## Options
 
-| Option           | Type                      | Default      | Description                                           |
-| ---------------- | ------------------------- | ------------ | ----------------------------------------------------- |
-| `enabled`        | `boolean`                 | `true`       | Enable or disable the profiler.                       |
-| `path`           | `string`                  | `/_profiler` | Base path for the profiler UI.                        |
-| `maxProfiles`    | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                 |
-| `ttl`            | `number`                  | `3600`       | Profile time-to-live in seconds.                      |
-| `isGlobal`       | `boolean`                 | `false`      | Register the module as a global NestJS module.        |
-| `storageType`    | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                             |
-| `storagePath`    | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).    |
-| `storage`        | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`. |
-| `collectBody`    | `boolean`                 | `false`      | Capture request/response bodies (use with caution).   |
-| `sampleRate`     | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).            |
-| `ignorePaths`    | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).    |
+| Option        | Type                      | Default      | Description                                           |
+| ------------- | ------------------------- | ------------ | ----------------------------------------------------- |
+| `enabled`     | `boolean`                 | `true`       | Enable or disable the profiler.                       |
+| `path`        | `string`                  | `/_profiler` | Base path for the profiler UI.                        |
+| `maxProfiles` | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                 |
+| `ttl`         | `number`                  | `3600`       | Profile time-to-live in seconds.                      |
+| `isGlobal`    | `boolean`                 | `false`      | Register the module as a global NestJS module.        |
+| `storageType` | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                             |
+| `storagePath` | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).    |
+| `storage`     | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`. |
+| `collectBody` | `boolean`                 | `false`      | Capture request/response bodies (use with caution).   |
+| `sampleRate`  | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).            |
+| `ignorePaths` | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).    |

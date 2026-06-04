@@ -51,7 +51,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/mongoose": "^11.0.0",
-    "@eleven-labs/nest-profiler": "workspace:*",
+    "@eleven-labs/nest-profiler": ">=0.0.1",
     "mongoose": "^8.0.0",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
