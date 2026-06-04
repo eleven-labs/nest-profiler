@@ -9,6 +9,11 @@ permissions:
   pull-requests: write
   packages: write
 
+env:
+  # Disable Husky hooks: the "Version Packages" commit made by changesets/action
+  # must not go through commitlint / lint-staged, which would reject it.
+  HUSKY: 0
+
 jobs:
   release:
     name: Version or publish packages
