@@ -7,8 +7,7 @@ import {
   NestInterceptor,
   Optional,
 } from '@nestjs/common';
-import { from, throwError } from 'rxjs';
-import type { Observable } from 'rxjs';
+import { Observable, from, throwError } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
@@ -43,6 +42,8 @@ export class ProfilerInterceptor implements NestInterceptor {
   }
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const contextType = ctx.getType<string>();
+
     let profile: Profile | undefined;
     try {
       profile = this.cls.get<Profile | undefined>('profiler.profile');
@@ -50,17 +51,75 @@ export class ProfilerInterceptor implements NestInterceptor {
       // Outside CLS context
     }
 
-    if (!profile) return next.handle();
+    // HTTP: profile is created by the middleware and always in CLS when present.
+    if (contextType === 'http') {
+      return profile ? this.processHttp(profile, ctx, next) : next.handle();
+    }
 
-    const res = ctx.switchToHttp().getResponse<PlatformResponse>();
-    const req = ctx.switchToHttp().getRequest<PlatformRequest>();
-    const capturedProfile = profile;
+    // Non-HTTP (GraphQL, etc.): find an adapter registered via ProfilerCoreService.
+    const adapter = this.core.findContextAdapter(contextType);
+    if (!adapter) return next.handle();
+
+    // The profile may already be in CLS when the driver propagates the async context
+    // correctly, or it must be recovered from req[PROFILER_REQ_KEY] otherwise.
+    const activeProfile = profile ?? adapter.recoverProfile(ctx);
+    if (!activeProfile) return next.handle();
+
+    // Only enrich once — the first resolver in the request captures the operation info.
+    if (!activeProfile.request.graphql) {
+      adapter.enrichProfile(activeProfile, ctx);
+    }
+
+    if (profile) {
+      // CLS already active — route directly to the non-HTTP pipeline.
+      return this.processNonHttp(activeProfile, next);
+    }
+
+    // Re-establish CLS context so ProfilerService.addLog() works inside resolvers.
+    return new Observable((subscriber) => {
+      this.cls.run(() => {
+        this.cls.set('profiler.profile', activeProfile);
+        this.cls.set('profiler.token', activeProfile.token);
+        this.processNonHttp(activeProfile, next).subscribe(subscriber);
+      });
+    });
+  }
+
+  private processHttp(
+    capturedProfile: Profile,
+    ctx: ExecutionContext,
+    next: CallHandler,
+  ): Observable<unknown> {
+    const httpCtx = ctx.switchToHttp();
+    const res = httpCtx.getResponse<PlatformResponse>();
+    const req = httpCtx.getRequest<PlatformRequest>();
+
+    // Safety net: Apollo bypasses Express next() so the Observable never fires — rely on finish event.
+    type FinishableResponse = {
+      once?: (event: 'finish', fn: () => void) => void;
+      statusCode?: number;
+    };
+    const rawRes = res as FinishableResponse;
+    rawRes.once?.('finish', () => {
+      if (capturedProfile.response) return; // normal path already ran
+      capturedProfile.performance.duration = Date.now() - capturedProfile.performance.startTime;
+      capturedProfile.response = {
+        statusCode: rawRes.statusCode ?? 200,
+        headers: {},
+        body: undefined,
+      };
+      this.core.enrichHttpResponse(capturedProfile, req, undefined);
+      void this.core.collectorRegistry
+        .collectAll(capturedProfile)
+        .then(() => this.core.storage.save(capturedProfile));
+    });
 
     return next.handle().pipe(
       switchMap((body: unknown) => {
         this.finalize(capturedProfile, res, body);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
+        this.core.enrichHttpResponse(capturedProfile, req, body);
         return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
           tap(() => {
             void this.core.storage.save(capturedProfile);
@@ -77,9 +136,9 @@ export class ProfilerInterceptor implements NestInterceptor {
           timestamp: Date.now(),
         });
         this.finalize(capturedProfile, res, undefined);
-        // Exception filters run after the observable chain, so res.statusCode is still 200 here.
-        // Read the real status directly from HttpException when available.
-        if (err instanceof HttpException && capturedProfile.response) {
+        if (capturedProfile.response && err instanceof HttpException) {
+          // Exception filters run after the observable chain, so res.statusCode is still 200
+          // here. Read the real status directly from HttpException when available.
           capturedProfile.response.statusCode = err.getStatus();
         }
         capturedProfile.route =
@@ -95,17 +154,60 @@ export class ProfilerInterceptor implements NestInterceptor {
     );
   }
 
-  private finalize(profile: Profile, res: PlatformResponse, body: unknown): void {
-    profile.performance.duration = Date.now() - profile.performance.startTime;
-    profile.response = {
-      statusCode: res.statusCode,
-      headers: normalizeHeaders(res.getHeaders()),
-      body: this.collectBody ? body : undefined,
-    };
+  private processNonHttp(capturedProfile: Profile, next: CallHandler): Observable<unknown> {
+    return next.handle().pipe(
+      switchMap((body: unknown) => {
+        this.finalize(capturedProfile, null, body);
+        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
+          tap(() => {
+            void this.core.storage.save(capturedProfile);
+          }),
+          map(() => body),
+        );
+      }),
+      catchError((err: unknown) => {
+        const error = err instanceof Error ? err : new Error(String(err));
+        capturedProfile.exceptions.push({
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          timestamp: Date.now(),
+        });
+        this.finalize(capturedProfile, null, undefined);
+        if (capturedProfile.response) {
+          capturedProfile.response.statusCode =
+            err instanceof HttpException ? err.getStatus() : 500;
+        }
+        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
+          tap(() => {
+            void this.core.storage.save(capturedProfile);
+          }),
+          switchMap(() => throwError(() => err)),
+        );
+      }),
+    );
   }
 
-  private injectToolbar(res: PlatformResponse, body: unknown, profile: Profile): unknown {
-    const contentType = res.getHeader('content-type');
+  private finalize(profile: Profile, res: PlatformResponse | null, body: unknown): void {
+    profile.performance.duration = Date.now() - profile.performance.startTime;
+    if (res) {
+      profile.response = {
+        statusCode: res.statusCode,
+        headers: normalizeHeaders(res.getHeaders()),
+        body: this.collectBody ? body : undefined,
+      };
+    } else {
+      // Non-HTTP context (GraphQL, microservices): always capture resolver result as body.
+      profile.response = {
+        statusCode: 200,
+        headers: {},
+        body,
+      };
+    }
+  }
+
+  private injectToolbar(res: PlatformResponse | null, body: unknown, profile: Profile): unknown {
+    const contentType = res?.getHeader('content-type');
     if (
       typeof contentType === 'string' &&
       contentType.includes('text/html') &&

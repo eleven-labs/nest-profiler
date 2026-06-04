@@ -33,6 +33,38 @@ function remarkLocalScreenshots() {
   };
 }
 
+/**
+ * READMEs reference sibling package READMEs by relative file path (e.g.
+ * `../nest-profiler/README.md#custom-protocol-adapters`) so the link works on
+ * the GitHub repository view. Inside the docs we rewrite those paths to the
+ * Fumadocs URL (`/docs/packages/nest-profiler#custom-protocol-adapters`) so
+ * in-site navigation works correctly.
+ *
+ * Only relative links (no `http` scheme) are rewritten. The stable marker is
+ * `README.md` in the URL, and the package directory name that precedes it maps
+ * directly to the docs slug under `/docs/packages/`.
+ */
+function remarkReadmeLinks() {
+  return (tree: MdastNode): void => {
+    const visit = (node: MdastNode): void => {
+      if (
+        node.type === 'link' &&
+        typeof node.url === 'string' &&
+        !node.url.startsWith('http') &&
+        node.url.includes('README.md')
+      ) {
+        const match = node.url.match(/\/([\w-]+)\/README\.md(#[\w-]*)?$/);
+        if (match) {
+          const [, pkgDir, anchor = ''] = match;
+          node.url = `/docs/packages/${pkgDir}${anchor}`;
+        }
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
 const ejsLanguage: LanguageRegistration = {
   name: 'ejs',
   scopeName: 'text.html.ejs',
@@ -87,6 +119,7 @@ export default defineConfig({
         includeIndex === -1 ? 0 : includeIndex + 1,
         0,
         remarkLocalScreenshots as (typeof plugins)[number],
+        remarkReadmeLinks as (typeof plugins)[number],
       );
       return next;
     },

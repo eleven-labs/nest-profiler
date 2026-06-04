@@ -3,6 +3,7 @@ export type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-p
 export { ProfilerModule } from './nest-profiler.module';
 export { ProfilerService } from './services/nest-profiler.service';
 export { ProfilerStorageService } from './services/profiler-storage.service';
+export { ProfilerCoreService } from './services/profiler-core.service';
 export { TemplateRendererService } from './services/template-renderer.service';
 export { CollectorRegistry } from './collectors/collector-registry.service';
 export type { CollectorPanelInfo, GlobalPanelInfo } from './collectors/collector-registry.service';
@@ -33,4 +34,10 @@ export type {
   TimelineSpan,
   EventEntry,
   SecurityContext,
+  GraphQLInfo,
 } from './interfaces/profile.interface';
+export { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
+export type { IContextAdapter } from './adapters/context-adapter.interface';
+export { PROFILER_REQ_KEY } from './constants';
+export { combineFilters } from './filters';
+export type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';

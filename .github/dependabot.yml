@@ -50,6 +50,17 @@ updates:
           - 'minor'
           - 'patch'
 
+      graphql:
+        patterns:
+          - '@apollo/server'
+          - '@as-integrations/*'
+          - 'graphql'
+          - 'mercurius'
+          - '@mercuriusjs/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
       testing:
         patterns:
           - 'jest'

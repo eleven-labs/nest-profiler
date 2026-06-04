@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
+import {
+  ignoreGraphQLPlayground,
+  ignoreGraphQLIntrospection,
+} from '@eleven-labs/nest-profiler-graphql';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { AppController } from './app.controller';
@@ -9,8 +13,13 @@ import { DatabaseModule } from './database/database.module';
 import { MongoModule } from './mongo/mongo.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
+import { AppGraphQLModule } from './graphql.module';
 import appConfig, { isProfilerEnabled } from './config/app.config';
-import featuresConfig, { isTypeOrmEnabled, isMongooseEnabled } from './config/features.config';
+import featuresConfig, {
+  isTypeOrmEnabled,
+  isMongooseEnabled,
+  isGraphQLEnabled,
+} from './config/features.config';
 
 @Module({
   imports: [
@@ -25,6 +34,9 @@ import featuresConfig, { isTypeOrmEnabled, isMongooseEnabled } from './config/fe
 
     // Mongoose + ReviewsModule — disabled when FEATURE_MONGOOSE=false
     ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),
+
+    // GraphQL + BooksModule — disabled when FEATURE_GRAPHQL=false
+    ConditionalModule.registerWhen(AppGraphQLModule, isGraphQLEnabled),
 
     // Global cache — consumed by PostsModule and any other module that needs caching
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
@@ -46,6 +58,7 @@ import featuresConfig, { isTypeOrmEnabled, isMongooseEnabled } from './config/fe
           collectBody: true,
           sampleRate: 1.0,
           ignorePaths: ['/favicon.ico'],
+          ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
         };
       },
     }),

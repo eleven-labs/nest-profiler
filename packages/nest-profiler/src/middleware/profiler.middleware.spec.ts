@@ -5,6 +5,7 @@ import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
+import type { ProfilerCoreService } from '../services/profiler-core.service';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -368,6 +369,221 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
       expect(profile?.request.cookies).toEqual({ a: 'b' });
+    });
+  });
+
+  describe('ignoreRequest filter', () => {
+    it('skips profiling when ignoreRequest returns true', async () => {
+      const { middleware, cls } = await createMiddleware({ ignoreRequest: () => true });
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'POST', url: '/graphql', headers: {}, query: {} },
+        cls,
+      );
+      expect(profile).toBeUndefined();
+    });
+  });
+
+  describe('finish hook (safety net for direct-response frameworks)', () => {
+    /**
+     * Creates a response mock that supports the finish event mechanism
+     * (mimics the Express ServerResponse EventEmitter interface).
+     */
+    function makeResWithFinish(statusCode = 200): PlatformResponse & {
+      triggerFinish(): void;
+      json: jest.Mock;
+      send: jest.Mock;
+      statusCode: number;
+    } {
+      const stored: Record<string, string | string[]> = {};
+      let finishListener: (() => void) | undefined;
+      const jsonMock = jest.fn();
+      const sendMock = jest.fn();
+
+      return {
+        statusCode,
+        setHeader(k: string, v: string | string[]) {
+          stored[k] = v;
+        },
+        getHeader(k: string) {
+          return stored[k];
+        },
+        getHeaders() {
+          return stored;
+        },
+        once(event: string, fn: () => void) {
+          if (event === 'finish') finishListener = fn;
+        },
+        json: jsonMock,
+        send: sendMock,
+        triggerFinish() {
+          finishListener?.();
+        },
+      } as Partial<PlatformResponse> & {
+        triggerFinish(): void;
+        json: jest.Mock;
+        send: jest.Mock;
+        statusCode: number;
+      } as PlatformResponse & {
+        triggerFinish(): void;
+        json: jest.Mock;
+        send: jest.Mock;
+        statusCode: number;
+      };
+    }
+
+    interface CoreMockForMiddleware {
+      enrichHttpResponse: jest.Mock;
+      collectorRegistry: { collectAll: jest.Mock };
+      storage: { save: jest.Mock };
+    }
+
+    function makeCoreMock(): CoreMockForMiddleware {
+      return {
+        enrichHttpResponse: jest.fn(),
+        collectorRegistry: { collectAll: jest.fn().mockResolvedValue(undefined) },
+        storage: { save: jest.fn() },
+      };
+    }
+
+    function createMiddlewareWithCore(options: ProfilerModuleOptions = {}): {
+      middleware: ProfilerMiddleware;
+      cls: ClsService;
+      coreMock: CoreMockForMiddleware;
+    } {
+      const coreMock = makeCoreMock();
+      const clsLike = {
+        run: (fn: () => void) => fn(),
+        set: jest.fn(),
+        get: jest.fn(() => undefined),
+      } as object as ClsService;
+      const middleware = new ProfilerMiddleware(
+        clsLike,
+        options,
+        coreMock as object as ProfilerCoreService,
+      );
+      return { middleware, cls: clsLike, coreMock };
+    }
+
+    const makeReq = (path = '/api') =>
+      ({
+        method: 'POST',
+        url: path,
+        headers: {},
+        query: {},
+      }) as Partial<PlatformRequest> as PlatformRequest;
+
+    const waitAsync = (ms = 20) => new Promise<void>((r) => setTimeout(r, ms));
+
+    const runMw = (mw: ProfilerMiddleware, res: PlatformResponse, path = '/api') =>
+      new Promise<void>((resolve) => {
+        mw.use(makeReq(path), res, () => resolve());
+      });
+
+    it('saves profile via finish hook when profile.response is not set', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore();
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res);
+
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.storage.save).toHaveBeenCalled();
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.response?.statusCode).toBe(400);
+    });
+
+    it('skips finish hook when profile.response is already set (normal path ran)', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore();
+      const res = makeResWithFinish();
+      await runMw(middleware, res);
+
+      res.triggerFinish();
+      await waitAsync(5);
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      if (saved) saved.response = { statusCode: 200, headers: {}, body: undefined };
+
+      const callsBefore = coreMock.storage.save.mock.calls.length;
+      res.triggerFinish();
+      await waitAsync(5);
+
+      expect(coreMock.storage.save.mock.calls.length).toBe(callsBefore);
+    });
+
+    it('intercepts res.json() and calls enrichHttpResponse with response body', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res, '/graphql');
+
+      const gqlResponse = { errors: [{ message: 'bad field' }] };
+      res.json(gqlResponse);
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        gqlResponse,
+      );
+    });
+
+    it('intercepts res.send() with a JSON string and parses it', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res, '/graphql');
+
+      res.send(JSON.stringify({ errors: [{ message: 'bad field' }] }));
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        { errors: [{ message: 'bad field' }] },
+      );
+    });
+
+    it('handles non-JSON string in res.send() — falls back to raw value', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res);
+
+      res.send('plain text');
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.storage.save).toHaveBeenCalled();
+    });
+
+    it('only captures first response body (captureBody is idempotent)', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res);
+
+      res.json({ first: true });
+      res.json({ second: true });
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        { first: true },
+      );
+    });
+
+    it('does not store body in profile.response when collectBody is false', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: false });
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res, '/graphql');
+
+      res.json({ errors: [{ message: 'err' }] });
+      res.triggerFinish();
+      await waitAsync();
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.response?.body).toBeUndefined();
     });
   });
 });

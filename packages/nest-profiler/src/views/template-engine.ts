@@ -30,6 +30,12 @@ const METHOD_CLASSES: Record<string, string> = {
   OPTIONS: 'badge-options',
 };
 
+const GQL_TYPE_CLASSES: Record<string, string> = {
+  query: 'badge-gql-query',
+  mutation: 'badge-gql-mutation',
+  subscription: 'badge-gql-subscription',
+};
+
 const LOG_LEVEL_CLASSES: Record<string, string> = {
   log: 'badge-log',
   warn: 'badge-warn',
@@ -44,6 +50,8 @@ const SQL_KEYWORDS =
 
 export const HELPERS = {
   methodClass: (method: string): string => METHOD_CLASSES[method] ?? 'badge-default',
+  gqlTypeClass: (operationType: string): string =>
+    GQL_TYPE_CLASSES[operationType.toLowerCase()] ?? 'badge-default',
   statusClass: (status: number): string => {
     if (status < 300) return 'badge-2xx';
     if (status < 400) return 'badge-3xx';

@@ -14,6 +14,14 @@ export interface ExceptionEntry {
   timestamp: number;
 }
 
+export interface GraphQLInfo {
+  operationType: 'query' | 'mutation' | 'subscription';
+  operationName?: string;
+  query?: string;
+  variables?: Record<string, unknown>;
+  fieldName: string;
+}
+
 export interface RequestData {
   method: string;
   url: string;
@@ -23,6 +31,7 @@ export interface RequestData {
   body?: unknown;
   cookies?: Record<string, string>;
   session?: Record<string, unknown>;
+  graphql?: GraphQLInfo;
 }
 
 export interface ResponseData {
