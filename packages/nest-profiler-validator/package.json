@@ -68,7 +68,7 @@
     "@types/node": "^22.15.32",
     "@eleven-labs/nest-profiler": "workspace:*",
     "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.1",
+    "class-validator": "^0.15.1",
     "jest": "^30.4.2",
     "nestjs-cls": "^4.5.0",
     "reflect-metadata": "^0.2.2",
