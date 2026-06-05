@@ -4,7 +4,7 @@ The `examples/api` directory contains a feature-complete NestJS application demo
 
 ## Live demo
 
-A live instance is deployed at **[nest-profiler-example.vercel.app](https://nest-profiler-example.vercel.app/api)** with the following configuration — no database infrastructure, in-memory storage only:
+A live instance is deployed with the following configuration — no database infrastructure, in-memory storage only:
 
 ```
 FEATURE_TYPEORM=false       # ProductsModule and PostgreSQL disabled
@@ -13,7 +13,13 @@ PROFILER_ENABLED=true
 PROFILER_STORAGE_TYPE=memory
 ```
 
-Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Config**, **Validator**.
+Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Config**, **Validator**, **GraphQL** (Books).
+
+| Endpoint                 | URL                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Swagger UI               | [nest-profiler-example.vercel.app/api](https://nest-profiler-example.vercel.app/api)              |
+| Apollo Sandbox (GraphQL) | [nest-profiler-example.vercel.app/graphql](https://nest-profiler-example.vercel.app/graphql)      |
+| Profiler UI              | [nest-profiler-example.vercel.app/\_profiler](https://nest-profiler-example.vercel.app/_profiler) |
 
 ## Prerequisites
 
@@ -38,14 +44,18 @@ The example app uses feature flags to conditionally load infrastructure-dependen
 | --------------------- | ------- | ------------------------------------------------------------------- |
 | `FEATURE_TYPEORM`     | `true`  | Load TypeORM + PostgreSQL connection + `ProductsModule`             |
 | `FEATURE_MONGOOSE`    | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`                |
+| `FEATURE_GRAPHQL`     | `true`  | Load GraphQL + Apollo Server + `BooksModule`                        |
 | `FEATURE_PINO_LOGGER` | `false` | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger` |
 | `PROFILER_ENABLED`    | `true`  | Enable the profiler UI and all collectors                           |
 
 Set any flag to `false` to disable the corresponding module. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
 
 ```bash
-# Run without any database (Posts, Auth, Config, Validator collectors still active)
+# Run without any database (Posts, Auth, Config, Validator, GraphQL collectors still active)
 FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm example:dev
+
+# Run without GraphQL
+FEATURE_GRAPHQL=false pnpm example:dev
 ```
 
 ## Run the application
@@ -76,6 +86,43 @@ The `/auth/me` endpoint requires a Bearer JWT. The built-in `/auth/token` shortc
 
 Every request sent through Swagger UI generates a full profiler profile. After executing any call, copy the `X-Debug-Token` response header value and open `/_profiler/{token}` to inspect the collected data — SQL queries, cache operations, validation results, and more.
 
+## Apollo Sandbox
+
+Open **[http://localhost:3000/graphql](http://localhost:3000/graphql)** to access the Apollo Sandbox. The schema is auto-generated from the `BooksModule` resolvers.
+
+Available operations:
+
+```graphql
+query GetBooks {
+  books {
+    id
+    title
+    author
+    publishedYear
+  }
+}
+
+query GetBook($id: ID!) {
+  book(id: $id) {
+    id
+    title
+    author
+    publishedYear
+  }
+}
+
+mutation CreateBook($title: String!, $author: String!, $publishedYear: Int) {
+  createBook(input: { title: $title, author: $author, publishedYear: $publishedYear }) {
+    id
+    title
+    author
+    publishedYear
+  }
+}
+```
+
+Each operation sent through the Sandbox generates a profiler profile with a **GQL** badge. Open `/_profiler` to inspect the operation type, name, syntax-highlighted query and variables in the **Request** tab.
+
 ## Module architecture
 
 Each feature module owns the collector(s) it demonstrates:
@@ -86,6 +133,8 @@ AppModule
 │   └── ProductsModule  → TypeOrmCollectorModule (nest-profiler-typeorm)
 ├── MongoModule [FEATURE_MONGOOSE]
 │   └── ReviewsModule   → MongooseCollectorModule (nest-profiler-mongoose)
+├── AppGraphQLModule [FEATURE_GRAPHQL]
+│   └── BooksModule     → ProfilerGraphQLModule (nest-profiler-graphql) + Apollo Server
 ├── PostsModule     → AxiosCollectorModule + CacheCollectorModule
 │                     uses global ValidatorCollectorModule (POST /posts)
 ├── AuthModule      → AuthCollectorModule (nest-profiler-auth)
@@ -159,6 +208,25 @@ export class ReviewsModule {}
 
 `ReviewsService` uses both `Model.find()` and `Model.aggregate()` — the Mongoose collector captures both query types.
 
+### AppGraphQLModule — demonstrates `nest-profiler-graphql`
+
+```ts title="graphql.module.ts"
+@Module({
+  imports: [
+    ProfilerGraphQLModule.forRoot(),
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      context: ({ req }) => ({ req }), // exposes the request to the profiler adapter
+    }),
+    BooksModule,
+  ],
+})
+export class AppGraphQLModule {}
+```
+
+`BooksModule` exposes two queries (`books`, `book`) and one mutation (`createBook`). Each resolver wraps its business logic in `profilerService.startSpan()` so Timeline spans are captured alongside the GraphQL profiling data.
+
 ### AuthModule — demonstrates `nest-profiler-auth`
 
 ```ts title="auth/auth.module.ts"
@@ -215,6 +283,18 @@ The database is seeded automatically at startup — no manual step required. The
 | ---------------------------- | ----------------------------------- |
 | `GET /auth/token?role=admin` | Generate demo JWT (unsigned)        |
 | `GET /auth/me`               | Decodes Bearer JWT → `request.user` |
+
+### Books (`AppGraphQLModule` → GraphQL)
+
+Requires `FEATURE_GRAPHQL=true` (default). The endpoint is `POST /graphql`.
+
+| Operation                                         | Description              |
+| ------------------------------------------------- | ------------------------ |
+| `query { books { ... } }`                         | List all in-memory books |
+| `query { book(id: "1") { ... } }`                 | Get a book by ID         |
+| `mutation { createBook(input: { ... }) { ... } }` | Create a new book        |
+
+The Apollo Sandbox playground is available at `GET /graphql`.
 
 ## Testing each collector
 
@@ -289,6 +369,29 @@ curl -X POST http://localhost:3000/posts \
 ```
 
 → **Validator** tab: `CreatePostDto` / valid|invalid / violation list with constraint names.
+
+### GraphQL — Request tab (GQL badge)
+
+```bash
+# Named query
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"operationName":"GetBooks","query":"query GetBooks { books { id title author publishedYear } }"}'
+
+# Query with variable
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"operationName":"GetBook","query":"query GetBook($id: ID!) { book(id: $id) { id title author } }","variables":{"id":"1"}}'
+
+# Mutation
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"operationName":"CreateBook","query":"mutation CreateBook($title: String!, $author: String!) { createBook(input: { title: $title, author: $author }) { id title } }","variables":{"title":"NestJS in Action","author":"John Doe"}}'
+```
+
+→ Profiles list: **GQL QUERY** / **GQL MUTATION** badge with operation name.  
+→ **Request** tab: dedicated **GraphQL** section with operation type, name, syntax-highlighted query and variables.  
+→ **Timeline** tab: `books.findAll`, `books.findOne`, or `books.create` spans from the resolver.
 
 ### Timeline — Timeline tab
 

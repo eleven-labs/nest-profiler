@@ -42,6 +42,11 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
     description="Inspect DTO validations — both successful and failed — in the Validator panel."
   />
   <Card
+    href="/en/docs/tutorials/graphql-collector"
+    title="GraphQL profiling"
+    description="Profile GraphQL queries and mutations with Apollo, Mercurius, or graphql-yoga, and inspect them in the profiler UI."
+  />
+  <Card
     href="/en/docs/tutorials/custom-collector"
     title="Build a custom collector"
     description="Create your own profiler panel with a custom EJS template and toolbar badge."
@@ -64,6 +69,7 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | Axios/HTTP client profiling | Axios interceptor + axiosRef patch        | `@eleven-labs/nest-profiler-axios`     |
 | Configuration profiling     | ConfigService internalConfig + registerAs | `@eleven-labs/nest-profiler-config`    |
 | DTO validation profiling    | APP_PIPE + class-validator integration    | `@eleven-labs/nest-profiler-validator` |
+| GraphQL profiling           | IContextAdapter + GraphQL execution ctx   | `@eleven-labs/nest-profiler-graphql`   |
 | Build a custom collector    | @ProfilerCollector + EJS template         | `@eleven-labs/nest-profiler`           |
 | File-based profile storage  | storageType: 'file' + LRU/TTL eviction    | `@eleven-labs/nest-profiler`           |
 

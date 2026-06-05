@@ -37,8 +37,9 @@ const COLLECTORS: Collector[] = [
   },
   {
     icon: Globe,
-    title: 'HTTP Client',
-    description: 'Outgoing HttpService calls: method, URL, status and duration.',
+    title: 'HTTP Client / GraphQL',
+    description:
+      'Outgoing HttpService calls and GraphQL queries/mutations — method, URL, operation type and name.',
   },
   {
     icon: Boxes,
@@ -72,6 +73,7 @@ const HIGHLIGHTS = [
   'Two storage backends: in-memory LRU or file-based persistence',
   'Request sampling & path filtering to control overhead',
   'Module-per-collector pattern — import each package where it belongs',
+  'GraphQL support — Apollo, Mercurius and graphql-yoga via nest-profiler-graphql',
 ];
 
 const GALLERY: { alt: string; src: string }[] = [
@@ -100,7 +102,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         <p className="mt-5 max-w-2xl text-lg text-fd-muted-foreground">
           An execution profiler for NestJS with a rich panel UI at{' '}
           <code className="rounded-sm bg-fd-secondary px-1.5 py-0.5 text-sm">/_profiler</code>.
-          Inspect SQL, HTTP calls, cache, auth, validation and custom spans — in real time.
+          Inspect SQL, HTTP calls, GraphQL, cache, auth, validation and custom spans — in real time.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
