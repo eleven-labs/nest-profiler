@@ -1,13 +1,13 @@
 # @eleven-labs/nest-profiler-mikro-orm
 
-## 2.0.0
+## 0.3.0
 
-### Patch Changes
+### Minor Changes
 
 - Updated dependencies [09586a0]
   - @eleven-labs/nest-profiler@0.3.0
 
-## 1.0.0
+## 0.2.0
 
 ### Minor Changes
 
@@ -15,7 +15,7 @@
 
   Introduce a shared `AbstractSqlQueryCollector` base (plus `QueryEntry`/`QueryType`/`detectQueryType` and the `sql-panel.ejs` template) in `@eleven-labs/nest-profiler` so SQL ORM collectors reuse the rendering contract. The TypeORM collector now extends this base (no public API change).
 
-### Patch Changes
+### Minor Changes
 
 - Updated dependencies [8980be8]
   - @eleven-labs/nest-profiler@0.2.0
