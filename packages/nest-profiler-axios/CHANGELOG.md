@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-axios
 
+## 0.2.0
+
+### Minor Changes
+
+- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
+
 ## 0.1.0
 
 ### Minor Changes

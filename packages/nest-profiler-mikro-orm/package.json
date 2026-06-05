@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-mikro-orm",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "MikroORM query collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
