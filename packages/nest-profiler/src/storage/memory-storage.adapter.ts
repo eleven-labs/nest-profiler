@@ -8,6 +8,8 @@ export interface MemoryStorageAdapterOptions {
 }
 
 export class MemoryStorageAdapter implements IProfilerStorageAdapter {
+  /** In-memory store — profiles live only in this process's heap. */
+  readonly crossProcess = false;
   private readonly maxProfiles: number;
   private readonly ttl: number;
   private readonly profiles = new Map<string, Profile>();

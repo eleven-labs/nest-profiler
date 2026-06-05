@@ -12,6 +12,7 @@ import {
   Network,
   Settings2,
   ShieldCheck,
+  Terminal,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -48,6 +49,11 @@ const COLLECTORS: Collector[] = [
     description: 'GET_HIT / GET_MISS / SET / DEL operations with a hit-ratio badge.',
   },
   {
+    icon: Terminal,
+    title: 'Command',
+    description: 'nest-commander CLI runs — command name, arguments, options and exit code.',
+  },
+  {
     icon: ShieldCheck,
     title: 'Security',
     description: 'request.user, JWT claims and roles — sensitive fields masked.',
@@ -75,6 +81,7 @@ const HIGHLIGHTS = [
   'Request sampling & path filtering to control overhead',
   'Module-per-collector pattern — import each package where it belongs',
   'GraphQL support — Apollo, Mercurius and graphql-yoga via nest-profiler-graphql',
+  'CLI command profiling — nest-commander runs shown next to HTTP requests via nest-profiler-commander',
 ];
 
 const GALLERY: { alt: string; src: string }[] = [
@@ -141,16 +148,18 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
           Install the core package, then add only the collectors you need. Each is a self-contained
           NestJS module.
         </p>
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
           {COLLECTORS.map(({ icon: Icon, title, description }) => (
             <div
               className="rounded-xl border border-fd-border bg-fd-card p-5 transition-colors hover:border-fd-primary/40"
               key={title}
             >
-              <div className="mb-3 inline-flex size-10 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
-                <Icon className="size-5" />
+              <div className="flex items-center gap-4 mb-3">
+                <div className="inline-flex size-10 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
+                  <Icon className="size-5" />
+                </div>
+                <h3 className="font-semibold text-fd-foreground">{title}</h3>
               </div>
-              <h3 className="font-semibold text-fd-foreground">{title}</h3>
               <p className="mt-1 text-sm text-fd-muted-foreground">{description}</p>
             </div>
           ))}

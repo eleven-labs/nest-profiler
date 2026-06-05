@@ -42,13 +42,29 @@
           badgeClass: 'bg-danger-bg text-danger border-danger-line',
         },
       ];
+
+      // CLI commands have no HTTP request/response — swap those built-in tabs for a Command tab.
+      const isCommand = !!profile.request.command;
+      const COMMAND_TAB = {
+        name: 'command',
+        label: 'Command',
+        icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>',
+      };
+      const builtinTabs = isCommand
+        ? [COMMAND_TAB, ...BUILTIN_TABS.filter((t) => t.name === 'performance' || t.name === 'logs' || t.name === 'exceptions')]
+        : BUILTIN_TABS;
     %>
 
     <!-- ── Breadcrumb ────────────────────────────────────────────────────── -->
     <nav class="flex items-center gap-2 text-xs mb-6 flex-wrap">
       <a href="<%= profilerPath %>" class="text-foreground-muted hover:text-foreground transition-colors">Profiles</a>
       <span class="text-foreground-faint">/</span>
-      <% if (profile.request.graphql) { %>
+      <% if (profile.request.command) { %>
+        <% const cmd = profile.request.command; %>
+        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">CLI</span>
+        <span class="text-foreground-secondary truncate max-w-xs"><%= cmd.name %><% if (cmd.arguments.length) { %> <%= cmd.arguments.join(' ') %><% } %></span>
+        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= cmd.success ? 'badge-2xx' : 'badge-5xx' %>"><%= cmd.success ? 'OK' : 'FAILED' %></span>
+      <% } else if (profile.request.graphql) { %>
         <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">GQL</span>
         <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(profile.request.graphql.operationType) %>"><%= profile.request.graphql.operationType.toUpperCase() %></span>
         <span class="text-foreground-secondary truncate max-w-xs"><%= profile.request.graphql.operationName || profile.request.graphql.fieldName %></span>
@@ -82,7 +98,7 @@
             <span class="text-2xs text-foreground-faint uppercase tracking-widest font-medium">Profile</span>
           </div>
 
-          <% for (const bt of BUILTIN_TABS) { %>
+          <% for (const bt of builtinTabs) { %>
             <%
               const isActive = activeTab === bt.name;
               const badge = bt.badge ?? null;
@@ -147,7 +163,71 @@
       <div class="flex-1 min-w-0 bg-surface border border-line rounded-xl">
         <div class="p-6 min-h-56">
 
-          <% if (activeTab === 'request') { %>
+          <% if (activeTab === 'command') { %>
+
+            <%
+              const cmd = profile.request.command;
+              const cmdDur = profile.performance.duration;
+              const cmdOptions = cmd.options || {};
+              const cmdError = profile.exceptions.length > 0 ? profile.exceptions[0].message : null;
+            %>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
+                <p class="text-xl font-bold <%= cmd.success ? 'text-success' : 'text-danger' %>"><%= cmd.success ? 'OK' : 'Failed' %></p>
+              </div>
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Exit Code</p>
+                <p class="text-foreground text-xl font-bold tabular-nums"><%= cmd.exitCode %></p>
+              </div>
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>
+                <p class="text-foreground text-xl font-bold tabular-nums"><%= cmdDur !== undefined ? cmdDur + 'ms' : '—' %></p>
+              </div>
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Started</p>
+                <p class="text-foreground text-sm font-bold tabular-nums"><%= timeOnly(profile.performance.startTime) %></p>
+              </div>
+            </div>
+
+            <section class="mb-6">
+              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Command</h2>
+              <code class="block bg-surface-muted border border-line rounded-lg px-4 py-3 text-foreground text-sm break-all">
+                <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">CLI</span><%= cmd.name %><% if (cmd.arguments.length) { %> <%= cmd.arguments.join(' ') %><% } %>
+              </code>
+            </section>
+
+            <section class="mb-6">
+              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments</h2>
+              <% if (!cmd.arguments.length) { %>
+                <p class="text-foreground-faint text-xs italic py-1">No positional arguments.</p>
+              <% } else { %>
+                <div class="flex flex-wrap gap-2">
+                  <% for (const arg of cmd.arguments) { %>
+                    <span class="px-2 py-1 rounded text-xs bg-surface-muted border border-line text-foreground-secondary"><%= arg %></span>
+                  <% } %>
+                </div>
+              <% } %>
+            </section>
+
+            <section <%= cmdError ? 'class="mb-6"' : '' %>>
+              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options</h2>
+              <% if (Object.keys(cmdOptions).length === 0) { %>
+                <p class="text-foreground-faint text-xs italic py-1">No options.</p>
+              <% } else { %>
+                <%- kvTable(cmdOptions) %>
+              <% } %>
+            </section>
+
+            <% if (cmdError) { %>
+              <section>
+                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Error</h2>
+                <pre class="bg-danger-bg border border-danger-line rounded-lg px-4 py-3 text-danger text-xs whitespace-pre-wrap break-all"><%= cmdError %></pre>
+              </section>
+            <% } %>
+
+          <% } else if (activeTab === 'request') { %>
 
             <div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
               <div>

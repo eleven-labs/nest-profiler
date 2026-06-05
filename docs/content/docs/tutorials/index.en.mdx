@@ -27,6 +27,11 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
     description="Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel."
   />
   <Card
+    href="/en/docs/tutorials/commander-collector"
+    title="Command profiling"
+    description="Profile nest-commander CLI commands and inspect their runs in the Command panel at /_profiler."
+  />
+  <Card
     href="/en/docs/tutorials/auth-collector"
     title="Auth/Security profiling"
     description="Display authenticated user info and JWT claims in the Security panel."
@@ -71,6 +76,7 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | TypeORM query profiling     | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
 | MikroORM query profiling    | Logger.logQuery wrap + CLS context        | `@eleven-labs/nest-profiler-mikro-orm` |
 | Cache profiling             | CACHE_MANAGER proxy + CLS context         | `@eleven-labs/nest-profiler-cache`     |
+| Command profiling           | CommandRunner wrap + CommandFactory       | `@eleven-labs/nest-profiler-commander` |
 | Auth/Security profiling     | request.user + JWT decode                 | `@eleven-labs/nest-profiler-auth`      |
 | Axios/HTTP client profiling | Axios interceptor + axiosRef patch        | `@eleven-labs/nest-profiler-axios`     |
 | Configuration profiling     | ConfigService internalConfig + registerAs | `@eleven-labs/nest-profiler-config`    |

@@ -8,6 +8,7 @@
     "mongoose-collector",
     "axios-collector",
     "cache-collector",
+    "commander-collector",
     "auth-collector",
     "config-collector",
     "validator-collector",

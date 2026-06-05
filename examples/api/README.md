@@ -70,6 +70,27 @@ pnpm example:dev
 The API starts on port `3000`. Copy `.env.example` to `.env` to customise the database connection.  
 Profiles are persisted to `.profiler/` (file storage) — they survive restarts.
 
+## Profiling CLI commands (`nest-profiler-commander`)
+
+A separate CLI entrypoint (`src/cli.ts` → `CliModule`) demonstrates profiling `nest-commander`
+commands. It writes to the same `.profiler/` file storage as the HTTP app, so the command runs
+show up at `/_profiler` next to the HTTP profiles — the console equivalent of Symfony's command
+profiling.
+
+```bash
+pnpm --filter example-api build
+
+# Fetches posts via axios and caches them — the profile shows Command + HTTP Client + Cache panels
+FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm --filter example-api cli sync:posts --limit 3
+
+# A trivial command; add --fail to produce a failed profile (Exceptions tab)
+FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm --filter example-api cli demo:greet --name Fabien
+```
+
+Then start the HTTP app (`pnpm example:dev`) and open `/_profiler` to inspect the command profiles
+(listed with a `CLI` method badge). Commands are wrapped automatically — `SyncPostsCommand` and
+`GreetCommand` are ordinary `nest-commander` commands with no profiling code.
+
 ## Swagger UI
 
 Open **[http://localhost:3000/api](http://localhost:3000/api)** to access the interactive Swagger UI. Every endpoint is documented with its parameters, request body, and expected responses.

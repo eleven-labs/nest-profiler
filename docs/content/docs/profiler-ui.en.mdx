@@ -77,6 +77,10 @@ The **Cache** collector shows `GET_HIT`, `GET_MISS`, `SET` operations and the hi
 
 ![Cache tab showing a GET_HIT and a 100 percent hit rate](/screenshots/profiler/cache.png)
 
+The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, command profiles appear in the list with a **CLI** method badge and the command line in place of the URL; the **Command** tab details the command name, arguments, options, and exit code.
+
+![Command tab showing a profiled nest-commander run with arguments, options and exit code](/screenshots/profiler/command.png)
+
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 
 ![Security tab showing an authenticated demo_user with the admin role](/screenshots/profiler/security.png)
