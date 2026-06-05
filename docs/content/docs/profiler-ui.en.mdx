@@ -17,6 +17,8 @@ Requires [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-gra
 
 GraphQL requests appear in the list with a **GQL** badge followed by the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**). The operation name or field name is shown in place of the URL.
 
+![Profiles list showing GQL MUTATION and GQL QUERY badges alongside the operation name and status](/screenshots/profiler/graphql-list.png)
+
 The **Request** tab for GraphQL profiles adds a dedicated **GraphQL** section displaying:
 
 - **Operation type** badge (Query / Mutation / Subscription)
@@ -27,7 +29,13 @@ The **Request** tab for GraphQL profiles adds a dedicated **GraphQL** section di
 
 The HTTP method, URL, headers, and other standard fields remain visible below the GraphQL section.
 
+![Request tab showing the GraphQL section with operation type, name, syntax-highlighted query and variables (Query)](/screenshots/profiler/graphql-request.png)
+
+![Request tab showing the GraphQL section for a Mutation with input variables](/screenshots/profiler/graphql-mutation.png)
+
 GraphQL-level errors (schema validation failures, resolver errors returned in `response.body.errors`) appear in the **Exceptions** tab with an amber `GraphQLError` badge, visually distinct from NestJS runtime exceptions which use a red badge.
+
+![Exceptions tab showing an amber GraphQLError badge with validation error message and location](/screenshots/profiler/graphql-error.png)
 
 ## Built-in tabs
 

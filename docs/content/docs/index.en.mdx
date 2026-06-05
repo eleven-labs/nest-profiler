@@ -16,7 +16,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/en/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, Axios, Cache, Auth, Config, Validator."
+    description="Core profiler and all optional collector packages: TypeORM, Axios, Cache, Auth, Config, Validator, GraphQL."
   />
   <Card
     href="/en/docs/example-api"
@@ -46,6 +46,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 | [`@eleven-labs/nest-profiler-auth`](/en/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked        |
 | [`@eleven-labs/nest-profiler-config`](/en/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                       |
 | [`@eleven-labs/nest-profiler-validator`](/en/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names |
+| [`@eleven-labs/nest-profiler-graphql`](/en/docs/packages/nest-profiler-graphql)     | GraphQL         | GraphQL queries/mutations: operation type, name, query, variables  |
 
 ## Key features
 
@@ -54,6 +55,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 - **Two storage backends** — in-memory LRU (default) or file-based persistence that survives restarts
 - **Request sampling & path filtering** — `sampleRate` and `ignorePaths` to control overhead in busy environments
 - **Module-per-collector pattern** — each optional package is imported in the feature module it instruments, not in the root module
+- **GraphQL support** — profiles queries and mutations with a **GQL** badge, operation type/name, and syntax-highlighted query via `@eleven-labs/nest-profiler-graphql`; compatible with Apollo, Mercurius, and graphql-yoga
 
 <Callout type="warn" title="Development only">
   The profiler is designed for development environments. Disable it in production with `enabled:
