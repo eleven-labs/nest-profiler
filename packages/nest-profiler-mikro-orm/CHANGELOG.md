@@ -1,5 +1,12 @@
 # @eleven-labs/nest-profiler-mikro-orm
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [09586a0]
+  - @eleven-labs/nest-profiler@0.3.0
+
 ## 1.0.0
 
 ### Minor Changes
