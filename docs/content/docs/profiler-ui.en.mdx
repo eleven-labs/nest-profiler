@@ -3,11 +3,11 @@ title: Profiler UI
 description: A visual tour of the profiler web interface — the profiles list, the built-in tabs, and every collector panel.
 ---
 
-The screenshots below come from the [example application](/docs/example-api) with every collector enabled.
+Open `/_profiler` to browse the list of captured profiles, then click any row to open its detail view. The detail view is organized into **built-in tabs** (request, response, performance, logs, exceptions) plus **one tab per active collector**. The screenshots below come from the [example application](/docs/example-api) with every collector enabled.
 
 ## Profiles list
 
-The `/_profiler` page shows captured requests, filters, HTTP statuses, durations, and global panels such as **Config**.
+The `/_profiler` page lists captured profiles with their HTTP method, URL, status, and duration, a search field and status filters, and global panels such as **Config** that apply across the whole list.
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 
@@ -68,6 +68,10 @@ The **Timeline** collector displays spans created with `startSpan()` as synchron
 The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration.
 
 ![Database tab showing a profiled SQL SELECT query](/screenshots/profiler/database.png)
+
+The **MongoDB** collector (requires [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)) shows Mongoose queries and aggregations with their operation, collection, duration, and result count.
+
+![MongoDB tab showing a profiled Mongoose query with collection, operation and duration](/screenshots/profiler/mongodb.png)
 
 The **HTTP Client** collector shows outgoing requests triggered by `HttpService`.
 
