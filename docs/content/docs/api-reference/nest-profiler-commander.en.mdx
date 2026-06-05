@@ -1,0 +1,83 @@
+---
+title: nest-profiler-commander
+description: API reference for @eleven-labs/nest-profiler-commander — CLI command collector (nest-commander).
+---
+
+## CommandInfo
+
+Command profiles set `request.command` (a core type) instead of an HTTP method/URL. The profiler
+UI uses it to render the dedicated Commands table and the built-in **Command** tab.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="CommandInfo"
+/>
+
+## Public exports
+
+```ts
+import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { CommandProfiler } from '@eleven-labs/nest-profiler-commander';
+
+import type { CommanderCollectorModuleOptions } from '@eleven-labs/nest-profiler-commander';
+import type { CommandInfo } from '@eleven-labs/nest-profiler';
+```
+
+## CommanderCollectorModuleOptions
+
+```ts
+interface CommanderCollectorModuleOptions {
+  /** Enable the collector. Default: `true`. */
+  enabled?: boolean;
+}
+```
+
+When `enabled` is `false`, `forRoot()` registers no providers — the host application decides per environment.
+
+## Setup
+
+Register the module in the module you bootstrap with `CommandFactory`:
+
+```ts title="cli.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { AppCommand } from './app.command';
+
+@Module({
+  imports: [
+    // File storage lets the CLI process and the HTTP server share profiles.
+    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
+    CommanderCollectorModule.forRoot(),
+  ],
+  providers: [AppCommand],
+})
+export class CliModule {}
+```
+
+```ts title="cli.ts"
+import { CommandFactory } from 'nest-commander';
+import { CliModule } from './cli.module';
+
+async function bootstrap(): Promise<void> {
+  await CommandFactory.run(CliModule, { logger: ['error', 'warn'] });
+}
+
+void bootstrap();
+```
+
+Every provider that extends nest-commander's `CommandRunner` is wrapped automatically — you do not change your command classes.
+
+**Prerequisite:** `nest-commander` installed, and a **cross-process storage adapter** if you want to inspect command profiles from the HTTP app's web profiler at `/_profiler`. The CLI and the server are separate processes, so they must share the backing store — use `storageType: 'file'` (or a Redis/DB adapter). In-memory storage is per-process and can never surface command profiles in a separate web server; the profiler logs a warning when you profile a command against an in-memory store.
+
+## How a command profile is shaped
+
+A command has no HTTP request/response, so the profiler synthesises a profile shaped like an HTTP one:
+
+| Field                 | Value                                                       |
+| --------------------- | ----------------------------------------------------------- |
+| `request.method`      | `CLI`                                                       |
+| `request.url`         | `<command-name> <arguments…>` (e.g. `sync:posts --limit 3`) |
+| `response.statusCode` | `200` on success, `500` when the command threw              |
+
+The command name, arguments, options, and exit code are kept on `request.command`. Because the command body runs inside the profiler's CLS context, other collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.

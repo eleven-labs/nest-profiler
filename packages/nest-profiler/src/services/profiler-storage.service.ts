@@ -25,6 +25,15 @@ export class ProfilerStorageService {
       adapter ?? new MemoryStorageAdapter({ maxProfiles: options.maxProfiles, ttl: options.ttl });
   }
 
+  /**
+   * Whether the configured adapter persists profiles where another process can read them.
+   * Defaults to `true` when the adapter does not declare the capability (custom adapters are
+   * assumed to use a shared backing store).
+   */
+  get crossProcess(): boolean {
+    return this.adapter.crossProcess ?? true;
+  }
+
   save(profile: Profile): void | Promise<void> {
     return this.adapter.save(profile);
   }

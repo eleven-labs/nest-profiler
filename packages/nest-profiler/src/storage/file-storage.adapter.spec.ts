@@ -120,6 +120,27 @@ describe('FileStorageAdapter', () => {
     expect(tokens).toContain('persist2');
   });
 
+  it('discovers profiles written by another process without restarting', async () => {
+    // The adapter has already initialised its index from disk…
+    await adapter.save(makeProfile('server-side'));
+
+    // …then a separate process (e.g. a CLI command run) writes a profile file directly.
+    const external = makeProfile('cli-cmd', Date.now() + 50);
+    await fs.promises.writeFile(path.join(dir, 'cli-cmd.json'), JSON.stringify(external), 'utf-8');
+
+    const all = await adapter.findAll();
+    expect(all.map((p) => p.token)).toContain('cli-cmd');
+    expect(await adapter.findOne('cli-cmd')).toBeDefined();
+  });
+
+  it('drops profiles whose files were removed externally', async () => {
+    await adapter.save(makeProfile('gone'));
+    await fs.promises.unlink(path.join(dir, 'gone.json'));
+
+    expect(await adapter.findOne('gone')).toBeUndefined();
+    expect((await adapter.findAll()).map((p) => p.token)).not.toContain('gone');
+  });
+
   it('storageDirectory returns the resolved path', () => {
     expect(adapter.storageDirectory).toBe(dir);
   });

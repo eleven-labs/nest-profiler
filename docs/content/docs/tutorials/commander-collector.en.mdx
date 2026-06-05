@@ -1,0 +1,127 @@
+---
+title: Command profiling
+description: Profile nest-commander CLI commands and inspect them in the web profiler — the console equivalent of Symfony's command profiling.
+---
+
+This tutorial shows how to profile CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/). Each command run produces a profile — with a **Command** panel plus any HTTP, cache, or database activity the command triggered — that appears alongside your HTTP profiles at `/_profiler`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured with **file storage**
+- `nest-commander` installed
+
+<Callout type="warn">
+  Command profiling needs a **cross-process** storage adapter (`storageType: 'file'`, or a Redis/DB
+  adapter). The CLI and the web server are separate processes, so in-memory storage — local to a
+  single process — can never surface command profiles in the server. The profiler logs a warning if
+  you profile a command against an in-memory store.
+</Callout>
+
+## Step 1 — Install the packages
+
+```bash
+pnpm add @eleven-labs/nest-profiler-commander nest-commander
+```
+
+## Step 2 — Write a command
+
+You do not change anything for profiling — write an ordinary nest-commander command:
+
+```ts title="sync-posts.command.ts"
+import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { HttpService } from '@nestjs/axios';
+import type { Cache } from 'cache-manager';
+import { firstValueFrom } from 'rxjs';
+import { Command, CommandRunner, Option } from 'nest-commander';
+
+@Command({ name: 'sync:posts', description: 'Fetch posts and cache them' })
+export class SyncPostsCommand extends CommandRunner {
+  constructor(
+    private readonly http: HttpService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+  ) {
+    super();
+  }
+
+  async run(_params: string[], options?: { limit?: number }): Promise<void> {
+    const { data } = await firstValueFrom(
+      this.http.get(`https://jsonplaceholder.typicode.com/posts?_limit=${options?.limit ?? 5}`),
+    );
+    await this.cache.set('cli:posts', data, 60000);
+  }
+
+  @Option({ flags: '-l, --limit <limit>', description: 'Number of posts' })
+  parseLimit(value: string): number {
+    return parseInt(value, 10);
+  }
+}
+```
+
+## Step 3 — Register the CLI module
+
+Create a dedicated module for the CLI. Use **file** storage with the same `storagePath` as your HTTP app so the two processes share profiles:
+
+```ts title="cli.module.ts"
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { CacheModule } from '@nestjs/cache-manager';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { AxiosCollectorModule } from '@eleven-labs/nest-profiler-axios';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+import { SyncPostsCommand } from './sync-posts.command';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
+    CommanderCollectorModule.forRoot(),
+    HttpModule,
+    AxiosCollectorModule.forRoot(),
+    CacheModule.register({ isGlobal: true }),
+    CacheCollectorModule.forRoot(),
+  ],
+  providers: [SyncPostsCommand],
+})
+export class CliModule {}
+```
+
+## Step 4 — Bootstrap the CLI
+
+```ts title="cli.ts"
+import 'reflect-metadata';
+import { CommandFactory } from 'nest-commander';
+import { CliModule } from './cli.module';
+
+async function bootstrap(): Promise<void> {
+  await CommandFactory.run(CliModule, { logger: ['error', 'warn'] });
+}
+
+void bootstrap();
+```
+
+<Callout type="warn">
+  Bootstrap the CLI with a compiler that emits decorator metadata (`tsc` / `nest start`), **not** a
+  plain esbuild/`tsx` runner — otherwise NestJS cannot resolve your command's injected dependencies.
+</Callout>
+
+## Step 5 — Run a command
+
+```bash
+# build first, then run the compiled entry
+node dist/cli.js sync:posts --limit 3
+```
+
+## Step 6 — Inspect the profile
+
+Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. Commands appear in a dedicated **Commands** table (separate from HTTP/GraphQL requests). Open one to find:
+
+- **Command** — name, arguments, options, duration, exit code (the request/response tabs are hidden)
+- **HTTP Client** — the outgoing request the command made
+- **Cache** — the `SET` operation
+
+A command that throws is captured too: its profile is marked failed (status `500`) and the thrown error appears in the **Exceptions** tab.
+
+## How it works
+
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile (`request.method = 'CLI'` and `request.command`), opens a CLS context, runs the original command — so nested collectors keep capturing — then runs all collectors and persists the profile through the profiler's shared storage. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.

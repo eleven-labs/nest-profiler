@@ -16,7 +16,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/en/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Auth, Config, Validator, GraphQL."
+    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Commander, Auth, Config, Validator, GraphQL."
   />
   <Card
     href="/en/docs/example-api"
@@ -44,6 +44,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 | [`@eleven-labs/nest-profiler-mikro-orm`](/en/docs/packages/nest-profiler-mikro-orm) | Database        | SQL queries with type, duration, slow-query highlighting (MikroORM) |
 | [`@eleven-labs/nest-profiler-axios`](/en/docs/packages/nest-profiler-axios)         | HTTP Client     | Outgoing requests via `HttpService`: method, URL, status, duration  |
 | [`@eleven-labs/nest-profiler-cache`](/en/docs/packages/nest-profiler-cache)         | Cache           | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                 |
+| [`@eleven-labs/nest-profiler-commander`](/en/docs/packages/nest-profiler-commander) | Command         | `nest-commander` CLI runs: name, arguments, options, exit code      |
 | [`@eleven-labs/nest-profiler-auth`](/en/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked         |
 | [`@eleven-labs/nest-profiler-config`](/en/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                        |
 | [`@eleven-labs/nest-profiler-validator`](/en/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names  |
@@ -57,6 +58,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 - **Request sampling & path filtering** — `sampleRate` and `ignorePaths` to control overhead in busy environments
 - **Module-per-collector pattern** — each optional package is imported in the feature module it instruments, not in the root module
 - **GraphQL support** — profiles queries and mutations with a **GQL** badge, operation type/name, and syntax-highlighted query via `@eleven-labs/nest-profiler-graphql`; compatible with Apollo, Mercurius, and graphql-yoga
+- **CLI command profiling** — profiles `nest-commander` commands with a **CLI** badge in a dedicated **Command** panel via `@eleven-labs/nest-profiler-commander`; with file storage the command profiles show up next to HTTP requests at `/_profiler`
 
 <Callout type="warn" title="Development only">
   The profiler is designed for development environments. Disable it in production with `enabled:

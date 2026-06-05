@@ -5,13 +5,19 @@
   <%- include('_nav') %>
   <main class="max-w-7xl mx-auto px-6 py-8">
 
+    <%
+      // Commands are profiled separately from HTTP/GraphQL requests — split them out.
+      const requestProfiles = profiles.filter((p) => !p.request.command);
+      const commands = typeof commandProfiles !== 'undefined' && commandProfiles ? commandProfiles : [];
+    %>
+
     <div class="flex items-start justify-between mb-6">
       <div>
         <h1 class="text-base font-semibold text-foreground">Recent Profiles</h1>
-        <p class="text-foreground-muted text-xs mt-0.5">HTTP requests captured by the profiler</p>
+        <p class="text-foreground-muted text-xs mt-0.5">HTTP &amp; GraphQL requests captured by the profiler</p>
       </div>
       <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
-        <%= profiles.length %> profile<%= profiles.length !== 1 ? 's' : '' %>
+        <%= requestProfiles.length %> profile<%= requestProfiles.length !== 1 ? 's' : '' %>
       </span>
     </div>
 
@@ -131,7 +137,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-line-subtle">
-          <% if (profiles.length === 0) { %>
+          <% if (requestProfiles.length === 0) { %>
             <tr>
               <td colspan="6" class="py-16 text-center">
                 <p class="text-foreground-muted text-sm mb-1">No profiles found</p>
@@ -139,7 +145,7 @@
               </td>
             </tr>
           <% } else { %>
-            <% for (const p of profiles) { %>
+            <% for (const p of requestProfiles) { %>
               <%
                 const dur = p.performance.duration;
                 const durClass = dur === undefined ? 'dur-none'
@@ -193,6 +199,72 @@
         </tbody>
       </table>
     </div>
+
+    <% if (commands.length > 0) { %>
+      <div class="flex items-start justify-between mb-6 mt-10">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">Commands</h2>
+          <p class="text-foreground-muted text-xs mt-0.5">CLI commands profiled via nest-commander</p>
+        </div>
+        <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
+          <%= commands.length %> command<%= commands.length !== 1 ? 's' : '' %>
+        </span>
+      </div>
+
+      <div class="rounded-xl border border-line overflow-hidden bg-surface">
+        <table class="w-full">
+          <thead>
+            <tr class="bg-surface-muted border-b border-line">
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Command</th>
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Arguments</th>
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line-subtle">
+            <% for (const p of commands) { %>
+              <%
+                const cmd = p.request.command;
+                const dur = p.performance.duration;
+                const durClass = dur === undefined ? 'dur-none'
+                  : dur < 100  ? 'dur-fast'
+                  : dur < 500  ? 'dur-medium'
+                  : 'dur-slow';
+              %>
+              <tr class="hover:bg-surface-muted transition-colors">
+                <td class="py-2.5 px-4">
+                  <a href="<%= profilerPath %>/<%= p.token %>"
+                     class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
+                    <%= p.token.slice(0, 8) %>
+                  </a>
+                </td>
+                <td class="py-2.5 px-4">
+                  <div class="flex items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">CLI</span>
+                    <code class="text-foreground-secondary text-xs"><%= cmd.name %></code>
+                  </div>
+                </td>
+                <td class="py-2.5 px-4 text-foreground-faint text-xs max-w-xs truncate" title="<%= cmd.arguments.join(' ') %>">
+                  <%= cmd.arguments.length ? cmd.arguments.join(' ') : '—' %>
+                </td>
+                <td class="py-2.5 px-4">
+                  <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= cmd.success ? 'badge-2xx' : 'badge-5xx' %>">
+                    <%= cmd.success ? 'OK' : 'FAILED' %>
+                  </span>
+                  <span class="text-foreground-faint text-2xs ml-1 tabular-nums">exit <%= cmd.exitCode %></span>
+                </td>
+                <td class="py-2.5 px-4 text-xs tabular-nums">
+                  <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
+                </td>
+                <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
 
   </main>
 </body>

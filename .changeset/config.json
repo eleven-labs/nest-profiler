@@ -8,6 +8,7 @@
       "@eleven-labs/nest-profiler-auth",
       "@eleven-labs/nest-profiler-axios",
       "@eleven-labs/nest-profiler-cache",
+      "@eleven-labs/nest-profiler-commander",
       "@eleven-labs/nest-profiler-config",
       "@eleven-labs/nest-profiler-graphql",
       "@eleven-labs/nest-profiler-mongoose",

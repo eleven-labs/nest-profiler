@@ -7,6 +7,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
+import { ProfilerStorageService } from '../services/profiler-storage.service';
 import { ProfilerCollector } from '../collectors/collector.decorator';
 import type { IProfilerCollector } from '../collectors/collector.interface';
 import type { Profile } from '../interfaces/profile.interface';
@@ -172,6 +173,64 @@ describe('ProfilerController (e2e)', () => {
       const res = await request(server()).get(`/_profiler/${token}`).query({ tab: 'database' });
       expect(res.status).toBe(200);
       expect(res.text).toContain('<!DOCTYPE html>');
+    });
+  });
+
+  describe('command profiles', () => {
+    const cmdToken = 'cmd-e2e-token-12345678';
+
+    /** Persists a synthetic CLI command profile (as the commander collector would). */
+    async function saveCommandProfile(success = true): Promise<void> {
+      const storage = app.get(ProfilerStorageService);
+      await storage.save({
+        token: cmdToken,
+        createdAt: Date.now(),
+        request: {
+          method: 'CLI',
+          url: 'demo:greet world',
+          headers: {},
+          query: {},
+          command: {
+            name: 'demo:greet',
+            arguments: ['world'],
+            options: {},
+            exitCode: success ? 0 : 1,
+            success,
+          },
+        },
+        response: { statusCode: success ? 200 : 500, headers: {} },
+        performance: { startTime: Date.now(), heapUsed: 1024, duration: 5 },
+        logs: [],
+        exceptions: [],
+        collectors: {},
+      });
+    }
+
+    it('lists commands in a dedicated table on the list page', async () => {
+      await saveCommandProfile();
+      const res = await request(server()).get('/_profiler');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('>Commands<');
+      expect(res.text).toContain('demo:greet');
+    });
+
+    it('renders the command detail without request/response tabs (defaults to the command panel)', async () => {
+      await saveCommandProfile();
+      const res = await request(server()).get(`/_profiler/${cmdToken}`);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('demo:greet');
+      // HTTP-only tabs are dropped for commands.
+      expect(res.text).not.toContain('tab=request');
+      expect(res.text).not.toContain('tab=response');
+    });
+
+    it('honours an explicit builtin tab on a command profile', async () => {
+      await saveCommandProfile(false);
+      const res = await request(server())
+        .get(`/_profiler/${cmdToken}`)
+        .query({ tab: 'performance' });
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('FAILED');
     });
   });
 

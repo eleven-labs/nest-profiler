@@ -22,6 +22,19 @@ export interface GraphQLInfo {
   fieldName: string;
 }
 
+export interface CommandInfo {
+  /** Command name as declared via `@Command({ name })`, e.g. `sync:posts`. */
+  name: string;
+  /** Positional parameters passed to the command. */
+  arguments: string[];
+  /** Parsed flag options passed to the command. */
+  options?: Record<string, unknown>;
+  /** Process exit code — `0` on success, `1` when the command threw. */
+  exitCode: number;
+  /** `true` when the command completed without throwing. */
+  success: boolean;
+}
+
 export interface RequestData {
   method: string;
   url: string;
@@ -32,6 +45,8 @@ export interface RequestData {
   cookies?: Record<string, string>;
   session?: Record<string, unknown>;
   graphql?: GraphQLInfo;
+  /** Present when the profile describes a CLI command instead of an HTTP request. */
+  command?: CommandInfo;
 }
 
 export interface ResponseData {

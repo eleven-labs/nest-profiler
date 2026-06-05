@@ -79,6 +79,39 @@ describe('ProfilerStorageService', () => {
     expect(await svc.findOne('default')).toBe(p);
   });
 
+  it('reports crossProcess=false for the default in-memory adapter', async () => {
+    const module = await Test.createTestingModule({
+      providers: [ProfilerStorageService],
+    }).compile();
+    expect(module.get(ProfilerStorageService).crossProcess).toBe(false);
+  });
+
+  it('reflects a custom adapter crossProcess flag', async () => {
+    const shared = { crossProcess: true } as unknown as IProfilerStorageAdapter;
+    const sharedSvc = (
+      await Test.createTestingModule({
+        providers: [
+          ProfilerStorageService,
+          { provide: PROFILER_STORAGE_ADAPTER, useValue: shared },
+        ],
+      }).compile()
+    ).get(ProfilerStorageService);
+    expect(sharedSvc.crossProcess).toBe(true);
+  });
+
+  it('defaults crossProcess to true when a custom adapter omits the flag', async () => {
+    const custom = { save: jest.fn() } as unknown as IProfilerStorageAdapter;
+    const svc = (
+      await Test.createTestingModule({
+        providers: [
+          ProfilerStorageService,
+          { provide: PROFILER_STORAGE_ADAPTER, useValue: custom },
+        ],
+      }).compile()
+    ).get(ProfilerStorageService);
+    expect(svc.crossProcess).toBe(true);
+  });
+
   it('delegates to a custom storage adapter when provided', async () => {
     const save = jest.fn();
     const findAll = jest.fn().mockReturnValue([]);

@@ -19,6 +19,8 @@ interface ProfileIndex {
 }
 
 export class FileStorageAdapter implements IProfilerStorageAdapter {
+  /** Profiles are persisted as files on a shared filesystem — visible across processes. */
+  readonly crossProcess = true;
   private readonly dir: string;
   private readonly maxProfiles: number;
   private readonly ttlMs: number;
@@ -48,6 +50,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
 
   async findAll(options?: StorageFindOptions): Promise<Profile[]> {
     await this.init();
+    await this.syncIndex();
 
     const now = Date.now();
     const validEntries = this.index.filter((e) => now - e.createdAt < this.ttlMs).reverse(); // newest first
@@ -61,6 +64,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
 
   async findOne(token: string): Promise<Profile | undefined> {
     await this.init();
+    await this.syncIndex();
 
     const entry = this.index.find((e) => e.token === token);
     if (!entry) return undefined;
@@ -118,6 +122,43 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
       expired.map((e) => fs.promises.unlink(this.tokenPath(e.token)).catch(() => undefined)),
     );
     this.index = this.index.filter((e) => now - e.createdAt < this.ttlMs);
+  }
+
+  /**
+   * Reconciles the in-memory index with the directory contents. This makes profiles written
+   * by another process — e.g. a CLI command run while the web server is up — visible without
+   * a restart, and drops entries whose files were removed externally. Cheap: a single
+   * `readdir`, plus one read per newly discovered token.
+   */
+  private async syncIndex(): Promise<void> {
+    const files = await fs.promises.readdir(this.dir).catch(() => null);
+    if (files === null) return;
+
+    const tokensOnDisk = new Set(
+      files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)),
+    );
+
+    // Drop entries whose files were removed externally.
+    this.index = this.index.filter((e) => tokensOnDisk.has(e.token));
+
+    // Add entries for files created by other processes.
+    const known = new Set(this.index.map((e) => e.token));
+    const newTokens = [...tokensOnDisk].filter((t) => !known.has(t));
+    if (newTokens.length === 0) return;
+
+    const added = (
+      await Promise.all(
+        newTokens.map(async (token) => {
+          const profile = await this.readProfile(token);
+          return profile ? { token, createdAt: profile.createdAt } : null;
+        }),
+      )
+    ).filter((e): e is ProfileIndex => e !== null);
+
+    if (added.length > 0) {
+      this.index.push(...added);
+      this.index.sort((a, b) => a.createdAt - b.createdAt); // keep oldest-first for LRU
+    }
   }
 
   private async readProfile(token: string): Promise<Profile | null> {

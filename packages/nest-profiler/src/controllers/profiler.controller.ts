@@ -18,7 +18,7 @@ import { ProfilerFiltersQuery } from './profiler-filters.query';
 import type { Profile } from '../interfaces/profile.interface';
 import type { StorageFindOptions } from '../storage/storage-adapter.interface';
 
-const BUILTIN_TAB_NAMES = ['request', 'response', 'performance', 'logs', 'exceptions'];
+const BUILTIN_TAB_NAMES = ['command', 'request', 'response', 'performance', 'logs', 'exceptions'];
 
 @UseGuards(ProfilerGuard)
 @Controller()
@@ -56,10 +56,14 @@ export class ProfilerController {
       .map((p) => p.performance.heapUsed)
       .filter((v) => v !== undefined);
 
+    // CLI commands are listed in a dedicated table, independent of the HTTP filters.
+    const commandProfiles = allRecent.filter((p) => p.request.command);
+
     return this.templateRenderer.render('list', {
       title: 'Profiles',
       profilerPath: this.profilerPath,
       profiles,
+      commandProfiles,
       globalPanels,
       heapSeries,
       filters: {
@@ -83,18 +87,24 @@ export class ProfilerController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   async getProfileDetail(
     @Param('token') token: string,
-    @Query('tab') tab: string = 'request',
+    @Query('tab') tab?: string,
   ): Promise<string> {
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
 
     const collectorPanels = this.core.collectorRegistry.buildPanels(profile);
     const collectorTabNames = collectorPanels.map((p) => p.name);
-    const isCollectorTab = collectorTabNames.includes(tab) && !BUILTIN_TAB_NAMES.includes(tab);
+
+    // Commands have no request/response tabs — land on the built-in Command tab.
+    const isCommand = profile.request.command !== undefined;
+    const activeTab = tab ?? (isCommand ? 'command' : 'request');
+
+    const isCollectorTab =
+      collectorTabNames.includes(activeTab) && !BUILTIN_TAB_NAMES.includes(activeTab);
 
     let collectorData: unknown = undefined;
     if (isCollectorTab) {
-      const activePanel = collectorPanels.find((p) => p.name === tab);
+      const activePanel = collectorPanels.find((p) => p.name === activeTab);
       if (activePanel?.isGroup && activePanel.subPanels) {
         collectorData = {
           subPanels: activePanel.subPanels
@@ -102,7 +112,7 @@ export class ProfilerController {
             .filter((sp) => sp.data !== undefined),
         };
       } else {
-        collectorData = profile.collectors[tab];
+        collectorData = profile.collectors[activeTab];
       }
     }
 
@@ -111,7 +121,7 @@ export class ProfilerController {
       profilerPath: this.profilerPath,
       token: profile.token,
       profile,
-      activeTab: tab,
+      activeTab,
       collectorPanels,
       collectorData,
     });
