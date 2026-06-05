@@ -1,16 +1,16 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ProductsService } from './products.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import type { Product } from './product.entity';
+import { ProductService } from '../application/product.service.js';
+import { CreateProductDto } from './dto/create-product.dto.js';
+import type { Product } from '../domain/product.js';
 
 @ApiTags('products')
 @Controller('products')
-export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+export class ProductController {
+  constructor(private readonly products: ProductService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all products — demonstrates TypeORM collector' })
+  @ApiOperation({ summary: 'List all products — demonstrates the active SQL ORM collector' })
   @ApiResponse({ status: 200, description: 'Array of products' })
   findAll(): Promise<Product[]> {
     return this.products.findAll();
@@ -26,7 +26,7 @@ export class ProductsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a product — triggers TypeORM INSERT + validator collector' })
+  @ApiOperation({ summary: 'Create a product — triggers an INSERT + the validator collector' })
   @ApiResponse({ status: 201, description: 'Product created' })
   @ApiResponse({
     status: 400,

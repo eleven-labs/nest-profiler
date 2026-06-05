@@ -16,6 +16,7 @@
 - [ ] `@eleven-labs/nest-profiler-config`
 - [ ] `@eleven-labs/nest-profiler-mongoose`
 - [ ] `@eleven-labs/nest-profiler-validator`
+- [ ] `@eleven-labs/nest-profiler-mikro-orm`
 - [ ] `example-api`
 - [ ] `docs` (documentation)
 - [ ] Tooling / CI only

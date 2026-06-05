@@ -1,13 +1,13 @@
 # example-api
 
-The `examples/api` directory contains a feature-complete NestJS application demonstrating every built-in collector. The application is organized into **one feature module per collector package**, making each collector's setup self-contained and easy to follow.
+The `examples/api` directory contains a feature-complete NestJS application demonstrating every built-in collector. Collectors that wrap an external concern live in **one feature module per package**; the `products` context is structured with **hexagonal architecture** so a single SQL ORM (TypeORM or MikroORM) can be swapped via one environment variable without touching the domain, application, or HTTP layers.
 
 ## Live demo
 
 A live instance is deployed with the following configuration — no database infrastructure, in-memory storage only:
 
 ```
-FEATURE_TYPEORM=false       # ProductsModule and PostgreSQL disabled
+SQL_ORM=none                # no SQL ORM / PostgreSQL (products context disabled)
 FEATURE_MONGOOSE=false      # ReviewsModule and MongoDB disabled
 PROFILER_ENABLED=true
 PROFILER_STORAGE_TYPE=memory
@@ -24,7 +24,7 @@ Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Confi
 ## Prerequisites
 
 - Node.js 22+, pnpm 10+
-- Docker (optional — only needed when `FEATURE_TYPEORM` or `FEATURE_MONGOOSE` is enabled)
+- Docker (optional — only needed when `SQL_ORM` is set to a database ORM or `FEATURE_MONGOOSE` is enabled)
 
 ## Start the infrastructure
 
@@ -38,21 +38,24 @@ This starts **PostgreSQL 16** on port `5432` for the TypeORM collector demo, and
 
 ## Feature flags
 
-The example app uses feature flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
+The example app uses flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
 
 | Variable              | Default | Description                                                         |
 | --------------------- | ------- | ------------------------------------------------------------------- |
-| `FEATURE_TYPEORM`     | `true`  | Load TypeORM + PostgreSQL connection + `ProductsModule`             |
+| `SQL_ORM`          | `typeorm` | SQL ORM for the products context: `typeorm` \| `mikro-orm` \| `none` |
 | `FEATURE_MONGOOSE`    | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`                |
 | `FEATURE_GRAPHQL`     | `true`  | Load GraphQL + Apollo Server + `BooksModule`                        |
 | `FEATURE_PINO_LOGGER` | `false` | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger` |
 | `PROFILER_ENABLED`    | `true`  | Enable the profiler UI and all collectors                           |
 
-Set any flag to `false` to disable the corresponding module. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
+`SQL_ORM` selects which persistence adapter backs the products context — the adapters are mutually exclusive because they map the same Postgres `products` table. Set it to `none` to disable the products context entirely. Set `FEATURE_MONGOOSE=false` to disable the reviews context. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
 
 ```bash
+# Profile SQL queries through MikroORM instead of TypeORM
+SQL_ORM=mikro-orm pnpm example:dev
+
 # Run without any database (Posts, Auth, Config, Validator, GraphQL collectors still active)
-FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm example:dev
+SQL_ORM=none FEATURE_MONGOOSE=false pnpm example:dev
 
 # Run without GraphQL
 FEATURE_GRAPHQL=false pnpm example:dev
@@ -125,12 +128,14 @@ Each operation sent through the Sandbox generates a profiler profile with a **GQ
 
 ## Module architecture
 
-Each feature module owns the collector(s) it demonstrates:
+The products context is hexagonal; every other feature module owns the collector(s) it demonstrates:
 
 ```
 AppModule
-├── DatabaseModule [FEATURE_TYPEORM]
-│   └── ProductsModule  → TypeOrmCollectorModule (nest-profiler-typeorm)
+├── ProductModule  → selects ONE adapter by SQL_ORM (mutually exclusive):
+│     ├── ProductTypeOrmModule   [SQL_ORM=typeorm]   → TypeOrmCollectorModule (nest-profiler-typeorm)
+│     └── ProductMikroOrmModule  [SQL_ORM=mikro-orm] → MikroOrmCollectorModule (nest-profiler-mikro-orm)
+│           (both bind the same ProductRepository port; SQL_ORM=none loads neither)
 ├── MongoModule [FEATURE_MONGOOSE]
 │   └── ReviewsModule   → MongooseCollectorModule (nest-profiler-mongoose)
 ├── AppGraphQLModule [FEATURE_GRAPHQL]
@@ -144,17 +149,17 @@ AppModule
 
 ### AppModule — global infrastructure
 
-`DatabaseModule` and `MongoModule` are wrapper modules loaded conditionally via `ConditionalModule.registerWhen`. Each encapsulates the database connection setup and the feature module that depends on it.
+`AppModule` loads `ProductModule` (unless `SQL_ORM=none`) and `MongoModule` conditionally via `ConditionalModule.registerWhen` (conditions evaluated after `.env` is loaded). The SQL ORM selection itself lives inside `ProductModule`.
 
 ```ts title="app.module.ts"
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, mongodbConfig, appConfig, featuresConfig],
+      load: [appConfig, featuresConfig],
     }),
-    ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled), // FEATURE_TYPEORM !== 'false'
-    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled), // FEATURE_MONGOOSE !== 'false'
+    ConditionalModule.registerWhen(ProductModule, isSqlOrmEnabled), // skipped when SQL_ORM=none
+    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
     ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
     ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
@@ -166,16 +171,50 @@ AppModule
 export class AppModule {}
 ```
 
-### ProductsModule — demonstrates `nest-profiler-typeorm`
+`ProductModule` owns the HTTP + application layers and selects one adapter; each adapter only provides the `ProductRepository` port, which it **exports** up through `ConditionalModule`:
 
-```ts title="products/products.module.ts"
+```ts title="products/product.module.ts"
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product]),
-    TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+    ConditionalModule.registerWhen(ProductTypeOrmModule, isSqlOrm('typeorm')),
+    ConditionalModule.registerWhen(ProductMikroOrmModule, isSqlOrm('mikro-orm')),
   ],
+  controllers: [ProductController],
+  providers: [ProductService], // injects ProductRepository, exported by the active adapter
 })
-export class ProductsModule {}
+export class ProductModule {}
+```
+
+### Products context — hexagonal, demonstrates `nest-profiler-typeorm` / `nest-profiler-mikro-orm`
+
+The `products/` folder separates the technology-agnostic core from the ORM-specific infrastructure:
+
+```
+products/
+├── product.module.ts    controller + service; selects one adapter by SQL_ORM (ConditionalModule)
+├── domain/         product.ts, product.repository.ts  (ProductRepository port = DI token)
+├── application/    product.service.ts                 (depends only on the port)
+├── http/           product.controller.ts, dto/
+└── infrastructure/
+    ├── typeorm/     product.typeorm.{entity,repository,module}.ts   (+ TypeOrmCollectorModule)
+    └── mikro-orm/   product.mikro-orm.{entity,repository,module}.ts (+ MikroOrmCollectorModule)
+```
+
+Each infrastructure module's only role is to wire its ORM connection + collector and **provide + export** the port — the controller/service stay in `ProductModule`:
+
+```ts title="products/infrastructure/mikro-orm/product.mikro-orm.module.ts"
+@Module({
+  imports: [
+    MikroOrmModule.forRootAsync({
+      /* Postgres, driver: PostgreSqlDriver */
+    }),
+    MikroOrmModule.forFeature([ProductEntity]),
+    MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+  ],
+  providers: [{ provide: ProductRepository, useClass: MikroOrmProductRepository }],
+  exports: [ProductRepository],
+})
+export class ProductMikroOrmModule {}
 ```
 
 ### PostsModule — demonstrates `nest-profiler-axios` + `nest-profiler-cache` + `nest-profiler-validator`
@@ -246,9 +285,9 @@ export class AuthModule {}
 | `GET /slow`   | Timeline       | 3 nested spans: fetch → process → serialize |
 | `GET /error`  | Exceptions     | Throws `BadRequestException`                |
 
-### Products (`ProductsModule` → TypeORM)
+### Products (hexagonal → active SQL ORM)
 
-The database is seeded automatically at startup — no manual step required. The seed clears the table and inserts 4 products on every restart.
+The database is seeded automatically at startup — no manual step required. The schema is recreated and the seed inserts 4 products on every restart, so switching `SQL_ORM` always starts clean.
 
 | Endpoint               | Description                           |
 | ---------------------- | ------------------------------------- |
@@ -298,11 +337,13 @@ The Apollo Sandbox playground is available at `GET /graphql`.
 
 ## Testing each collector
 
-### TypeORM — Database tab
+### TypeORM / MikroORM — Database tab
 
-The DB is pre-seeded at startup. Run queries directly:
+The DB is pre-seeded at startup. The same endpoints work whichever ORM `SQL_ORM` selects (the
+controller/service are ORM-agnostic):
 
 ```bash
+# default (SQL_ORM=typeorm), or run with SQL_ORM=mikro-orm pnpm example:dev
 curl http://localhost:3000/products
 curl http://localhost:3000/products/1
 curl -X POST http://localhost:3000/products \
@@ -310,7 +351,8 @@ curl -X POST http://localhost:3000/products \
   -d '{"name":"Widget","price":9.99}'
 ```
 
-→ **Database** tab: SQL queries with type badge, duration bar, slow query highlighting.
+→ **Database** tab: SQL queries with type badge, duration bar, slow query highlighting — rendered
+identically for both ORMs (shared `AbstractSqlQueryCollector`).
 
 ### Axios + Cache — HTTP Client and Cache tabs
 

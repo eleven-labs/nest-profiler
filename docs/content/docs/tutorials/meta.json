@@ -4,6 +4,7 @@
     "index",
     "setup-profiler",
     "typeorm-collector",
+    "mikro-orm-collector",
     "mongoose-collector",
     "axios-collector",
     "cache-collector",

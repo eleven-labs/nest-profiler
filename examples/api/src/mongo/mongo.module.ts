@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import mongodbConfig from '../config/mongodb.config';
-import { ReviewsModule } from '../reviews/reviews.module';
+import mongodbConfig from '../config/mongodb.config.js';
+import { ReviewsModule } from '../reviews/reviews.module.js';
 
 @Module({
   imports: [

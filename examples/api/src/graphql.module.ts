@@ -5,7 +5,7 @@ import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import type { Request } from 'express';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
-import { BooksModule } from './books/books.module';
+import { BooksModule } from './books/books.module.js';
 
 @Module({
   imports: [
@@ -15,8 +15,10 @@ import { BooksModule } from './books/books.module';
       autoSchemaFile: true,
       introspection: true,
       playground: false,
-      // Apollo Sandbox playground — available at GET /graphql in dev
-      plugins: [ApolloServerPluginLandingPageLocalDefault({ embed: true })],
+      // Apollo Sandbox playground — available at GET /graphql in dev.
+      plugins: [
+        ApolloServerPluginLandingPageLocalDefault({ embed: true }),
+      ] as ApolloDriverConfig['plugins'],
       // Required for the profiler: exposes the Express request in the GraphQL context
       // so the profiler adapter can retrieve the profile created by the HTTP middleware.
       context: ({ req }: { req: Request }) => ({ req }),

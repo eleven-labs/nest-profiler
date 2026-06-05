@@ -6,8 +6,8 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
-import { AppModule } from './app.module';
-import { isPinoLoggerEnabled } from './config/features.config';
+import { AppModule } from './app.module.js';
+import { isPinoLoggerEnabled } from './config/features.config.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });

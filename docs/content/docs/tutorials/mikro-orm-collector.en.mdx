@@ -1,0 +1,102 @@
+---
+title: MikroORM query profiling
+description: Capture every SQL query executed by MikroORM and inspect them in the Database panel.
+---
+
+This tutorial shows how to add the MikroORM collector to profile SQL queries in a NestJS application that uses PostgreSQL via `@mikro-orm/nestjs`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@mikro-orm/core`, `@mikro-orm/nestjs` and a driver (e.g. `@mikro-orm/postgresql`) installed with a working `MikroOrmModule.forRoot()`
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-mikro-orm
+```
+
+## Step 2 — Register the collector
+
+Add `MikroOrmCollectorModule` **after** `MikroOrmModule` in your root module:
+
+```ts title="app.module.ts"
+import { MikroOrmModule } from '@mikro-orm/nestjs';
+import { PostgreSqlDriver } from '@mikro-orm/postgresql';
+import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+@Module({
+  imports: [
+    MikroOrmModule.forRoot({ driver: PostgreSqlDriver /* ... */ }),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    MikroOrmCollectorModule.forRoot({
+      slowQueryThreshold: 100, // queries > 100ms are highlighted (default)
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+No other configuration is needed — the collector wraps the MikroORM logger automatically and
+requires no `debug` flag.
+
+## Step 3 — Instrument your services with spans
+
+Use `startSpan()` to add meaningful labels to the Timeline panel alongside your MikroORM calls:
+
+```ts
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { EntityManager } from '@mikro-orm/core';
+
+@Injectable()
+export class ProductsService {
+  constructor(
+    private readonly em: EntityManager,
+    private readonly profiler: ProfilerService,
+  ) {}
+
+  async findAll(): Promise<Product[]> {
+    const stop = this.profiler.startSpan('db.products.findAll');
+    const result = await this.em.fork().find(Product, {}, { orderBy: { createdAt: 'DESC' } });
+    stop();
+    return result;
+  }
+}
+```
+
+## Step 4 — Test it
+
+Start your application and make a request that triggers a database query:
+
+```bash
+curl -i http://localhost:3000/products
+```
+
+Copy the `X-Debug-Token` from the response headers, open `/_profiler/{token}`, and click the **Database** tab.
+
+You will see:
+
+- Each SQL query with its type badge (`SELECT`, `INSERT`, …)
+- Duration per query (MikroORM's measured `took`) with a bar chart indicator
+- Slow queries highlighted in red
+- Bound parameters
+
+The **Timeline** panel shows the `db.products.findAll` span alongside other phases.
+
+## How it works
+
+At module initialization the collector wraps MikroORM's `Logger.logQuery`. MikroORM's SQL
+connection always measures execution time and calls `logQuery` with the query, its parameters and
+the elapsed `took`; the collector records an entry into the CLS profile for the current request and
+delegates to the original logger only if you had query logging enabled. `MikroOrmCollector.collect()`
+then reads and returns those entries.
+
+This captures all queries issued through the `EntityManager`, repositories and the QueryBuilder.
+Queries executed outside a request context (e.g., during module initialization) are silently
+ignored since there is no active CLS profile.
+
+<Callout type="info" title="Sharing the SQL panel">
+  The TypeORM and MikroORM collectors share the same **Database** panel rendering and `QueryEntry`
+  shape (provided by the core `AbstractSqlQueryCollector`), so the UI is identical whichever SQL ORM
+  you use.
+</Callout>

@@ -13,6 +13,9 @@ export { ProfilerCollector } from './collectors/collector.decorator';
 export type { ProfilerCollectorMetadata } from './collectors/collector.decorator';
 export type { IProfilerCollector } from './collectors/collector.interface';
 export { TimelineCollector } from './collectors/timeline/timeline.collector';
+export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';
+export { detectQueryType } from './collectors/sql/sql-query.interface';
+export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface';
 export { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
 export type {
   IProfilerStorageAdapter,

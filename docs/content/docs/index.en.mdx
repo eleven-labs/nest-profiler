@@ -16,7 +16,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/en/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, Axios, Cache, Auth, Config, Validator, GraphQL."
+    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Auth, Config, Validator, GraphQL."
   />
   <Card
     href="/en/docs/example-api"
@@ -37,16 +37,17 @@ The ecosystem is built around an **extensible collector architecture**: the core
 
 ## Packages
 
-| Package                                                                             | Panel           | What it captures                                                   |
-| ----------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------ |
-| [`@eleven-labs/nest-profiler`](/en/docs/packages/nest-profiler)                     | Core + Timeline | Request, response, logs, exceptions, performance spans             |
-| [`@eleven-labs/nest-profiler-typeorm`](/en/docs/packages/nest-profiler-typeorm)     | Database        | SQL queries with type, duration, slow-query highlighting           |
-| [`@eleven-labs/nest-profiler-axios`](/en/docs/packages/nest-profiler-axios)         | HTTP Client     | Outgoing requests via `HttpService`: method, URL, status, duration |
-| [`@eleven-labs/nest-profiler-cache`](/en/docs/packages/nest-profiler-cache)         | Cache           | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                |
-| [`@eleven-labs/nest-profiler-auth`](/en/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked        |
-| [`@eleven-labs/nest-profiler-config`](/en/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                       |
-| [`@eleven-labs/nest-profiler-validator`](/en/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names |
-| [`@eleven-labs/nest-profiler-graphql`](/en/docs/packages/nest-profiler-graphql)     | GraphQL         | GraphQL queries/mutations: operation type, name, query, variables  |
+| Package                                                                             | Panel           | What it captures                                                    |
+| ----------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------- |
+| [`@eleven-labs/nest-profiler`](/en/docs/packages/nest-profiler)                     | Core + Timeline | Request, response, logs, exceptions, performance spans              |
+| [`@eleven-labs/nest-profiler-typeorm`](/en/docs/packages/nest-profiler-typeorm)     | Database        | SQL queries with type, duration, slow-query highlighting            |
+| [`@eleven-labs/nest-profiler-mikro-orm`](/en/docs/packages/nest-profiler-mikro-orm) | Database        | SQL queries with type, duration, slow-query highlighting (MikroORM) |
+| [`@eleven-labs/nest-profiler-axios`](/en/docs/packages/nest-profiler-axios)         | HTTP Client     | Outgoing requests via `HttpService`: method, URL, status, duration  |
+| [`@eleven-labs/nest-profiler-cache`](/en/docs/packages/nest-profiler-cache)         | Cache           | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                 |
+| [`@eleven-labs/nest-profiler-auth`](/en/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked         |
+| [`@eleven-labs/nest-profiler-config`](/en/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                        |
+| [`@eleven-labs/nest-profiler-validator`](/en/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names  |
+| [`@eleven-labs/nest-profiler-graphql`](/en/docs/packages/nest-profiler-graphql)     | GraphQL         | GraphQL queries/mutations: operation type, name, query, variables   |
 
 ## Key features
 
