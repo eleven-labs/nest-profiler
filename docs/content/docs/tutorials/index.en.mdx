@@ -17,6 +17,11 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
     description="Capture every SQL query executed by TypeORM and inspect them in the Database panel."
   />
   <Card
+    href="/en/docs/tutorials/mikro-orm-collector"
+    title="MikroORM query profiling"
+    description="Capture every SQL query executed by MikroORM and inspect them in the Database panel."
+  />
+  <Card
     href="/en/docs/tutorials/cache-collector"
     title="Cache profiling"
     description="Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel."
@@ -64,6 +69,7 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | --------------------------- | ----------------------------------------- | -------------------------------------- |
 | Set up the profiler         | Middleware + interceptor + global guard   | `@eleven-labs/nest-profiler`           |
 | TypeORM query profiling     | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
+| MikroORM query profiling    | Logger.logQuery wrap + CLS context        | `@eleven-labs/nest-profiler-mikro-orm` |
 | Cache profiling             | CACHE_MANAGER proxy + CLS context         | `@eleven-labs/nest-profiler-cache`     |
 | Auth/Security profiling     | request.user + JWT decode                 | `@eleven-labs/nest-profiler-auth`      |
 | Axios/HTTP client profiling | Axios interceptor + axiosRef patch        | `@eleven-labs/nest-profiler-axios`     |

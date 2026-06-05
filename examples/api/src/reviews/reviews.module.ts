@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
-import { isProfilerEnabled } from '../config/app.config';
-import { Review, ReviewSchema } from './review.schema';
-import { ReviewsService } from './reviews.service';
-import { ReviewsController } from './reviews.controller';
+import { isProfilerEnabled } from '../config/app.config.js';
+import { Review, ReviewSchema } from './review.schema.js';
+import { ReviewsService } from './reviews.service.js';
+import { ReviewsController } from './reviews.controller.js';
 
 @Module({
   imports: [

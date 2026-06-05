@@ -2,8 +2,8 @@ import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
-import { Review, type ReviewDocument } from './review.schema';
-import type { CreateReviewDto } from './dto/create-review.dto';
+import { Review, type ReviewDocument } from './review.schema.js';
+import type { CreateReviewDto } from './dto/create-review.dto.js';
 
 const SEED_DATA: CreateReviewDto[] = [
   {

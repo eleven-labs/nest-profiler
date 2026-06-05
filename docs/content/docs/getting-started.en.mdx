@@ -68,6 +68,7 @@ Each collector is a separate package installed alongside the core. Import each o
 | Package                                | Panel       | Prerequisite                                                        |
 | -------------------------------------- | ----------- | ------------------------------------------------------------------- |
 | `@eleven-labs/nest-profiler-typeorm`   | Database    | `TypeOrmModule.forRoot()`                                           |
+| `@eleven-labs/nest-profiler-mikro-orm` | Database    | `MikroOrmModule.forRoot()`                                          |
 | `@eleven-labs/nest-profiler-axios`     | HTTP Client | `HttpModule` in the same module                                     |
 | `@eleven-labs/nest-profiler-cache`     | Cache       | `CacheModule.register({ isGlobal: true })`                          |
 | `@eleven-labs/nest-profiler-auth`      | Security    | Guard or middleware that sets `request.user`                        |
@@ -79,13 +80,25 @@ Each collector is a separate package installed alongside the core. Import each o
 
 Each optional collector is registered in the feature module it instruments:
 
-```ts title="products/products.module.ts"
+```ts title="products/products.module.ts — with TypeORM"
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product]),
     TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+  ],
+})
+export class ProductsModule {}
+```
+
+```ts title="products/products.module.ts — with MikroORM"
+import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+@Module({
+  imports: [
+    MikroOrmModule.forFeature([Product]),
+    MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
   ],
 })
 export class ProductsModule {}

@@ -28,7 +28,8 @@ const COLLECTORS: Collector[] = [
   {
     icon: Database,
     title: 'Database',
-    description: 'TypeORM SQL queries with type, duration and slow-query highlighting.',
+    description:
+      'TypeORM and MikroORM SQL queries with type, duration and slow-query highlighting.',
   },
   {
     icon: Network,

@@ -1,8 +1,8 @@
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
-import { Book } from './book.model';
-import { BooksService } from './books.service';
-import { CreateBookInput } from './create-book.input';
+import { Book } from './book.model.js';
+import { BooksService } from './books.service.js';
+import { CreateBookInput } from './create-book.input.js';
 
 @Resolver(() => Book)
 export class BooksResolver {

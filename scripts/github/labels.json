@@ -135,6 +135,11 @@
     "description": "Affects the @eleven-labs/nest-profiler-graphql package"
   },
   {
+    "name": "package: nest-profiler-mikro-orm",
+    "color": "f59e0b",
+    "description": "Affects the @eleven-labs/nest-profiler-mikro-orm package"
+  },
+  {
     "name": "dependencies",
     "color": "0075ca",
     "description": "Dependency updates (Dependabot)"

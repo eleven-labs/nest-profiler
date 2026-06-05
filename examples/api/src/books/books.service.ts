@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Book } from './book.model';
-import type { CreateBookInput } from './create-book.input';
+import type { Book } from './book.model.js';
+import type { CreateBookInput } from './create-book.input.js';
 
 @Injectable()
 export class BooksService {

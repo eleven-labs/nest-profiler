@@ -1,0 +1,56 @@
+---
+title: nest-profiler-mikro-orm
+description: API reference for @eleven-labs/nest-profiler-mikro-orm — MikroORM query collector.
+---
+
+## MikroOrmCollectorModuleOptions
+
+Options passed to `MikroOrmCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-mikro-orm/src/mikro-orm-collector.interface.ts"
+  name="MikroOrmCollectorModuleOptions"
+/>
+
+## QueryEntry
+
+One entry per SQL query executed during a request. The SQL collector types are shared with the
+other SQL ORM collectors and re-exported from this package.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/collectors/sql/sql-query.interface.ts"
+  name="QueryEntry"
+/>
+
+## QueryType
+
+```ts
+type QueryType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'OTHER';
+```
+
+Detected from the first keyword of the SQL string.
+
+## Public exports
+
+```ts
+import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+import { MikroOrmCollector } from '@eleven-labs/nest-profiler-mikro-orm';
+
+import type {
+  MikroOrmCollectorModuleOptions,
+  QueryEntry,
+  QueryType,
+} from '@eleven-labs/nest-profiler-mikro-orm';
+```
+
+## Setup
+
+```ts
+// In any module that uses MikroORM:
+MikroOrmCollectorModule.forRoot({
+  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+});
+```
+
+**Prerequisite:** `MikroOrmModule.forRoot()` must be registered in the application (provides the
+`MikroORM` instance whose logger the collector wraps).

@@ -79,9 +79,9 @@ describe('TypeOrmCollector', () => {
     expect(collector.getBadgeValue(profile)).toBe('2q');
   });
 
-  it('getTemplatePath returns an absolute path ending with typeorm-panel.ejs', () => {
+  it('getTemplatePath returns an absolute path ending with sql-panel.ejs', () => {
     const p = collector.getTemplatePath();
-    expect(p).toMatch(/typeorm-panel\.ejs$/);
+    expect(p).toMatch(/sql-panel\.ejs$/);
     expect(path.isAbsolute(p)).toBe(true);
   });
 });

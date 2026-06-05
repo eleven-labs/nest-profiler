@@ -5,7 +5,7 @@ import { HttpService } from '@nestjs/axios';
 import type { Cache } from 'cache-manager';
 import { firstValueFrom } from 'rxjs';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
-import { CreatePostDto } from './dto/create-post.dto';
+import { CreatePostDto } from './dto/create-post.dto.js';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 const POSTS_CACHE_KEY = 'external:posts';

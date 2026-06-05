@@ -17,6 +17,7 @@ body:
         - '@eleven-labs/nest-profiler-mongoose'
         - '@eleven-labs/nest-profiler-validator'
         - '@eleven-labs/nest-profiler-graphql'
+        - '@eleven-labs/nest-profiler-mikro-orm'
         - 'example-api'
         - 'Documentation'
         - 'Other'

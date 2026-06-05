@@ -9,19 +9,19 @@ import {
 } from '@eleven-labs/nest-profiler-graphql';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
-import { AppController } from './app.controller';
-import { DatabaseModule } from './database/database.module';
-import { MongoModule } from './mongo/mongo.module';
-import { AuthModule } from './auth/auth.module';
-import { PostsModule } from './posts/posts.module';
-import { AppGraphQLModule } from './graphql.module';
-import appConfig, { isProfilerEnabled } from './config/app.config';
+import { AppController } from './app.controller.js';
+import { ProductModule } from './products/product.module.js';
+import { MongoModule } from './mongo/mongo.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { PostsModule } from './posts/posts.module.js';
+import { AppGraphQLModule } from './graphql.module.js';
+import appConfig, { isProfilerEnabled } from './config/app.config.js';
 import featuresConfig, {
-  isTypeOrmEnabled,
   isMongooseEnabled,
   isGraphQLEnabled,
   isPinoLoggerEnabled,
-} from './config/features.config';
+  isSqlOrmEnabled,
+} from './config/features.config.js';
 
 @Module({
   imports: [
@@ -41,8 +41,9 @@ import featuresConfig, {
       isPinoLoggerEnabled,
     ),
 
-    // TypeORM + ProductsModule — disabled when FEATURE_TYPEORM=false
-    ConditionalModule.registerWhen(DatabaseModule, isTypeOrmEnabled),
+    // Product context — owns the controller/service and selects one SQL ORM adapter internally
+    // based on SQL_ORM. Skipped entirely when SQL_ORM=none.
+    ConditionalModule.registerWhen(ProductModule, isSqlOrmEnabled),
 
     // Mongoose + ReviewsModule — disabled when FEATURE_MONGOOSE=false
     ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),
