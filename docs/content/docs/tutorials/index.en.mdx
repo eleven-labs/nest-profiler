@@ -7,62 +7,67 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 
 <Cards>
   <Card
-    href="/en/docs/tutorials/setup-profiler"
+    href="/docs/tutorials/setup-profiler"
     title="Set up the profiler"
     description="Install @eleven-labs/nest-profiler and inspect HTTP requests in the built-in profiler UI."
   />
   <Card
-    href="/en/docs/tutorials/typeorm-collector"
+    href="/docs/tutorials/typeorm-collector"
     title="TypeORM query profiling"
     description="Capture every SQL query executed by TypeORM and inspect them in the Database panel."
   />
   <Card
-    href="/en/docs/tutorials/mikro-orm-collector"
+    href="/docs/tutorials/mikro-orm-collector"
     title="MikroORM query profiling"
     description="Capture every SQL query executed by MikroORM and inspect them in the Database panel."
   />
   <Card
-    href="/en/docs/tutorials/cache-collector"
+    href="/docs/tutorials/mongoose-collector"
+    title="MongoDB query profiling"
+    description="Capture every Mongoose query and aggregation and inspect them in the MongoDB panel."
+  />
+  <Card
+    href="/docs/tutorials/cache-collector"
     title="Cache profiling"
     description="Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel."
   />
   <Card
-    href="/en/docs/tutorials/commander-collector"
+    href="/docs/tutorials/commander-collector"
     title="Command profiling"
     description="Profile nest-commander CLI commands and inspect their runs in the Command panel at /_profiler."
   />
   <Card
-    href="/en/docs/tutorials/auth-collector"
+    href="/docs/tutorials/auth-collector"
     title="Auth/Security profiling"
     description="Display authenticated user info and JWT claims in the Security panel."
   />
   <Card
-    href="/en/docs/tutorials/axios-collector"
+    href="/docs/tutorials/axios-collector"
     title="Axios/HTTP client profiling"
     description="Capture outgoing HTTP requests made with HttpService and inspect them in the HTTP Client panel."
   />
   <Card
-    href="/en/docs/tutorials/config-collector"
+    href="/docs/tutorials/config-collector"
     title="Configuration profiling"
     description="Inspect resolved configuration values with sensitive key masking in the Config panel."
   />
   <Card
-    href="/en/docs/tutorials/validator-collector"
+    href="/docs/tutorials/validator-collector"
     title="DTO validation profiling"
     description="Inspect DTO validations — both successful and failed — in the Validator panel."
   />
   <Card
-    href="/en/docs/tutorials/graphql-collector"
+    href="/docs/tutorials/graphql-collector"
     title="GraphQL profiling"
     description="Profile GraphQL queries and mutations with Apollo, Mercurius, or graphql-yoga, and inspect them in the profiler UI."
   />
   <Card
-    href="/en/docs/tutorials/custom-collector"
+    href="/docs/tutorials/custom-collector"
     title="Build a custom collector"
     description="Create your own profiler panel with a custom EJS template and toolbar badge."
   />
   <Card
-    href="/en/docs/tutorials/file-storage"
+    href="/docs/tutorials/file-storage"
     title="File-based profile storage"
     description="Persist profiles to disk so they survive restarts and can be inspected across debug sessions."
   />
@@ -75,6 +80,7 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | Set up the profiler         | Middleware + interceptor + global guard   | `@eleven-labs/nest-profiler`           |
 | TypeORM query profiling     | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
 | MikroORM query profiling    | Logger.logQuery wrap + CLS context        | `@eleven-labs/nest-profiler-mikro-orm` |
+| MongoDB query profiling     | Query/Aggregate.exec patch + CLS context  | `@eleven-labs/nest-profiler-mongoose`  |
 | Cache profiling             | CACHE_MANAGER proxy + CLS context         | `@eleven-labs/nest-profiler-cache`     |
 | Command profiling           | CommandRunner wrap + CommandFactory       | `@eleven-labs/nest-profiler-commander` |
 | Auth/Security profiling     | request.user + JWT decode                 | `@eleven-labs/nest-profiler-auth`      |
@@ -88,5 +94,5 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 <Callout type="info" title="Example application">
   The `examples/api` directory contains a complete application demonstrating all collectors working
   together with a real PostgreSQL database, Redis cache, and JWT authentication. See the [Example
-  application](/en/docs/example-api) page.
+  application](/docs/example-api) page.
 </Callout>
