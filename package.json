@@ -7,7 +7,7 @@
   "author": "Fabien Pasquet",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eleven-labs/nest-profiler.git"
+    "url": "git+https://github.com/eleven-labs/nest-profiler.git"
   },
   "homepage": "https://github.com/eleven-labs/nest-profiler#readme",
   "bugs": {
