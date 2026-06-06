@@ -26,9 +26,10 @@
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
-          { "context": "Lint, typecheck, test, and build" },
+          { "context": "CI" },
           { "context": "Package and docs quality checks" },
-          { "context": "Validate commit messages" }
+          { "context": "Validate commit messages" },
+          { "context": "Semantic PR title" }
         ]
       }
     }

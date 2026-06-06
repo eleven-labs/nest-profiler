@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 
 import { MarkdownCopyButton, ViewOptionsPopover } from '@/components/ai/page-actions';
 import { AutoTypeTable } from '@/components/auto-type-table';
+import { SITE_NAME } from '@/lib/constants';
 import { source } from '@/lib/source';
 
 export async function generateMetadata({
@@ -20,9 +21,26 @@ export async function generateMetadata({
   const page = source.getPage(slug, lang);
   if (!page) notFound();
 
+  const { title, description } = page.data;
+
   return {
-    description: page.data.description,
-    title: page.data.title,
+    title,
+    description,
+    alternates: {
+      canonical: page.url,
+    },
+    openGraph: {
+      type: 'article',
+      siteName: SITE_NAME,
+      title,
+      description,
+      url: page.url,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
   };
 }
 
@@ -43,7 +61,7 @@ export default async function Page({
   const markdownUrl = `/llms.mdx/${lang}/docs/${(slug ?? []).join('/')}`;
 
   return (
-    <DocsPage full={page.data.full} toc={page.data.toc}>
+    <DocsPage className="pt-0 xl:pt-0" full={page.data.full} toc={page.data.toc}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>

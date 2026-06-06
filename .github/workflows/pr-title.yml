@@ -1,0 +1,40 @@
+name: PR title
+
+# The repo squash-merges, so the PR title becomes the commit subject on main.
+# commitlint (in ci.yml) only validates the individual PR commits, not the squash
+# title — this gate keeps the squashed Conventional Commit valid.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Semantic PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Keep in sync with @commitlint/config-conventional (commitlint.config.mjs).
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            build
+            ci
+            chore
+            revert
+            style

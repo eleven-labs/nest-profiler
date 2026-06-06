@@ -1,0 +1,26 @@
+name: PR labeler
+
+# pull_request_target so labelling also works on fork PRs (the action only reads
+# changed filenames via the API and never checks out PR code, so this is safe).
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Apply scope and package labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Label by changed paths
+        uses: actions/labeler@v5
+        with:
+          sync-labels: true

@@ -63,3 +63,7 @@ The toolbar badge shows: `{n}q` (e.g., `5q`). When slow queries are present: `5q
 ## How it works
 
 The collector patches `dataSource.driver.query` at module initialization to wrap every query execution with timing. The patch is transparent — TypeORM behavior is unchanged.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

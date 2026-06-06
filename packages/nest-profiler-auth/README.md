@@ -48,3 +48,7 @@ The authenticated user's identifier (`username`, `email`, `sub`, or `id`) or `an
 ## How it works
 
 The collector reads `request.user` and the `Authorization` header from the current CLS context (set by the profiler middleware). It decodes the JWT payload using `Buffer.from(payload, 'base64url')` without any cryptographic verification.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

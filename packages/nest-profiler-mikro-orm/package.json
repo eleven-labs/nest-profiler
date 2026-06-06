@@ -12,7 +12,9 @@
     "debug",
     "monitoring",
     "devtools",
-    "nest-profiler"
+    "nest-profiler",
+    "web-debug-toolbar",
+    "observability"
   ],
   "license": "MIT",
   "type": "module",
@@ -34,8 +36,7 @@
     "node": ">=22.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
@@ -86,7 +87,10 @@
     ],
     "coverageDirectory": "coverage"
   },
-  "author": "Fabien Pasquet",
+  "author": {
+    "name": "Fabien Pasquet",
+    "url": "https://github.com/fpasquet"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
@@ -95,5 +99,12 @@
   "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-mikro-orm#readme",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
-  }
+  },
+  "contributors": [
+    {
+      "name": "Eleven Labs",
+      "url": "https://eleven-labs.com"
+    }
+  ],
+  "funding": "https://eleven-labs.com"
 }

@@ -1,0 +1,70 @@
+name: Repository config
+
+# Syncs the *recurring* repository config (labels, milestones) from declarative
+# files. The one-time config (branch ruleset, repo settings, Actions variables,
+# CODEOWNERS, npm trusted publisher) is applied manually — see MAINTAINERS.md.
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - '.github/labels.yml'
+      - '.github/milestones.yml'
+  workflow_dispatch:
+    inputs:
+      prune-labels:
+        description: 'Delete labels that are not declared in .github/labels.yml'
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+
+concurrency:
+  group: repo-config-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-labels:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Sync labels from .github/labels.yml
+        uses: crazy-max/ghaction-github-labeler@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          yaml-file: .github/labels.yml
+          # Pruning (deleting undeclared labels) only on an explicit manual run.
+          skip-delete: ${{ !(github.event_name == 'workflow_dispatch' && inputs.prune-labels) }}
+          dry-run: false
+
+  sync-milestones:
+    name: Sync milestones
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create missing milestones from .github/milestones.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          existing="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/milestones?state=all" --jq '.[].title')"
+          count="$(yq '. | length' .github/milestones.yml)"
+          for i in $(seq 0 $((count - 1))); do
+            title="$(yq ".[$i].title" .github/milestones.yml)"
+            description="$(yq ".[$i].description // \"\"" .github/milestones.yml)"
+            if grep -Fxq "$title" <<<"$existing"; then
+              echo "exists: $title"
+            else
+              gh api --method POST "/repos/${GITHUB_REPOSITORY}/milestones" \
+                -f "title=$title" -f "description=$description" >/dev/null
+              echo "created: $title"
+            fi
+          done

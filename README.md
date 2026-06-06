@@ -1,5 +1,38 @@
 # nest-profiler
 
+<p align="center">
+  <a href="https://eleven-labs.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/eleven-labs-white.svg">
+      <img alt="Powered & maintained by Eleven Labs" src=".github/assets/eleven-labs-dark.svg" width="180">
+    </picture>
+  </a>
+</p>
+
+<p align="center"><em>Powered &amp; maintained by <a href="https://eleven-labs.com">Eleven Labs</a></em></p>
+
+<p align="center">
+  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml/badge.svg"></a>
+  <a href="https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler"><img alt="Version" src="https://img.shields.io/github/package-json/v/eleven-labs/nest-profiler?filename=packages%2Fnest-profiler%2Fpackage.json&label=version&color=e5225a"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+</p>
+
+<p align="center">
+  <a href="https://nest-profiler.vercel.app"><img alt="Documentation" src="https://img.shields.io/badge/docs-nest--profiler.vercel.app-e5225a"></a>
+  <img alt="Node >= 22" src="https://img.shields.io/badge/node-%3E%3D22-3c873a">
+  <img alt="Built with NestJS" src="https://img.shields.io/badge/built%20with-NestJS-ea2845">
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
+  <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white"></a>
+  <a href=".github/dependabot.yml"><img alt="Dependabot enabled" src="https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white"></a>
+  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+  <a href="https://github.com/eleven-labs/nest-profiler/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/eleven-labs/nest-profiler?style=flat&color=ffca28"></a>
+</p>
+
 A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profiled execution receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
 
 The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
@@ -43,38 +76,16 @@ pnpm test:cov       # run the test suite with coverage
 pnpm docs:dev       # serve the documentation site at http://localhost:3002
 ```
 
-To try the profiler against a real app, start the demo API and open `http://localhost:3000/_profiler`:
+To try the profiler against a real app, start the databases and the demo API, then open `http://localhost:3000/_profiler`:
 
 ```bash
+pnpm docker:up      # Postgres + MongoDB (runs in the background)
 pnpm example:dev
 ```
 
 ## Installation
 
-Packages are published to **GitHub Packages**. Unlike the public npm registry, GitHub Packages requires authentication even for public packages.
-
-### 1. Create a GitHub token
-
-Go to **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)** and generate a token with the `read:packages` scope.
-
-> In GitHub Actions, `${{ secrets.GITHUB_TOKEN }}` already has `read:packages` — no extra token needed in CI.
-
-### 2. Configure `.npmrc`
-
-Add the registry mapping to your project's `.npmrc` (or `~/.npmrc` for a global setup):
-
-```ini
-@eleven-labs:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-Then export the token in your shell (or add it to your `.env`):
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-### 3. Install
+Packages are published to the public **npm** registry — install them like any other dependency, no authentication required:
 
 ```bash
 pnpm add @eleven-labs/nest-profiler nestjs-cls
@@ -116,7 +127,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, axios, cache, auth, config, mongoose, validator)
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled
@@ -206,6 +217,8 @@ pnpm test           # run unit tests
 pnpm test:cov       # run tests with coverage (enforces the 90% threshold)
 pnpm build          # build all packages
 pnpm docs:dev       # serve the docs site
+pnpm docker:up      # start Postgres + MongoDB for the example (docker:down to stop)
+pnpm attw           # check published type resolution (Are the Types Wrong?)
 pnpm changeset      # record a version bump
 ```
 
@@ -218,60 +231,4 @@ pnpm --filter @eleven-labs/nest-profiler-typeorm build
 
 ## Publishing
 
-Published packages are versioned with Changesets. The project intentionally stays in `0.x` until the public API is mature enough for a stable `1.0.0`.
-
-### Versioning Policy
-
-While packages are in `0.x`:
-
-- use `patch` for bug fixes
-- use `minor` for new features and breaking changes
-- reserve `major` for the explicit v1 transition, or another intentional major release
-
-Breaking changes in `0.x` should still be documented clearly in the changeset body with a `BREAKING:` note. CI rejects `major` changesets by default; set `ALLOW_MAJOR_BUMPS=true` only when preparing v1.
-
-The stable v0 release channel is named `stable` in scripts and is published with the npm/GitHub Packages `latest` dist-tag. Consumer-facing versions still look like `0.2.0`, `0.3.0`, and so on.
-
-### Release Channels
-
-The release workflow calls `pnpm release`, which publishes with `latest` by default and automatically uses the active Changesets prerelease tag when `.changeset/pre.json` is in `pre` mode. The channel-specific scripts are available for explicit local publishes.
-
-Stable v0 release:
-
-```bash
-pnpm changeset
-pnpm version-packages
-pnpm release
-```
-
-Alpha release:
-
-```bash
-pnpm changeset:pre:alpha
-pnpm changeset
-pnpm version-packages
-pnpm release:alpha
-```
-
-Beta release:
-
-```bash
-pnpm changeset:pre:beta
-pnpm changeset
-pnpm version-packages
-pnpm release:beta
-```
-
-Exit prerelease mode before publishing the stable v0 version:
-
-```bash
-pnpm changeset:pre:exit
-pnpm version-packages
-pnpm release
-```
-
-Packages are published to the **GitHub Packages** registry by the release workflow on pushes to `main`. Authentication uses `GITHUB_TOKEN` automatically — no additional secret is needed.
-
-## License
-
-MIT — © 2026 Fabien Pasquet
+Packages are versioned with Changesets and released from CI to the public npm registry. The versioning policy (`0.x` rules, `ALLOW_MAJOR_BUMPS`), the stable release flow, and the alpha/beta prerelease runbook live in [MAINTAINERS.md](MAINTAINERS.md).

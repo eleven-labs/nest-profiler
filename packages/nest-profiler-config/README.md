@@ -54,3 +54,7 @@ Number of configuration keys loaded (e.g., `12`).
 ## How it works
 
 At `OnApplicationBootstrap`, the collector accesses `ConfigService`'s internal configuration store via `configService.internalConfig` (an internal property, not part of the public API). The snapshot is captured once at startup and returned for every profile — it does not re-read config on each execution.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
