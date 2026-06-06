@@ -224,10 +224,7 @@ The `IContextAdapter` interface lets you profile any non-HTTP protocol (gRPC, Ka
 ```ts
 import { Injectable } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
-import {
-  PROFILER_CONTEXT_ADAPTERS,
-  PROFILER_REQ_KEY,
-} from '@eleven-labs/nest-profiler';
+import { PROFILER_CONTEXT_ADAPTERS, PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 
 @Injectable()
@@ -236,7 +233,7 @@ export class GrpcContextAdapter implements IContextAdapter {
 
   recoverProfile(ctx: ExecutionContext): Profile | null {
     const [metadata] = ctx.getArgs();
-    return (metadata as Record<symbol, unknown>)?.[PROFILER_REQ_KEY] as Profile ?? null;
+    return ((metadata as Record<symbol, unknown>)?.[PROFILER_REQ_KEY] as Profile) ?? null;
   }
 
   enrichProfile(profile: Profile, _ctx: ExecutionContext): void {
@@ -354,16 +351,17 @@ import type {
 
 ## Options
 
-| Option        | Type                      | Default      | Description                                           |
-| ------------- | ------------------------- | ------------ | ----------------------------------------------------- |
-| `enabled`     | `boolean`                 | `true`       | Enable or disable the profiler.                       |
-| `path`        | `string`                  | `/_profiler` | Base path for the profiler UI.                        |
-| `maxProfiles` | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                 |
-| `ttl`         | `number`                  | `3600`       | Profile time-to-live in seconds.                      |
-| `isGlobal`    | `boolean`                 | `false`      | Register the module as a global NestJS module.        |
-| `storageType` | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                             |
-| `storagePath` | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).    |
-| `storage`     | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`. |
-| `collectBody` | `boolean`                 | `false`      | Capture request/response bodies (use with caution).   |
-| `sampleRate`  | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).            |
-| `ignorePaths` | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).    |
+| Option             | Type                      | Default      | Description                                                              |
+| ------------------ | ------------------------- | ------------ | ------------------------------------------------------------------------ |
+| `enabled`          | `boolean`                 | `true`       | Enable or disable the profiler.                                          |
+| `path`             | `string`                  | `/_profiler` | Base path for the profiler UI.                                           |
+| `maxProfiles`      | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                                    |
+| `ttl`              | `number`                  | `3600`       | Profile time-to-live in seconds.                                         |
+| `isGlobal`         | `boolean`                 | `false`      | Register the module as a global NestJS module.                           |
+| `storageType`      | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                                                |
+| `storagePath`      | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).                       |
+| `storage`          | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`.                    |
+| `collectBody`      | `boolean`                 | `false`      | Capture request/response bodies (use with caution).                      |
+| `collectorTimeout` | `number`                  | `1000`       | Max ms a single collector may run before it is abandoned (`0` disables). |
+| `sampleRate`       | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).                               |
+| `ignorePaths`      | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).                       |

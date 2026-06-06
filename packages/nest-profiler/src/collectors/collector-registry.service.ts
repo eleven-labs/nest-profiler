@@ -1,12 +1,17 @@
 import * as path from 'path';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { ProfilerCollector } from './collector.decorator';
 import type { ProfilerCollectorMetadata } from './collector.decorator';
 import type { IProfilerCollector } from './collector.interface';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 
 const GROUPED_PANEL_TEMPLATE = path.join(__dirname, '..', 'templates', 'grouped-panel.ejs');
+
+/** Default per-collector `collect()` timeout (ms); see {@link ProfilerModuleOptions.collectorTimeout}. */
+const DEFAULT_COLLECTOR_TIMEOUT_MS = 1000;
 
 export interface SubPanelInfo {
   name: string;
@@ -42,11 +47,18 @@ interface RegisteredCollector {
 @Injectable()
 export class CollectorRegistry implements OnModuleInit {
   private readonly collectors = new Map<string, RegisteredCollector>();
+  private readonly logger = new Logger(CollectorRegistry.name);
+  private readonly collectorTimeout: number;
 
   constructor(
     private readonly discovery: DiscoveryService,
     private readonly metadataScanner: MetadataScanner,
-  ) {}
+    @Optional()
+    @Inject(NEST_PROFILER_MODULE_OPTIONS)
+    options: ProfilerModuleOptions = {},
+  ) {
+    this.collectorTimeout = options.collectorTimeout ?? DEFAULT_COLLECTOR_TIMEOUT_MS;
+  }
 
   onModuleInit(): void {
     const providers = this.discovery.getProviders();
@@ -80,11 +92,7 @@ export class CollectorRegistry implements OnModuleInit {
           (b.meta.priority ?? b.instance.priority ?? 100),
       );
     for (const { instance, meta } of sorted) {
-      try {
-        profile.collectors[meta.name] = await instance.collect(profile);
-      } catch {
-        profile.collectors[meta.name] = { error: 'Collection failed' };
-      }
+      profile.collectors[meta.name] = await this.safeCollect(instance, meta.name, profile);
     }
   }
 
@@ -178,10 +186,47 @@ export class CollectorRegistry implements OnModuleInit {
         name: meta.name,
         label: meta.label ?? instance.label ?? meta.name,
         icon: meta.icon ?? instance.icon,
-        data: await instance.collect(emptyProfile),
+        data: await this.safeCollect(instance, meta.name, emptyProfile),
         templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
       })),
     );
+  }
+
+  private async safeCollect(
+    instance: IProfilerCollector,
+    name: string,
+    profile: Profile,
+  ): Promise<unknown> {
+    // Wrap in a promise so a synchronous throw is captured too (the executor
+    // rejects if collect() throws), and attach a no-op catch so a late rejection
+    // (after a timeout abandoned it) never surfaces as an unhandledRejection.
+    const work = new Promise<unknown>((resolve) => resolve(instance.collect(profile)));
+    work.catch(() => undefined);
+
+    try {
+      return await this.applyTimeout(work);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Collector "${name}" failed during collection: ${message}`);
+      return { error: message };
+    }
+  }
+
+  /**
+   * Races collector work against the configured timeout so a slow or hanging
+   * `collect()` can never block the response. A no-op when the timeout is
+   * disabled (`collectorTimeout <= 0`).
+   */
+  private applyTimeout(work: Promise<unknown>): Promise<unknown> {
+    if (this.collectorTimeout <= 0) return work;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`timed out after ${this.collectorTimeout}ms`)),
+        this.collectorTimeout,
+      );
+    });
+    return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
   }
 
   getCollectorNames(): string[] {

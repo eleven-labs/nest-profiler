@@ -81,9 +81,10 @@ export class AuthCollector implements IProfilerCollector {
   private decodeJwt(authHeader: string): Record<string, unknown> | undefined {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
     const parts = token.split('.');
-    if (parts.length !== 3) return undefined;
+    const payloadSegment = parts[1];
+    if (parts.length !== 3 || payloadSegment === undefined) return undefined;
     try {
-      const payload = Buffer.from(parts[1], 'base64url').toString('utf-8');
+      const payload = Buffer.from(payloadSegment, 'base64url').toString('utf-8');
       const parsed: unknown = JSON.parse(payload);
       return isPlainObject(parsed) ? parsed : undefined;
     } catch {

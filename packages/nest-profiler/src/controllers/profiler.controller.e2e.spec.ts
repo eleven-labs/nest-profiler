@@ -100,7 +100,9 @@ describe('ProfilerController (e2e)', () => {
   async function createProfile(path = '/hello'): Promise<string> {
     const res = await request(server()).get(path);
     const token = res.headers['x-debug-token'];
-    expect(token).toBeDefined();
+    if (typeof token !== 'string') {
+      throw new Error('expected the x-debug-token header to be set');
+    }
     return token;
   }
 
@@ -128,6 +130,16 @@ describe('ProfilerController (e2e)', () => {
         url: 'hello',
       });
       expect(res.status).toBe(200);
+    });
+
+    it('ignores non-numeric filter values instead of hiding all profiles', async () => {
+      const token = await createProfile('/hello');
+      const res = await request(server())
+        .get('/_profiler')
+        .query({ statusCode: 'not-a-number', minDuration: 'abc' });
+      expect(res.status).toBe(200);
+      // Invalid numeric filters are dropped, so the profile is still listed.
+      expect(res.text).toContain(token.slice(0, 8));
     });
   });
 

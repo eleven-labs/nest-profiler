@@ -17,6 +17,14 @@ export interface ProfilerModuleOptions {
   /** Base path for the profiler UI. Default: '/_profiler' */
   path?: string;
 
+  /**
+   * Bearer token required to access the profiler UI. When set, requests must
+   * send `Authorization: Bearer <token>`. When omitted, the guard falls back to
+   * the `PROFILER_TOKEN` environment variable; if neither is set, the profiler
+   * is open (intended for local development only).
+   */
+  token?: string;
+
   /** Maximum number of profiles kept (LRU eviction). Default: 100 */
   maxProfiles?: number;
 
@@ -28,6 +36,15 @@ export interface ProfilerModuleOptions {
 
   /** Capture request and response bodies. Default: false */
   collectBody?: boolean;
+
+  /**
+   * Maximum time in milliseconds a single collector may spend in `collect()`
+   * before it is abandoned. On timeout the panel stores
+   * `{ error: 'timed out after <n>ms' }` and a warning is logged, so one slow or
+   * hanging custom collector can never block the response (or the list page).
+   * Default: `1000`. Set to `0` (or a negative value) to disable the timeout.
+   */
+  collectorTimeout?: number;
 
   /**
    * Storage backend.

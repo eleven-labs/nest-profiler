@@ -233,8 +233,8 @@ describe('GraphQLContextAdapter', () => {
       expect(profile.request.graphql?.operationName).toBe('GetBook');
       expect(profile.request.graphql?.variables).toEqual({ id: '1' });
       expect(profile.exceptions).toHaveLength(1);
-      expect(profile.exceptions[0].name).toBe('GraphQLError');
-      expect(profile.exceptions[0].message).toContain("Cannot query field 'idf'");
+      expect(profile.exceptions[0]?.name).toBe('GraphQLError');
+      expect(profile.exceptions[0]?.message).toContain("Cannot query field 'idf'");
     });
 
     it('detects mutation in HTTP body', () => {
@@ -294,8 +294,8 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, responseBody);
 
-      expect(profile.exceptions[0].stack).toContain('Locations:');
-      expect(profile.exceptions[0].stack).toContain('Extensions:');
+      expect(profile.exceptions[0]?.stack).toContain('Locations:');
+      expect(profile.exceptions[0]?.stack).toContain('Extensions:');
     });
 
     it('skips errors without a message', () => {

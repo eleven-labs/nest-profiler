@@ -155,6 +155,12 @@ describe('TypeOrmDriverPatch', () => {
     return (profile?.collectors[TYPEORM_QUERIES_KEY] as QueryEntry[] | undefined) ?? [];
   }
 
+  function firstEntry(profile: Profile | null): QueryEntry {
+    const first = entriesOf(profile)[0];
+    if (first === undefined) throw new Error('expected at least one collected query');
+    return first;
+  }
+
   it('does not patch the data source when it is not initialized', async () => {
     const { dataSource, profile } = setup({ initialized: false });
     await dataSource.createQueryRunner().query('SELECT 1', [1]);
@@ -166,7 +172,7 @@ describe('TypeOrmDriverPatch', () => {
     const result: unknown = await dataSource.createQueryRunner().query('SELECT * FROM users', [1]);
     expect(result).toEqual([{ id: 1 }]);
 
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     expect(e.sql).toBe('SELECT * FROM users');
     expect(e.parameters).toEqual([1]);
     expect(e.type).toBe('SELECT');
@@ -177,13 +183,13 @@ describe('TypeOrmDriverPatch', () => {
   it('defaults parameters to an empty array when none are passed', async () => {
     const { dataSource, profile } = setup({});
     await dataSource.createQueryRunner().query('UPDATE users SET x = 1');
-    expect(entriesOf(profile)[0].parameters).toEqual([]);
+    expect(firstEntry(profile).parameters).toEqual([]);
   });
 
   it('flags slow queries when the duration meets the threshold', async () => {
     const { dataSource, profile } = setup({ threshold: 0 });
     await dataSource.createQueryRunner().query('SELECT 1');
-    expect(entriesOf(profile)[0].isSlow).toBe(true);
+    expect(firstEntry(profile).isSlow).toBe(true);
   });
 
   it('records the error message and rethrows when a query fails', async () => {
@@ -193,7 +199,7 @@ describe('TypeOrmDriverPatch', () => {
     await expect(dataSource.createQueryRunner().query('SELECT bad')).rejects.toThrow(
       'syntax error',
     );
-    expect(entriesOf(profile)[0].error).toBe('syntax error');
+    expect(firstEntry(profile).error).toBe('syntax error');
   });
 
   it('stringifies a non-Error rejection', async () => {
@@ -202,7 +208,7 @@ describe('TypeOrmDriverPatch', () => {
       queryImpl: () => Promise.reject('boom'),
     });
     await expect(dataSource.createQueryRunner().query('SELECT 1')).rejects.toBe('boom');
-    expect(entriesOf(profile)[0].error).toBe('boom');
+    expect(firstEntry(profile).error).toBe('boom');
   });
 
   it('does not append outside a CLS context', async () => {
@@ -231,6 +237,23 @@ describe('TypeOrmDriverPatch', () => {
     patch.onModuleInit();
 
     await dataSource.createQueryRunner().query('SELECT 1');
-    expect((profile.collectors[TYPEORM_QUERIES_KEY] as QueryEntry[])[0].isSlow).toBe(false);
+    expect(firstEntry(profile).isSlow).toBe(false);
+  });
+
+  it('does not double-wrap createQueryRunner when onModuleInit runs twice', async () => {
+    const queryFn = jest.fn(() => Promise.resolve([{ id: 1 }]));
+    const qr = { query: queryFn };
+    const dataSource = {
+      isInitialized: true,
+      createQueryRunner: jest.fn(() => qr),
+    } as unknown as DataSource & { createQueryRunner: () => QueryRunnerLike };
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+    const patch = new TypeOrmDriverPatch(cls, dataSource, {});
+    patch.onModuleInit();
+    patch.onModuleInit(); // second init must be a no-op (idempotency guard)
+
+    await dataSource.createQueryRunner().query('SELECT 1', [1]);
+    expect(entriesOf(profile)).toHaveLength(1);
   });
 });
