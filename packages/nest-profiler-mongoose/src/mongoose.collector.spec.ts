@@ -148,6 +148,12 @@ describe('MongooseConnectionPatch', () => {
     return (profile?.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[] | undefined) ?? [];
   }
 
+  function firstEntry(profile: Profile | null): MongooseQueryEntry {
+    const first = entriesOf(profile)[0];
+    if (first === undefined) throw new Error('expected at least one collected query');
+    return first;
+  }
+
   const queryCtx = {
     model: { collection: { name: 'reviews' } },
     op: 'find',
@@ -164,7 +170,7 @@ describe('MongooseConnectionPatch', () => {
       const result: unknown = await base.Query.prototype.exec.call(queryCtx);
       expect(result).toEqual([{ _id: 1 }]);
 
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.collection).toBe('reviews');
       expect(e.operation).toBe('find');
       expect(e.filter).toEqual({ status: 'active' });
@@ -176,7 +182,7 @@ describe('MongooseConnectionPatch', () => {
     it('flags slow queries when duration meets the threshold', async () => {
       const { base, profile } = setup({ threshold: 0 });
       await base.Query.prototype.exec.call(queryCtx);
-      expect(entriesOf(profile)[0].isSlow).toBe(true);
+      expect(firstEntry(profile).isSlow).toBe(true);
     });
 
     it('leaves the filter undefined when getFilter throws', async () => {
@@ -188,13 +194,13 @@ describe('MongooseConnectionPatch', () => {
           throw new Error('no filter');
         },
       });
-      expect(entriesOf(profile)[0].filter).toBeUndefined();
+      expect(firstEntry(profile).filter).toBeUndefined();
     });
 
     it('defaults collection and operation to "unknown"', async () => {
       const { base, profile } = setup({});
       await base.Query.prototype.exec.call({ getFilter: () => ({}) });
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.collection).toBe('unknown');
       expect(e.operation).toBe('unknown');
     });
@@ -202,13 +208,13 @@ describe('MongooseConnectionPatch', () => {
     it('omits count for non-array results', async () => {
       const { base, profile } = setup({ queryExec: () => Promise.resolve({ _id: 1 }) });
       await base.Query.prototype.exec.call(queryCtx);
-      expect(entriesOf(profile)[0].count).toBeUndefined();
+      expect(firstEntry(profile).count).toBeUndefined();
     });
 
     it('records the error message and rethrows when the query fails', async () => {
       const { base, profile } = setup({ queryExec: () => Promise.reject(new Error('db down')) });
       await expect(base.Query.prototype.exec.call(queryCtx)).rejects.toThrow('db down');
-      expect(entriesOf(profile)[0].error).toBe('db down');
+      expect(firstEntry(profile).error).toBe('db down');
     });
 
     it('stringifies a non-Error rejection', async () => {
@@ -217,7 +223,7 @@ describe('MongooseConnectionPatch', () => {
         queryExec: () => Promise.reject('boom'),
       });
       await expect(base.Query.prototype.exec.call(queryCtx)).rejects.toBe('boom');
-      expect(entriesOf(profile)[0].error).toBe('boom');
+      expect(firstEntry(profile).error).toBe('boom');
     });
 
     it('does not append outside a CLS context', async () => {
@@ -239,7 +245,7 @@ describe('MongooseConnectionPatch', () => {
     it('records an aggregate operation with collection and count', async () => {
       const { base, profile } = setup({ threshold: 100 });
       await base.Aggregate.prototype.exec.call(aggCtx);
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.operation).toBe('aggregate');
       expect(e.collection).toBe('orders');
       expect(e.count).toBe(1);
@@ -248,7 +254,7 @@ describe('MongooseConnectionPatch', () => {
     it('defaults the collection to "unknown" and records errors', async () => {
       const { base, profile } = setup({ aggExec: () => Promise.reject(new Error('agg fail')) });
       await expect(base.Aggregate.prototype.exec.call({})).rejects.toThrow('agg fail');
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.collection).toBe('unknown');
       expect(e.error).toBe('agg fail');
     });
@@ -256,7 +262,7 @@ describe('MongooseConnectionPatch', () => {
     it('omits count for non-array aggregate results', async () => {
       const { base, profile } = setup({ aggExec: () => Promise.resolve({ total: 5 }) });
       await base.Aggregate.prototype.exec.call(aggCtx);
-      expect(entriesOf(profile)[0].count).toBeUndefined();
+      expect(firstEntry(profile).count).toBeUndefined();
     });
 
     it('does not append outside a CLS context', async () => {
@@ -287,7 +293,7 @@ describe('MongooseConnectionPatch', () => {
 
     await base.Query.prototype.exec.call(queryCtx);
     // Fast query stays under the default 100ms threshold.
-    expect(entriesOf(profile)[0].isSlow).toBe(false);
+    expect(firstEntry(profile).isSlow).toBe(false);
   });
 
   it('patches each prototype only once (idempotent)', () => {

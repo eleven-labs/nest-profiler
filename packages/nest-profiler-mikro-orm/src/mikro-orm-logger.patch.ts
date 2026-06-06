@@ -32,6 +32,9 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
   }
 
   private patchLogger(logger: Logger, threshold: number): void {
+    const guarded = logger as Logger & { __profilerPatched?: boolean };
+    if (guarded.__profilerPatched) return;
+
     const cls = this.cls;
     const originalLogQuery = logger.logQuery.bind(logger);
     const originalIsEnabled = logger.isEnabled.bind(logger);
@@ -71,5 +74,7 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
       // Preserve the host application's original console logging behaviour.
       if (queryWasEnabled) originalLogQuery(context);
     });
+
+    guarded.__profilerPatched = true;
   }
 }

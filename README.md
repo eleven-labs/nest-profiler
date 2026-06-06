@@ -124,6 +124,77 @@ docs/                       Fumadocs documentation site
 scripts/                    repository automation and release helpers
 ```
 
+## Architecture
+
+The profiler is a thin pipeline wired into the standard NestJS request lifecycle,
+designed so that **collectors stay decoupled from the core** and **disabling the
+profiler costs almost nothing**.
+
+### Two layers: active and inert
+
+`ProfilerModule.forRoot()` resolves `enabled` synchronously and registers one of
+two layers:
+
+- **Active** (default) — mounts the middleware, the global interceptor, the
+  `/_profiler` controller, the collector registry and storage.
+- **Inert** (`enabled: false`) — registers _only_ `ProfilerService`, as a no-op.
+  It stays injectable everywhere, so application code that calls
+  `profiler.startSpan(...)` or `profiler.createLogger(...)` keeps working with
+  zero overhead and no conditional wiring on your side. Turn the profiler on in
+  development and off in production with a single flag.
+
+### Request lifecycle (HTTP)
+
+```text
+request
+   │
+   ▼
+ProfilerMiddleware ── creates a Profile (unique token), stores it in the
+   │                   request-scoped CLS context (nestjs-cls)
+   ▼
+route handler ──────── your code; collectors append entries into the active
+   │                   Profile via CLS (SQL queries, HTTP calls, cache ops…)
+   ▼
+ProfilerInterceptor ── finalizes timing, runs CollectorRegistry.collectAll(),
+   │                   lets context adapters enrich the Profile, persists it,
+   │                   and injects the toolbar into HTML responses
+   ▼
+ProfilerStorageService → storage adapter (memory or file)
+   │
+   ▼
+ProfilerController ─── serves the UI at /_profiler (list / detail / data),
+                       protected by ProfilerGuard
+```
+
+The shared **CLS context** (`nestjs-cls`) is the backbone: the middleware puts
+the `Profile` there, and everything downstream — collectors, the logger adapter,
+`ProfilerService` — reads it back without threading the profile through method
+signatures.
+
+### Collectors
+
+Each optional `@eleven-labs/nest-profiler-*` package is a self-contained NestJS
+module that does two things:
+
+1. **Patches its host library** (the TypeORM driver, the MikroORM logger, axios
+   interceptors, the cache manager, `ValidationPipe`…) to append entries to the
+   active profile. Patches are idempotent (`__profilerPatched`) so re-init never
+   double-instruments.
+2. **Exposes a panel** via a provider annotated with `@ProfilerCollector()`. The
+   `CollectorRegistry` auto-discovers these through Nest's `DiscoveryService` —
+   no manual registration — and calls each `collect()` to build its panel data.
+
+This is the extension seam: a custom collector is just a provider implementing
+`IProfilerCollector`. See [Custom collectors](packages/nest-profiler/README.md#custom-collectors).
+
+### Non-HTTP protocols
+
+Protocols other than HTTP (GraphQL, gRPC, WebSockets…) are supported through
+`IContextAdapter`: an adapter recovers and enriches the profile for its context
+type, and the interceptor delegates to it automatically once it is registered via
+the `PROFILER_CONTEXT_ADAPTERS` multi-token. See
+[Custom protocol adapters](packages/nest-profiler/README.md#custom-protocol-adapters).
+
 ## Common Commands
 
 Run a task across every package via Turbo:

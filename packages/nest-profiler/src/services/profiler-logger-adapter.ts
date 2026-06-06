@@ -31,8 +31,8 @@ export function createProfilerLogger<T extends object>(
     get(target, prop, receiver): unknown {
       const original = Reflect.get(target, prop, receiver) as unknown;
 
-      if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(logMethods, prop)) {
-        const level = logMethods[prop];
+      const level = typeof prop === 'string' ? logMethods[prop] : undefined;
+      if (level !== undefined) {
         return (message: unknown, ...optionalParams: unknown[]): unknown => {
           profilerService.addLog({
             level,

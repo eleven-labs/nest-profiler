@@ -125,6 +125,12 @@ describe('MikroOrmLoggerPatch', () => {
     return (profile?.collectors[MIKRO_ORM_QUERIES_KEY] as QueryEntry[] | undefined) ?? [];
   }
 
+  function firstEntry(profile: Profile | null): QueryEntry {
+    const first = entriesOf(profile)[0];
+    if (first === undefined) throw new Error('expected at least one collected query');
+    return first;
+  }
+
   function ctx(overrides: Partial<LogContext> = {}): LogContext {
     return { query: 'select * from product', params: [1], took: 5, ...overrides };
   }
@@ -137,7 +143,7 @@ describe('MikroOrmLoggerPatch', () => {
   it('captures sql, parameters, type and duration for a query', () => {
     const { logger, profile } = setup({ threshold: 100 });
     logger.logQuery(ctx());
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     expect(e.sql).toBe('select * from product');
     expect(e.parameters).toEqual([1]);
     expect(e.type).toBe('SELECT');
@@ -148,7 +154,7 @@ describe('MikroOrmLoggerPatch', () => {
   it('defaults parameters to an empty array and duration to 0 when absent', () => {
     const { logger, profile } = setup({});
     logger.logQuery(ctx({ params: undefined, took: undefined }));
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     expect(e.parameters).toEqual([]);
     expect(e.duration).toBe(0);
   });
@@ -156,13 +162,13 @@ describe('MikroOrmLoggerPatch', () => {
   it('flags slow queries when the duration meets the threshold', () => {
     const { logger, profile } = setup({ threshold: 5 });
     logger.logQuery(ctx({ took: 5 }));
-    expect(entriesOf(profile)[0].isSlow).toBe(true);
+    expect(firstEntry(profile).isSlow).toBe(true);
   });
 
   it('records a failure marker when the log level is error', () => {
     const { logger, profile } = setup({});
     logger.logQuery(ctx({ level: 'error' }));
-    expect(entriesOf(profile)[0].error).toBe('Query failed');
+    expect(firstEntry(profile).error).toBe('Query failed');
   });
 
   it('ignores log calls without a query', () => {
@@ -217,6 +223,27 @@ describe('MikroOrmLoggerPatch', () => {
     patch.onModuleInit();
 
     logger.logQuery(ctx({ took: 50 }));
-    expect((profile.collectors[MIKRO_ORM_QUERIES_KEY] as QueryEntry[])[0].isSlow).toBe(false);
+    expect(firstEntry(profile).isSlow).toBe(false);
+  });
+
+  it('does not double-wrap the logger when onModuleInit runs twice', () => {
+    const logQuerySpy = jest.fn();
+    const logger = {
+      logQuery: logQuerySpy,
+      isEnabled: jest.fn((ns: string) => ns !== 'query'),
+      log: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      setDebugMode: jest.fn(),
+    } as unknown as Logger;
+    const orm = { config: { getLogger: () => logger } } as unknown as MikroORM;
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+    const patch = new MikroOrmLoggerPatch(cls, orm, { slowQueryThreshold: 100 });
+    patch.onModuleInit();
+    patch.onModuleInit(); // second init must be a no-op (idempotency guard)
+
+    logger.logQuery(ctx());
+    expect(entriesOf(profile)).toHaveLength(1);
   });
 });

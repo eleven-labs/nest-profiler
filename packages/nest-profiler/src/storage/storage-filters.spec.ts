@@ -63,7 +63,7 @@ describe('applyProfileFilters', () => {
   it('filters by exact status code', () => {
     const result = applyProfileFilters(profiles, { statusCode: 500 });
     expect(result).toHaveLength(1);
-    expect(result[0].response?.statusCode).toBe(500);
+    expect(result[0]?.response?.statusCode).toBe(500);
   });
 
   it('excludes profiles without a matching response status', () => {
@@ -83,6 +83,6 @@ describe('applyProfileFilters', () => {
       maxDuration: 20,
     });
     expect(result).toHaveLength(1);
-    expect(result[0].request.url).toBe('/users');
+    expect(result[0]?.request.url).toBe('/users');
   });
 });

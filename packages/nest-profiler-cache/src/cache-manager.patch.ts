@@ -25,6 +25,12 @@ export class CacheManagerPatch implements OnModuleInit {
 
   onModuleInit(): void {
     if (!this.cacheManager) return;
+    // Guard against re-patching (re-init, multiple cache stores) — mirrors the
+    // ORM/axios patches. Without it, a second onModuleInit would wrap the
+    // already-wrapped methods and record each operation twice.
+    const guarded = this.cacheManager as CacheManager & { __profilerPatched?: boolean };
+    if (guarded.__profilerPatched) return;
+    guarded.__profilerPatched = true;
     this.patchMethod('get');
     this.patchMethod('set');
     this.patchMethod('del');

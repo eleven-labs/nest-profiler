@@ -14,6 +14,7 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { TemplateRendererService } from '../services/template-renderer.service';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
+import { ProfilerFiltersPipe } from './profiler-filters.pipe';
 import { ProfilerFiltersQuery } from './profiler-filters.query';
 import type { Profile } from '../interfaces/profile.interface';
 import type { StorageFindOptions } from '../storage/storage-adapter.interface';
@@ -35,12 +36,12 @@ export class ProfilerController {
 
   @Get('/_profiler')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  async listProfiles(@Query() query: ProfilerFiltersQuery): Promise<string> {
+  async listProfiles(@Query(ProfilerFiltersPipe) query: ProfilerFiltersQuery): Promise<string> {
     const filters: StorageFindOptions = {};
     if (query.method) filters.method = query.method;
-    if (query.statusCode) filters.statusCode = parseInt(query.statusCode, 10);
-    if (query.minDuration) filters.minDuration = parseInt(query.minDuration, 10);
-    if (query.maxDuration) filters.maxDuration = parseInt(query.maxDuration, 10);
+    if (query.statusCode !== undefined) filters.statusCode = query.statusCode;
+    if (query.minDuration !== undefined) filters.minDuration = query.minDuration;
+    if (query.maxDuration !== undefined) filters.maxDuration = query.maxDuration;
     if (query.url) filters.urlPattern = query.url;
 
     const hasFilters = Object.keys(filters).length > 0;

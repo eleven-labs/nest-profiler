@@ -66,7 +66,12 @@ describe('CommandProfiler', () => {
     // collectors run before the profile is persisted
     expect(collectAll).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledTimes(1);
-    expect(collectAll.mock.invocationCallOrder[0]).toBeLessThan(save.mock.invocationCallOrder[0]);
+    const [collectOrder] = collectAll.mock.invocationCallOrder;
+    const [saveOrder] = save.mock.invocationCallOrder;
+    if (collectOrder === undefined || saveOrder === undefined) {
+      throw new Error('expected both collectAll and save to have been called');
+    }
+    expect(collectOrder).toBeLessThan(saveOrder);
   });
 
   it('captures the exception, marks the profile failed, and rethrows', async () => {

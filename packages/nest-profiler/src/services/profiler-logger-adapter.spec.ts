@@ -17,7 +17,7 @@ describe('createProfilerLogger', () => {
     const delegate = { [level]: jest.fn() } as Record<string, jest.Mock>;
     const logger = createProfilerLogger(delegate, profilerService);
 
-    logger[level]('hello', 'MyContext');
+    logger[level]?.('hello', 'MyContext');
 
     expect(addLog).toHaveBeenCalledWith(
       expect.objectContaining({ level, message: 'hello', context: 'MyContext' }),
@@ -34,7 +34,7 @@ describe('createProfilerLogger', () => {
       const delegate = { [method]: jest.fn() } as Record<string, jest.Mock>;
       const logger = createProfilerLogger(delegate, profilerService);
 
-      logger[method]('hi');
+      logger[method]?.('hi');
 
       expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ level: expectedLevel }));
       expect(delegate[method]).toHaveBeenCalledWith('hi');
@@ -78,9 +78,9 @@ describe('createProfilerLogger', () => {
     >;
 
     expect(() => {
-      logger['debug']('d');
-      logger['verbose']('v');
-      logger['fatal']('f');
+      logger['debug']?.('d');
+      logger['verbose']?.('v');
+      logger['fatal']?.('f');
     }).not.toThrow();
     expect(addLog).toHaveBeenCalledTimes(3);
   });
@@ -92,7 +92,7 @@ describe('createProfilerLogger', () => {
       silly: 'verbose',
     });
 
-    logger['silly']('noisy');
+    logger['silly']?.('noisy');
 
     expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ level: 'verbose' }));
     expect(delegate['silly']).toHaveBeenCalledWith('noisy');

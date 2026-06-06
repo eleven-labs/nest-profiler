@@ -175,6 +175,12 @@ describe('AxiosInterceptorPatch', () => {
     return (profile?.collectors[AXIOS_REQUESTS_KEY] as HttpRequestEntry[] | undefined) ?? [];
   }
 
+  function firstEntry(profile: Profile | null): HttpRequestEntry {
+    const first = entriesOf(profile)[0];
+    if (first === undefined) throw new Error('expected at least one collected request');
+    return first;
+  }
+
   describe('bootstrap guards', () => {
     it('does nothing when HttpService cannot be resolved', async () => {
       const { ax, profile } = await bootstrap({}, { resolveThrows: true, adapter: okAdapter() });
@@ -199,7 +205,7 @@ describe('AxiosInterceptorPatch', () => {
         { headers: { authorization: 'Bearer secret', 'x-custom': '1' } },
       );
 
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.method).toBe('POST');
       expect(e.url).toBe('https://api.example.com/users');
       expect(e.statusCode).toBe(200);
@@ -214,7 +220,7 @@ describe('AxiosInterceptorPatch', () => {
     it('does not capture a request body for GET requests', async () => {
       const { ax, profile } = await bootstrap({}, { adapter: okAdapter() });
       await ax.get('https://api.example.com/data');
-      expect(entriesOf(profile)[0].requestBody).toBeUndefined();
+      expect(firstEntry(profile).requestBody).toBeUndefined();
     });
 
     it('captures the response body when captureResponseBody is enabled', async () => {
@@ -223,7 +229,7 @@ describe('AxiosInterceptorPatch', () => {
         { adapter: okAdapter({}, { result: 42 }) },
       );
       await ax.get('https://api.example.com/data');
-      expect(entriesOf(profile)[0].responseBody).toEqual({ result: 42 });
+      expect(firstEntry(profile).responseBody).toEqual({ result: 42 });
     });
 
     it('omits captured data when all capture options are disabled', async () => {
@@ -236,7 +242,7 @@ describe('AxiosInterceptorPatch', () => {
         { adapter: okAdapter({ 'content-type': 'application/json' }) },
       );
       await ax.post('https://api.example.com/users', { name: 'a' });
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.requestHeaders).toBeUndefined();
       expect(e.requestBody).toBeUndefined();
       expect(e.responseHeaders).toBeUndefined();
@@ -245,7 +251,7 @@ describe('AxiosInterceptorPatch', () => {
     it('resolves a relative url against the configured baseURL', async () => {
       const { ax, profile } = await bootstrap({}, { adapter: okAdapter() });
       await ax.request({ method: 'GET', baseURL: 'https://api.example.com', url: '/data' });
-      expect(entriesOf(profile)[0].url).toBe('https://api.example.com/data');
+      expect(firstEntry(profile).url).toBe('https://api.example.com/data');
     });
   });
 
@@ -253,7 +259,7 @@ describe('AxiosInterceptorPatch', () => {
     it('records the status and error message when a request fails with a response', async () => {
       const { ax, profile } = await bootstrap({}, { adapter: errAdapter({ status: 500 }) });
       await expect(ax.get('https://api.example.com/data')).rejects.toThrow('boom');
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.statusCode).toBe(500);
       expect(e.error).toBe('boom');
     });
@@ -261,7 +267,7 @@ describe('AxiosInterceptorPatch', () => {
     it('falls back to defaults when the error carries no config or response', async () => {
       const { ax, profile } = await bootstrap({}, { adapter: errAdapter({ withConfig: false }) });
       await expect(ax.get('https://api.example.com/data')).rejects.toThrow('boom');
-      const [e] = entriesOf(profile);
+      const e = firstEntry(profile);
       expect(e.method).toBe('GET');
       expect(e.url).toBe('?');
       expect(e.statusCode).toBeUndefined();
@@ -280,6 +286,24 @@ describe('AxiosInterceptorPatch', () => {
     const { ax, profile } = await bootstrap({}, { adapter: okAdapter(), profile: null });
     await ax.get('https://api.example.com/data');
     expect(profile).toBeNull();
+  });
+
+  it('does not register interceptors twice when bootstrapped again on the same axios instance', async () => {
+    const ax = axios.create();
+    ax.defaults.adapter = okAdapter();
+    const httpService = { axiosRef: ax } as unknown as HttpService;
+    const moduleRef = {
+      resolve: jest.fn(() => Promise.resolve(httpService)),
+    } as unknown as ModuleRef;
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+
+    const patch = new AxiosInterceptorPatch(cls, moduleRef, {});
+    await patch.onApplicationBootstrap();
+    await patch.onApplicationBootstrap(); // second bootstrap must be a no-op (idempotency guard)
+
+    await ax.get('https://api.example.com/data');
+    expect(entriesOf(profile)).toHaveLength(1);
   });
 });
 

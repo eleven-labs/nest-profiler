@@ -39,10 +39,18 @@ export class AxiosInterceptorPatch implements OnApplicationBootstrap {
 
     if (!httpService?.axiosRef) return;
 
+    // Guard against registering the interceptors twice if bootstrap runs again
+    // (e.g. multiple application contexts sharing the same axios instance).
+    const axiosRef = httpService.axiosRef as typeof httpService.axiosRef & {
+      __profilerPatched?: boolean;
+    };
+    if (axiosRef.__profilerPatched) return;
+    axiosRef.__profilerPatched = true;
+
     const opts = this.options;
     const maskHeaders = [...DEFAULT_MASK_HEADERS, ...(opts.maskHeaders ?? [])];
 
-    httpService.axiosRef.interceptors.request.use((config: ProfilerAxiosConfig) => {
+    axiosRef.interceptors.request.use((config: ProfilerAxiosConfig) => {
       config._profilerStart = Date.now();
 
       if (opts.captureRequestHeaders !== false) {
@@ -62,7 +70,7 @@ export class AxiosInterceptorPatch implements OnApplicationBootstrap {
       return config;
     });
 
-    httpService.axiosRef.interceptors.response.use(
+    axiosRef.interceptors.response.use(
       (response: AxiosResponse) => {
         this.pushEntry(response.config as ProfilerAxiosConfig, response, undefined, maskHeaders);
         return response;

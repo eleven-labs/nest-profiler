@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { CollectorRegistry } from './collector-registry.service';
 import { DiscoveryModule } from '@nestjs/core';
 import { ProfilerCollector } from './collector.decorator';
 import type { IProfilerCollector } from './collector.interface';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 
 // Collectors discovered through the @ProfilerCollector decorator carry their
@@ -148,15 +150,44 @@ describe('CollectorRegistry', () => {
     expect(profile.collectors['test']).toEqual({ foo: 'bar' });
   });
 
-  it('isolates collector errors and stores error placeholder', async () => {
+  it('isolates collector errors, stores the real message and logs a warning', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const collector: IProfilerCollector = {
       name: 'broken',
-      collect: jest.fn().mockRejectedValue(new Error('fail')),
+      collect: jest.fn().mockRejectedValue(new Error('boom')),
     };
     registry.register(collector);
     const profile = makeProfile();
     await expect(registry.collectAll(profile)).resolves.not.toThrow();
-    expect(profile.collectors['broken']).toEqual({ error: 'Collection failed' });
+    expect(profile.collectors['broken']).toEqual({ error: 'boom' });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('broken'));
+    warn.mockRestore();
+  });
+
+  it('isolates errors from non-Error throws by stringifying them', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    registry.register({
+      name: 'throws-string',
+      collect: jest.fn().mockRejectedValue('plain failure'),
+    });
+    const profile = makeProfile();
+    await registry.collectAll(profile);
+    expect(profile.collectors['throws-string']).toEqual({ error: 'plain failure' });
+    warn.mockRestore();
+  });
+
+  it('buildGlobalPanels isolates a throwing global collector instead of bubbling up', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    registry.register({
+      name: 'global-broken',
+      scope: 'global',
+      collect: jest.fn().mockRejectedValue(new Error('global boom')),
+    });
+    const panels = await registry.buildGlobalPanels();
+    const panel = panels.find((p) => p.name === 'global-broken');
+    expect(panel?.data).toEqual({ error: 'global boom' });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('global-broken'));
+    warn.mockRestore();
   });
 
   it('getCollectorNames returns registered names', () => {
@@ -311,6 +342,68 @@ describe('CollectorRegistry', () => {
     const a: IProfilerCollector = { name: 'a', collect: () => ({}) };
     registry.register(a);
     expect(registry.getCollectors()).toContain(a);
+  });
+
+  describe('collector timeout', () => {
+    async function buildRegistry(options: ProfilerModuleOptions): Promise<CollectorRegistry> {
+      const module = await Test.createTestingModule({
+        imports: [DiscoveryModule],
+        providers: [
+          CollectorRegistry,
+          { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: options },
+        ],
+      }).compile();
+      const reg = module.get(CollectorRegistry);
+      await module.init();
+      return reg;
+    }
+
+    it('abandons a hanging collector after the configured timeout', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const reg = await buildRegistry({ collectorTimeout: 20 });
+      reg.register({ name: 'hangs', collect: () => new Promise<never>(() => undefined) });
+
+      const profile = makeProfile();
+      await reg.collectAll(profile);
+
+      expect(profile.collectors['hangs']).toEqual({ error: 'timed out after 20ms' });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('hangs'));
+      warn.mockRestore();
+    });
+
+    it('does not time out a fast collector', async () => {
+      const reg = await buildRegistry({ collectorTimeout: 1000 });
+      reg.register({ name: 'fast', collect: () => ({ ok: true }) });
+      const profile = makeProfile();
+      await reg.collectAll(profile);
+      expect(profile.collectors['fast']).toEqual({ ok: true });
+    });
+
+    it('disables the timeout when set to 0 (awaits even a slow collector)', async () => {
+      const reg = await buildRegistry({ collectorTimeout: 0 });
+      reg.register({
+        name: 'slow',
+        collect: () => new Promise((resolve) => setTimeout(() => resolve({ done: true }), 30)),
+      });
+      const profile = makeProfile();
+      await reg.collectAll(profile);
+      expect(profile.collectors['slow']).toEqual({ done: true });
+    });
+
+    it('applies the timeout to global panels too', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const reg = await buildRegistry({ collectorTimeout: 20 });
+      reg.register({
+        name: 'slow-global',
+        scope: 'global',
+        collect: () => new Promise<never>(() => undefined),
+      });
+
+      const panels = await reg.buildGlobalPanels();
+      const panel = panels.find((p) => p.name === 'slow-global');
+      expect(panel?.data).toEqual({ error: 'timed out after 20ms' });
+      warn.mockRestore();
+    });
   });
 
   describe('decorator-driven discovery', () => {

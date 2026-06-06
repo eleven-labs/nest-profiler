@@ -13,9 +13,14 @@ export const TYPEORM_QUERIES_KEY = '__typeorm_queries';
 
 type PatchableMethod = (...args: unknown[]) => Promise<unknown>;
 
+/** A patched `createQueryRunner` tagged so re-initialisation cannot re-wrap it. */
+type PatchedCreateQueryRunner = ((...args: unknown[]) => QueryRunner) & {
+  __profilerPatched?: boolean;
+};
+
 /** TypeORM internal surface used for monkey-patching createQueryRunner. */
 interface PatchableDataSource {
-  createQueryRunner: (...args: unknown[]) => QueryRunner;
+  createQueryRunner: PatchedCreateQueryRunner;
 }
 
 @Injectable()
@@ -36,9 +41,10 @@ export class TypeOrmDriverPatch implements OnModuleInit {
   private patchCreateQueryRunner(dataSource: DataSource, threshold: number): void {
     const cls = this.cls;
     const patchable = dataSource as DataSource & PatchableDataSource;
+    if (patchable.createQueryRunner.__profilerPatched) return;
     const originalCreate = patchable.createQueryRunner.bind(dataSource);
 
-    patchable.createQueryRunner = function (...args: unknown[]): QueryRunner {
+    const patched: PatchedCreateQueryRunner = function (...args: unknown[]): QueryRunner {
       const qr = originalCreate(...args);
       // TypeORM's query() has complex overloads — bind as PatchableMethod (widening cast),
       // then use Reflect.set to assign the patched version without a type conflict on assignment.
@@ -80,5 +86,8 @@ export class TypeOrmDriverPatch implements OnModuleInit {
       Reflect.set(qr, 'query', patchedQuery);
       return qr;
     };
+
+    patched.__profilerPatched = true;
+    patchable.createQueryRunner = patched;
   }
 }

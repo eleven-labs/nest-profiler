@@ -360,7 +360,7 @@ describe('ProfilerInterceptor', () => {
         lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler('oops'))),
       ).rejects.toBe('oops');
 
-      expect(profile.exceptions[0].message).toBe('oops');
+      expect(profile.exceptions[0]?.message).toBe('oops');
       expect(profile.response?.statusCode).toBe(500);
     });
 
@@ -442,7 +442,7 @@ describe('ProfilerInterceptor', () => {
       ).rejects.toBe(error);
 
       expect(profile.exceptions).toHaveLength(1);
-      expect(profile.exceptions[0].message).toBe('nope');
+      expect(profile.exceptions[0]?.message).toBe('nope');
       expect(profile.response?.statusCode).toBe(400);
       expect(core.collectorRegistry.collectAll).toHaveBeenCalledWith(profile);
       expect(core.storage.save).toHaveBeenCalledWith(profile);
@@ -462,8 +462,8 @@ describe('ProfilerInterceptor', () => {
         ),
       ).rejects.toBe('boom');
 
-      expect(profile.exceptions[0].name).toBe('Error');
-      expect(profile.exceptions[0].message).toBe('boom');
+      expect(profile.exceptions[0]?.name).toBe('Error');
+      expect(profile.exceptions[0]?.message).toBe('boom');
     });
   });
 });

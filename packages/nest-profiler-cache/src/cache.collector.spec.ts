@@ -186,4 +186,23 @@ describe('CacheManagerPatch', () => {
     await cacheManager.get('k');
     expect(profile).toBeNull();
   });
+
+  it('does not double-instrument when onModuleInit runs twice', async () => {
+    const store = new Map<string, unknown>();
+    const cacheManager: FakeCacheManager = {
+      get: jest.fn((k: string) => Promise.resolve(store.get(k))),
+      set: jest.fn(() => Promise.resolve()),
+      del: jest.fn(() => Promise.resolve()),
+    };
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+
+    const patch = new CacheManagerPatch(cls, cacheManager);
+    patch.onModuleInit();
+    patch.onModuleInit();
+
+    await cacheManager.get('k');
+    // A single GET, instrumented once — not twice.
+    expect(opsOf(profile)).toHaveLength(1);
+  });
 });

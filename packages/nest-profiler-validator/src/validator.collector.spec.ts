@@ -157,6 +157,12 @@ describe('ProfilerValidationPipe', () => {
     return (profile.collectors[VALIDATOR_KEY] as ValidationEntry[] | undefined) ?? [];
   }
 
+  function firstEntry(profile: Profile): ValidationEntry {
+    const first = entriesOf(profile)[0];
+    if (first === undefined) throw new Error('expected at least one validation entry');
+    return first;
+  }
+
   it('captures a "valid" entry when validation succeeds', async () => {
     const pipe = makePipe();
     const profile = makeProfile();
@@ -165,7 +171,7 @@ describe('ProfilerValidationPipe', () => {
       const result: unknown = await pipe.transform({ name: 'alice' }, bodyMeta(SimpleDto));
       expect(result).toMatchObject({ name: 'alice' });
     });
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     expect(e.status).toBe('valid');
     expect(e.violationCount).toBe(0);
     expect(e.dtoClass).toBe('SimpleDto');
@@ -179,11 +185,11 @@ describe('ProfilerValidationPipe', () => {
       cls.set('profiler.profile', profile);
       await expect(pipe.transform({ name: '' }, bodyMeta(SimpleDto))).rejects.toBeDefined();
     });
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     expect(e.status).toBe('invalid');
     expect(e.violationCount).toBeGreaterThan(0);
-    expect(e.violations[0].property).toBe('name');
-    expect(Object.keys(e.violations[0].constraints).length).toBeGreaterThan(0);
+    expect(e.violations[0]?.property).toBe('name');
+    expect(Object.keys(e.violations[0]?.constraints ?? {}).length).toBeGreaterThan(0);
   });
 
   it('maps and counts nested (child) violations', async () => {
@@ -195,9 +201,9 @@ describe('ProfilerValidationPipe', () => {
         pipe.transform({ name: '', address: { city: '' } }, bodyMeta(UserDto)),
       ).rejects.toBeDefined();
     });
-    const [e] = entriesOf(profile);
+    const e = firstEntry(profile);
     const addressViolation = e.violations.find((v) => v.property === 'address');
-    expect(addressViolation?.children?.[0].property).toBe('city');
+    expect(addressViolation?.children?.[0]?.property).toBe('city');
     // name (1) + nested address.city (1) = 2 violations counted.
     expect(e.violationCount).toBe(2);
   });
@@ -282,7 +288,7 @@ describe('ProfilerValidationPipe', () => {
       cls.set('profiler.profile', profile);
       await pipe.transform({}, bodyMeta(Nameless));
     });
-    expect(entriesOf(profile)[0].dtoClass).toBe('unknown');
+    expect(firstEntry(profile).dtoClass).toBe('unknown');
   });
 });
 
@@ -306,7 +312,7 @@ describe('mapViolations', () => {
       },
     ] as unknown as ValidationError[];
     const mapped = mapViolations(errors);
-    expect(mapped[0].children?.[0].property).toBe('city');
+    expect(mapped[0]?.children?.[0]?.property).toBe('city');
   });
 });
 
