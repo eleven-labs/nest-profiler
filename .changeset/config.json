@@ -25,6 +25,7 @@
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   },
   "ignore": [
+    "docs",
     "example-api",
     "@repo/eslint-config",
     "@repo/jest-config",
