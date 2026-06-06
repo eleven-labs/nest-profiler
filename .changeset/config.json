@@ -11,6 +11,7 @@
       "@eleven-labs/nest-profiler-commander",
       "@eleven-labs/nest-profiler-config",
       "@eleven-labs/nest-profiler-graphql",
+      "@eleven-labs/nest-profiler-mikro-orm",
       "@eleven-labs/nest-profiler-mongoose",
       "@eleven-labs/nest-profiler-typeorm",
       "@eleven-labs/nest-profiler-validator"
