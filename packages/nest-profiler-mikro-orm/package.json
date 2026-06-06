@@ -89,7 +89,7 @@
   "author": "Fabien Pasquet",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eleven-labs/nest-profiler.git",
+    "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-mikro-orm"
   },
   "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-mikro-orm#readme",
