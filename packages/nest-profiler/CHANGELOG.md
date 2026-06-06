@@ -1,5 +1,22 @@
 # @eleven-labs/nest-profiler
 
+## 0.4.0
+
+### Minor Changes
+
+- 88a9794: Add a configurable per-collector timeout via the `collectorTimeout` option (default `1000`ms; set `0` to disable).
+
+  A slow or hanging collector can no longer block the response or the profiler list page: once the timeout elapses the panel stores `{ error: 'timed out after <n>ms' }` and a warning is logged. Fast collectors are unaffected.
+
+- 88a9794: Add a `token` option to `ProfilerModule.forRoot()` for securing the profiler UI.
+
+  The guard now resolves the bearer token as `options.token ?? process.env.PROFILER_TOKEN`, so it can be configured through module options instead of only the environment — keeping packages free of direct `process.env` reads. Fully backward compatible: the `PROFILER_TOKEN` environment variable still works.
+
+### Patch Changes
+
+- 88a9794: Surface collector failures instead of hiding them. A failing collector now logs a warning and stores its real error message (rather than a generic `Collection failed`), and global-panel collection is guarded too, so a throwing global collector can no longer bubble out of the controller.
+- 88a9794: Fix the profiler list hiding every profile when a numeric filter received invalid input. Query params are now normalized through a dedicated, validation-library-agnostic pipe, so a bad value such as `?statusCode=abc` is ignored instead of producing a `NaN` filter that matched nothing.
+
 ## 0.3.0
 
 ### Minor Changes

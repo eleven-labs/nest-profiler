@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-axios
 
+## 0.4.0
+
+### Patch Changes
+
+- 88a9794: Make host-library instrumentation idempotent with a `__profilerPatched` guard, matching the Mongoose collector. Re-initialization (tests, multiple data sources/ORMs) no longer double-wraps queries, HTTP requests or cache operations, which previously caused entries to be recorded twice.
+
 ## 0.3.0
 
 ### Minor Changes
