@@ -6,6 +6,8 @@
     "nestjs",
     "validator",
     "class-validator",
+    "nestjs-zod",
+    "zod",
     "validation",
     "pipe",
     "profiler",
@@ -51,8 +53,6 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@eleven-labs/nest-profiler": ">=0.0.1",
-    "class-transformer": "^0.5.0",
-    "class-validator": "^0.14.0",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
   },
@@ -71,10 +71,12 @@
     "class-validator": "^0.15.1",
     "jest": "^30.4.2",
     "nestjs-cls": "^4.5.0",
+    "nestjs-zod": "^4.3.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
     "ts-jest": "^29.3.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^3.25.0"
   },
   "jest": {
     "preset": "@repo/jest-config",

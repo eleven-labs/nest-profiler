@@ -67,18 +67,18 @@ await app.listen(3000);
 
 Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments — **not** in the root module — so the dependency is co-located with the code it observes.
 
-| Package                                | Panel       | Prerequisite                                                        |
-| -------------------------------------- | ----------- | ------------------------------------------------------------------- |
-| `@eleven-labs/nest-profiler-typeorm`   | Database    | `TypeOrmModule.forRoot()`                                           |
-| `@eleven-labs/nest-profiler-mikro-orm` | Database    | `MikroOrmModule.forRoot()`                                          |
-| `@eleven-labs/nest-profiler-mongoose`  | MongoDB     | `MongooseModule.forRoot()` connection                               |
-| `@eleven-labs/nest-profiler-axios`     | HTTP Client | `HttpModule` in the same module                                     |
-| `@eleven-labs/nest-profiler-cache`     | Cache       | `CacheModule.register({ isGlobal: true })`                          |
-| `@eleven-labs/nest-profiler-auth`      | Security    | Guard or middleware that sets `request.user`                        |
-| `@eleven-labs/nest-profiler-config`    | Config      | `ConfigModule.forRoot({ load: [...] })` with `registerAs` factories |
-| `@eleven-labs/nest-profiler-validator` | Validator   | `class-validator` + `class-transformer` installed                   |
-| `@eleven-labs/nest-profiler-graphql`   | GraphQL     | `@nestjs/graphql` + a driver + `context` factory configured         |
-| `@eleven-labs/nest-profiler-commander` | Command     | `nest-commander` + a CLI bootstrap (`CommandFactory`)               |
+| Package                                | Panel       | Prerequisite                                                            |
+| -------------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `@eleven-labs/nest-profiler-typeorm`   | Database    | `TypeOrmModule.forRoot()`                                               |
+| `@eleven-labs/nest-profiler-mikro-orm` | Database    | `MikroOrmModule.forRoot()`                                              |
+| `@eleven-labs/nest-profiler-mongoose`  | MongoDB     | `MongooseModule.forRoot()` connection                                   |
+| `@eleven-labs/nest-profiler-axios`     | HTTP Client | `HttpModule` in the same module                                         |
+| `@eleven-labs/nest-profiler-cache`     | Cache       | `CacheModule.register({ isGlobal: true })`                              |
+| `@eleven-labs/nest-profiler-auth`      | Security    | Guard or middleware that sets `request.user`                            |
+| `@eleven-labs/nest-profiler-config`    | Config      | `ConfigModule.forRoot({ load: [...] })` with `registerAs` factories     |
+| `@eleven-labs/nest-profiler-validator` | Validator   | A validator: `class-validator` (default) or another (e.g. `nestjs-zod`) |
+| `@eleven-labs/nest-profiler-graphql`   | GraphQL     | `@nestjs/graphql` + a driver + `context` factory configured             |
+| `@eleven-labs/nest-profiler-commander` | Command     | `nest-commander` + a CLI bootstrap (`CommandFactory`)                   |
 
 ### Module-per-collector pattern
 
@@ -149,8 +149,7 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
     }),
     ValidatorCollectorModule.forRoot({
       enabled: process.env.NODE_ENV !== 'production',
-      whitelist: true,
-      transform: true,
+      validationPipeOptions: { whitelist: true, transform: true },
     }),
     // feature modules:
     ProductsModule,
