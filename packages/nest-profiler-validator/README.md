@@ -1,20 +1,36 @@
 # @eleven-labs/nest-profiler-validator
 
-`@eleven-labs/nest-profiler-validator` extends NestJS's `ValidationPipe` to capture every DTO validation result (valid or invalid) and display it in a dedicated **Validator** panel, inspired by Symfony's Web Profiler validator tab.
+`@eleven-labs/nest-profiler-validator` captures every DTO validation result (valid or invalid) and displays it in a dedicated **Validator** panel, inspired by Symfony's Web Profiler validator tab.
+
+It is **validator-agnostic**: instead of being tied to `class-validator`, it wraps _any_ validation `PipeTransform` and normalizes failures through pluggable, duck-typed extractors. Built-in extractors cover **class-validator**, **nestjs-zod**, and a generic `HttpException` fallback.
 
 ![Validator panel — DTO validation results with per-property constraint violations](../../docs/public/screenshots/profiler/validator.png)
 
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-validator class-validator class-transformer
+pnpm add @eleven-labs/nest-profiler-validator
 ```
 
-**Peer dependencies:** `class-validator ^0.14.0`, `class-transformer ^0.5.0`
+Then install the validator **you** use:
+
+```bash
+# class-validator (default)
+pnpm add class-validator class-transformer
+
+# …or nestjs-zod
+pnpm add nestjs-zod zod
+```
+
+`class-validator`/`class-transformer` are **not** peer dependencies — they are only required when you rely on the default class-validator pipe.
 
 ## Setup
 
-`ValidatorCollectorModule.forRoot()` registers `ProfilerValidationPipe` as the global `APP_PIPE`. It replaces the standard `ValidationPipe` — **do not register both**.
+`ValidatorCollectorModule.forRoot()` registers `ProfilerValidationPipe` as the global `APP_PIPE`. It wraps your validation pipe — **do not also register a separate global `ValidationPipe`**.
+
+### With class-validator (default)
+
+When `pipe` is omitted, a class-validator `ValidationPipe` is built from `validationPipeOptions`:
 
 ```ts title="app.module.ts"
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
@@ -23,14 +39,44 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
   imports: [
     ProfilerModule.forRoot({ isGlobal: true }),
     ValidatorCollectorModule.forRoot({
-      whitelist: true, // remove extra properties
-      transform: true, // transform payload to DTO class
-      // any other ValidationPipe options
+      validationPipeOptions: {
+        whitelist: true, // remove extra properties
+        transform: true, // transform payload to DTO class
+        // any other ValidationPipe options
+      },
     }),
   ],
 })
 export class AppModule {}
 ```
+
+### With nestjs-zod
+
+Pass your own pipe via `pipe`; class-validator is never loaded:
+
+```ts title="app.module.ts"
+import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+import { ZodValidationPipe } from 'nestjs-zod';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
+  ],
+})
+export class AppModule {}
+```
+
+> A NestJS app uses a single global validation strategy, so use **one** validator at a time.
+
+## Options
+
+| Option                  | Type                             | Description                                                                                  |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
+| `enabled`               | `boolean`                        | Default `true`. When `false`, no pipe is installed.                                          |
+| `pipe`                  | `PipeTransform`                  | The validation pipe to wrap. Defaults to a class-validator pipe built from the option below. |
+| `validationPipeOptions` | `ValidationPipeOptions`          | Forwarded to the default class-validator pipe when `pipe` is omitted.                        |
+| `extractors`            | `ValidationViolationExtractor[]` | Override the extractor chain. Defaults to `[classValidator, zod, generic]`.                  |
 
 ## Prerequisite: value import for DTO types
 
@@ -59,34 +105,39 @@ For each `@Body()`, `@Query()`, or `@Param()` parameter using a DTO class:
 Each violation entry includes:
 
 - `property` — the property path that failed (nested properties use dot notation)
-- `value` — the rejected value
+- `value` — the rejected value (when available)
 - `constraints` — map of constraint name → message (e.g., `{ isNotEmpty: "name should not be empty" }`)
 
-## Example: DTO with constraints
+## How it works
 
-```ts title="create-product.dto.ts"
-import { IsNotEmpty, IsNumber, IsString, MaxLength, Min } from 'class-validator';
+`ProfilerValidationPipe` implements `PipeTransform` and wraps an **inner** pipe:
 
-export class CreateProductDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(200)
-  name: string;
+1. On `transform()`, it delegates to the inner pipe. On success it records a `valid` entry.
+2. On failure it runs the configured **extractors** over the thrown error, records an `invalid` entry with the normalized violations, then re-throws the original exception.
 
-  @IsNumber()
-  @Min(0)
-  price: number;
-}
-```
+Extractors are tried in order; the first to recognize the error wins:
 
-A request with `POST /products { "name": "", "price": -5 }` produces a profile showing:
+- **class-validator** — `createClassValidatorPipe()` attaches the raw `ValidationError[]` to the thrown exception (under a private symbol) so the full property/constraint tree is recovered.
+- **nestjs-zod / zod** — reads `ZodError.issues` (via `getZodError()` or a bare `ZodError`).
+- **generic** — any `HttpException` exposing a `message` string/array (the universal fallback).
 
-**Validator panel:**
+Reading the active profile uses CLS, so capture is concurrent-safe across requests.
 
-```
-[BODY] CreateProductDto — INVALID (2 violations)
-  name  ""   isNotEmpty  → name should not be empty
-  price  -5  min         → price must not be less than 0
+## Custom extractors
+
+To support another validator, implement `ValidationViolationExtractor` and pass it via `extractors`:
+
+```ts
+import type { ValidationViolationExtractor } from '@eleven-labs/nest-profiler-validator';
+
+const myExtractor: ValidationViolationExtractor = {
+  extract({ error }) {
+    // return ViolationEntry[] if recognized, otherwise null to defer to the next extractor
+    return null;
+  },
+};
+
+ValidatorCollectorModule.forRoot({ pipe: myPipe, extractors: [myExtractor] });
 ```
 
 ## Toolbar badge
@@ -94,14 +145,15 @@ A request with `POST /products { "name": "", "price": -5 }` produces a profile s
 - **All valid**: number of validated DTOs (e.g., `1`)
 - **With violations**: total violation count (e.g., `3 violations`)
 
-## How it works
+## Migration from 0.4.x
 
-`ProfilerValidationPipe` extends `ValidationPipe` and overrides two methods:
+`forRoot` no longer spreads `ValidationPipe` options at the top level — move them under `validationPipeOptions`:
 
-1. **`validate()`** — called by the parent pipe with the transformed entity before checking for errors. Stores the raw `ValidationError[]` in CLS under a per-execution key.
-
-2. **`transform()`** — wraps the parent's `transform()`. On success, records a valid entry. On failure (pipe exception), reads the raw errors from CLS, maps them to `ViolationEntry[]`, and records an invalid entry. The original exception is always re-thrown.
-
-This design is concurrent-safe: CLS provides per-execution isolated storage, and the raw `ValidationError[]` from class-validator are captured before they're converted to strings by the exception factory.
-
-> **Note:** The profiler interceptor captures collector data on both success and error paths, so validation failures are always recorded even when the request returns a 400.
+```diff
+ ValidatorCollectorModule.forRoot({
+   enabled,
+-  whitelist: true,
+-  transform: true,
++  validationPipeOptions: { whitelist: true, transform: true },
+ })
+```

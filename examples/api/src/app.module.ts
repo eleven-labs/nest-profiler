@@ -81,11 +81,12 @@ import featuresConfig, {
       enabled: isProfilerEnabled(process.env),
       maskKeys: ['database.password'],
     }),
-    // ValidatorCollectorModule installs ProfilerValidationPipe as global APP_PIPE
+    // ValidatorCollectorModule installs ProfilerValidationPipe as global APP_PIPE.
+    // Validator-agnostic: omitting `pipe` wraps a default class-validator pipe built
+    // from `validationPipeOptions`. To use nestjs-zod instead, pass `pipe: new ZodValidationPipe()`.
     ValidatorCollectorModule.forRoot({
       enabled: isProfilerEnabled(process.env),
-      whitelist: true,
-      transform: true,
+      validationPipeOptions: { whitelist: true, transform: true },
     }),
 
     // Feature modules — no infra dependency
