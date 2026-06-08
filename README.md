@@ -4,7 +4,7 @@
   <a href="https://eleven-labs.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/eleven-labs-white.svg">
-      <img alt="Powered & maintained by Eleven Labs" src="assets/eleven-labs-dark.svg" width="180">
+      <img alt="Powered &amp; maintained by Eleven Labs" src="assets/eleven-labs-dark.svg" width="180">
     </picture>
   </a>
 </p>
@@ -12,24 +12,23 @@
 <p align="center"><em>Powered &amp; maintained by <a href="https://eleven-labs.com">Eleven Labs</a></em></p>
 
 <p align="center">
-  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml/badge.svg"></a>
-  <a href="https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler"><img alt="Version" src="https://img.shields.io/github/package-json/v/eleven-labs/nest-profiler?filename=packages%2Fnest-profiler%2Fpackage.json&label=version&color=e5225a"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/eleven-labs/nest-profiler/actions/workflows/quality.yml/badge.svg" /></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
 </p>
 
 <p align="center">
-  <a href="https://nest-profiler.eleven-labs.com"><img alt="Documentation" src="https://img.shields.io/badge/docs-nest--profiler.eleven-labs.com-e5225a"></a>
-  <img alt="Node >= 22" src="https://img.shields.io/badge/node-%3E%3D22-3c873a">
-  <img alt="Built with NestJS" src="https://img.shields.io/badge/built%20with-NestJS-ea2845">
-  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
-  <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white">
+  <a href="https://nest-profiler.eleven-labs.com"><img alt="Documentation" src="https://img.shields.io/badge/docs-nest--profiler.eleven--labs.com-e5225a" /></a>
+  <img alt="Node &gt;= 22" src="https://img.shields.io/badge/node-%3E%3D22-3c873a" />
+  <img alt="Built with NestJS" src="https://img.shields.io/badge/built%20with-NestJS-ea2845" />
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" />
+  <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
 <p align="center">
-  <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white"></a>
-  <a href=".github/dependabot.yml"><img alt="Dependabot enabled" src="https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white"></a>
-  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+  <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white" /></a>
+  <a href=".github/dependabot.yml"><img alt="Dependabot enabled" src="https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white" /></a>
+  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" /></a>
 </p>
 
 A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profiled execution receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
@@ -84,30 +83,7 @@ pnpm example:dev
 
 ## Installation
 
-Packages are published to **GitHub Packages**. Unlike the public npm registry, GitHub Packages requires authentication even for public packages.
-
-### 1. Create a GitHub token
-
-Go to **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)** and generate a token with the `read:packages` scope.
-
-> In GitHub Actions, `${{ secrets.GITHUB_TOKEN }}` already has `read:packages` — no extra token needed in CI.
-
-### 2. Configure `.npmrc`
-
-Add the registry mapping to your project's `.npmrc` (or `~/.npmrc` for a global setup):
-
-```ini
-@eleven-labs:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-Then export the token in your shell (or add it to your `.env`):
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-### 3. Install
+Packages are published to the public **npm** registry — install them like any other dependency, no authentication required:
 
 ```bash
 pnpm add @eleven-labs/nest-profiler nestjs-cls
