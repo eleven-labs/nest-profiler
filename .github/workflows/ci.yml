@@ -49,6 +49,11 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          # Authenticate GitHub API calls made while prerendering the docs site
+          # (GithubInfo widget). Without it, anonymous requests share the per-IP
+          # 60 req/h limit and the build fails with "API rate limit exceeded".
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
     name: Test (Node ${{ matrix.node-version }})

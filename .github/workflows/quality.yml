@@ -39,6 +39,11 @@ jobs:
 
       - name: Build packages
         run: pnpm build
+        env:
+          # Authenticate the GitHub API calls made while prerendering the docs
+          # site (GithubInfo widget) so the build does not hit the anonymous
+          # per-IP rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate package manifests
         run: pnpm publint
