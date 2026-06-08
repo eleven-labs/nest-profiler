@@ -55,3 +55,7 @@ The toolbar badge shows: `{n}q` (e.g., `4q`). When slow queries are present: `4q
 ## How it works
 
 At module initialization, the collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` on the Mongoose instance retrieved from `connection.base`. This captures all queries regardless of when schemas were registered, and is fully transparent — Mongoose behavior is unchanged.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

@@ -4,7 +4,10 @@
   "private": true,
   "description": "NestJS profiler toolkit — pnpm + Turbo monorepo for @eleven-labs/nest-profiler and its collector packages.",
   "license": "MIT",
-  "author": "Fabien Pasquet",
+  "author": {
+    "name": "Fabien Pasquet",
+    "url": "https://github.com/fpasquet"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eleven-labs/nest-profiler.git"
@@ -25,6 +28,9 @@
     "docs:dev": "pnpm --filter docs dev",
     "example:dev": "turbo run start:dev --filter=example-api",
     "example:start": "turbo run build && pnpm --filter=example-api start",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage",
     "changeset": "changeset",
     "changeset:guard-major": "tsx scripts/changesets/guard-major-bumps.ts",
@@ -32,17 +38,16 @@
     "changeset:pre:alpha": "changeset pre enter alpha",
     "changeset:pre:beta": "changeset pre enter beta",
     "changeset:pre:exit": "changeset pre exit",
-    "format": "prettier --write \".github/**/*.{md,yml}\" \".changeset/*.json\" \"*.{json,md,mjs,yaml}\" \"scripts/**/*.{json,md,ts}\" && turbo run format",
-    "format:check": "prettier --check \".github/**/*.{md,yml}\" \".changeset/*.json\" \"*.{json,md,mjs,yaml}\" \"scripts/**/*.{json,md,ts}\" && turbo run format:check",
+    "format": "prettier --write \".github/**/*.{md,yml,json}\" \".changeset/*.json\" \"*.{json,md,mjs,yaml}\" \"scripts/**/*.{json,md,ts}\" && turbo run format",
+    "format:check": "prettier --check \".github/**/*.{md,yml,json}\" \".changeset/*.json\" \"*.{json,md,mjs,yaml}\" \"scripts/**/*.{json,md,ts}\" && turbo run format:check",
     "lint": "turbo run lint",
     "pack:dry-run": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec npm pack --dry-run",
     "publint": "pnpm -r --filter './packages/**' --filter '!@repo/*' exec publint",
+    "attw": "pnpm -r --filter './packages/**' --filter '!@repo/*' --filter '!@eleven-labs/nest-profiler-mikro-orm' exec attw --pack && pnpm --filter @eleven-labs/nest-profiler-mikro-orm exec attw --pack --ignore-rules cjs-resolves-to-esm",
     "release": "tsx scripts/changesets/publish.ts",
     "release:alpha": "tsx scripts/changesets/publish.ts alpha",
     "release:beta": "tsx scripts/changesets/publish.ts beta",
     "release:stable": "tsx scripts/changesets/publish.ts stable",
-    "configure-github": "tsx scripts/github/configure-github.ts",
-    "configure-github:update": "tsx scripts/github/configure-github.ts --update",
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
     "typecheck": "turbo run typecheck",
@@ -50,6 +55,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
     "@changesets/cli": "^2.29.5",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
@@ -75,5 +81,21 @@
     "tsx": "^4.20.3",
     "turbo": "^2.5.4",
     "typescript": "^6.0.3"
-  }
+  },
+  "contributors": [
+    {
+      "name": "Eleven Labs",
+      "url": "https://eleven-labs.com"
+    }
+  ],
+  "funding": "https://eleven-labs.com",
+  "keywords": [
+    "nestjs",
+    "profiler",
+    "web-profiler",
+    "devtools",
+    "monitoring",
+    "observability",
+    "nest-profiler"
+  ]
 }

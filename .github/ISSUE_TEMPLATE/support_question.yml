@@ -1,7 +1,7 @@
 name: Support question
 description: Ask for help using one of the packages.
 title: 'support: '
-labels: ['question', 'triage']
+labels: ['question', 'needs triage']
 body:
   - type: dropdown
     id: package
@@ -18,6 +18,7 @@ body:
         - '@eleven-labs/nest-profiler-validator'
         - '@eleven-labs/nest-profiler-graphql'
         - '@eleven-labs/nest-profiler-mikro-orm'
+        - '@eleven-labs/nest-profiler-commander'
         - 'example-api'
         - 'Documentation'
         - 'Other'

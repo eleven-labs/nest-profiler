@@ -1,0 +1,86 @@
+# PR auto-labelling by changed path (actions/labeler@v5).
+# Label definitions live in .github/labels.yml; this file only maps paths to them.
+
+'scope: packages':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler/**'
+          - 'packages/nest-profiler-*/**'
+
+'scope: docs':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+
+'scope: examples':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'examples/**'
+
+'scope: ci':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - '.husky/**'
+          - 'scripts/**'
+          - 'turbo.json'
+          - 'package.json'
+          - 'pnpm-workspace.yaml'
+          - 'commitlint.config.mjs'
+          - 'lint-staged.config.mjs'
+          - 'docker-compose.yml'
+
+'package: nest-profiler':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler/**'
+
+'package: nest-profiler-auth':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-auth/**'
+
+'package: nest-profiler-axios':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-axios/**'
+
+'package: nest-profiler-cache':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-cache/**'
+
+'package: nest-profiler-commander':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-commander/**'
+
+'package: nest-profiler-config':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-config/**'
+
+'package: nest-profiler-graphql':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-graphql/**'
+
+'package: nest-profiler-mikro-orm':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-mikro-orm/**'
+
+'package: nest-profiler-mongoose':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-mongoose/**'
+
+'package: nest-profiler-typeorm':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-typeorm/**'
+
+'package: nest-profiler-validator':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-validator/**'

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
 
+import { HeaderOrFooter } from '@/components/header-or-footer';
 import { GITHUB_URL, SITE_NAME } from '@/lib/constants';
 import { i18n } from '@/lib/i18n';
 
@@ -22,6 +23,7 @@ export default async function HomeRootLayout({
       nav={{ title: SITE_NAME, url: base || '/' }}
     >
       {children}
+      <HeaderOrFooter className="bg-fd-card/30" />
     </HomeLayout>
   );
 }

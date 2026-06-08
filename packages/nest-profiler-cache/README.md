@@ -48,3 +48,7 @@ The panel also displays an aggregated hit/miss ratio.
 ## How it works
 
 At module initialization, the collector wraps the `CACHE_MANAGER`'s `get`, `set`, and `del` methods using a JavaScript `Proxy`. Each wrapped call records the operation type, key, and duration into the current request profile.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

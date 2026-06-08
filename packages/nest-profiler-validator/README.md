@@ -157,3 +157,7 @@ ValidatorCollectorModule.forRoot({ pipe: myPipe, extractors: [myExtractor] });
 +  validationPipeOptions: { whitelist: true, transform: true },
  })
 ```
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

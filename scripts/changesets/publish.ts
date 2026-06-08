@@ -97,7 +97,23 @@ function main(): void {
   const distTag = resolveDistTag();
   assertValidDistTag(distTag);
 
-  console.log(`Publishing packages with dist-tag "${distTag}".`);
+  // In Changesets prerelease mode, `changeset publish` rejects an explicit
+  // `--tag` ("Releasing under custom tag is not allowed in pre mode") because it
+  // derives the dist-tag per package itself: packages with a prior stable release
+  // (or never published) go to `pre.json`'s tag, while prerelease-only packages
+  // fall back to `latest`. So we only pass `--tag` for stable releases.
+  const inPrereleaseMode = readActivePrereleaseTag() !== null;
+
+  if (inPrereleaseMode) {
+    console.log(
+      `Prerelease mode active: Changesets publishes under the "${distTag}" dist-tag ` +
+        `(npm also assigns "latest" on a package's first-ever publish).`,
+    );
+  } else {
+    console.log(`Publishing packages with dist-tag "${distTag}".`);
+  }
+
+  const publishArgs = inPrereleaseMode ? ['publish'] : ['publish', '--tag', distTag];
 
   let exitCode = 0;
 
@@ -105,7 +121,7 @@ function main(): void {
     exitCode = run('tsx', ['scripts/absolutize-readme-images.ts']);
 
     if (exitCode === 0) {
-      exitCode = run('changeset', ['publish', '--tag', distTag]);
+      exitCode = run('changeset', publishArgs);
     }
   } finally {
     const checkoutExitCode = run('git', ['checkout', '--', 'packages/*/README.md']);

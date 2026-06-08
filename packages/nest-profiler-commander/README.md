@@ -65,3 +65,7 @@ Duration and timing come from the profile's standard performance data, and a thr
 ## How it works
 
 At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile (`request.method = 'CLI'`, `request.url = '<command> <args>'`, and `request.command`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The profiler UI renders command profiles in a dedicated Commands table and a built-in Command tab — no extra setup in your HTTP app. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

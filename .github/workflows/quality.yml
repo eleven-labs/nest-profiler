@@ -7,10 +7,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   package-quality:
     name: Package and docs quality checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -34,9 +39,17 @@ jobs:
 
       - name: Build packages
         run: pnpm build
+        env:
+          # Authenticate the GitHub API calls made while prerendering the docs
+          # site (GithubInfo widget) so the build does not hit the anonymous
+          # per-IP rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate package manifests
         run: pnpm publint
 
       - name: Dry-run npm packaging
         run: pnpm pack:dry-run
+
+      - name: Validate type resolution (attw)
+        run: pnpm attw

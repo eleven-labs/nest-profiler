@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 8 publishable packages (`@eleven-labs/nest-profiler` core + 7 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to GitHub Packages.
+Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 11 publishable packages (`@eleven-labs/nest-profiler` core + 10 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to github.
 
 Constraints:
 
@@ -28,8 +28,8 @@ The agent should introspect the workspace before editing; only the non-obvious r
 - `packages/<name>` is the only path for publishable packages. New packages mirror the shape of `packages/nest-profiler`.
 - `packages/configs/*` are private `@repo/*` presets, never published.
 - `examples/api` is the consumer-side demonstration. It is in `.changeset/config.json#ignore` and never enters the release flow.
-- `docs/` is a Fumadocs site deployed to Vercel independently of package release — `deploy-docs.yml` ≠ `release.yml`.
-- `scripts/` holds one-shot maintenance tooling (`configure-github.ts` to configure GitHub labels, rulesets, and milestones), not runtime code.
+- `docs/` is a Fumadocs site deployed to Vercel via Vercel's Git integration (no workflow in this repo), independently of package release.
+- `scripts/` holds release helpers (`changesets/*`, `absolutize-readme-images.ts`), not runtime code. Repository labels and milestones are declarative (`.github/labels.yml`, `.github/milestones.yml`) and synced by the `repo-config.yml` workflow; one-time GitHub setup is documented in `MAINTAINERS.md`.
 
 ---
 
@@ -66,7 +66,7 @@ Every change must pass:
 Add when the change touches the matching area:
 
 - `pnpm docs:build` — when editing anything under `docs/`.
-- `pnpm pack:dry-run` and `pnpm -r --filter './packages/**' --filter '!@repo/*' exec publint` — when editing a publishable package's manifest or its public exports.
+- `pnpm pack:dry-run`, `pnpm publint`, and `pnpm attw` — when editing a publishable package's manifest or its public exports.
 - Repeat the relevant suite under `nvm use 22` then `nvm use 24` when the change is runtime-sensitive.
 
 No change is considered ready while any required step fails.

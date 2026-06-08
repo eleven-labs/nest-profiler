@@ -15,11 +15,11 @@ PROFILER_STORAGE_TYPE=memory
 
 Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Config**, **Validator**, **GraphQL** (Books).
 
-| Endpoint                 | URL                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------- |
-| Swagger UI               | [nest-profiler-example.vercel.app/api](https://nest-profiler-example.vercel.app/api)              |
-| Apollo Sandbox (GraphQL) | [nest-profiler-example.vercel.app/graphql](https://nest-profiler-example.vercel.app/graphql)      |
-| Profiler UI              | [nest-profiler-example.vercel.app/\_profiler](https://nest-profiler-example.vercel.app/_profiler) |
+| Endpoint                 | URL                                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Swagger UI               | [nest-profiler-example.eleven-labs.com/api](https://nest-profiler-example.eleven-labs.com/api)              |
+| Apollo Sandbox (GraphQL) | [nest-profiler-example.eleven-labs.com/graphql](https://nest-profiler-example.eleven-labs.com/graphql)      |
+| Profiler UI              | [nest-profiler-example.eleven-labs.com/\_profiler](https://nest-profiler-example.eleven-labs.com/_profiler) |
 
 ## Prerequisites
 
@@ -40,13 +40,13 @@ This starts **PostgreSQL 16** on port `5432` for the TypeORM collector demo, and
 
 The example app uses flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
 
-| Variable              | Default | Description                                                         |
-| --------------------- | ------- | ------------------------------------------------------------------- |
-| `SQL_ORM`          | `typeorm` | SQL ORM for the products context: `typeorm` \| `mikro-orm` \| `none` |
-| `FEATURE_MONGOOSE`    | `true`  | Load Mongoose + MongoDB connection + `ReviewsModule`                |
-| `FEATURE_GRAPHQL`     | `true`  | Load GraphQL + Apollo Server + `BooksModule`                        |
-| `FEATURE_PINO_LOGGER` | `false` | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger` |
-| `PROFILER_ENABLED`    | `true`  | Enable the profiler UI and all collectors                           |
+| Variable              | Default   | Description                                                          |
+| --------------------- | --------- | -------------------------------------------------------------------- |
+| `SQL_ORM`             | `typeorm` | SQL ORM for the products context: `typeorm` \| `mikro-orm` \| `none` |
+| `FEATURE_MONGOOSE`    | `true`    | Load Mongoose + MongoDB connection + `ReviewsModule`                 |
+| `FEATURE_GRAPHQL`     | `true`    | Load GraphQL + Apollo Server + `BooksModule`                         |
+| `FEATURE_PINO_LOGGER` | `false`   | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`  |
+| `PROFILER_ENABLED`    | `true`    | Enable the profiler UI and all collectors                            |
 
 `SQL_ORM` selects which persistence adapter backs the products context — the adapters are mutually exclusive because they map the same Postgres `products` table. Set it to `none` to disable the products context entirely. Set `FEATURE_MONGOOSE=false` to disable the reviews context. Modules that depend on disabled infrastructure are simply not registered — no connection is attempted, no crash.
 
