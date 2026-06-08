@@ -253,4 +253,4 @@ pnpm --filter @eleven-labs/nest-profiler-typeorm build
 
 ## Publishing
 
-Packages are versioned with Changesets and released from CI to the public github registry. The versioning policy (`0.x` rules, `ALLOW_MAJOR_BUMPS`), the stable release flow, and the alpha/beta prerelease runbook live in [MAINTAINERS.md](MAINTAINERS.md).
+Packages are versioned with Changesets and released from CI to the public npm registry. The versioning policy (`0.x` rules, `ALLOW_MAJOR_BUMPS`), the stable release flow, and the alpha/beta prerelease runbook live in [MAINTAINERS.md](MAINTAINERS.md).

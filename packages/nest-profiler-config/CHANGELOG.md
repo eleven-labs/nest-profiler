@@ -1,43 +1,15 @@
 # @eleven-labs/nest-profiler-config
 
-## 0.5.0
+## 0.5.1-alpha.0
 
-### Minor Changes
+### Patch Changes
 
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
+- ff89de2: First public npm (alpha) release. `@eleven-labs/nest-profiler-config` is the `@nestjs/config` collector for `@eleven-labs/nest-profiler`:
+  - Captures a flattened snapshot of the `ConfigService` configuration at application bootstrap.
+  - Global collector — appears on the profiles list and on every profile detail view, in the **Config** panel.
+  - Secret/sensitive-key masking via `maskKeys` (dot-notation supported, e.g. `database.password`); masked values shown as `***`.
+  - `enabled` option — when `false`, registers no-op providers only (the host app owns the dev/prod decision).
+  - `ConfigCollectorModule.forRoot()` configuration.
 
-## 0.4.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.3.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.2.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.1.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.0.1
-
-### Features
-
-- Initial release: `@nestjs/config` collector for `@eleven-labs/nest-profiler`
-- Captures a flattened snapshot of `ConfigService` configuration at application bootstrap
-- Secret/sensitive key masking via `maskKeys` option (supports dot-notation, e.g. `database.password`)
-- Global collector — appears on the profiles list and every profile detail view
-- Displays configuration in the **Config** panel with masked values shown as `***`
-- `enabled` option — when `false`, registers no-op providers only (the host application owns the dev/prod decision)
-- `ConfigCollectorModule.forRoot()` configuration
+- Updated dependencies [ff89de2]
+  - @eleven-labs/nest-profiler@0.5.1-alpha.0

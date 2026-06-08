@@ -30,7 +30,7 @@ pnpm pack:dry-run   # what actually ends up in the tarball
 pnpm attw           # Are the Types Wrong? — type resolution across module systems
 ```
 
-CI maps these to workflows: **CI** (`ci.yml`: check + a Node 22/24 test matrix, with an aggregate `CI` gate), **Quality** (`quality.yml`: changeset policy + publint + pack + attw), **CodeQL** (`codeql.yml`, informational), plus **Validate commit messages** and **Semantic PR title** gates. The branch ruleset (`.github/rulesets.json`) requires `CI`, `Package and docs quality checks`, `Validate commit messages`, and `Semantic PR title`.
+CI maps these to workflows: **CI** (`ci.yml`: check + a Node 22/24 test matrix, with an aggregate `CI` gate), **Quality** (`quality.yml`: changeset policy + publint + pack + attw), **CodeQL** (`codeql.yml`, informational), plus **Validate commit messages** and **Semantic PR title** gates. The branch ruleset requires `CI`, `Package and docs quality checks`, `Validate commit messages`, and `Semantic PR title`.
 
 ## Releasing
 

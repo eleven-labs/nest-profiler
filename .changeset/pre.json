@@ -1,0 +1,30 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@eleven-labs/nest-profiler": "0.5.0",
+    "@eleven-labs/nest-profiler-auth": "0.5.0",
+    "@eleven-labs/nest-profiler-axios": "0.5.0",
+    "@eleven-labs/nest-profiler-cache": "0.5.0",
+    "@eleven-labs/nest-profiler-commander": "0.5.0",
+    "@eleven-labs/nest-profiler-config": "0.5.0",
+    "@eleven-labs/nest-profiler-graphql": "0.5.0",
+    "@eleven-labs/nest-profiler-mikro-orm": "0.5.0",
+    "@eleven-labs/nest-profiler-mongoose": "0.5.0",
+    "@eleven-labs/nest-profiler-typeorm": "0.5.0",
+    "@eleven-labs/nest-profiler-validator": "0.5.0"
+  },
+  "changesets": [
+    "nest-profiler-auth",
+    "nest-profiler-axios",
+    "nest-profiler-cache",
+    "nest-profiler-commander",
+    "nest-profiler-config",
+    "nest-profiler-graphql",
+    "nest-profiler-mikro-orm",
+    "nest-profiler-mongoose",
+    "nest-profiler-typeorm",
+    "nest-profiler-validator",
+    "nest-profiler"
+  ]
+}

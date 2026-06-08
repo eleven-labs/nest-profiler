@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-validator",
-  "version": "0.5.0",
+  "version": "0.5.1-alpha.0",
   "description": "Validation pipe collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
@@ -13,7 +13,9 @@
     "profiler",
     "debug",
     "devtools",
-    "nest-profiler"
+    "nest-profiler",
+    "web-debug-toolbar",
+    "observability"
   ],
   "license": "MIT",
   "type": "commonjs",
@@ -35,8 +37,7 @@
     "node": ">=22.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
@@ -52,7 +53,7 @@
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@eleven-labs/nest-profiler": ">=0.0.1",
+    "@eleven-labs/nest-profiler": ">=0.5.1-alpha.0",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
   },
@@ -87,7 +88,10 @@
     ],
     "coverageDirectory": "coverage"
   },
-  "author": "Fabien Pasquet",
+  "author": {
+    "name": "Fabien Pasquet",
+    "url": "https://github.com/fpasquet"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
@@ -96,5 +100,12 @@
   "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-validator#readme",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
-  }
+  },
+  "contributors": [
+    {
+      "name": "Eleven Labs",
+      "url": "https://eleven-labs.com"
+    }
+  ],
+  "funding": "https://eleven-labs.com"
 }

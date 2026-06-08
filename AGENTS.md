@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 11 publishable packages (`@eleven-labs/nest-profiler` core + 10 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to github.
+Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 11 publishable packages (`@eleven-labs/nest-profiler` core + 10 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to npm.
 
 Constraints:
 

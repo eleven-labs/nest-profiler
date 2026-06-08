@@ -1,43 +1,15 @@
 # @eleven-labs/nest-profiler-cache
 
-## 0.5.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.4.0
+## 0.5.1-alpha.0
 
 ### Patch Changes
 
-- 88a9794: Make host-library instrumentation idempotent with a `__profilerPatched` guard, matching the Mongoose collector. Re-initialization (tests, multiple data sources/ORMs) no longer double-wraps queries, HTTP requests or cache operations, which previously caused entries to be recorded twice.
+- ff89de2: First public npm (alpha) release. `@eleven-labs/nest-profiler-cache` is the cache collector for `@eleven-labs/nest-profiler`:
+  - Captures `GET_HIT`, `GET_MISS`, `SET`, and `DEL` operations from `@nestjs/cache-manager`.
+  - Shows the cache key, operation type, and TTL per entry in the **Cache** panel, with a hit/miss ratio badge in the toolbar.
+  - Idempotent instrumentation (`__profilerPatched`) so operations are never recorded twice.
+  - `enabled` option — when `false`, registers no-op providers only (the host app owns the dev/prod decision).
+  - `CacheCollectorModule.forRoot()` configuration.
 
-## 0.3.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.2.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.1.0
-
-### Minor Changes
-
-- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
-
-## 0.0.1
-
-### Features
-
-- Initial release: Cache collector for `@eleven-labs/nest-profiler`
-- Captures `GET_HIT`, `GET_MISS`, `SET`, and `DEL` operations from `@nestjs/cache-manager`
-- Displays hit/miss ratio badge in the toolbar
-- Shows cache key, operation type, and TTL for each entry in the **Cache** panel
-- Badge reads from final collected storage (always visible even after `collect()` clears the private key)
-- `enabled` option — when `false`, registers no-op providers only (the host application owns the dev/prod decision)
-- `CacheCollectorModule.forRoot()` configuration
+- Updated dependencies [ff89de2]
+  - @eleven-labs/nest-profiler@0.5.1-alpha.0
