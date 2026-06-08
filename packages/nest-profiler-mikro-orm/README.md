@@ -67,3 +67,7 @@ logger handle console output only if you had query logging enabled. Queries exec
 request context (startup, background jobs) are silently ignored.
 
 This captures all queries issued through the `EntityManager`, repositories and the QueryBuilder.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
