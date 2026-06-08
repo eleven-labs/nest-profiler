@@ -365,3 +365,7 @@ import type {
 | `collectorTimeout` | `number`                  | `1000`       | Max ms a single collector may run before it is abandoned (`0` disables). |
 | `sampleRate`       | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).                               |
 | `ignorePaths`      | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).                       |
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

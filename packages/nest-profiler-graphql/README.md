@@ -41,24 +41,24 @@ export class AppModule {}
 ### Mercurius (Fastify)
 
 ```ts
-ProfilerGraphQLModule.forRoot(),
-GraphQLModule.forRoot<MercuriusDriverConfig>({
-  driver: MercuriusDriver,
-  autoSchemaFile: true,
-  // Mercurius uses `request` instead of `req`
-  context: ({ request }) => ({ request }),
-})
+(ProfilerGraphQLModule.forRoot(),
+  GraphQLModule.forRoot<MercuriusDriverConfig>({
+    driver: MercuriusDriver,
+    autoSchemaFile: true,
+    // Mercurius uses `request` instead of `req`
+    context: ({ request }) => ({ request }),
+  }));
 ```
 
 ### graphql-yoga (Express or Fastify)
 
 ```ts
-ProfilerGraphQLModule.forRoot(),
-GraphQLModule.forRoot<YogaDriverConfig>({
-  driver: YogaDriver,
-  autoSchemaFile: true,
-  context: ({ req }) => ({ req }),
-})
+(ProfilerGraphQLModule.forRoot(),
+  GraphQLModule.forRoot<YogaDriverConfig>({
+    driver: YogaDriver,
+    autoSchemaFile: true,
+    context: ({ req }) => ({ req }),
+  }));
 ```
 
 ## Options
@@ -90,22 +90,22 @@ ProfilerModule.forRoot({
 ProfilerGraphQLModule.forRoot(),
 ```
 
-| Filter | Skips |
-|---|---|
-| `ignoreGraphQLPlayground` | `GET /graphql` with `Accept: text/html` — the Sandbox UI page load |
+| Filter                       | Skips                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ignoreGraphQLPlayground`    | `GET /graphql` with `Accept: text/html` — the Sandbox UI page load                             |
 | `ignoreGraphQLIntrospection` | Any POST with `operationName: IntrospectionQuery` or a query referencing `__schema` / `__type` |
 
 ## What is captured
 
 Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:
 
-| Field | Description |
-|---|---|
-| `operationType` | `query`, `mutation`, or `subscription` |
+| Field           | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `operationType` | `query`, `mutation`, or `subscription`         |
 | `operationName` | Named operation (e.g. `GetBooks`), if provided |
-| `fieldName` | Entry-point resolver field |
-| `query` | The full GraphQL document (formatted) |
-| `variables` | Variables object |
+| `fieldName`     | Entry-point resolver field                     |
+| `query`         | The full GraphQL document (formatted)          |
+| `variables`     | Variables object                               |
 
 GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions.
 
@@ -114,6 +114,7 @@ GraphQL-level errors (schema validation failures, resolver errors) appear in the
 ## How it works
 
 `ProfilerGraphQLModule` registers `GraphQLContextAdapter` with `ProfilerCoreService` on module init. The adapter supports all NestJS GraphQL drivers that expose the HTTP request in the execution context:
+
 - **Apollo** (Express / Fastify): looks for `gqlCtx.req`
 - **Mercurius** (Fastify): looks for `gqlCtx.request`
 
@@ -122,3 +123,7 @@ A middleware `finish` hook also captures GraphQL errors for requests that Apollo
 ## Custom protocol adapters
 
 This package is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context — see the [`@eleven-labs/nest-profiler` documentation](../nest-profiler/README.md#custom-protocol-adapters) for a full example.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

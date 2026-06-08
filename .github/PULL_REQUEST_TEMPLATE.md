@@ -6,20 +6,8 @@
 
 <!-- Fixes #123 -->
 
-## Scope impacted
-
-- [ ] `@eleven-labs/nest-profiler`
-- [ ] `@eleven-labs/nest-profiler-typeorm`
-- [ ] `@eleven-labs/nest-profiler-axios`
-- [ ] `@eleven-labs/nest-profiler-cache`
-- [ ] `@eleven-labs/nest-profiler-auth`
-- [ ] `@eleven-labs/nest-profiler-config`
-- [ ] `@eleven-labs/nest-profiler-mongoose`
-- [ ] `@eleven-labs/nest-profiler-validator`
-- [ ] `@eleven-labs/nest-profiler-mikro-orm`
-- [ ] `example-api`
-- [ ] `docs` (documentation)
-- [ ] Tooling / CI only
+<!-- Scope is labelled automatically from the changed paths (scope:* and
+     package:* labels) — nothing to tick here. -->
 
 ## Checklist
 

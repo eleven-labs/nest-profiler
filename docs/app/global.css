@@ -8,6 +8,18 @@
   --color-fd-ring: hsl(344, 60%, 60%);
 }
 
+/* Eleven Labs footer logo color. Registered in `@theme` so Tailwind generates a
+   `text-eleven-labs-logo` utility (referencing the variable), then overridden on
+   the `.dark` class so it follows the Fumadocs theme toggle — same pattern as the
+   `--color-fd-*` tokens. */
+@theme {
+  --color-eleven-labs-logo: #0a4084;
+}
+
+.dark {
+  --color-eleven-labs-logo: #ffffff;
+}
+
 .dark {
   --color-fd-background: hsl(222, 47%, 5%);
   --color-fd-foreground: hsl(220, 30%, 92%);

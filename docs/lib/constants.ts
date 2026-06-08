@@ -1,7 +1,19 @@
-export const SITE_NAME = 'NestJS Packages';
+export const SITE_NAME = 'NestJS Profiler';
 export const SITE_DESCRIPTION =
-  'Documentation for reusable NestJS packages and the example application.';
+  'A Symfony Web Profiler-inspired toolkit for NestJS: profile every request with a rich panel UI — HTTP, database, cache, security, GraphQL, timeline and more. Powered & maintained by Eleven Labs.';
 export const GITHUB_URL = 'https://github.com/eleven-labs/nest-profiler';
+export const GITHUB_OWNER = 'eleven-labs';
+export const GITHUB_REPOSITORY = 'nest-profiler';
+
+/**
+ * Public base URL of the deployed documentation site. Override with the
+ * NEXT_PUBLIC_SITE_URL environment variable to point at a different domain.
+ */
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nest-profiler.eleven-labs.com'
+).replace(/\/$/, '');
+
+export const ELEVEN_LABS_URL = 'https://eleven-labs.com';
 
 export const DOCS_BASE_PATH = '/docs';
 export const DOCS_CONTENT_DIR = 'content/docs';

@@ -9,15 +9,22 @@ permissions:
   pull-requests: write
   packages: write
 
+concurrency:
+  # Never cancel an in-flight release: a half-published run must finish.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  # Disable Husky hooks: the "Version Packages" commit made by changesets/action
-  # must not go through commitlint / lint-staged, which would reject it.
+  # Disable Husky hooks: the release commit created by changesets/action
+  # (chore(release): version packages) must bypass the local lint-staged /
+  # commitlint hooks — the CI gates validate it instead.
   HUSKY: 0
 
 jobs:
   release:
     name: Version or publish packages
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -43,6 +50,10 @@ jobs:
         with:
           version: pnpm version-packages
           publish: pnpm release
+          # Conventional-Commit message/title for the changeset-release PR so the
+          # required commitlint and semantic-PR-title checks accept the squash merge.
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

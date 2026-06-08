@@ -6,6 +6,7 @@ Thanks for contributing.
 
 ```bash
 pnpm install
+pnpm docker:up      # Postgres + MongoDB, needed to run the example app
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -18,6 +19,12 @@ Target a single package:
 pnpm --filter @eleven-labs/nest-profiler test
 ```
 
+Run the example API against the profiler UI (needs `pnpm docker:up` first):
+
+```bash
+pnpm example:dev    # http://localhost:3000/_profiler
+```
+
 ## Pull requests
 
 Every pull request should include:
@@ -26,6 +33,12 @@ Every pull request should include:
 - Tests for behavior changes.
 - Documentation updates for public API changes.
 - A changeset when a published package changes.
+
+Scope labels (`scope:*` and `package:*`) are applied **automatically** from the changed
+files — no need to label PRs by hand. CI runs formatting, lint, typecheck, tests, build,
+commit-message and PR-title linting, and the package gates (`publint`, `pack:dry-run`,
+`attw`). Keep the **PR title** a valid Conventional Commit: the repo squash-merges, so the
+title becomes the commit subject on `main`.
 
 ## Changesets
 
@@ -38,8 +51,10 @@ pnpm changeset
 Use:
 
 - `patch` for fixes and small improvements.
-- `minor` for backward-compatible features.
-- `major` for breaking changes.
+- `minor` for backward-compatible features — and for breaking changes while the suite is
+  in `0.x` (add a `BREAKING:` note in the changeset body).
+- `major` only for the explicit v1 transition (gated by `ALLOW_MAJOR_BUMPS`; CI rejects
+  stray major bumps).
 
 ## Commit convention
 
@@ -55,6 +70,12 @@ docs: update publishing guide
 
 Breaking changes must include:
 
-- A `major` changeset.
-- A migration note.
-- Updated examples where relevant.
+- A `minor` changeset (major bumps are gated in `0.x`).
+- A `BREAKING:` note in the changeset body.
+- A migration note and updated examples where relevant.
+
+## Releasing
+
+Releases and the alpha/beta prerelease flow run in CI from `main`. The full runbook, the
+`ALLOW_MAJOR_BUMPS` policy, label/milestone automation, and the one-time repository setup
+live in [MAINTAINERS.md](MAINTAINERS.md).

@@ -8,10 +8,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  ci:
-    name: Lint, typecheck, test, and build
+  check:
+    name: Check (format, lint, typecheck, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,16 +47,46 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test with coverage
-        run: pnpm test:cov
-
       - name: Build
         run: pnpm build
+        env:
+          # Authenticate GitHub API calls made while prerendering the docs site
+          # (GithubInfo widget). Without it, anonymous requests share the per-IP
+          # 60 req/h limit and the build fails with "API rate limit exceeded".
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test with coverage
+        run: pnpm test:cov
 
   commitlint:
     name: Validate commit messages
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -76,3 +111,19 @@ jobs:
           --from ${{ github.event.pull_request.base.sha }}
           --to ${{ github.event.pull_request.head.sha }}
           --verbose
+
+  ci:
+    # Stable required status check: the branch ruleset requires "CI", which stays
+    # green/red regardless of the Node matrix dimensions reported by `test`.
+    name: CI
+    runs-on: ubuntu-latest
+    needs: [check, test]
+    if: always()
+    steps:
+      - name: Check required jobs succeeded
+        run: |
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.check.result }}" != "success" ]; then
+            echo "One or more required CI jobs failed (check=${{ needs.check.result }}, test=${{ needs.test.result }})."
+            exit 1
+          fi
+          echo "All CI jobs passed."

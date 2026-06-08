@@ -67,3 +67,7 @@ For each outgoing request:
 ## How it works
 
 At module initialization, the collector registers axios request/response interceptors on the `HttpService`'s internal `axiosRef`. The interceptors record start time and push an entry to the current request profile once the response arrives.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
