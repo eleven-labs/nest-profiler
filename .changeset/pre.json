@@ -20,5 +20,17 @@
     "@eleven-labs/nest-profiler-typeorm": "0.5.0",
     "@eleven-labs/nest-profiler-validator": "0.5.0"
   },
-  "changesets": []
+  "changesets": [
+    "nest-profiler-auth",
+    "nest-profiler-axios",
+    "nest-profiler-cache",
+    "nest-profiler-commander",
+    "nest-profiler-config",
+    "nest-profiler-graphql",
+    "nest-profiler-mikro-orm",
+    "nest-profiler-mongoose",
+    "nest-profiler-typeorm",
+    "nest-profiler-validator",
+    "nest-profiler"
+  ]
 }
