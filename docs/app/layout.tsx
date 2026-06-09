@@ -6,7 +6,13 @@ import type { ReactNode } from 'react';
 
 import { RootProvider } from 'fumadocs-ui/provider/next';
 
-import { DEFAULT_LANGUAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/constants';
+import {
+  DEFAULT_LANGUAGE,
+  GOOGLE_SITE_VERIFICATION,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+} from '@/lib/constants';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -46,6 +52,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  ...(GOOGLE_SITE_VERIFICATION && {
+    verification: { google: GOOGLE_SITE_VERIFICATION },
+  }),
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
