@@ -1,0 +1,54 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+
+# One flag per package so each README can show its own coverage badge
+# (https://codecov.io/.../graph/badge.svg?flag=<package>). carryforward keeps
+# a flag's last value when a PR/commit does not touch that package.
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        target: 90%
+  individual_flags:
+    - name: nest-profiler
+      paths:
+        - packages/nest-profiler/
+    - name: nest-profiler-auth
+      paths:
+        - packages/nest-profiler-auth/
+    - name: nest-profiler-axios
+      paths:
+        - packages/nest-profiler-axios/
+    - name: nest-profiler-cache
+      paths:
+        - packages/nest-profiler-cache/
+    - name: nest-profiler-commander
+      paths:
+        - packages/nest-profiler-commander/
+    - name: nest-profiler-config
+      paths:
+        - packages/nest-profiler-config/
+    - name: nest-profiler-graphql
+      paths:
+        - packages/nest-profiler-graphql/
+    - name: nest-profiler-mikro-orm
+      paths:
+        - packages/nest-profiler-mikro-orm/
+    - name: nest-profiler-mongoose
+      paths:
+        - packages/nest-profiler-mongoose/
+    - name: nest-profiler-typeorm
+      paths:
+        - packages/nest-profiler-typeorm/
+    - name: nest-profiler-validator
+      paths:
+        - packages/nest-profiler-validator/
+
+comment:
+  layout: 'header, flags, files'
+  require_changes: true
