@@ -91,7 +91,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-auth"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-auth#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-auth",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },

@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 
 import { MarkdownCopyButton, ViewOptionsPopover } from '@/components/ai/page-actions';
 import { AutoTypeTable } from '@/components/auto-type-table';
+import { HeaderOrFooter } from '@/components/header-or-footer';
 import { SITE_NAME } from '@/lib/constants';
 import { source } from '@/lib/source';
 
@@ -62,6 +63,7 @@ export default async function Page({
 
   return (
     <DocsPage className="pt-0 xl:pt-0" full={page.data.full} toc={page.data.toc}>
+      <HeaderOrFooter />
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>

@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next';
 
+import { SITE_URL } from '@/lib/constants';
+import { source } from '@/lib/source';
+
 export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [];
-  /*const url = (path: string) => new URL(path, SITE_URL).toString();
+  const url = (path: string) => new URL(path, SITE_URL).toString();
 
   const home: MetadataRoute.Sitemap = [
     {
@@ -20,5 +22,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...home, ...docs];*/
+  return [...home, ...docs];
 }

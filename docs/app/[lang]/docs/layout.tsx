@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { GithubInfo } from 'fumadocs-ui/components/github-info';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 
-import { HeaderOrFooter } from '@/components/header-or-footer';
 import { GITHUB_OWNER, GITHUB_REPOSITORY, GITHUB_URL, SITE_NAME } from '@/lib/constants';
 import { i18n } from '@/lib/i18n';
 import { source } from '@/lib/source';
@@ -38,7 +37,6 @@ export default async function Layout({
       tree={source.getPageTree(lang)}
     >
       {children}
-      <HeaderOrFooter />
     </DocsLayout>
   );
 }

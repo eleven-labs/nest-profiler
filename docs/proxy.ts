@@ -6,6 +6,6 @@ export default createI18nMiddleware(i18n);
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|screenshots|llms\\.txt|llms-full\\.txt|llms\\.mdx).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|screenshots|llms\\.txt|llms-full\\.txt|llms\\.mdx|robots\\.txt|sitemap\\.xml).*)',
   ],
 };

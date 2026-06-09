@@ -95,7 +95,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-mongoose"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-mongoose#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-mongoose",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },
