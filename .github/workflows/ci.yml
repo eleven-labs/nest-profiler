@@ -82,6 +82,21 @@ jobs:
       - name: Test with coverage
         run: pnpm test:cov
 
+      - name: Upload coverage reports to Codecov
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          curl -Os https://cli.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          for dir in packages/*/; do
+            name=$(basename "${dir%/}")
+            file="${dir}coverage/lcov.info"
+            [ -f "$file" ] || continue
+            echo "Uploading coverage for $name"
+            ./codecov upload-process --disable-search \
+              --flag "$name" --file "$file" --fail-on-error
+          done
+
   commitlint:
     name: Validate commit messages
     runs-on: ubuntu-latest
