@@ -51,6 +51,22 @@ describe('ProfilerGraphQLModule', () => {
       await app.close();
     });
 
+    it('adds a "GraphQL" option to the list "type" filter', async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [ProfilerModule.forRoot({ isGlobal: true }), ProfilerGraphQLModule.forRoot()],
+        controllers: [DummyController],
+      }).compile();
+
+      const app = moduleRef.createNestApplication();
+      await app.init();
+
+      const core = moduleRef.get(ProfilerCoreService, { strict: false });
+      const typeFilter = core.getListFilters().find((f) => f.key === 'type');
+      expect(typeFilter?.options?.map((o) => o.value)).toContain('graphql');
+
+      await app.close();
+    });
+
     it('silently skips registration when ProfilerModule is not available', async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [ProfilerGraphQLModule.forRoot()],

@@ -9,16 +9,15 @@
       // Commands are profiled separately from HTTP/GraphQL requests — split them out.
       const requestProfiles = profiles.filter((p) => !p.request.command);
       const commands = typeof commandProfiles !== 'undefined' && commandProfiles ? commandProfiles : [];
+      // When the user filters on the "command" type, hide the requests section entirely
+      // (and vice-versa: the commands section already only shows when commands match).
+      const activeType = typeof filterValues !== 'undefined' && filterValues ? filterValues.type : undefined;
+      const showRequests = activeType !== 'command';
     %>
 
-    <div class="flex items-start justify-between mb-6">
-      <div>
-        <h1 class="text-base font-semibold text-foreground">Recent Profiles</h1>
-        <p class="text-foreground-muted text-xs mt-0.5">HTTP &amp; GraphQL requests captured by the profiler</p>
-      </div>
-      <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
-        <%= requestProfiles.length %> profile<%= requestProfiles.length !== 1 ? 's' : '' %>
-      </span>
+    <div class="mb-6">
+      <h1 class="text-base font-semibold text-foreground">Recent Profiles</h1>
+      <p class="text-foreground-muted text-xs mt-0.5">Profiles captured by the profiler</p>
     </div>
 
     <% if (heapSeries && heapSeries.length >= 2) { %>
@@ -62,40 +61,41 @@
       </div>
     <% } %>
 
+    <%
+      // Filter controls are contributed dynamically: the core registers the
+      // built-ins (type, method, search, status, duration…) and packages can add
+      // their own (e.g. the GraphQL "GraphQL only" checkbox). See ProfilerListFilter.
+      const filterDefinitions = typeof filterDefs !== 'undefined' && filterDefs ? filterDefs : [];
+      const currentValues = typeof filterValues !== 'undefined' && filterValues ? filterValues : {};
+      const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
+    %>
     <form method="GET" action="<%= profilerPath %>" class="mb-4 flex flex-wrap gap-2 items-end bg-surface border border-line rounded-xl p-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-foreground-faint text-2xs uppercase tracking-widest">Method</label>
-        <select name="method" class="bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest">
-          <option value="">All</option>
-          <% for (const m of ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS']) { %>
-            <option value="<%= m %>" <%= (filters && filters.method === m) ? 'selected' : '' %>><%= m %></option>
-          <% } %>
-        </select>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-foreground-faint text-2xs uppercase tracking-widest">URL contains</label>
-        <input type="text" name="url" value="<%= (filters && filters.url) ? filters.url : '' %>"
-               placeholder="/api/…"
-               class="bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground w-40 focus:outline-none focus:border-nest" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-foreground-faint text-2xs uppercase tracking-widest">Status</label>
-        <input type="number" name="statusCode" value="<%= (filters && filters.statusCode) ? filters.statusCode : '' %>"
-               placeholder="200"
-               class="bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground w-20 focus:outline-none focus:border-nest" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-foreground-faint text-2xs uppercase tracking-widest">Min duration (ms)</label>
-        <input type="number" name="minDuration" value="<%= (filters && filters.minDuration) ? filters.minDuration : '' %>"
-               placeholder="0"
-               class="bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground w-28 focus:outline-none focus:border-nest" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-foreground-faint text-2xs uppercase tracking-widest">Max duration (ms)</label>
-        <input type="number" name="maxDuration" value="<%= (filters && filters.maxDuration) ? filters.maxDuration : '' %>"
-               placeholder="—"
-               class="bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground w-28 focus:outline-none focus:border-nest" />
-      </div>
+      <% for (const def of filterDefinitions) { %>
+        <% const value = currentValues[def.key]; %>
+        <% if (def.control === 'checkbox') { %>
+          <label class="flex items-center gap-1.5 text-xs text-foreground cursor-pointer self-end py-1.5">
+            <input type="checkbox" name="<%= def.key %>" value="1" <%= value ? 'checked' : '' %>
+                   class="accent-nest" />
+            <%= def.label %>
+          </label>
+        <% } else { %>
+          <div class="flex flex-col gap-1">
+            <label class="text-foreground-faint text-2xs uppercase tracking-widest"><%= def.label %></label>
+            <% if (def.control === 'select') { %>
+              <select name="<%= def.key %>" class="<%= inputClass %>">
+                <% for (const opt of (def.options || [])) { %>
+                  <option value="<%= opt.value %>" <%= value === opt.value ? 'selected' : '' %>><%= opt.label %></option>
+                <% } %>
+              </select>
+            <% } else { %>
+              <input type="<%= def.control === 'number' ? 'number' : 'text' %>" name="<%= def.key %>"
+                     value="<%= value || '' %>"
+                     placeholder="<%= def.placeholder || '' %>"
+                     class="<%= inputClass %> <%= def.control === 'number' ? 'w-24' : 'w-44' %>" />
+            <% } %>
+          </div>
+        <% } %>
+      <% } %>
       <div class="flex gap-2">
         <button type="submit" class="px-3 py-1.5 rounded bg-nest text-white text-xs font-medium hover:opacity-90 transition-opacity">Filter</button>
         <a href="<%= profilerPath %>" class="px-3 py-1.5 rounded border border-line text-foreground-muted text-xs hover:text-foreground hover:border-line-active transition-colors">Reset</a>
@@ -104,7 +104,7 @@
 
     <% if (globalPanels && globalPanels.length > 0) { %>
       <% for (const gPanel of globalPanels) { %>
-        <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden" open>
+        <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden">
           <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
             <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -123,6 +123,17 @@
         </details>
       <% } %>
     <% } %>
+
+    <% if (showRequests) { %>
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 class="text-base font-semibold text-foreground">HTTP &amp; GraphQL</h2>
+        <p class="text-foreground-muted text-xs mt-0.5">HTTP &amp; GraphQL requests captured by the profiler</p>
+      </div>
+      <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
+        <%= requestProfiles.length %> profile<%= requestProfiles.length !== 1 ? 's' : '' %>
+      </span>
+    </div>
 
     <div class="rounded-xl border border-line overflow-hidden bg-surface">
       <table class="w-full">
@@ -199,6 +210,7 @@
         </tbody>
       </table>
     </div>
+    <% } %>
 
     <% if (commands.length > 0) { %>
       <div class="flex items-start justify-between mb-6 mt-10">

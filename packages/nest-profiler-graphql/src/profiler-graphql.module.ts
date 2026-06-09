@@ -24,6 +24,8 @@ export class ProfilerGraphQLModule implements OnModuleInit {
       // even when ProfilerModule is imported as a sibling rather than a parent.
       const core = this.moduleRef.get<ProfilerCoreService>(ProfilerCoreService, { strict: false });
       core.registerContextAdapter(this.adapter);
+      // Surface GraphQL as a choice in the list page's "Type" filter.
+      core.registerFilterOption('type', { value: 'graphql', label: 'GraphQL' });
     } catch {
       // ProfilerCoreService unavailable — profiler may not be configured.
     }

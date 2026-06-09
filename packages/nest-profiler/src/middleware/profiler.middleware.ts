@@ -9,6 +9,18 @@ import { PROFILER_REQ_KEY } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 
+/**
+ * Paths skipped by default so the profiler list is not flooded with browser and
+ * tooling noise that is never interesting to profile. Merged ahead of the
+ * user's `ignorePaths`; opt out entirely with `useDefaultIgnorePaths: false`.
+ */
+export const DEFAULT_IGNORE_PATHS: (string | RegExp)[] = [
+  '/favicon.ico',
+  '/robots.txt',
+  '/.well-known/appspecific/com.chrome.devtools.json',
+  /^\/apple-touch-icon/,
+];
+
 function normalizeIncomingHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
   const result: Record<string, string | string[]> = {};
   for (const [k, v] of Object.entries(headers)) {
@@ -45,7 +57,10 @@ export class ProfilerMiddleware implements NestMiddleware {
     this.profilerPath = options.path ?? '/_profiler';
     this.collectBody = options.collectBody ?? false;
     this.sampleRate = options.sampleRate ?? 1.0;
-    this.ignorePaths = options.ignorePaths ?? [];
+    this.ignorePaths = [
+      ...(options.useDefaultIgnorePaths === false ? [] : DEFAULT_IGNORE_PATHS),
+      ...(options.ignorePaths ?? []),
+    ];
     this.maskCookies = new Set(options.maskCookies ?? []);
     this.ignoreRequest = options.ignoreRequest;
   }

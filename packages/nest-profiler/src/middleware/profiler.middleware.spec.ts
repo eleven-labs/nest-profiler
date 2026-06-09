@@ -384,6 +384,53 @@ describe('ProfilerMiddleware', () => {
     });
   });
 
+  describe('default ignore paths', () => {
+    const noisyPaths = [
+      '/favicon.ico',
+      '/robots.txt',
+      '/.well-known/appspecific/com.chrome.devtools.json',
+      '/apple-touch-icon.png',
+    ];
+
+    it.each(noisyPaths)('skips profiling for %s by default', async (path) => {
+      const { middleware, cls } = await createMiddleware();
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: path, path, headers: {}, query: {} },
+        cls,
+      );
+      expect(profile).toBeUndefined();
+    });
+
+    it('still profiles those paths when useDefaultIgnorePaths is false', async () => {
+      const { middleware, cls } = await createMiddleware({ useDefaultIgnorePaths: false });
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/favicon.ico', path: '/favicon.ico', headers: {}, query: {} },
+        cls,
+      );
+      expect(profile).toBeDefined();
+    });
+
+    it('merges user ignorePaths on top of the defaults', async () => {
+      const { middleware, cls } = await createMiddleware({ ignorePaths: ['/health'] });
+
+      const health = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/health', path: '/health', headers: {}, query: {} },
+        cls,
+      );
+      const favicon = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/favicon.ico', path: '/favicon.ico', headers: {}, query: {} },
+        cls,
+      );
+
+      expect(health).toBeUndefined();
+      expect(favicon).toBeUndefined();
+    });
+  });
+
   describe('finish hook (safety net for direct-response frameworks)', () => {
     /**
      * Creates a response mock that supports the finish event mechanism

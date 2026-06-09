@@ -68,8 +68,16 @@ export interface ProfilerModuleOptions {
   /** Fraction of requests to profile (0.0–1.0). Default: 1.0 */
   sampleRate?: number;
 
-  /** Paths to skip profiling (string prefix or RegExp). */
+  /** Paths to skip profiling (string prefix or RegExp). Merged after the defaults (see {@link useDefaultIgnorePaths}). */
   ignorePaths?: (string | RegExp)[];
+
+  /**
+   * Apply the built-in default ignore paths (favicon, robots.txt, the Chrome
+   * DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe,
+   * apple-touch-icon…) on top of {@link ignorePaths}. Default: `true`. Set to
+   * `false` to profile those requests too.
+   */
+  useDefaultIgnorePaths?: boolean;
 
   /** Cookie names whose value should be replaced with '***'. */
   maskCookies?: string[];

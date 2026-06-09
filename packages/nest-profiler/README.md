@@ -125,16 +125,53 @@ Every non-profiler request receives response headers:
 The profile list supports server-side filtering via query parameters:
 
 ```
-GET /_profiler?method=GET&minDuration=100&url=/api
+GET /_profiler?method=GET&minDuration=100&q=/api&statusClass=2
 ```
 
-| Parameter     | Description                |
-| ------------- | -------------------------- |
-| `method`      | HTTP method (GET, POST, …) |
-| `statusCode`  | Response status code       |
-| `minDuration` | Minimum duration in ms     |
-| `maxDuration` | Maximum duration in ms     |
-| `url`         | URL contains this string   |
+| Parameter       | Description                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `type`          | Request kind: `http` (REST), `command` (CLI), or `graphql` when the GraphQL package is installed |
+| `method`        | HTTP method (GET, POST, …)                                                                       |
+| `q`             | Search across URL, GraphQL operation name and command name                                       |
+| `status`        | Exact response status code                                                                       |
+| `statusClass`   | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)                                             |
+| `minDuration`   | Minimum duration in ms                                                                           |
+| `maxDuration`   | Maximum duration in ms                                                                           |
+| `hasExceptions` | When set, only profiles that captured an exception                                               |
+
+Optional packages extend the filters — for example `@eleven-labs/nest-profiler-graphql`
+adds a **GraphQL** choice to the `type` select via `registerFilterOption('type', …)`.
+
+#### Custom list filters
+
+Filters are pluggable. A filter is a `ProfilerListFilter` — it describes its own
+control, parses its raw query value and decides whether a profile matches:
+
+```ts
+import { ProfilerCoreService, ProfilerListFilter } from '@eleven-labs/nest-profiler';
+
+const slowFilter: ProfilerListFilter<boolean> = {
+  key: 'slow',
+  label: 'Slow only',
+  control: 'checkbox',
+  // Checked boxes submit '1'; undefined keeps the filter inactive.
+  parse: (raw) => (raw ? true : undefined),
+  matches: (profile) => (profile.performance.duration ?? 0) >= 500,
+};
+```
+
+Register it from a module's `onModuleInit` (the cross-module path, robust to
+import order):
+
+```ts
+core.registerListFilter(slowFilter); // core: ProfilerCoreService
+```
+
+or declaratively via the `PROFILER_LIST_FILTERS` multi-token:
+
+```ts
+{ provide: PROFILER_LIST_FILTERS, useValue: slowFilter, multi: true }
+```
 
 ### Export a profile
 
@@ -373,20 +410,21 @@ import type {
 
 ## Options
 
-| Option             | Type                      | Default      | Description                                                              |
-| ------------------ | ------------------------- | ------------ | ------------------------------------------------------------------------ |
-| `enabled`          | `boolean`                 | `true`       | Enable or disable the profiler.                                          |
-| `path`             | `string`                  | `/_profiler` | Base path for the profiler UI.                                           |
-| `maxProfiles`      | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                                    |
-| `ttl`              | `number`                  | `3600`       | Profile time-to-live in seconds.                                         |
-| `isGlobal`         | `boolean`                 | `false`      | Register the module as a global NestJS module.                           |
-| `storageType`      | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                                                |
-| `storagePath`      | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).                       |
-| `storage`          | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`.                    |
-| `collectBody`      | `boolean`                 | `false`      | Capture request/response bodies (use with caution).                      |
-| `collectorTimeout` | `number`                  | `1000`       | Max ms a single collector may run before it is abandoned (`0` disables). |
-| `sampleRate`       | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).                               |
-| `ignorePaths`      | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp).                       |
+| Option                  | Type                      | Default      | Description                                                                                                                                                            |
+| ----------------------- | ------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`               | `boolean`                 | `true`       | Enable or disable the profiler.                                                                                                                                        |
+| `path`                  | `string`                  | `/_profiler` | Base path for the profiler UI.                                                                                                                                         |
+| `maxProfiles`           | `number`                  | `100`        | Maximum profiles kept (LRU eviction).                                                                                                                                  |
+| `ttl`                   | `number`                  | `3600`       | Profile time-to-live in seconds.                                                                                                                                       |
+| `isGlobal`              | `boolean`                 | `false`      | Register the module as a global NestJS module.                                                                                                                         |
+| `storageType`           | `'memory' \| 'file'`      | `'memory'`   | Built-in storage backend.                                                                                                                                              |
+| `storagePath`           | `string`                  | `.profiler`  | Directory for file storage (relative or absolute).                                                                                                                     |
+| `storage`               | `IProfilerStorageAdapter` | —            | Custom adapter — takes precedence over `storageType`.                                                                                                                  |
+| `collectBody`           | `boolean`                 | `false`      | Capture request/response bodies (use with caution).                                                                                                                    |
+| `collectorTimeout`      | `number`                  | `1000`       | Max ms a single collector may run before it is abandoned (`0` disables).                                                                                               |
+| `sampleRate`            | `number`                  | `1.0`        | Fraction of requests to profile (0.0–1.0).                                                                                                                             |
+| `ignorePaths`           | `(string \| RegExp)[]`    | `[]`         | Paths to skip profiling (prefix string or RegExp), merged after the defaults.                                                                                          |
+| `useDefaultIgnorePaths` | `boolean`                 | `true`       | Skip noisy browser/tooling requests by default (favicon, robots.txt, the Chrome DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe, apple-touch-icon). |
 
 ---
 
