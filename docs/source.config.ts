@@ -11,6 +11,23 @@ interface MdastNode {
 }
 
 /**
+ * READMEs include raw HTML blocks (badges, <picture>, <p align="center">) that
+ * are rendered by GitHub but produce unhandled `raw` HAST nodes in MDX. Strip
+ * them before the HAST pipeline runs.
+ */
+function remarkStripRawHtml() {
+  return (tree: MdastNode): void => {
+    const strip = (node: MdastNode): void => {
+      if (node.children) {
+        node.children = node.children.filter((child) => child.type !== 'html');
+        node.children.forEach(strip);
+      }
+    };
+    strip(tree);
+  };
+}
+
+/**
  * READMEs reference screenshots by a repo-relative path (e.g.
  * `../../docs/public/screenshots/profiler/x.png`) so they render on the GitHub
  * repo view and stay free of any hardcoded github link. Inside the docs we
@@ -118,6 +135,7 @@ export default defineConfig({
       next.splice(
         includeIndex === -1 ? 0 : includeIndex + 1,
         0,
+        remarkStripRawHtml as (typeof plugins)[number],
         remarkLocalScreenshots as (typeof plugins)[number],
         remarkReadmeLinks as (typeof plugins)[number],
       );

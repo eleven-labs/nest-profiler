@@ -92,7 +92,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-cache"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-cache#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-cache",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },

@@ -98,7 +98,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-commander"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-commander#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-commander",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },

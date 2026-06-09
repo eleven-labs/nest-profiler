@@ -97,7 +97,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-validator"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-validator#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-validator",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },

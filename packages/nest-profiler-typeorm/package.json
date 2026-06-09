@@ -96,7 +96,7 @@
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
     "directory": "packages/nest-profiler-typeorm"
   },
-  "homepage": "https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-typeorm#readme",
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-typeorm",
   "bugs": {
     "url": "https://github.com/eleven-labs/nest-profiler/issues"
   },
