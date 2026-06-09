@@ -15,6 +15,8 @@ export const SITE_URL = (
 
 export const ELEVEN_LABS_URL = 'https://eleven-labs.com';
 
+export const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? '';
+
 export const DOCS_BASE_PATH = '/docs';
 export const DOCS_CONTENT_DIR = 'content/docs';
 
