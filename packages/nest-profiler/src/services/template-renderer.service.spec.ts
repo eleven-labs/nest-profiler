@@ -49,6 +49,20 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('<!DOCTYPE html>');
   });
 
+  it('loads CDN assets with subresource integrity', async () => {
+    const html = await service.render('list', MINIMAL_LIST_DATA);
+    const cdnTags = html.match(/<(?:script|link)\b[^>]+https:\/\/[^>]+>/g) ?? [];
+
+    expect(cdnTags).toHaveLength(5);
+    expect(html).toContain('https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0');
+    expect(html).not.toContain('https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"');
+
+    for (const tag of cdnTags) {
+      expect(tag).toContain('integrity="sha384-');
+      expect(tag).toContain('crossorigin="anonymous"');
+    }
+  });
+
   it('throws when template name does not exist', async () => {
     await expect(service.render('does-not-exist', {})).rejects.toThrow(
       'Template "does-not-exist" not found',
