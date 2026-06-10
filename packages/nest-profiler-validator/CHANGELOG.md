@@ -1,5 +1,12 @@
 # @eleven-labs/nest-profiler-validator
 
+## 1.0.0-alpha.1
+
+### Patch Changes
+
+- Updated dependencies [e4822c6]
+  - @eleven-labs/nest-profiler@1.0.0-alpha.1
+
 ## 0.5.1-alpha.0
 
 ### Patch Changes

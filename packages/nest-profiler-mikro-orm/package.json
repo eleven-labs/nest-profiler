@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-mikro-orm",
-  "version": "0.5.1-alpha.0",
+  "version": "1.0.0-alpha.1",
   "description": "MikroORM query collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
@@ -54,7 +54,7 @@
     "@nestjs/core": "^11.0.0",
     "@mikro-orm/core": "^7.0.0",
     "@mikro-orm/nestjs": "^7.0.0",
-    "@eleven-labs/nest-profiler": ">=0.5.1-alpha.0",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
   },
