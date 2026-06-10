@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-cache",
-  "version": "0.5.1-alpha.0",
+  "version": "1.0.0-alpha.1",
   "description": "Cache collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
@@ -51,7 +51,7 @@
     "@nestjs/cache-manager": "^3.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@eleven-labs/nest-profiler": ">=0.5.1-alpha.0",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0"
   },
