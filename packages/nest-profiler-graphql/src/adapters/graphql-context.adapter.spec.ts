@@ -237,6 +237,93 @@ describe('GraphQLContextAdapter', () => {
       expect(profile.exceptions[0]?.message).toContain("Cannot query field 'idf'");
     });
 
+    it('detects a field after operation directives', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({
+        query: 'query GetBook($id: ID!) @cacheControl(maxAge: 60) { book(id: $id) { id } }',
+      });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('book');
+    });
+
+    it('detects a field after comments and string values in operation metadata', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({
+        query: [
+          '# leading comment',
+          'query GetBook(',
+          '  # variable comment',
+          '  $id: ID!,',
+          '  $note: String = "query(\\""',
+          ') @cacheControl(reason: """query(',
+          ')""") {',
+          '  # selection comment',
+          '  book(id: $id) { id }',
+          '}',
+        ].join('\n'),
+      });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('book');
+    });
+
+    it('detects aliased fields from shorthand queries', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: '{ latest: books { id } }' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('books');
+    });
+
+    it('falls back to unknown for malformed shorthand selections', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: '{ alias: }' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+    });
+
+    it('falls back to unknown for non-operation documents', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: 'fragment BookFields on Book { id }' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+    });
+
+    it('falls back to unknown for invalid directives', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: 'query GetBook @ { book { id } }' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+    });
+
+    it('falls back to unknown when no selection set is present', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: 'query GetBook($id: ID!' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+    });
+
+    it('handles pathological operation text without backtracking', () => {
+      const profile = makeProfile();
+      const req = makeHttpReq({ query: `query ${'query('.repeat(2_000)}` });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+    });
+
     it('detects mutation in HTTP body', () => {
       const profile = makeProfile();
       const req = makeHttpReq({ query: 'mutation CreateBook { createBook { id } }' });
@@ -268,6 +355,20 @@ describe('GraphQLContextAdapter', () => {
 
       expect(profile.request.graphql?.fieldName).toBe('books');
       expect(profile.request.graphql?.query).toContain('books');
+    });
+
+    it('keeps the original query text when the stored query cannot be parsed', () => {
+      const profile = makeProfile();
+      profile.request.graphql = {
+        operationType: 'query',
+        fieldName: 'books',
+        query: 'query {',
+      };
+      const req = makeHttpReq({ query: 'query {' });
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.query).toBe('query {');
     });
 
     it('skips when request body has no query field', () => {
@@ -305,6 +406,29 @@ describe('GraphQLContextAdapter', () => {
       adapter.enrichHttpResponse(profile, req, { errors: [{ code: 'UNKNOWN' }] });
 
       expect(profile.exceptions).toHaveLength(0);
+    });
+  });
+
+  describe('fallback heuristics for unparsable documents', () => {
+    it('detects mutation from raw text and keeps the query unformatted', () => {
+      const profile = makeProfile();
+      const req = { body: { query: 'mutation CreateBook {' } };
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.operationType).toBe('mutation');
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(profile.request.graphql?.query).toBe('mutation CreateBook {');
+    });
+
+    it('detects subscription from raw text', () => {
+      const profile = makeProfile();
+      const req = { body: { query: 'subscription {' } };
+
+      adapter.enrichHttpResponse(profile, req, {});
+
+      expect(profile.request.graphql?.operationType).toBe('subscription');
+      expect(profile.request.graphql?.fieldName).toBe('unknown');
     });
   });
 });

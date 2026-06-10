@@ -52,6 +52,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
+    "graphql": "^16.0.0",
     "nestjs-cls": "^4.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"

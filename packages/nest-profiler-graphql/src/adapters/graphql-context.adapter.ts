@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
+import { Kind, parse, print } from 'graphql';
+import type { FieldNode, OperationDefinitionNode } from 'graphql';
 import type {
   ExceptionEntry,
   GraphQLInfo,
@@ -15,20 +17,16 @@ type GqlResolveInfo = {
 
 type GqlContext = Record<string, unknown>;
 
-type GraphQLModule = { parse: (s: string) => unknown; print: (ast: unknown) => string };
-
 /** Returns original string when formatting fails. */
 function tryFormatQuery(query: string): string {
   try {
-    // graphql is an optional peer dep — dynamic require avoids a hard load error when absent.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { parse, print } = require('graphql') as GraphQLModule;
     return print(parse(query));
   } catch {
     return query;
   }
 }
 
+/** Linear fallback when the graphql parser rejects the document. */
 function detectOperationType(query: string): GraphQLInfo['operationType'] {
   const trimmed = query.trimStart();
   if (trimmed.startsWith('mutation')) return 'mutation';
@@ -36,11 +34,34 @@ function detectOperationType(query: string): GraphQLInfo['operationType'] {
   return 'query';
 }
 
-function detectFieldName(query: string): string {
-  const match = query.match(
-    /(?:query|mutation|subscription)\s*\w*\s*(?:\([^)]*\))?\s*(?:@\w+\s*)*\{\s*(\w+)|^\s*\{\s*(\w+)/,
-  );
-  return match?.[1] ?? match?.[2] ?? 'unknown';
+type GqlQueryMetadata = {
+  operationType: GraphQLInfo['operationType'];
+  fieldName: string;
+  query: string;
+};
+
+function extractQueryMetadata(rawQuery: string): GqlQueryMetadata {
+  try {
+    const document = parse(rawQuery, { noLocation: true });
+    const operation = document.definitions.find(
+      (def): def is OperationDefinitionNode => def.kind === Kind.OPERATION_DEFINITION,
+    );
+    const field = operation?.selectionSet.selections.find(
+      (sel): sel is FieldNode => sel.kind === Kind.FIELD,
+    );
+
+    return {
+      operationType: operation?.operation ?? 'query',
+      fieldName: field?.name.value ?? 'unknown',
+      query: print(document),
+    };
+  } catch {
+    return {
+      operationType: detectOperationType(rawQuery),
+      fieldName: 'unknown',
+      query: rawQuery,
+    };
+  }
 }
 
 @Injectable()
@@ -112,11 +133,12 @@ export class GraphQLContextAdapter implements IContextAdapter {
 
     if (!profile.request.graphql) {
       // No resolver ran (e.g. validation failure) — populate metadata from HTTP body.
+      const { operationType, fieldName, query } = extractQueryMetadata(rawQuery);
       profile.request.graphql = {
-        operationType: detectOperationType(rawQuery),
-        fieldName: detectFieldName(rawQuery),
+        operationType,
+        fieldName,
         ...(typeof body['operationName'] === 'string' && { operationName: body['operationName'] }),
-        query: tryFormatQuery(rawQuery),
+        query,
         ...(body['variables'] !== null &&
           body['variables'] !== undefined &&
           typeof body['variables'] === 'object' && {
