@@ -69,10 +69,12 @@ interface CoreMock {
   findContextAdapter: jest.Mock;
   registerContextAdapter: jest.Mock;
   enrichHttpResponse: jest.Mock;
+  schedulePersist: jest.Mock;
+  scheduleSave: jest.Mock;
 }
 
 function makeCore(adapter?: IContextAdapter): CoreMock {
-  return {
+  const core: CoreMock = {
     storage: { save: jest.fn() },
     collectorRegistry: {
       collectAll: jest.fn().mockResolvedValue(undefined),
@@ -82,7 +84,16 @@ function makeCore(adapter?: IContextAdapter): CoreMock {
     findContextAdapter: jest.fn().mockReturnValue(adapter ?? undefined),
     registerContextAdapter: jest.fn(),
     enrichHttpResponse: jest.fn(),
+    // Mirror the real methods synchronously so assertions on collectAll/save stay deterministic.
+    schedulePersist: jest.fn((profile: Profile) => {
+      void core.collectorRegistry.collectAll(profile);
+      core.storage.save(profile);
+    }),
+    scheduleSave: jest.fn((profile: Profile) => {
+      core.storage.save(profile);
+    }),
   };
+  return core;
 }
 
 interface ClsMock {
@@ -175,34 +186,6 @@ describe('ProfilerInterceptor', () => {
       expect(core.storage.save).toHaveBeenCalledWith(profile);
     });
 
-    it('waits for profile storage before returning the response body', async () => {
-      const profile = makeProfile();
-      const core = makeCore();
-      let resolveSave: () => void = () => undefined;
-      core.storage.save.mockReturnValue(new Promise<void>((resolve) => (resolveSave = resolve)));
-      const interceptor = makeInterceptor(profile, core);
-
-      let settled = false;
-      const resultPromise = lastValueFrom(
-        interceptor.intercept(
-          makeCtx({ method: 'GET', url: '/hello' }, makeRes()),
-          handler('body'),
-        ),
-      ).then((result) => {
-        settled = true;
-        return result;
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(core.storage.save).toHaveBeenCalledWith(profile);
-      expect(settled).toBe(false);
-
-      resolveSave();
-
-      await expect(resultPromise).resolves.toBe('body');
-    });
-
     it('captures the response body only when collectBody is enabled', async () => {
       const profile = makeProfile();
       const core = makeCore();
@@ -274,6 +257,72 @@ describe('ProfilerInterceptor', () => {
     });
   });
 
+  describe('deferred persistence (no response-path overhead)', () => {
+    it('emits a JSON response without waiting for collectors or storage', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      // schedulePersist does nothing at all: the response must not depend on it.
+      core.schedulePersist = jest.fn();
+      const res = makeRes({ 'content-type': 'application/json' });
+      const interceptor = makeInterceptor(profile, core);
+
+      const result = await lastValueFrom(
+        interceptor.intercept(makeCtx({ method: 'GET', url: '/api' }, res), handler({ ok: true })),
+      );
+
+      expect(result).toEqual({ ok: true });
+      expect(core.schedulePersist).toHaveBeenCalledWith(profile);
+      expect(core.collectorRegistry.collectAll).not.toHaveBeenCalled();
+    });
+
+    it('rethrows errors without waiting for collectors or storage', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      core.schedulePersist = jest.fn();
+      const res = makeRes();
+      const interceptor = makeInterceptor(profile, core);
+
+      await expect(
+        lastValueFrom(
+          interceptor.intercept(
+            makeCtx({ method: 'GET', url: '/api' }, res),
+            errorHandler(new Error('boom')),
+          ),
+        ),
+      ).rejects.toThrow('boom');
+
+      expect(core.schedulePersist).toHaveBeenCalledWith(profile);
+      expect(profile.exceptions).toHaveLength(1);
+    });
+
+    it('HTML responses still wait for collectors so the toolbar shows their panels', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      let resolveCollect: () => void = () => undefined;
+      core.collectorRegistry.collectAll = jest.fn(
+        () => new Promise<void>((resolve) => (resolveCollect = resolve)),
+      );
+      const res = makeRes({ 'content-type': 'text/html; charset=utf-8' });
+      const interceptor = makeInterceptor(profile, core);
+
+      let emitted: unknown;
+      const done = lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'GET', url: '/page' }, res),
+          handler('<html><body>hi</body></html>'),
+        ),
+      ).then((value) => (emitted = value));
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(emitted).toBeUndefined(); // gated on collectAll
+
+      resolveCollect();
+      await done;
+      expect(emitted as string).toContain('id="profiler-toolbar"');
+      expect(core.scheduleSave).toHaveBeenCalledWith(profile);
+    });
+  });
+
   describe('non-HTTP context (GraphQL / RPC)', () => {
     function makeGqlCtx(args: unknown[] = []): ExecutionContext {
       return {
@@ -331,33 +380,6 @@ describe('ProfilerInterceptor', () => {
       expect(adapter.enrichProfile).toHaveBeenCalledWith(profile, expect.any(Object));
       expect(core.collectorRegistry.collectAll).toHaveBeenCalledWith(profile);
       expect(core.storage.save).toHaveBeenCalledWith(profile);
-    });
-
-    it('waits for profile storage before returning a non-HTTP resolver result', async () => {
-      const profile = makeProfile();
-      const adapter = makeAdapter(profile);
-      const core = makeCore(adapter);
-      let resolveSave: () => void = () => undefined;
-      core.storage.save.mockReturnValue(new Promise<void>((resolve) => (resolveSave = resolve)));
-      const interceptor = makeInterceptor(undefined, core);
-      const resolverResult = { books: [] };
-
-      let settled = false;
-      const resultPromise = lastValueFrom(
-        interceptor.intercept(makeGqlCtx(), handler(resolverResult)),
-      ).then((result) => {
-        settled = true;
-        return result;
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(core.storage.save).toHaveBeenCalledWith(profile);
-      expect(settled).toBe(false);
-
-      resolveSave();
-
-      await expect(resultPromise).resolves.toBe(resolverResult);
     });
 
     it('re-establishes CLS context when profile is recovered from req', async () => {

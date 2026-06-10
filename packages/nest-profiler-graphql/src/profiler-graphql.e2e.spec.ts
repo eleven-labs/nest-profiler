@@ -112,8 +112,13 @@ async function gql(server: Server, body: GqlBody): Promise<GqlResult> {
 }
 
 async function getProfile(server: Server, token: string): Promise<Profile> {
-  const res = await request(server).get(`/_profiler/${token}/data`);
-  return res.body as Profile;
+  // Profiles are collected and saved after the response is sent, so poll briefly
+  // until the deferred persistence lands instead of asserting on a 404 race.
+  for (let attempt = 0; ; attempt++) {
+    const res = await request(server).get(`/_profiler/${token}/data`);
+    if (res.status === 200 || attempt >= 20) return res.body as Profile;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }
 
 // ── Shared assertions run against both drivers ────────────────────────────────

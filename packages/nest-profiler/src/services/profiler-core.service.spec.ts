@@ -124,6 +124,87 @@ describe('ProfilerCoreService', () => {
     });
   });
 
+  describe('deferred persistence', () => {
+    let core: ProfilerCoreService;
+    let save: jest.Mock;
+    let collectAll: jest.Mock;
+
+    beforeEach(async () => {
+      save = jest.fn().mockResolvedValue(undefined);
+      collectAll = jest.fn().mockResolvedValue(undefined);
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ProfilerCoreService,
+          { provide: ProfilerStorageService, useValue: { save } },
+          { provide: CollectorRegistry, useValue: { collectAll } },
+          { provide: RouteCollector, useValue: { match: jest.fn() } },
+        ],
+      }).compile();
+      core = moduleRef.get(ProfilerCoreService);
+    });
+
+    it('schedulePersist runs collectors then saves, drained by flushPendingProfiles', async () => {
+      const profile = makeProfile();
+
+      core.schedulePersist(profile);
+      await core.flushPendingProfiles();
+
+      expect(collectAll).toHaveBeenCalledWith(profile);
+      expect(save).toHaveBeenCalledWith(profile);
+    });
+
+    it('schedulePersist returns before collectors complete', () => {
+      collectAll.mockReturnValue(new Promise(() => undefined)); // never resolves
+
+      core.schedulePersist(makeProfile());
+
+      expect(collectAll).toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('scheduleSave saves without re-running collectors', async () => {
+      const profile = makeProfile();
+
+      core.scheduleSave(profile);
+      await core.flushPendingProfiles();
+
+      expect(save).toHaveBeenCalledWith(profile);
+      expect(collectAll).not.toHaveBeenCalled();
+    });
+
+    it('flushPendingProfiles drains work scheduled while it is flushing', async () => {
+      const first = makeProfile();
+      const second = makeProfile();
+      collectAll.mockImplementationOnce(() => {
+        core.scheduleSave(second);
+        return Promise.resolve();
+      });
+
+      core.schedulePersist(first);
+      await core.flushPendingProfiles();
+
+      expect(save).toHaveBeenCalledWith(first);
+      expect(save).toHaveBeenCalledWith(second);
+    });
+
+    it('a failing save never rejects out of the deferred pipeline', async () => {
+      save.mockRejectedValue(new Error('disk full'));
+
+      core.schedulePersist(makeProfile());
+
+      await expect(core.flushPendingProfiles()).resolves.toBeUndefined();
+    });
+
+    it('onApplicationShutdown drains pending saves', async () => {
+      const profile = makeProfile();
+      core.schedulePersist(profile);
+
+      await core.onApplicationShutdown();
+
+      expect(save).toHaveBeenCalledWith(profile);
+    });
+  });
+
   describe('list filter registry', () => {
     let core: ProfilerCoreService;
 

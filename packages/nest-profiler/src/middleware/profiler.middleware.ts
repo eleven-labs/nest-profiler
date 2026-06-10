@@ -145,7 +145,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         if (profile.request.graphql && interceptedResponseBody !== undefined) {
           profile.response.body = interceptedResponseBody;
           profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
-          void this.core.storage.save(profile);
+          this.core.scheduleSave(profile);
         }
         return; // otherwise the interceptor already finalized and saved
       }
@@ -159,9 +159,7 @@ export class ProfilerMiddleware implements NestMiddleware {
 
       this.core.enrichHttpResponse(profile, req, interceptedResponseBody);
 
-      void this.core.collectorRegistry
-        .collectAll(profile)
-        .then(() => this.core.storage.save(profile));
+      this.core.schedulePersist(profile);
     });
   }
 

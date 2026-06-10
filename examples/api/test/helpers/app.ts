@@ -45,13 +45,20 @@ export function tokenOf(res: Response): string {
   return token;
 }
 
-/** Fetches the raw profile recorded for `token` via the profiler's JSON endpoint. */
+/**
+ * Fetches the raw profile recorded for `token` via the profiler's JSON endpoint.
+ * Profiles are collected and saved after the response is sent, so this polls
+ * briefly — like a client following X-Debug-Token-Link — until the profile lands.
+ */
 export async function getProfile(app: INestApplication, token: string): Promise<Profile> {
-  const res = await request(server(app)).get(`/_profiler/${token}/data`);
-  if (res.status !== 200) {
-    throw new Error(`expected profile ${token} to exist, got HTTP ${res.status}`);
+  for (let attempt = 0; ; attempt++) {
+    const res = await request(server(app)).get(`/_profiler/${token}/data`);
+    if (res.status === 200) return res.body as Profile;
+    if (attempt >= 20) {
+      throw new Error(`expected profile ${token} to exist, got HTTP ${res.status}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  return res.body as Profile;
 }
 
 /** Performs a request and returns the profile it produced. */

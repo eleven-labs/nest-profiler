@@ -483,14 +483,25 @@ describe('ProfilerMiddleware', () => {
       enrichHttpResponse: jest.Mock;
       collectorRegistry: { collectAll: jest.Mock };
       storage: { save: jest.Mock };
+      schedulePersist: jest.Mock;
+      scheduleSave: jest.Mock;
     }
 
     function makeCoreMock(): CoreMockForMiddleware {
-      return {
+      const core: CoreMockForMiddleware = {
         enrichHttpResponse: jest.fn(),
         collectorRegistry: { collectAll: jest.fn().mockResolvedValue(undefined) },
         storage: { save: jest.fn() },
+        // Mirror the real methods synchronously so assertions on collectAll/save stay deterministic.
+        schedulePersist: jest.fn((profile: Profile) => {
+          void core.collectorRegistry.collectAll(profile);
+          core.storage.save(profile);
+        }),
+        scheduleSave: jest.fn((profile: Profile) => {
+          core.storage.save(profile);
+        }),
       };
+      return core;
     }
 
     function createMiddlewareWithCore(options: ProfilerModuleOptions = {}): {

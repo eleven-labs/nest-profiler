@@ -15,6 +15,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
+import { ProfilerService } from '../services/nest-profiler.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
 import { ProfilerCollector } from '../collectors/collector.decorator';
 import type { IProfilerCollector } from '../collectors/collector.interface';
@@ -122,6 +123,8 @@ describe('ProfilerController (e2e)', () => {
     if (typeof token !== 'string') {
       throw new Error('expected the x-debug-token header to be set');
     }
+    // Persistence is deferred off the response path — drain it before asserting.
+    await app.get(ProfilerService).flush();
     return token;
   }
 

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
+import { ProfilerCoreService } from './profiler-core.service';
 import type {
   EventEntry,
   ExceptionEntry,
@@ -38,7 +39,22 @@ import type { LogMethodMap } from './profiler-logger-adapter';
  */
 @Injectable()
 export class ProfilerService {
-  constructor(private readonly cls: ClsService) {}
+  constructor(
+    private readonly cls: ClsService,
+    // Only available in the active (enabled) layer; undefined in the inert layer.
+    @Optional() private readonly core?: ProfilerCoreService,
+  ) {}
+
+  /**
+   * Awaits every profile persistence still in flight. Profiles are collected and
+   * saved **after** the response is sent so they add no latency to profiled calls;
+   * call this in tests (or before reading storage programmatically) to make sure
+   * the profiles of completed requests are stored. Safe no-op when the profiler is
+   * disabled.
+   */
+  async flush(): Promise<void> {
+    await this.core?.flushPendingProfiles();
+  }
 
   /**
    * Returns the debug token of the request currently being profiled, or

@@ -112,6 +112,28 @@ Every non-profiler request receives response headers:
 | `X-Debug-Token`      | The request token (UUID v4)  |
 | `X-Debug-Token-Link` | Link to `/_profiler/{token}` |
 
+## Performance impact
+
+Profiling adds no measurable latency to your endpoints: the response (or the thrown error) is forwarded immediately, and the collectors plus the storage write run **after** it has been sent. The only exception is HTML pages, which wait for the collectors so the injected toolbar can render its panels. Pending writes are drained on application shutdown, so short-lived processes do not lose their last profiles.
+
+Two consequences to be aware of:
+
+- A client following `X-Debug-Token-Link` right after receiving the response may briefly get a 404 — the profile typically lands within a few milliseconds, never slow enough for a human click to notice.
+- Automated tests that assert on a stored profile right after a request must wait for the deferred persistence with `ProfilerService.flush()`:
+
+```ts
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+
+const res = await request(app.getHttpServer()).get('/users');
+await app.get(ProfilerService).flush(); // waits for the deferred collect + save
+
+const profile = await request(app.getHttpServer()).get(
+  `/_profiler/${res.headers['x-debug-token']}/data`,
+);
+```
+
+`flush()` is a safe no-op when the profiler is disabled.
+
 ## Profiler UI endpoints
 
 | Endpoint                     | Description                    |
@@ -344,6 +366,8 @@ ProfilerModule.forRoot({
 Each profile is written to `{storagePath}/{token}.json`. The directory is created automatically. Add `.profiler/` to `.gitignore`.
 
 The in-memory index is reconstructed from disk on startup — expired profiles are cleaned up automatically.
+
+For fast list rendering, parsed profiles are also cached in memory and validated against each file's mtime, so steady-state memory grows with `maxProfiles × average profile size` — keep `maxProfiles` reasonable when `collectBody` is enabled. Profiles returned by the storage are shared with this cache: treat them as read-only.
 
 ### Custom adapter
 
