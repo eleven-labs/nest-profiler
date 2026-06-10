@@ -6,7 +6,7 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { DiscoveryModule } from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import {
@@ -19,6 +19,7 @@ import { ProfilerStorageService } from './services/profiler-storage.service';
 import { ProfilerService } from './services/nest-profiler.service';
 import { ProfilerMiddleware } from './middleware/profiler.middleware';
 import { ProfilerInterceptor } from './interceptors/profiler.interceptor';
+import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
 import { ProfilerController } from './controllers/profiler.controller';
 import { ProfilerGuard } from './guards/profiler.guard';
 import { CollectorRegistry } from './collectors/collector-registry.service';
@@ -77,6 +78,11 @@ const activeProviders = [
   {
     provide: APP_INTERCEPTOR,
     useExisting: ProfilerInterceptor,
+  },
+  ProfilerExceptionFilter,
+  {
+    provide: APP_FILTER,
+    useExisting: ProfilerExceptionFilter,
   },
 ];
 
