@@ -21,7 +21,10 @@
     "@repo/typescript-config": "0.0.0"
   },
   "changesets": [
+    "add-profiler-cdn-sri",
+    "capture-guard-exceptions",
     "extensible-list-filters",
+    "fix-graphql-redos",
     "nest-profiler-auth",
     "nest-profiler-axios",
     "nest-profiler-cache",
@@ -32,6 +35,7 @@
     "nest-profiler-mongoose",
     "nest-profiler-typeorm",
     "nest-profiler-validator",
-    "nest-profiler"
+    "nest-profiler",
+    "profiler-load-reliability"
   ]
 }

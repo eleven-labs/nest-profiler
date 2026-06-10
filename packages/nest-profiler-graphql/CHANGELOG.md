@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-graphql
 
+## 1.0.0-alpha.2
+
+### Patch Changes
+
+- f9ebe84: Parse GraphQL HTTP bodies with the `graphql` package (now declared as a peer dependency) instead of regex-based field detection, removing the regex backtracking risk on crafted queries.
+
 ## 1.0.0-alpha.1
 
 ### Minor Changes
