@@ -50,6 +50,7 @@
     "release:stable": "tsx scripts/changesets/publish.ts stable",
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
+    "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
     "version-packages": "pnpm changeset:guard-major && changeset version && pnpm changeset:sync-changelog",
     "prepare": "husky"

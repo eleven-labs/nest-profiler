@@ -46,6 +46,10 @@
       "inputs": ["src/**", "package.json"],
       "outputs": ["coverage/**"]
     },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": [
@@ -54,6 +58,7 @@
         "lib/**",
         "messages/**",
         "src/**",
+        "test/**",
         "tsconfig.json",
         "package.json"
       ]

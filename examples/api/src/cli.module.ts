@@ -25,6 +25,7 @@ import { CommandsModule } from './commands/commands.module.js';
           storageType,
           ...(storageType === 'file' && {
             storagePath: config.get<string>('app.profilerStoragePath'),
+            ttl: config.get<number>('app.profilerTtl'),
           }),
           maxProfiles: config.get<number>('app.profilerMaxProfiles'),
         };

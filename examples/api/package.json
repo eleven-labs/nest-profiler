@@ -5,16 +5,17 @@
   "type": "module",
   "prettier": "@repo/prettier-config",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rimraf dist coverage",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,cjs}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,cjs}\"",
     "lint": "eslint src",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "cli": "node dist/cli.js",
     "cli:dev": "nest start --entryFile cli --",
     "test": "echo 'No tests for example-api'",
+    "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.cjs",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
@@ -61,12 +62,21 @@
     "typeorm": "^0.3.24"
   },
   "devDependencies": {
+    "@nestjs/testing": "^11.1.3",
     "@repo/eslint-config": "workspace:*",
+    "@repo/jest-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.32",
+    "@types/supertest": "^6.0.3",
     "@nestjs/cli": "^11.0.7",
+    "jest": "^30.4.2",
+    "nest-commander-testing": "^3.5.1",
+    "nock": "^14.0.15",
+    "supertest": "^7.1.1",
+    "ts-jest": "^29.3.0",
     "tsx": "^4.20.3",
     "typescript": "^6.0.3"
   }
