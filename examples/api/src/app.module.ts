@@ -35,7 +35,10 @@ import featuresConfig, {
     ConditionalModule.registerWhen(
       LoggerModule.forRoot({
         pinoHttp: {
-          level: process.env['NODE_ENV'] === 'production' ? 'info' : 'debug',
+          // LOG_LEVEL overrides (e.g. `silent` in e2e tests — profiler log capture is unaffected).
+          level:
+            process.env['LOG_LEVEL'] ??
+            (process.env['NODE_ENV'] === 'production' ? 'info' : 'debug'),
         },
       }),
       isPinoLoggerEnabled,
@@ -66,6 +69,7 @@ import featuresConfig, {
           storageType,
           ...(storageType === 'file' && {
             storagePath: config.get<string>('app.profilerStoragePath'),
+            ttl: config.get<number>('app.profilerTtl'),
           }),
           maxProfiles: config.get<number>('app.profilerMaxProfiles'),
           collectBody: true,

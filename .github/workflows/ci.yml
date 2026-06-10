@@ -97,6 +97,64 @@ jobs:
               --flag "$name" --file "$file" --fail-on-error
           done
 
+  e2e:
+    name: E2E (example-api, ${{ matrix.sql-orm }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        sql-orm: [typeorm, mikro-orm]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: profiler
+          POSTGRES_PASSWORD: profiler
+          POSTGRES_DB: profiler_example
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U profiler -d profiler_example"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mongodb:
+        image: mongo:7-jammy
+        env:
+          MONGO_INITDB_DATABASE: profiler_example
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          # jest's require(esm) — needed by the ESM-only @mikro-orm v7 — relies on the
+          # synchronous vm module APIs introduced in Node 24.9.
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: E2E tests
+        # --filter=example-api: ^build only builds the @eleven-labs/* workspace deps
+        # (skips the docs site, so no GITHUB_TOKEN is needed).
+        run: pnpm turbo run test:e2e --filter=example-api
+        env:
+          SQL_ORM: ${{ matrix.sql-orm }}
+
   commitlint:
     name: Validate commit messages
     runs-on: ubuntu-latest
@@ -132,13 +190,13 @@ jobs:
     # green/red regardless of the Node matrix dimensions reported by `test`.
     name: CI
     runs-on: ubuntu-latest
-    needs: [check, test]
+    needs: [check, test, e2e]
     if: always()
     steps:
       - name: Check required jobs succeeded
         run: |
-          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.check.result }}" != "success" ]; then
-            echo "One or more required CI jobs failed (check=${{ needs.check.result }}, test=${{ needs.test.result }})."
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "One or more required CI jobs failed (check=${{ needs.check.result }}, test=${{ needs.test.result }}, e2e=${{ needs.e2e.result }})."
             exit 1
           fi
           echo "All CI jobs passed."

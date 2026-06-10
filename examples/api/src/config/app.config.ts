@@ -11,6 +11,8 @@ export default registerAs('app', () => {
     profilerStorageType,
     ...(profilerStorageType === 'file' && {
       profilerStoragePath: process.env['PROFILER_STORAGE_PATH'] ?? '.profiler',
+      // Seconds before a stored profile expires (FileStorageAdapter default: 3600).
+      profilerTtl: parseInt(process.env['PROFILER_TTL'] ?? '3600', 10),
     }),
     profilerMaxProfiles: parseInt(process.env['PROFILER_MAX_PROFILES'] ?? '200', 10),
   };
