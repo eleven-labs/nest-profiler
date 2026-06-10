@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-axios",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Axios/HTTP client collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
