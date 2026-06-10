@@ -14,10 +14,8 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { TemplateRendererService } from '../services/template-renderer.service';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
-import { ProfilerFiltersPipe } from './profiler-filters.pipe';
-import { ProfilerFiltersQuery } from './profiler-filters.query';
 import type { Profile } from '../interfaces/profile.interface';
-import type { StorageFindOptions } from '../storage/storage-adapter.interface';
+import { applyListFilters, parseFilterValues } from '../list-filters/list-filter.utils';
 
 const BUILTIN_TAB_NAMES = ['command', 'request', 'response', 'performance', 'logs', 'exceptions'];
 
@@ -36,44 +34,37 @@ export class ProfilerController {
 
   @Get('/_profiler')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  async listProfiles(@Query(ProfilerFiltersPipe) query: ProfilerFiltersQuery): Promise<string> {
-    const filters: StorageFindOptions = {};
-    if (query.method) filters.method = query.method;
-    if (query.statusCode !== undefined) filters.statusCode = query.statusCode;
-    if (query.minDuration !== undefined) filters.minDuration = query.minDuration;
-    if (query.maxDuration !== undefined) filters.maxDuration = query.maxDuration;
-    if (query.url) filters.urlPattern = query.url;
+  async listProfiles(
+    @Query() query: Record<string, string | string[] | undefined>,
+  ): Promise<string> {
+    const filterDefs = this.core.getListFilters();
+    const { active, raw } = parseFilterValues(filterDefs, query);
 
-    const hasFilters = Object.keys(filters).length > 0;
-
-    const [profiles, globalPanels] = await Promise.all([
-      this.core.storage.findAll(hasFilters ? filters : undefined),
+    const [all, globalPanels] = await Promise.all([
+      this.core.storage.findAll(),
       this.core.collectorRegistry.buildGlobalPanels(),
     ]);
 
-    const allRecent = hasFilters ? await this.core.storage.findAll() : profiles;
-    const heapSeries = allRecent
+    // The heap trend reflects the real process history, so it ignores filters.
+    const heapSeries = all
       .slice(-30)
       .map((p) => p.performance.heapUsed)
       .filter((v) => v !== undefined);
 
-    // CLI commands are listed in a dedicated table, independent of the HTTP filters.
-    const commandProfiles = allRecent.filter((p) => p.request.command);
+    // Filters apply uniformly to HTTP/GraphQL requests and CLI commands; the
+    // template splits the filtered set into its two tables.
+    const filtered = applyListFilters(active, all);
+    const commandProfiles = filtered.filter((p) => p.request.command);
 
     return this.templateRenderer.render('list', {
       title: 'Profiles',
       profilerPath: this.profilerPath,
-      profiles,
+      profiles: filtered,
       commandProfiles,
       globalPanels,
       heapSeries,
-      filters: {
-        method: query.method,
-        statusCode: query.statusCode,
-        minDuration: query.minDuration,
-        maxDuration: query.maxDuration,
-        url: query.url,
-      },
+      filterDefs,
+      filterValues: raw,
     });
   }
 

@@ -2,7 +2,15 @@ import type { Server } from 'node:http';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { Controller, Get, Header, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Injectable,
+  Post,
+} from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -27,6 +35,17 @@ class DummyController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   page(): string {
     return '<html><body><h1>hi</h1></body></html>';
+  }
+
+  @Post('/widgets')
+  @HttpCode(201)
+  createWidget(): { created: boolean } {
+    return { created: true };
+  }
+
+  @Get('/boom')
+  boom(): never {
+    throw new BadRequestException('kaboom');
   }
 }
 
@@ -97,14 +116,17 @@ describe('ProfilerController (e2e)', () => {
   const server = (): Server => app.getHttpServer() as Server;
 
   /** Issues a profiled request and returns the generated profiler token. */
-  async function createProfile(path = '/hello'): Promise<string> {
-    const res = await request(server()).get(path);
+  async function createProfile(path = '/hello', method: 'get' | 'post' = 'get'): Promise<string> {
+    const res = await request(server())[method](path);
     const token = res.headers['x-debug-token'];
     if (typeof token !== 'string') {
       throw new Error('expected the x-debug-token header to be set');
     }
     return token;
   }
+
+  /** Short token form as rendered in the list, useful for present/absent assertions. */
+  const short = (token: string): string => token.slice(0, 8);
 
   describe('GET /_profiler (list)', () => {
     it('renders the HTML list page', async () => {
@@ -120,23 +142,46 @@ describe('ProfilerController (e2e)', () => {
       expect(res.text).toContain(token.slice(0, 8));
     });
 
-    it('accepts filter query parameters', async () => {
-      await createProfile('/hello');
-      const res = await request(server()).get('/_profiler').query({
-        method: 'GET',
-        statusCode: '200',
-        minDuration: '0',
-        maxDuration: '10000',
-        url: 'hello',
-      });
-      expect(res.status).toBe(200);
+    it('narrows the list by HTTP method', async () => {
+      const getToken = await createProfile('/hello', 'get');
+      const postToken = await createProfile('/widgets', 'post');
+
+      const res = await request(server()).get('/_profiler').query({ method: 'POST' });
+      expect(res.text).toContain(short(postToken));
+      expect(res.text).not.toContain(short(getToken));
+    });
+
+    it('narrows the list by exact status and by status class', async () => {
+      const okToken = await createProfile('/hello', 'get'); // 200
+      const errToken = await createProfile('/boom', 'get'); // 400
+
+      const byExact = await request(server()).get('/_profiler').query({ status: '400' });
+      expect(byExact.text).toContain(short(errToken));
+      expect(byExact.text).not.toContain(short(okToken));
+
+      const byClass = await request(server()).get('/_profiler').query({ statusClass: '4' });
+      expect(byClass.text).toContain(short(errToken));
+      expect(byClass.text).not.toContain(short(okToken));
+    });
+
+    it('narrows the list by global search and by exceptions', async () => {
+      const helloToken = await createProfile('/hello', 'get');
+      const errToken = await createProfile('/boom', 'get');
+
+      const bySearch = await request(server()).get('/_profiler').query({ q: 'hello' });
+      expect(bySearch.text).toContain(short(helloToken));
+      expect(bySearch.text).not.toContain(short(errToken));
+
+      const byException = await request(server()).get('/_profiler').query({ hasExceptions: '1' });
+      expect(byException.text).toContain(short(errToken));
+      expect(byException.text).not.toContain(short(helloToken));
     });
 
     it('ignores non-numeric filter values instead of hiding all profiles', async () => {
       const token = await createProfile('/hello');
       const res = await request(server())
         .get('/_profiler')
-        .query({ statusCode: 'not-a-number', minDuration: 'abc' });
+        .query({ status: 'not-a-number', minDuration: 'abc' });
       expect(res.status).toBe(200);
       // Invalid numeric filters are dropped, so the profile is still listed.
       expect(res.text).toContain(token.slice(0, 8));

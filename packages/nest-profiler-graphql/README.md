@@ -129,6 +129,8 @@ Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:
 | `query`         | The full GraphQL document (formatted)          |
 | `variables`     | Variables object                               |
 
+Registering this module also adds a **GraphQL** choice to the **Type** filter on the `/_profiler` list, so you can narrow the list to GraphQL operations.
+
 GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions.
 
 ![Exceptions tab showing an amber GraphQLError badge with validation error message and location](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-error.png)
