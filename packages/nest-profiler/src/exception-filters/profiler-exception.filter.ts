@@ -14,10 +14,16 @@ import type { Profile } from '../interfaces/profile.interface';
  * but its `exceptions` array stays empty and the Exceptions tab shows nothing.
  *
  * This catch-all filter observes the exception on its way out and pushes it onto
- * the active profile. It extends {@link BaseExceptionFilter} and delegates to
- * `super.catch()`, so the framework's default response formatting is preserved
- * byte-for-byte; only HTTP requests are touched, leaving GraphQL/RPC error
- * handling (already covered by the interceptor) untouched.
+ * the active profile. For HTTP it extends {@link BaseExceptionFilter} and delegates
+ * to `super.catch()`, so the framework's default response formatting is preserved
+ * byte-for-byte.
+ *
+ * For non-HTTP contexts (GraphQL/RPC) it must **not** call `super.catch()`: the base
+ * filter's reply path is HTTP-only and calls `response.status()` on the transport's
+ * argument, which for GraphQL is the resolver `args` object — throwing
+ * `response.status is not a function` and masking the real resolver error. Instead it
+ * re-throws the original exception so the framework's own handling (e.g. GraphQL's
+ * `{ errors }` formatting) takes over; the interceptor has already recorded it.
  */
 @Injectable()
 @Catch()
@@ -27,9 +33,11 @@ export class ProfilerExceptionFilter extends BaseExceptionFilter {
   }
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    if (host.getType<string>() === 'http') {
-      this.recordHttpException(exception, host);
+    if (host.getType<string>() !== 'http') {
+      // Let GraphQL/RPC format their own error response — see class docblock.
+      throw exception;
     }
+    this.recordHttpException(exception, host);
     super.catch(exception, host);
   }
 

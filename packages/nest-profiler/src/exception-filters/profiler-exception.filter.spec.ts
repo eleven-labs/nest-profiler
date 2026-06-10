@@ -100,15 +100,18 @@ describe('ProfilerExceptionFilter', () => {
     });
   });
 
-  it('ignores non-HTTP contexts (handled by the interceptor) but still delegates', () => {
+  it('re-throws on non-HTTP contexts instead of delegating to the HTTP base filter', () => {
+    // super.catch() formats an HTTP reply and crashes for GraphQL/RPC (the transport
+    // "response" has no .status()), masking the real error. The filter must re-throw so
+    // the framework formats its own error response; the interceptor records the exception.
     const profile = makeProfile();
     const filter = new ProfilerExceptionFilter(makeCls(profile));
     const host = makeHost('graphql', { [PROFILER_REQ_KEY]: profile });
+    const error = new Error('resolver failed');
 
-    filter.catch(new Error('resolver failed'), host);
-
+    expect(() => filter.catch(error, host)).toThrow(error);
     expect(profile.exceptions).toHaveLength(0);
-    expect(superCatch).toHaveBeenCalledTimes(1);
+    expect(superCatch).not.toHaveBeenCalled();
   });
 
   it('is resilient when no profile can be resolved', () => {

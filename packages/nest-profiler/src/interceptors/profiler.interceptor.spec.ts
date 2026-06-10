@@ -175,6 +175,34 @@ describe('ProfilerInterceptor', () => {
       expect(core.storage.save).toHaveBeenCalledWith(profile);
     });
 
+    it('waits for profile storage before returning the response body', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      let resolveSave: () => void = () => undefined;
+      core.storage.save.mockReturnValue(new Promise<void>((resolve) => (resolveSave = resolve)));
+      const interceptor = makeInterceptor(profile, core);
+
+      let settled = false;
+      const resultPromise = lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'GET', url: '/hello' }, makeRes()),
+          handler('body'),
+        ),
+      ).then((result) => {
+        settled = true;
+        return result;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(core.storage.save).toHaveBeenCalledWith(profile);
+      expect(settled).toBe(false);
+
+      resolveSave();
+
+      await expect(resultPromise).resolves.toBe('body');
+    });
+
     it('captures the response body only when collectBody is enabled', async () => {
       const profile = makeProfile();
       const core = makeCore();
@@ -303,6 +331,33 @@ describe('ProfilerInterceptor', () => {
       expect(adapter.enrichProfile).toHaveBeenCalledWith(profile, expect.any(Object));
       expect(core.collectorRegistry.collectAll).toHaveBeenCalledWith(profile);
       expect(core.storage.save).toHaveBeenCalledWith(profile);
+    });
+
+    it('waits for profile storage before returning a non-HTTP resolver result', async () => {
+      const profile = makeProfile();
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      let resolveSave: () => void = () => undefined;
+      core.storage.save.mockReturnValue(new Promise<void>((resolve) => (resolveSave = resolve)));
+      const interceptor = makeInterceptor(undefined, core);
+      const resolverResult = { books: [] };
+
+      let settled = false;
+      const resultPromise = lastValueFrom(
+        interceptor.intercept(makeGqlCtx(), handler(resolverResult)),
+      ).then((result) => {
+        settled = true;
+        return result;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(core.storage.save).toHaveBeenCalledWith(profile);
+      expect(settled).toBe(false);
+
+      resolveSave();
+
+      await expect(resultPromise).resolves.toBe(resolverResult);
     });
 
     it('re-establishes CLS context when profile is recovered from req', async () => {

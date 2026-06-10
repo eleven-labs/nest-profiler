@@ -35,7 +35,17 @@ type RawResponse = {
   statusCode?: number;
   json?: (body: unknown) => unknown;
   send?: (body: unknown) => unknown;
+  write?: (...args: unknown[]) => unknown;
+  end?: (...args: unknown[]) => unknown;
+  getHeader?: (name: string) => unknown;
 };
+
+/**
+ * Upper bound on raw response chunks buffered to recover a body (the Mercurius/Fastify
+ * write()+end() path). A GraphQL envelope is tiny; anything larger is almost certainly a
+ * bulk JSON payload we have no reason to hold in memory, so buffering is abandoned past it.
+ */
+const MAX_BUFFERED_BODY_BYTES = 1024 * 1024;
 
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
@@ -123,38 +133,22 @@ export class ProfilerMiddleware implements NestMiddleware {
     const rawRes = res as unknown as RawResponse;
     if (!rawRes.once) return;
 
-    // Intercept res.json() and res.send() to capture the response body.
-    // Some GraphQL frameworks (e.g. Apollo Server 4) may call either method
-    // directly instead of returning through NestJS's response pipeline.
-    let interceptedResponseBody: unknown;
-
-    const captureBody = (body: unknown): void => {
-      if (interceptedResponseBody !== undefined) return;
-      try {
-        interceptedResponseBody = typeof body === 'string' ? (JSON.parse(body) as unknown) : body;
-      } catch {
-        interceptedResponseBody = body;
-      }
-    };
-
-    const originalJson = rawRes.json?.bind(rawRes);
-    if (originalJson) {
-      rawRes.json = (body: unknown): unknown => {
-        captureBody(body);
-        return originalJson(body);
-      };
-    }
-
-    const originalSend = rawRes.send?.bind(rawRes);
-    if (originalSend) {
-      rawRes.send = (body: unknown): unknown => {
-        captureBody(body);
-        return originalSend(body);
-      };
-    }
+    const getResponseBody = this.interceptResponseBody(rawRes, profile);
 
     rawRes.once('finish', () => {
-      if (profile.response) return; // normal interceptor path already finalized and saved
+      const interceptedResponseBody = getResponseBody();
+      if (profile.response) {
+        // The interceptor already finalized the profile. For GraphQL over HTTP it ran in
+        // the non-HTTP (resolver) context and only saw the resolver result — never the
+        // transport-level { data, errors } envelope the driver writes afterwards. Backfill
+        // it so the Response tab shows what the client actually received, errors included.
+        if (profile.request.graphql && interceptedResponseBody !== undefined) {
+          profile.response.body = interceptedResponseBody;
+          profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
+          void this.core.storage.save(profile);
+        }
+        return; // otherwise the interceptor already finalized and saved
+      }
 
       profile.performance.duration = Date.now() - profile.performance.startTime;
       profile.response = {
@@ -169,6 +163,92 @@ export class ProfilerMiddleware implements NestMiddleware {
         .collectAll(profile)
         .then(() => this.core.storage.save(profile));
     });
+  }
+
+  /**
+   * Wraps the response's write methods so the body can be read back after it is sent, then
+   * returns a getter for the parsed body (`undefined` when nothing JSON-shaped was captured).
+   *
+   * GraphQL drivers write their `{ data, errors }` envelope straight to the transport, but
+   * via different methods: Apollo (Express) uses `res.json()`/`res.send()`, while Mercurius
+   * (Fastify, through `@fastify/middie`) writes the raw Node response with `res.write(chunk…)`
+   * followed by an empty `res.end()`. Raw chunks are only buffered when the body will actually
+   * be consumed (body collection enabled, or a GraphQL request whose envelope we always
+   * surface), are restricted to JSON responses, and are capped to bound memory.
+   */
+  private interceptResponseBody(rawRes: RawResponse, profile: Profile): () => unknown {
+    let body: unknown;
+    const capture = (value: unknown): void => {
+      if (body !== undefined || value === undefined || value === null) return;
+      const raw = Buffer.isBuffer(value) ? value.toString('utf8') : value;
+      try {
+        body = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
+      } catch {
+        body = raw;
+      }
+    };
+
+    const originalJson = rawRes.json?.bind(rawRes);
+    if (originalJson) {
+      rawRes.json = (value: unknown): unknown => {
+        capture(value);
+        return originalJson(value);
+      };
+    }
+
+    const originalSend = rawRes.send?.bind(rawRes);
+    if (originalSend) {
+      rawRes.send = (value: unknown): unknown => {
+        capture(value);
+        return originalSend(value);
+      };
+    }
+
+    // Raw-response fallback (Mercurius/Fastify): accumulate JSON chunks until end().
+    let chunks: Buffer[] | undefined;
+    let bufferedBytes = 0;
+    let overflow = false;
+    const shouldBuffer = (): boolean => {
+      if (!this.collectBody && !profile.request.graphql) return false;
+      const contentType = rawRes.getHeader?.('content-type');
+      return typeof contentType === 'string' && contentType.includes('json');
+    };
+
+    const originalWrite = rawRes.write?.bind(rawRes);
+    if (originalWrite) {
+      rawRes.write = (...args: unknown[]): unknown => {
+        const chunk = args[0];
+        if (!overflow && (typeof chunk === 'string' || Buffer.isBuffer(chunk)) && shouldBuffer()) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          bufferedBytes += buf.length;
+          if (bufferedBytes > MAX_BUFFERED_BODY_BYTES) {
+            overflow = true;
+            chunks = undefined; // give up — too large to be a GraphQL envelope
+          } else {
+            (chunks ??= []).push(buf);
+          }
+        }
+        return originalWrite(...args);
+      };
+    }
+
+    // end() may receive (chunk, encoding, cb) — only the first positional arg is a body.
+    // Forward every argument untouched to preserve behaviour; fall back to the buffered
+    // chunks when end() carries no body of its own (the Mercurius/Fastify path).
+    const originalEnd = rawRes.end?.bind(rawRes);
+    if (originalEnd) {
+      rawRes.end = (...args: unknown[]): unknown => {
+        const chunk = typeof args[0] === 'function' ? undefined : args[0];
+        if (chunk !== undefined && chunk !== null) {
+          capture(chunk);
+        } else if (chunks?.length) {
+          capture(Buffer.concat(chunks));
+        }
+        return originalEnd(...args);
+      };
+    }
+
+    return () => body;
   }
 
   private shouldSkip(req: PlatformRequest): boolean {
