@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerService } from './nest-profiler.service';
+import type { ProfilerCoreService } from './profiler-core.service';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import type { Profile } from '../interfaces/profile.interface';
 
@@ -124,5 +125,20 @@ describe('ProfilerService', () => {
     expect(delegate.log).toHaveBeenCalled();
     expect(profile.logs).toHaveLength(1);
     expect(profile.logs[0]?.level).toBe('log');
+  });
+
+  it('flush is a safe no-op when the profiler is disabled (no core)', async () => {
+    await expect(service.flush()).resolves.toBeUndefined();
+  });
+
+  it('flush drains the pending profile persistence of the core service', async () => {
+    const flushPendingProfiles = jest.fn().mockResolvedValue(undefined);
+    const withCore = new ProfilerService(cls, {
+      flushPendingProfiles,
+    } as unknown as ProfilerCoreService);
+
+    await withCore.flush();
+
+    expect(flushPendingProfiles).toHaveBeenCalled();
   });
 });

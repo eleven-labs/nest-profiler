@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { OnApplicationShutdown } from '@nestjs/common';
 import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
@@ -15,17 +16,62 @@ const DEFAULT_FILTER_ORDER = 100;
 
 /** Bundles the three core profiler services consumed by the controller and interceptor. */
 @Injectable()
-export class ProfilerCoreService {
+export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly contextAdapters: IContextAdapter[] = [];
   private readonly listFilters: ProfilerListFilter[] = [...BUILTIN_LIST_FILTERS];
   /** Options contributed to an existing `'select'` filter, keyed by filter key. */
   private readonly filterOptions = new Map<string, ProfilerFilterOption[]>();
+  /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
+  private readonly pending = new Set<Promise<unknown>>();
 
   constructor(
     readonly storage: ProfilerStorageService,
     readonly collectorRegistry: CollectorRegistry,
     readonly routeCollector: RouteCollector,
   ) {}
+
+  /**
+   * Runs the collectors then persists the profile **off the response path** — the
+   * returned response never waits for collectors or storage. The work is tracked so
+   * {@link flushPendingProfiles} (and application shutdown) can drain it.
+   *
+   * @param profile - The finalized profile to collect into and save.
+   */
+  schedulePersist(profile: Profile): void {
+    this.track(this.collectorRegistry.collectAll(profile).then(() => this.storage.save(profile)));
+  }
+
+  /**
+   * Persists an already-collected profile off the response path — used when a profile
+   * is re-saved after a late mutation (e.g. the GraphQL transport envelope backfill).
+   *
+   * @param profile - The profile to save.
+   */
+  scheduleSave(profile: Profile): void {
+    this.track(Promise.resolve(this.storage.save(profile)));
+  }
+
+  /**
+   * Awaits every deferred collect/save still in flight. Mostly useful in tests that
+   * assert on stored profiles right after a request completes.
+   */
+  async flushPendingProfiles(): Promise<void> {
+    while (this.pending.size > 0) {
+      await Promise.all([...this.pending]);
+    }
+  }
+
+  /** Drains deferred saves so a short-lived process does not lose its last profiles. */
+  async onApplicationShutdown(): Promise<void> {
+    await this.flushPendingProfiles();
+  }
+
+  private track(work: Promise<unknown>): void {
+    const tracked: Promise<unknown> = work
+      .catch(() => undefined)
+      .finally(() => this.pending.delete(tracked));
+    this.pending.add(tracked);
+  }
 
   /**
    * Registers a {@link IContextAdapter} so the profiler can handle a non-HTTP

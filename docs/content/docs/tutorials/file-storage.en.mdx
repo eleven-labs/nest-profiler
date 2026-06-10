@@ -78,6 +78,8 @@ ProfilerModule.forRoot({
 });
 ```
 
+`maxProfiles` also bounds the in-memory cache the file storage keeps for fast list rendering, so memory usage grows with `maxProfiles × average profile size` — keep it reasonable when `collectBody` is enabled.
+
 ## Custom storage adapter
 
 If neither memory nor file storage fits your needs (for example, you want to store profiles in Redis or a database), implement `IProfilerStorageAdapter`:

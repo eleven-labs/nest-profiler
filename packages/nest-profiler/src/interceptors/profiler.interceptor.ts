@@ -7,7 +7,7 @@ import {
   NestInterceptor,
   Optional,
 } from '@nestjs/common';
-import { Observable, defer, from, throwError } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
@@ -109,9 +109,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         body: undefined,
       };
       this.core.enrichHttpResponse(capturedProfile, req, undefined);
-      void this.core.collectorRegistry
-        .collectAll(capturedProfile)
-        .then(() => this.core.storage.save(capturedProfile));
+      this.core.schedulePersist(capturedProfile);
     });
 
     return next.handle().pipe(
@@ -120,9 +118,22 @@ export class ProfilerInterceptor implements NestInterceptor {
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         this.core.enrichHttpResponse(capturedProfile, req, body);
-        return this.collectAndSave(capturedProfile).pipe(
-          map(() => this.injectToolbar(res, body, capturedProfile)),
-        );
+
+        // The toolbar embeds collector panels, so HTML responses are the only ones that
+        // must wait for the collectors before being sent.
+        if (this.isToolbarEligible(res, body)) {
+          return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
+            map(() => {
+              this.core.scheduleSave(capturedProfile);
+              return this.injectToolbar(res, body, capturedProfile);
+            }),
+          );
+        }
+
+        // Everything else (JSON, GraphQL…) is emitted immediately; collectors and
+        // storage run after the response, adding no latency to the call.
+        this.core.schedulePersist(capturedProfile);
+        return of(body);
       }),
       catchError((err: unknown) => {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -140,17 +151,20 @@ export class ProfilerInterceptor implements NestInterceptor {
         }
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
-        // Run collectors even on error paths so pipes/guards data (e.g. validator) is captured.
-        return this.collectAndSave(capturedProfile).pipe(switchMap(() => throwError(() => err)));
+        // Collectors still run (deferred) so pipes/guards data (e.g. validator) is
+        // captured without delaying the error response behind them.
+        this.core.schedulePersist(capturedProfile);
+        return throwError(() => err);
       }),
     );
   }
 
   private processNonHttp(capturedProfile: Profile, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(
-      switchMap((body: unknown) => {
+      map((body: unknown) => {
         this.finalize(capturedProfile, null, body);
-        return this.collectAndSave(capturedProfile).pipe(map(() => body));
+        this.core.schedulePersist(capturedProfile);
+        return body;
       }),
       catchError((err: unknown) => {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -165,14 +179,9 @@ export class ProfilerInterceptor implements NestInterceptor {
           capturedProfile.response.statusCode =
             err instanceof HttpException ? err.getStatus() : 500;
         }
-        return this.collectAndSave(capturedProfile).pipe(switchMap(() => throwError(() => err)));
+        this.core.schedulePersist(capturedProfile);
+        return throwError(() => err);
       }),
-    );
-  }
-
-  private collectAndSave(profile: Profile): Observable<void> {
-    return from(this.core.collectorRegistry.collectAll(profile)).pipe(
-      switchMap(() => defer(() => Promise.resolve(this.core.storage.save(profile)))),
     );
   }
 
@@ -194,14 +203,19 @@ export class ProfilerInterceptor implements NestInterceptor {
     }
   }
 
-  private injectToolbar(res: PlatformResponse | null, body: unknown, profile: Profile): unknown {
+  /** An HTML page the toolbar can be injected into — the only response that waits for collectors. */
+  private isToolbarEligible(res: PlatformResponse | null, body: unknown): body is string {
     const contentType = res?.getHeader('content-type');
-    if (
+    return (
       typeof contentType === 'string' &&
       contentType.includes('text/html') &&
       typeof body === 'string' &&
       body.includes('</body>')
-    ) {
+    );
+  }
+
+  private injectToolbar(res: PlatformResponse | null, body: unknown, profile: Profile): unknown {
+    if (this.isToolbarEligible(res, body)) {
       const panels = this.core.collectorRegistry.buildPanels(profile);
       const toolbar = toolbarSnippet(profile.token, this.profilerPath, panels);
       return body.replace('</body>', `${toolbar}</body>`);
