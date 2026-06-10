@@ -7,8 +7,8 @@ import {
   NestInterceptor,
   Optional,
 } from '@nestjs/common';
-import { Observable, from, throwError } from 'rxjs';
-import { catchError, map, switchMap, tap } from 'rxjs/operators';
+import { Observable, defer, from, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
@@ -120,10 +120,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         this.core.enrichHttpResponse(capturedProfile, req, body);
-        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
-          tap(() => {
-            void this.core.storage.save(capturedProfile);
-          }),
+        return this.collectAndSave(capturedProfile).pipe(
           map(() => this.injectToolbar(res, body, capturedProfile)),
         );
       }),
@@ -144,12 +141,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         // Run collectors even on error paths so pipes/guards data (e.g. validator) is captured.
-        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
-          tap(() => {
-            void this.core.storage.save(capturedProfile);
-          }),
-          switchMap(() => throwError(() => err)),
-        );
+        return this.collectAndSave(capturedProfile).pipe(switchMap(() => throwError(() => err)));
       }),
     );
   }
@@ -158,12 +150,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     return next.handle().pipe(
       switchMap((body: unknown) => {
         this.finalize(capturedProfile, null, body);
-        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
-          tap(() => {
-            void this.core.storage.save(capturedProfile);
-          }),
-          map(() => body),
-        );
+        return this.collectAndSave(capturedProfile).pipe(map(() => body));
       }),
       catchError((err: unknown) => {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -178,13 +165,14 @@ export class ProfilerInterceptor implements NestInterceptor {
           capturedProfile.response.statusCode =
             err instanceof HttpException ? err.getStatus() : 500;
         }
-        return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
-          tap(() => {
-            void this.core.storage.save(capturedProfile);
-          }),
-          switchMap(() => throwError(() => err)),
-        );
+        return this.collectAndSave(capturedProfile).pipe(switchMap(() => throwError(() => err)));
       }),
+    );
+  }
+
+  private collectAndSave(profile: Profile): Observable<void> {
+    return from(this.core.collectorRegistry.collectAll(profile)).pipe(
+      switchMap(() => defer(() => Promise.resolve(this.core.storage.save(profile)))),
     );
   }
 

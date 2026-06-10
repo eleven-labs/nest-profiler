@@ -632,5 +632,170 @@ describe('ProfilerMiddleware', () => {
       const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
       expect(saved?.response?.body).toBeUndefined();
     });
+
+    /** Reads the live profile the middleware created (captured via cls.set). */
+    const capturedProfile = (cls: ClsService): Profile => {
+      const calls = (cls as unknown as { set: jest.Mock }).set.mock.calls as [string, unknown][];
+      return calls.find((c) => c[0] === 'profiler.profile')?.[1] as Profile;
+    };
+
+    it('backfills the GraphQL transport envelope into an already-finalized response', async () => {
+      // Mirrors GraphQL over HTTP: the interceptor finalized in the resolver (non-HTTP)
+      // context with no body, then the driver wrote the { data, errors } envelope.
+      const { middleware, cls, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res, '/graphql');
+
+      const profile = capturedProfile(cls);
+      profile.request.graphql = { operationType: 'mutation', fieldName: 'createBook' };
+      profile.response = { statusCode: 500, headers: {}, body: undefined };
+
+      const envelope = { errors: [{ message: 'boom' }], data: null };
+      res.json(envelope);
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(profile.response.body).toEqual(envelope);
+      // The real transport status replaces the interceptor's placeholder 500.
+      expect(profile.response.statusCode).toBe(200);
+      expect(coreMock.storage.save).toHaveBeenCalledWith(profile);
+    });
+
+    it('leaves an already-finalized non-GraphQL response untouched', async () => {
+      const { middleware, cls, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res, '/api');
+
+      const profile = capturedProfile(cls);
+      profile.response = { statusCode: 201, headers: {}, body: { original: true } };
+
+      res.json({ other: true });
+      const callsBefore = coreMock.storage.save.mock.calls.length;
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(profile.response.body).toEqual({ original: true });
+      expect(coreMock.storage.save.mock.calls.length).toBe(callsBefore);
+    });
+
+    /** Raw Node-style response: no json()/send(), body written via write()+end(). */
+    function makeRawResWithFinish(contentType = 'application/json'): PlatformResponse & {
+      triggerFinish(): void;
+      write: (chunk: unknown) => boolean;
+      end: (chunk?: unknown) => void;
+      statusCode: number;
+    } {
+      const stored: Record<string, string | string[]> = { 'content-type': contentType };
+      let finishListener: (() => void) | undefined;
+      return {
+        statusCode: 200,
+        setHeader(k: string, v: string | string[]) {
+          stored[k] = v;
+        },
+        getHeader(k: string) {
+          return stored[k];
+        },
+        getHeaders() {
+          return stored;
+        },
+        once(event: string, fn: () => void) {
+          if (event === 'finish') finishListener = fn;
+        },
+        write: jest.fn(() => true),
+        end: jest.fn(),
+        triggerFinish() {
+          finishListener?.();
+        },
+      } as object as PlatformResponse & {
+        triggerFinish(): void;
+        write: (chunk: unknown) => boolean;
+        end: (chunk?: unknown) => void;
+        statusCode: number;
+      };
+    }
+
+    it('captures the body from write()+end() when the framework bypasses json()/send()', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeRawResWithFinish();
+      await runMw(middleware, res, '/graphql');
+
+      const envelope = { errors: [{ message: 'mercurius boom' }], data: null };
+      res.write(Buffer.from(JSON.stringify(envelope)));
+      res.end(); // Fastify ends with no body of its own
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        envelope,
+      );
+    });
+
+    it('captures a body passed directly to end()', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeRawResWithFinish();
+      await runMw(middleware, res, '/graphql');
+
+      res.end(JSON.stringify({ data: { ok: true } }));
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        {
+          data: { ok: true },
+        },
+      );
+    });
+
+    it('does not buffer write() chunks for non-JSON responses', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeRawResWithFinish('text/html');
+      await runMw(middleware, res, '/page');
+
+      res.write('<html>');
+      res.write('</html>');
+      res.end();
+      res.triggerFinish();
+      await waitAsync();
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.response?.body).toBeUndefined();
+    });
+
+    it('does not buffer write() chunks for non-GraphQL requests when collectBody is off', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: false });
+      const res = makeRawResWithFinish();
+      await runMw(middleware, res, '/api');
+
+      res.write(Buffer.from(JSON.stringify({ data: { ok: true } })));
+      res.end();
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(coreMock.enrichHttpResponse).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+      );
+    });
+
+    it('abandons buffering once the response exceeds the size cap', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeRawResWithFinish();
+      await runMw(middleware, res, '/graphql');
+
+      // Two chunks that together exceed 1 MB — far larger than any GraphQL envelope.
+      res.write(Buffer.alloc(600 * 1024, 0x7b)); // '{'
+      res.write(Buffer.alloc(600 * 1024, 0x7d)); // '}'
+      res.end();
+      res.triggerFinish();
+      await waitAsync();
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.response?.body).toBeUndefined();
+    });
   });
 });

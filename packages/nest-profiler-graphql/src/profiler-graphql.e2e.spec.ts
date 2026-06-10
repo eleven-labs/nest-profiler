@@ -70,6 +70,11 @@ class BooksResolver {
     this.store.push(newBook);
     return newBook;
   }
+
+  @Query(() => Book, { nullable: true })
+  brokenBook(): Book {
+    throw new Error('Intentional resolver failure');
+  }
 }
 
 @Controller()
@@ -233,6 +238,42 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
 
       expect(profile.response?.statusCode).toBe(200);
       expect(profile.response?.body).toBeDefined();
+    });
+  });
+
+  describe(`error handling — GraphQL errors surfaced [${driverLabel}]`, () => {
+    const messagesOf = (errors: unknown[] | undefined): string[] =>
+      (errors ?? []).map((e) => (e as { message?: string }).message ?? '');
+
+    it('returns the real resolver error and not the profiler filter crash', async () => {
+      const { body, token } = await gql(getServer(), { query: '{ brokenBook { id } }' });
+
+      const messages = messagesOf(body.errors);
+      expect(messages).toContain('Intentional resolver failure');
+      // Regression guard: the profiler exception filter must not mask the error with its
+      // own HTTP-only crash ("response.status is not a function") in a GraphQL context.
+      expect(messages).not.toContain('response.status is not a function');
+      expect(token).toBeDefined();
+    });
+
+    it('captures the { errors } envelope as the profile response body', async () => {
+      const { token } = await gql(getServer(), { query: '{ brokenBook { id } }' });
+
+      const profile = await getProfile(getServer(), token!);
+      const responseBody = profile.response?.body as { errors?: unknown[] } | undefined;
+
+      expect(Array.isArray(responseBody?.errors)).toBe(true);
+      expect(messagesOf(responseBody?.errors)).toContain('Intentional resolver failure');
+    });
+
+    it('records the resolver error in the exceptions tab', async () => {
+      const { token } = await gql(getServer(), { query: '{ brokenBook { id } }' });
+
+      const profile = await getProfile(getServer(), token!);
+
+      expect(
+        profile.exceptions.some((e) => e.message.includes('Intentional resolver failure')),
+      ).toBe(true);
     });
   });
 }
