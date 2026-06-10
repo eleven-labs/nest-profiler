@@ -47,6 +47,7 @@ export type { IContextAdapter } from './adapters/context-adapter.interface';
 export { PROFILER_REQ_KEY } from './constants';
 export { combineFilters } from './filters';
 export type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';
+export { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
 export { PROFILER_LIST_FILTERS } from './list-filters/profiler-list-filter.interface';
 export type {
   ProfilerListFilter,

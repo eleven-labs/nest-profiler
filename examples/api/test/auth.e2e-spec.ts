@@ -53,6 +53,14 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
     expect(profile.response?.statusCode).toBe(401);
     expect(profile.security).toMatchObject({ isAuthenticated: false });
     expect(profile.security?.user).toBeUndefined();
+
+    // The 401 is thrown by JwtAuthGuard, which runs before the interceptor — the
+    // exception filter must still surface it in the Exceptions tab.
+    expect(profile.exceptions).toHaveLength(1);
+    expect(profile.exceptions[0]).toMatchObject({
+      name: 'UnauthorizedException',
+      message: 'Missing Bearer token — get one from GET /auth/token',
+    });
   });
 
   it('GET /auth/me with a malformed token is rejected with 401', async () => {
