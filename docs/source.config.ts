@@ -1,6 +1,7 @@
 import type { LanguageRegistration } from 'shiki';
 
 import { defineConfig, defineDocs, remarkInclude } from 'fumadocs-mdx/config';
+import lastModified from 'fumadocs-mdx/plugins/last-modified';
 
 import { DOCS_CONTENT_DIR } from './lib/constants';
 
@@ -122,6 +123,10 @@ export const docs = defineDocs({
 });
 
 export default defineConfig({
+  // Git-based last modified dates, surfaced as `page.data.lastModified` (sitemap
+  // <lastmod>, JSON-LD dateModified). On Vercel set VERCEL_DEEP_CLONE=true so the
+  // full git history is available at build time.
+  plugins: [lastModified()],
   mdxOptions: {
     // Insert the screenshot path normalizer right after `remarkInclude` (so it
     // sees images coming from included READMEs) and before the built-in
