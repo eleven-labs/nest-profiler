@@ -195,7 +195,7 @@ module that does two things:
    no manual registration — and calls each `collect()` to build its panel data.
 
 This is the extension seam: a custom collector is just a provider implementing
-`IProfilerCollector`. See [Custom collectors](packages/nest-profiler/README.md#custom-collectors).
+`IProfilerCollector`. See [Custom collectors](packages/nest-profiler/docs/collectors.md#custom-collectors).
 
 ### Non-HTTP protocols
 
@@ -203,7 +203,7 @@ Protocols other than HTTP (GraphQL, gRPC, WebSockets…) are supported through
 `IContextAdapter`: an adapter recovers and enriches the profile for its context
 type, and the interceptor delegates to it automatically once it is registered via
 the `PROFILER_CONTEXT_ADAPTERS` multi-token. See
-[Custom protocol adapters](packages/nest-profiler/README.md#custom-protocol-adapters).
+[Custom protocol adapters](packages/nest-profiler/docs/context-adapters.md).
 
 ## Common Commands
 
