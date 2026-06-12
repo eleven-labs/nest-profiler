@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 import { SITE_NAME } from '@/lib/constants';
 
-export const alt = `${SITE_NAME} — NestJS Web Profiler`;
+export const alt = `${SITE_NAME} — A Symfony-inspired Web Profiler`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
