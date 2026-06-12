@@ -1,7 +1,7 @@
 import 'fumadocs-ui/style.css';
 
 import './global.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import { RootProvider } from 'fumadocs-ui/provider/next';
@@ -17,7 +17,7 @@ import {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — NestJS Web Profiler`,
+    default: `${SITE_NAME} — A Symfony-inspired Web Profiler`,
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — NestJS Web Profiler`,
+    title: `${SITE_NAME} — A Symfony-inspired Web Profiler`,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} — NestJS Web Profiler`,
+    title: `${SITE_NAME} — A Symfony-inspired Web Profiler`,
     description: SITE_DESCRIPTION,
   },
   alternates: {
@@ -55,6 +55,14 @@ export const metadata: Metadata = {
   ...(GOOGLE_SITE_VERIFICATION && {
     verification: { google: GOOGLE_SITE_VERIFICATION },
   }),
+};
+
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0f' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
