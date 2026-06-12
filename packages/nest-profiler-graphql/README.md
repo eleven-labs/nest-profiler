@@ -146,7 +146,7 @@ A middleware `finish` hook also captures GraphQL errors for requests that Apollo
 
 ## Custom protocol adapters
 
-This package is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context — see the [`@eleven-labs/nest-profiler` documentation](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler#custom-protocol-adapters) for a full example.
+This package is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context — see the [`@eleven-labs/nest-profiler` documentation](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/context-adapters) for a full example.
 
 ---
 

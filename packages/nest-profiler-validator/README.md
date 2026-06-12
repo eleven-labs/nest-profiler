@@ -167,19 +167,6 @@ ValidatorCollectorModule.forRoot({ pipe: myPipe, extractors: [myExtractor] });
 - **All valid**: number of validated DTOs (e.g., `1`)
 - **With violations**: total violation count (e.g., `3 violations`)
 
-## Migration from 0.4.x
-
-`forRoot` no longer spreads `ValidationPipe` options at the top level — move them under `validationPipeOptions`:
-
-```diff
- ValidatorCollectorModule.forRoot({
-   enabled,
--  whitelist: true,
--  transform: true,
-+  validationPipeOptions: { whitelist: true, transform: true },
- })
-```
-
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

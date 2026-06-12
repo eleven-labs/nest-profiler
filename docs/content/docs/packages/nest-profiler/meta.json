@@ -1,4 +1,13 @@
 {
   "title": "nest-profiler",
-  "pages": ["index", "logs"]
+  "pages": [
+    "index",
+    "configuration",
+    "logs",
+    "browsing-profiles",
+    "collectors",
+    "context-adapters",
+    "storage",
+    "performance"
+  ]
 }
