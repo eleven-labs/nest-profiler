@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { Metadata } from 'next';
 
 import {
   Activity,
@@ -16,8 +17,17 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { GITHUB_URL } from '@/lib/constants';
+import { GITHUB_URL, SITE_NAME, SITE_TAGLINE } from '@/lib/constants';
 import { i18n } from '@/lib/i18n';
+import { JsonLd, softwareSourceCodeJsonLd } from '@/lib/json-ld';
+
+export const metadata: Metadata = {
+  // `absolute` bypasses the `%s · NestJS Profiler` template from the root layout.
+  title: { absolute: `${SITE_NAME} — ${SITE_TAGLINE}` },
+  alternates: {
+    canonical: '/',
+  },
+};
 
 interface Collector {
   description: string;
@@ -99,6 +109,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
 
   return (
     <main className="flex flex-1 flex-col">
+      <JsonLd data={softwareSourceCodeJsonLd()} />
       {/* Hero */}
       <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pt-16 pb-12 text-center md:pt-24">
         <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-primary/5 px-3 py-1 text-xs font-medium text-fd-primary">
