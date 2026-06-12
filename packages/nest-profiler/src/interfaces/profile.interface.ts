@@ -3,7 +3,10 @@ export type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
 export interface LogEntry {
   level: LogLevel;
   message: string;
+  /** Logger context name, e.g. the class name passed to `new Logger(...)` or `setContext()`. */
   context?: string;
+  /** Structured payload captured from the log call (leading merge object, trailing object, extra args), made JSON-safe. */
+  data?: unknown;
   timestamp: number;
 }
 

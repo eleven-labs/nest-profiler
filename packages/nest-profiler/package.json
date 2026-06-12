@@ -30,6 +30,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "CHANGELOG.md"
   ],
   "engines": {
@@ -71,6 +72,7 @@
     "@types/node": "^22.15.32",
     "@types/supertest": "^6.0.3",
     "jest": "^30.4.2",
+    "nest-winston": "^1.10.2",
     "nestjs-cls": "^4.5.0",
     "nestjs-pino": "^4.4.0",
     "pino-http": "^10.5.0",
@@ -79,7 +81,8 @@
     "rxjs": "^7.8.2",
     "supertest": "^7.1.1",
     "ts-jest": "^29.3.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "winston": "^3.19.0"
   },
   "jest": {
     "preset": "@repo/jest-config",

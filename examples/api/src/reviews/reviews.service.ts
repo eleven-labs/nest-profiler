@@ -76,10 +76,11 @@ export class ReviewsService implements OnApplicationBootstrap {
   }
 
   async findByProduct(productId: string): Promise<ReviewDocument[]> {
-    this.logger.log(`Fetching reviews for product ${productId}`);
+    this.logger.log('Fetching reviews for product', { productId });
     const stop = this.profiler.startSpan('mongo.reviews.findByProduct');
     const reviews = await this.model.find({ productId }).sort({ rating: -1 }).exec();
     stop();
+    this.logger.debug('Reviews fetched', { productId, count: reviews.length });
     return reviews;
   }
 

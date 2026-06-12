@@ -1,0 +1,112 @@
+---
+title: Log capture with context
+description: Wrap your logger so request-scoped logs — with context names and structured payloads — appear in the profiler's Logs tab.
+---
+
+This tutorial shows how to capture application logs into `@eleven-labs/nest-profiler` profiles, first with NestJS's built-in `ConsoleLogger`, then with `nestjs-pino`.
+
+## Why capture logs in the profiler
+
+In a busy console, the logs of concurrent requests interleave. The profiler stores each log entry **in the profile of the request that produced it**, so the Logs tab shows exactly what happened during one request — next to its queries, HTTP calls and timeline — including structured payloads rendered as JSON.
+
+## Step 1 — Wrap the application logger
+
+In `main.ts`, wrap the logger with `profilerService.createLogger()` and register it with `app.useLogger()`:
+
+```ts title="main.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  const profilerService = app.get(ProfilerService);
+  app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApplication')));
+
+  await app.listen(3000);
+}
+
+void bootstrap();
+```
+
+`bufferLogs: true` holds startup logs until the custom logger is registered, so nothing is lost.
+
+## Step 2 — Log with context in a service
+
+Use the standard NestJS `Logger` facade. The message comes first; pass a payload object after it — the facade appends the class name as the context automatically:
+
+```ts title="users.service.ts"
+import { Injectable, Logger } from '@nestjs/common';
+
+@Injectable()
+export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  async create(dto: CreateUserDto): Promise<User> {
+    this.logger.log('Creating user', { email: dto.email, plan: dto.plan });
+    const user = await this.repository.save(dto);
+    this.logger.debug('User persisted', { userId: user.id });
+    return user;
+  }
+}
+```
+
+## Step 3 — Inspect the Logs tab
+
+Make a request, then open the link from the `X-Debug-Token-Link` response header (or browse `/_profiler`):
+
+```bash
+curl -i http://localhost:3000/users -X POST -H 'Content-Type: application/json' -d '{"email":"jane@example.com","plan":"pro"}'
+```
+
+The **Logs** tab lists each entry with its time, level badge, message — with the payload as a JSON block underneath — and the `UsersService` context name:
+
+![Logs tab showing messages with context names and structured JSON payloads](/screenshots/profiler/logs.png)
+
+## Step 4 — Use nestjs-pino instead
+
+The same wrapper works with `nestjs-pino`. Register its `Logger` through `app.useLogger()`:
+
+```ts title="main.ts"
+import { Logger as PinoLogger } from 'nestjs-pino';
+
+app.useLogger(profilerService.createLogger(app.get(PinoLogger)));
+```
+
+For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
+
+```ts title="posts.controller.ts"
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+
+constructor(
+  profiler: ProfilerService,
+  @InjectPinoLogger(PostsController.name) pinoLogger: PinoLogger,
+) {
+  this.logger = profiler.createLogger(pinoLogger);
+}
+
+// pino convention: merging object first, then the message
+this.logger.info({ postCount: 5, cacheKey: 'external:posts' }, 'Posts cached');
+```
+
+The captured entry has `message: 'Posts cached'`, `context: 'PostsController'` and the merging object as `data` — and the real pino line is emitted unchanged.
+
+## Step 5 — Handle an exotic logger
+
+If a logger uses an argument convention the default parser cannot classify, pass a custom `parseArgs`:
+
+```ts
+profiler.createLogger(weirdLogger, {
+  parseArgs: (method, args) => ({
+    message: String(args[1]),
+    data: args[0],
+  }),
+});
+```
+
+## See also
+
+- [Log capture](/docs/packages/nest-profiler/logs) — supported conventions, context name resolution, JSON-safety and customization in detail.
+- [`LogEntry`](/docs/api-reference/nest-profiler#logentry) and [`ProfilerLoggerOptions`](/docs/api-reference/nest-profiler#profilerloggeroptions) in the API reference.

@@ -82,7 +82,11 @@ export class PostsController {
     stopUsers();
 
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data]));
-    this.logger?.info(`Resolved ${userMap.size} author(s), caching enriched posts`);
+    // pino convention: merging object first, then the message.
+    this.logger?.info(
+      { postCount: posts.length, authorCount: userMap.size, cacheKey: POSTS_CACHE_KEY },
+      'Resolved authors, caching enriched posts',
+    );
 
     // 3. Build enriched response and cache it
     const enriched = posts.map((post) => {

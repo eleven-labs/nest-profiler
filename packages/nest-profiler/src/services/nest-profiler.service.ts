@@ -9,7 +9,7 @@ import type {
   SecurityContext,
 } from '../interfaces/profile.interface';
 import { createProfilerLogger } from './profiler-logger-adapter';
-import type { LogMethodMap } from './profiler-logger-adapter';
+import type { LogMethodMap, ProfilerLoggerOptions } from './profiler-logger-adapter';
 
 /**
  * The main entry point for interacting with the profiler from your own code.
@@ -172,20 +172,37 @@ export class ProfilerService {
    * the original logger was used. When there is no active profile the call is
    * simply forwarded, so no log lines are lost.
    *
+   * The default argument parsing understands the common conventions: NestJS —
+   * the default standard — (`log(message, context)`,
+   * `error(message, stack, context)`), the object-first structured style
+   * (`info(payload, message)`) and the message-first style
+   * `log(message, payloadObject)`. Structured payloads
+   * land in `LogEntry.data`; the context name lands in `LogEntry.context`, read
+   * from the delegate's own `context` property when absent from the arguments.
+   *
    * @typeParam T - The logger's type, preserved on the returned proxy.
-   * @param delegate - The underlying logger to forward to (the Nest `Logger`, a
-   *   `nestjs-pino` logger, or any custom `LoggerService`).
-   * @param logMethods - Optional map overriding which methods are intercepted and
-   *   at what level. Defaults to `DEFAULT_LOG_METHODS` (NestJS + pino + winston).
+   * @param delegate - The underlying logger to forward to (the Nest `Logger`,
+   *   any third-party logger, or any custom `LoggerService`).
+   * @param logMethodsOrOptions - Either a map overriding which methods are
+   *   intercepted and at what level (defaults to `DEFAULT_LOG_METHODS`), or a
+   *   `ProfilerLoggerOptions` object also accepting a custom `parseArgs`.
    * @returns A proxy of `delegate` that records every intercepted log call.
    *
    * @example
    * ```ts
-   * const pino = app.get(Logger);
-   * app.useLogger(profiler.createLogger(pino));
+   * const logger = app.get(Logger);
+   * app.useLogger(profiler.createLogger(logger));
+   *
+   * // Logger with an exotic argument convention:
+   * const wrapped = profiler.createLogger(weirdLogger, {
+   *   parseArgs: (method, args) => ({ message: String(args[1]), data: args[0] }),
+   * });
    * ```
    */
-  createLogger<T extends object>(delegate: T, logMethods?: LogMethodMap): T {
-    return createProfilerLogger(delegate, this, logMethods);
+  createLogger<T extends object>(
+    delegate: T,
+    logMethodsOrOptions?: LogMethodMap | ProfilerLoggerOptions,
+  ): T {
+    return createProfilerLogger(delegate, this, logMethodsOrOptions);
   }
 }

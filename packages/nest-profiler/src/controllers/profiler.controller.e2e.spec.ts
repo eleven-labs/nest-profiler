@@ -294,6 +294,42 @@ describe('ProfilerController (e2e)', () => {
     });
   });
 
+  describe('logs tab', () => {
+    const logToken = 'log-e2e-token-123456789';
+
+    it('renders the message before the context and the data payload as JSON', async () => {
+      const storage = app.get(ProfilerStorageService);
+      await storage.save({
+        token: logToken,
+        createdAt: Date.now(),
+        request: { method: 'GET', url: '/hello', headers: {}, query: {} },
+        response: { statusCode: 200, headers: {} },
+        performance: { startTime: Date.now(), heapUsed: 1024, duration: 5 },
+        logs: [
+          {
+            level: 'log',
+            message: 'User logged in',
+            context: 'AuthService',
+            data: { userId: 42 },
+            timestamp: Date.now(),
+          },
+        ],
+        exceptions: [],
+        collectors: {},
+      });
+
+      const res = await request(server()).get(`/_profiler/${logToken}`).query({ tab: 'logs' });
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('User logged in');
+      expect(res.text).toContain('AuthService');
+      // The data payload is rendered as escaped, pretty-printed JSON.
+      expect(res.text).toContain('&#34;userId&#34;: 42');
+      // Column order: Message comes before Context.
+      expect(res.text.indexOf('>Message<')).toBeGreaterThan(-1);
+      expect(res.text.indexOf('>Message<')).toBeLessThan(res.text.indexOf('>Context<'));
+    });
+  });
+
   describe('toolbar injection', () => {
     it('injects the profiler toolbar into HTML responses', async () => {
       const res = await request(server()).get('/page');

@@ -405,19 +405,24 @@
                     <tr class="bg-surface-muted border-b border-line">
                       <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
                       <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Level</th>
-                      <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Context</th>
                       <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Message</th>
+                      <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Context</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-line-subtle">
                     <% for (const entry of profile.logs) { %>
                       <tr class="hover:bg-surface-muted transition-colors">
-                        <td class="py-2 px-4 text-foreground-faint text-xs whitespace-nowrap tabular-nums"><%= timeOnly(entry.timestamp) %></td>
-                        <td class="py-2 px-4 whitespace-nowrap">
+                        <td class="py-2 px-4 text-foreground-faint text-xs whitespace-nowrap tabular-nums align-top"><%= timeOnly(entry.timestamp) %></td>
+                        <td class="py-2 px-4 whitespace-nowrap align-top">
                           <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= logLevelClass(entry.level) %>"><%= entry.level.toUpperCase() %></span>
                         </td>
-                        <td class="py-2 px-4 text-foreground-muted text-xs whitespace-nowrap"><%= entry.context || '' %></td>
-                        <td class="py-2 px-4 text-foreground text-xs break-all"><%= entry.message %></td>
+                        <td class="py-2 px-4 text-foreground text-xs break-all align-top w-full">
+                          <%= entry.message %>
+                          <% if (entry.data !== undefined) { %>
+                            <pre class="bg-surface-muted border border-line rounded px-2 py-1 mt-1.5 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(entry.data) %></code></pre>
+                          <% } %>
+                        </td>
+                        <td class="py-2 px-4 text-foreground-muted text-xs whitespace-nowrap align-top"><%= entry.context || '' %></td>
                       </tr>
                     <% } %>
                   </tbody>
