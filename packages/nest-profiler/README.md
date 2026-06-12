@@ -95,12 +95,29 @@ constructor(
 }
 ```
 
-The default mapping already knows the common third-party method names (pino's `info` → `log`, `trace` → `verbose`, …). For an exotic logger, pass a custom map:
+### Structured context
+
+The capture understands the common argument conventions and stores structured payloads in `LogEntry.data`, next to the context name in `LogEntry.context`:
+
+```ts
+logger.log('User created', { userId: 42 }); // message first — payload object after
+logger.info({ userId: 42 }, 'User created'); // pino — merging object first
+logger.log('User created', 'UsersService'); // NestJS — trailing context name
+```
+
+When the arguments carry no context name, the logger's own `context` property is used as a fallback — so a directly-injected `PinoLogger` shows the name given to `@InjectPinoLogger(...)`. `Error` arguments are serialized as `{ name, message, stack }`, printf interpolation args are never mistaken for a context name, and every payload is made JSON-safe (circular references, `BigInt`, depth/size caps) before storage.
+
+### Custom method map and argument parser
+
+The default mapping already knows the common third-party method names (pino's `info` → `log`, `trace` → `verbose`, …). For an exotic logger, pass a custom map — and a custom `parseArgs` when its argument convention differs from the ones above:
 
 ```ts
 import { DEFAULT_LOG_METHODS } from '@eleven-labs/nest-profiler';
 
-profiler.createLogger(myLogger, { ...DEFAULT_LOG_METHODS, silly: 'verbose' });
+profiler.createLogger(myLogger, {
+  logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
+  parseArgs: (method, args) => ({ message: String(args[1]), data: args[0] }),
+});
 ```
 
 ## Debug headers
@@ -414,6 +431,9 @@ import {
   PROFILER_STORAGE_ADAPTER,
   MemoryStorageAdapter,
   FileStorageAdapter,
+  createProfilerLogger,
+  parseLogArgs,
+  DEFAULT_LOG_METHODS,
 } from '@eleven-labs/nest-profiler';
 
 import type {
@@ -429,6 +449,10 @@ import type {
   TimelineSpan,
   EventEntry,
   SecurityContext,
+  LogMethodMap,
+  LogArgsParser,
+  ParsedLogCall,
+  ProfilerLoggerOptions,
 } from '@eleven-labs/nest-profiler';
 ```
 

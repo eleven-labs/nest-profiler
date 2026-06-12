@@ -3,6 +3,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { PinoLogger, LoggerModule } from 'nestjs-pino';
 import { createProfilerLogger } from './profiler-logger-adapter';
 import type { ProfilerService } from './nest-profiler.service';
+import type { LogEntry } from '../interfaces/profile.interface';
 
 /**
  * Integration test proving the profiler log collector works with a REAL
@@ -13,9 +14,9 @@ import type { ProfilerService } from './nest-profiler.service';
 describe('createProfilerLogger with nestjs-pino', () => {
   let moduleRef: TestingModule;
   let pino: PinoLogger;
-  let addLog: jest.Mock;
+  let addLog: jest.Mock<void, [LogEntry]>;
   let profilerService: Pick<ProfilerService, 'addLog'>;
-  let lines: Array<{ level: number; msg: string }>;
+  let lines: Array<{ level: number; msg: string } & Record<string, unknown>>;
 
   // pino maps its own method names to numeric levels.
   const TRACE = 10;
@@ -26,7 +27,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
     lines = [];
     const stream = {
       write: (chunk: string): void => {
-        lines.push(JSON.parse(chunk) as { level: number; msg: string });
+        lines.push(JSON.parse(chunk) as { level: number; msg: string } & Record<string, unknown>);
       },
     };
 
@@ -44,7 +45,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
 
   beforeEach(() => {
     lines.length = 0;
-    addLog = jest.fn();
+    addLog = jest.fn<void, [LogEntry]>();
     profilerService = { addLog };
   });
 
@@ -86,5 +87,49 @@ describe('createProfilerLogger with nestjs-pino', () => {
 
     expect(() => logger.setContext('SomeContext')).not.toThrow();
     expect(addLog).not.toHaveBeenCalled();
+  });
+
+  it('captures the pino object-first convention as message + data', async () => {
+    const fresh = await moduleRef.resolve(PinoLogger);
+    const logger = createProfilerLogger(fresh, profilerService);
+
+    logger.info({ userId: 42 }, 'user logged in');
+
+    // 1. Profiler stored the message and the merging object as structured data.
+    expect(addLog).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'log', message: 'user logged in', data: { userId: 42 } }),
+    );
+    // 2. The real pino line still carries the merged fields.
+    const emitted = lines.find((line) => line.msg === 'user logged in');
+    expect(emitted?.['userId']).toBe(42);
+  });
+
+  it('falls back to the PinoLogger instance context (the @InjectPinoLogger case)', async () => {
+    const fresh = await moduleRef.resolve(PinoLogger);
+    fresh.setContext('PostsController');
+    const logger = createProfilerLogger(fresh, profilerService);
+
+    logger.info('from an injected logger');
+
+    // The context name never appears in the call args — it lives on the instance.
+    expect(addLog).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'from an injected logger', context: 'PostsController' }),
+    );
+    const emitted = lines.find((line) => line.msg === 'from an injected logger');
+    expect(emitted?.['context']).toBe('PostsController');
+  });
+
+  it('captures error(err) with the Error serialized as data', async () => {
+    const fresh = await moduleRef.resolve(PinoLogger);
+    const logger = createProfilerLogger(fresh, profilerService);
+
+    logger.error(new Error('kaput'));
+
+    expect(addLog).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'error', message: 'kaput' }),
+    );
+    const entry = addLog.mock.calls[0]?.[0];
+    expect(entry?.data).toMatchObject({ name: 'Error', message: 'kaput' });
+    expect(lines.length).toBeGreaterThan(0);
   });
 });

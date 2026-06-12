@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "setup-profiler",
+    "log-capture",
     "typeorm-collector",
     "mikro-orm-collector",
     "mongoose-collector",

@@ -12,6 +12,11 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
     description="Install @eleven-labs/nest-profiler and inspect HTTP requests in the built-in profiler UI."
   />
   <Card
+    href="/docs/tutorials/log-capture"
+    title="Log capture with context"
+    description="Wrap your logger so request-scoped logs with structured payloads appear in the Logs tab."
+  />
+  <Card
     href="/docs/tutorials/typeorm-collector"
     title="TypeORM query profiling"
     description="Capture every SQL query executed by TypeORM and inspect them in the Database panel."
@@ -78,6 +83,7 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | Tutorial                    | NestJS pattern                            | Package                                |
 | --------------------------- | ----------------------------------------- | -------------------------------------- |
 | Set up the profiler         | Middleware + interceptor + global guard   | `@eleven-labs/nest-profiler`           |
+| Log capture with context    | app.useLogger proxy + argument parsing    | `@eleven-labs/nest-profiler`           |
 | TypeORM query profiling     | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
 | MikroORM query profiling    | Logger.logQuery wrap + CLS context        | `@eleven-labs/nest-profiler-mikro-orm` |
 | MongoDB query profiling     | Query/Aggregate.exec patch + CLS context  | `@eleven-labs/nest-profiler-mongoose`  |

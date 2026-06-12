@@ -55,6 +55,8 @@ async function bootstrap() {
 void bootstrap();
 ```
 
+The capture is logger-agnostic and keeps structured context — message, context name and payload all land in the **Logs** tab whichever logger the app uses. The [Log capture with context](/docs/tutorials/log-capture) tutorial and the [Log capture](/docs/packages/nest-profiler/logs) page cover the supported conventions in detail.
+
 ## Step 4 — Make a request and inspect the profile
 
 Start the application, then make any HTTP request:

@@ -56,6 +56,24 @@ Full data structure for a collected request profile.
 
 <AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="LogEntry" />
 
+## ProfilerLoggerOptions
+
+Options accepted by `ProfilerService.createLogger()` (and `createProfilerLogger()`). The default `parseArgs` implementation, exported as `parseLogArgs`, understands the NestJS (`log(message, context)`, `error(message, stack, context)`), pino / nestjs-pino (`info(mergingObject, message)`) and message-first (`log(message, payloadObject)`) conventions; pass a custom `parseArgs` for loggers with an exotic argument convention.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/services/profiler-logger-adapter.ts"
+  name="ProfilerLoggerOptions"
+/>
+
+## ParsedLogCall
+
+Return value of a `LogArgsParser`: what the profiler stores for one log call.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/services/profiler-logger-adapter.ts"
+  name="ParsedLogCall"
+/>
+
 ## ExceptionEntry
 
 <AutoTypeTable
@@ -149,6 +167,9 @@ import {
   PROFILER_STORAGE_ADAPTER,
   MemoryStorageAdapter,
   FileStorageAdapter,
+  createProfilerLogger,
+  parseLogArgs,
+  DEFAULT_LOG_METHODS,
 } from '@eleven-labs/nest-profiler';
 
 import type {
@@ -168,6 +189,10 @@ import type {
   LogEntry,
   ExceptionEntry,
   LogLevel,
+  LogMethodMap,
+  LogArgsParser,
+  ParsedLogCall,
+  ProfilerLoggerOptions,
   TimelineSpan,
   EventEntry,
   SecurityContext,

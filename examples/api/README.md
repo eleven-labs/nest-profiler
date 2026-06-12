@@ -497,4 +497,22 @@ FEATURE_PINO_LOGGER=true FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm examp
 
 `app.useLogger()` only captures logs that flow through NestJS's `Logger`. `PostsController` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `profiler.createLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode, call `GET /posts/cache/clear`, and check the **Logs** tab.
 
+### Structured log context
+
+The capture understands the common argument conventions, so the **Logs** tab shows the message, the context name and the payload as a JSON block:
+
+```ts
+// NestJS style — trailing context name (appended by `new Logger(MyService.name)`)
+this.logger.log('Health check');
+
+// message-first payload — ReviewsService
+this.logger.log('Fetching reviews for product', { productId });
+
+// pino object-first — PostsController (the injected PinoLogger also provides
+// its `@InjectPinoLogger(...)` context name automatically)
+this.logger?.info({ postCount, authorCount, cacheKey }, 'Resolved authors, caching enriched posts');
+```
+
+Call `GET /reviews/product/1` (message-first) or `GET /posts` (pino object-first) and compare the entries in the **Logs** tab.
+
 Open `http://localhost:3000/_profiler` to browse all profiles.
