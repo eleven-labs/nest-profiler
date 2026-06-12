@@ -58,7 +58,9 @@ describe('App endpoints (e2e)', () => {
         ]),
       );
       const total = profile.spans?.find((s) => s.phase === 'slow.total');
-      expect(total?.duration).toBeGreaterThanOrEqual(60); // 30 + 20 + 10ms of simulated work
+      // 30 + 20 + 10ms of simulated work; allow a small tolerance since setTimeout
+      // can fire a hair early, occasionally yielding 59ms for the aggregate span.
+      expect(total?.duration).toBeGreaterThanOrEqual(55);
     });
   });
 
