@@ -23,6 +23,7 @@
   "changesets": [
     "add-profiler-cdn-sri",
     "capture-guard-exceptions",
+    "capture-structured-log-context",
     "extensible-list-filters",
     "fix-graphql-redos",
     "nest-profiler-auth",
