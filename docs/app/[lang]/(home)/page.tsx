@@ -165,7 +165,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
               className="rounded-xl border border-fd-border bg-fd-card p-5 transition-colors hover:border-fd-primary/40"
               key={title}
             >
-              <div className="flex items-center gap-4 mb-3">
+              <div className="mb-3 flex items-center gap-4">
                 <div className="inline-flex size-10 items-center justify-center rounded-lg bg-fd-primary/10 text-fd-primary">
                   <Icon className="size-5" />
                 </div>

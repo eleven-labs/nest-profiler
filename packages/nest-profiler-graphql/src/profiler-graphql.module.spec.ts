@@ -51,7 +51,7 @@ describe('ProfilerGraphQLModule', () => {
       await app.close();
     });
 
-    it('adds a "GraphQL" option to the list "type" filter', async () => {
+    it('registers the graphql entrypoint type with its own section and scoped filter', async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [ProfilerModule.forRoot({ isGlobal: true }), ProfilerGraphQLModule.forRoot()],
         controllers: [DummyController],
@@ -61,8 +61,10 @@ describe('ProfilerGraphQLModule', () => {
       await app.init();
 
       const core = moduleRef.get(ProfilerCoreService, { strict: false });
-      const typeFilter = core.getListFilters().find((f) => f.key === 'type');
-      expect(typeFilter?.options?.map((o) => o.value)).toContain('graphql');
+      expect(core.getEntrypointType('graphql').type).toBe('graphql');
+      expect(core.getListSections().some((s) => s.key === 'graphql')).toBe(true);
+      const opFilter = core.getListFilters().find((f) => f.key === 'operationType');
+      expect(opFilter?.forType).toBe('graphql');
 
       await app.close();
     });

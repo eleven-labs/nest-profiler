@@ -4,15 +4,17 @@ import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
 import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
+import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 
 function makeProfile(): Profile {
   return {
     token: 'tok',
     createdAt: Date.now(),
-    request: { method: 'POST', url: '/graphql', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'POST', url: '/graphql', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],
@@ -255,17 +257,128 @@ describe('ProfilerCoreService', () => {
     });
 
     it('registerFilterOption merges options into an existing select filter', () => {
-      core.registerFilterOption('type', { value: 'graphql', label: 'GraphQL' });
-      const typeFilter = core.getListFilters().find((f) => f.key === 'type');
-      expect(typeFilter?.options?.map((o) => o.value)).toContain('graphql');
+      core.registerFilterOption('statusClass', { value: '9', label: '9xx' });
+      const statusClass = core.getListFilters().find((f) => f.key === 'statusClass');
+      expect(statusClass?.options?.map((o) => o.value)).toContain('9');
     });
 
     it('does not add the same option value twice', () => {
-      core.registerFilterOption('type', { value: 'graphql', label: 'GraphQL' });
-      core.registerFilterOption('type', { value: 'graphql', label: 'GQL' });
-      const typeFilter = core.getListFilters().find((f) => f.key === 'type');
-      const graphqlOptions = typeFilter?.options?.filter((o) => o.value === 'graphql');
-      expect(graphqlOptions).toHaveLength(1);
+      core.registerFilterOption('statusClass', { value: '9', label: '9xx' });
+      core.registerFilterOption('statusClass', { value: '9', label: 'nine' });
+      const statusClass = core.getListFilters().find((f) => f.key === 'statusClass');
+      const dupes = statusClass?.options?.filter((o) => o.value === '9');
+      expect(dupes).toHaveLength(1);
+    });
+  });
+
+  describe('list section registry', () => {
+    let core: ProfilerCoreService;
+
+    beforeEach(async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ProfilerCoreService,
+          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
+          { provide: RouteCollector, useValue: { match: jest.fn() } },
+        ],
+      }).compile();
+      core = moduleRef.get(ProfilerCoreService);
+    });
+
+    const customSection: ProfilerListSection = {
+      key: 'messages',
+      title: 'Messages',
+      order: 5,
+      templatePath: '/tmp/messages.ejs',
+      matches: (p) => (p.entrypoint.data as HttpRequestData).method === 'MSG',
+    };
+
+    it('seeds the built-in HTTP section as the default', () => {
+      const sections = core.getListSections();
+      const http = sections.find((s) => s.key === 'http');
+      expect(http).toBeDefined();
+      expect(http?.isDefault).toBe(true);
+    });
+
+    it('registerListSection adds a contributed section', () => {
+      core.registerListSection(customSection);
+      expect(core.getListSections().some((s) => s.key === 'messages')).toBe(true);
+    });
+
+    it('does not register the same key twice', () => {
+      core.registerListSection(customSection);
+      core.registerListSection({ ...customSection, title: 'Other' });
+      const matches = core.getListSections().filter((s) => s.key === 'messages');
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.title).toBe('Messages');
+    });
+
+    it('returns sections sorted by ascending order', () => {
+      core.registerListSection(customSection); // order 5 — before the built-ins
+      const orders = core.getListSections().map((s) => s.order ?? 100);
+      expect(orders).toEqual([...orders].sort((a, b) => a - b));
+      expect(core.getListSections()[0]?.key).toBe('messages');
+    });
+  });
+
+  describe('entrypoint type registry', () => {
+    let core: ProfilerCoreService;
+
+    beforeEach(async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ProfilerCoreService,
+          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
+          { provide: RouteCollector, useValue: { match: jest.fn() } },
+        ],
+      }).compile();
+      core = moduleRef.get(ProfilerCoreService);
+    });
+
+    const demoType: ProfilerEntrypointType = {
+      type: 'demo',
+      label: 'Demo',
+      listSection: {
+        title: 'Demo',
+        templatePath: '/tmp/x.ejs',
+        order: 50,
+        itemLabel: 'demo',
+      },
+      detailTabs: [{ name: 'demo', label: 'Demo', templatePath: '/tmp/x.ejs' }],
+      listFilters: [
+        {
+          key: 'demoFilter',
+          label: 'Demo',
+          control: 'text',
+          parse: (raw) => (raw && raw.length > 0 ? raw : undefined),
+          matches: () => true,
+        },
+      ],
+      summary: () => ({ badge: 'D', text: 'x' }),
+    };
+
+    it('registerEntrypointType derives a list section keyed by the type', () => {
+      core.registerEntrypointType(demoType);
+      expect(core.getListSections().some((s) => s.key === 'demo')).toBe(true);
+    });
+
+    it('getEntrypointType returns the registered type', () => {
+      core.registerEntrypointType(demoType);
+      expect(core.getEntrypointType('demo')).toBe(demoType);
+    });
+
+    it('getEntrypointType falls back to the built-in http type for an unknown type', () => {
+      const fallback = core.getEntrypointType('nope');
+      expect(fallback.type).toBe('http');
+    });
+
+    it('registerEntrypointType registers the kind-scoped list filters', () => {
+      core.registerEntrypointType(demoType);
+      const scoped = core.getListFilters().find((f) => f.key === 'demoFilter');
+      expect(scoped).toBeDefined();
+      expect(scoped?.forType).toBe('demo');
     });
   });
 });

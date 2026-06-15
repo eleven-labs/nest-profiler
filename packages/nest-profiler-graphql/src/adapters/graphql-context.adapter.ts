@@ -5,10 +5,12 @@ import type { FieldNode, OperationDefinitionNode } from 'graphql';
 import type {
   ExceptionEntry,
   GraphQLInfo,
+  HttpRequestData,
   IContextAdapter,
   Profile,
 } from '@eleven-labs/nest-profiler';
 import { PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
+import { GRAPHQL_ENTRYPOINT_TYPE } from '../graphql-entrypoint';
 
 type GqlResolveInfo = {
   fieldName?: string;
@@ -68,7 +70,7 @@ function extractQueryMetadata(rawQuery: string): GqlQueryMetadata {
 export class GraphQLContextAdapter implements IContextAdapter {
   readonly contextType = 'graphql';
 
-  recoverProfile(ctx: ExecutionContext): Profile | null {
+  recoverProfile(ctx: ExecutionContext): Profile<HttpRequestData> | null {
     const [, , gqlCtx] = ctx.getArgs<[unknown, unknown, GqlContext]>();
     if (!gqlCtx) return null;
 
@@ -80,13 +82,21 @@ export class GraphQLContextAdapter implements IContextAdapter {
 
     for (const candidate of candidates) {
       const profile = candidate[PROFILER_REQ_KEY];
-      if (profile) return profile as Profile;
+      if (profile) return profile as Profile<HttpRequestData>;
     }
 
     return null;
   }
 
-  enrichProfile(profile: Profile, ctx: ExecutionContext): void {
+  enrichProfile(profile: Profile<HttpRequestData>, ctx: ExecutionContext): void {
+    // A GraphQL operation is its own entrypoint kind: flip the `http` discriminator
+    // the middleware seeded so the profile renders in the GraphQL list and tab.
+    profile.entrypoint.type = GRAPHQL_ENTRYPOINT_TYPE;
+    const data = profile.entrypoint.data;
+    // Idempotent: only the first resolver of a request captures the operation —
+    // the interceptor calls this for every resolver.
+    if (data.graphql) return;
+
     const [, , gqlCtx, info] = ctx.getArgs<[unknown, unknown, GqlContext, GqlResolveInfo]>();
 
     const operationType: GraphQLInfo['operationType'] = info?.operation?.operation ?? 'query';
@@ -111,7 +121,7 @@ export class GraphQLContextAdapter implements IContextAdapter {
       }
     }
 
-    profile.request.graphql = {
+    data.graphql = {
       operationType,
       fieldName,
       ...(operationName !== undefined && { operationName }),
@@ -121,20 +131,25 @@ export class GraphQLContextAdapter implements IContextAdapter {
   }
 
   /** Populates GraphQL metadata and surfaces errors even when no resolver ran (e.g. validation failure). */
-  enrichHttpResponse(profile: Profile, req: object, responseBody: unknown): void {
+  enrichHttpResponse(profile: Profile<HttpRequestData>, req: object, responseBody: unknown): void {
+    const data = profile.entrypoint.data;
     const reqRecord = req as Record<string, unknown>;
     // Apollo may parse body internally — fall back to profiler-captured body.
     const body =
       (reqRecord['body'] as Record<string, unknown> | undefined) ??
-      (profile.request.body as Record<string, unknown> | undefined);
+      (data.body as Record<string, unknown> | undefined);
     if (!body || typeof body['query'] !== 'string') return;
+
+    // Confirmed GraphQL even when no resolver ran (e.g. a validation failure):
+    // promote it to the GraphQL entrypoint kind.
+    profile.entrypoint.type = GRAPHQL_ENTRYPOINT_TYPE;
 
     const rawQuery = body['query'];
 
-    if (!profile.request.graphql) {
+    if (!data.graphql) {
       // No resolver ran (e.g. validation failure) — populate metadata from HTTP body.
       const { operationType, fieldName, query } = extractQueryMetadata(rawQuery);
-      profile.request.graphql = {
+      data.graphql = {
         operationType,
         fieldName,
         ...(typeof body['operationName'] === 'string' && { operationName: body['operationName'] }),
@@ -145,11 +160,11 @@ export class GraphQLContextAdapter implements IContextAdapter {
             variables: body['variables'] as Record<string, unknown>,
           }),
       };
-    } else if (profile.request.graphql.query) {
+    } else if (data.graphql.query) {
       // Resolver ran — still format the query for consistent display.
-      profile.request.graphql = {
-        ...profile.request.graphql,
-        query: tryFormatQuery(profile.request.graphql.query),
+      data.graphql = {
+        ...data.graphql,
+        query: tryFormatQuery(data.graphql.query),
       };
     }
 

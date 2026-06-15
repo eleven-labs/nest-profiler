@@ -9,6 +9,8 @@ export interface CommanderCollectorModuleOptions {
   enabled?: boolean;
 }
 
+// `CommandProfiler` registers the `command` entrypoint type in its `onModuleInit`
+// (it already injects `ProfilerCoreService`), so the module stays a thin factory.
 @Module({})
 export class CommanderCollectorModule {
   static forRoot(options: CommanderCollectorModuleOptions = {}): DynamicModule {

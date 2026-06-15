@@ -1,0 +1,50 @@
+<%
+  const req = profile.entrypoint.data;
+  const gql = req.graphql;
+%>
+
+<div class="flex flex-wrap items-center gap-2 mb-8 pb-6 border-b border-line-subtle">
+  <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(gql.operationType) %>"><%= gql.operationType.toUpperCase() %></span>
+  <% if (gql.operationName) { %>
+    <span class="px-2.5 py-1 rounded text-2xs font-medium bg-surface-muted border border-line text-foreground-secondary"><%= gql.operationName %></span>
+  <% } %>
+  <span class="text-foreground-faint text-2xs">field:</span>
+  <code class="text-foreground-secondary text-xs bg-surface-muted border border-line px-2 py-0.5 rounded"><%= gql.fieldName %></code>
+  <span class="text-foreground-faint text-2xs ml-auto"><code><%= req.method %> <%= req.url %></code></span>
+</div>
+
+<% if (gql.query) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Query</h2>
+    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code class="language-graphql"><%= gql.query %></code></pre>
+  </section>
+<% } %>
+
+<% if (gql.variables && Object.keys(gql.variables).length > 0) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Variables</h2>
+    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code class="language-json"><%= toJson(gql.variables) %></code></pre>
+  </section>
+<% } %>
+
+<section class="mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Response</h2>
+    <% if (profile.response) { %>
+      <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= statusClass(profile.response.statusCode) %>"><%= profile.response.statusCode %></span>
+    <% } %>
+  </div>
+  <% if (profile.response && profile.response.body !== undefined && profile.response.body !== null) { %>
+    <% const respBodyIsText = typeof profile.response.body === 'string'; %>
+    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= respBodyIsText ? '' : ' class="language-json"' %>><%= respBodyIsText ? profile.response.body : toJson(profile.response.body) %></code></pre>
+  <% } else { %>
+    <p class="text-foreground-faint text-xs italic py-1">No response body captured.</p>
+  <% } %>
+</section>
+
+<% if (req.headers && Object.keys(req.headers).length > 0) { %>
+  <section>
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Request Headers</h2>
+    <%- kvTable(req.headers) %>
+  </section>
+<% } %>

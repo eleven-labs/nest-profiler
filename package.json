@@ -28,6 +28,7 @@
     "docs:dev": "pnpm --filter docs dev",
     "example:dev": "turbo run start:dev --filter=example-api",
     "example:start": "turbo run build && pnpm --filter=example-api start",
+    "screenshots": "tsx scripts/generate-profiler-screenshots.ts",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:reset": "docker compose down -v",

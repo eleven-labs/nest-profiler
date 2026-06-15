@@ -10,7 +10,7 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'tok',
     createdAt: Date.now(),
-    request: { method: 'GET', url: '/auth/me', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/auth/me', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],

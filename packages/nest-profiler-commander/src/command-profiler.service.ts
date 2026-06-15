@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
+import type { CommandInfo } from './commander-collector.interface';
+import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';
 
 /** Identifies the command being profiled. */
 export interface CommandProfileMeta {
@@ -15,13 +19,13 @@ export interface CommandProfileMeta {
  * Replicates the HTTP profiling flow (`ProfilerMiddleware` + `ProfilerInterceptor`) for
  * CLI commands, which never traverse the HTTP middleware/interceptor pipeline.
  *
- * It synthesises a `Profile` shaped like an HTTP one (`request.method = 'CLI'`), runs the
- * command body inside a CLS context so nested collectors (axios, cache, …) keep capturing
+ * It synthesises a `Profile` with a `command` entrypoint, runs the command body inside a
+ * CLS context so nested profile-scoped collectors (axios, cache, DB, …) keep capturing
  * data, then runs every collector and persists the profile via the shared storage. With
  * file storage the resulting profile shows up in the web profiler at `/_profiler`.
  */
 @Injectable()
-export class CommandProfiler {
+export class CommandProfiler implements OnModuleInit {
   private readonly logger = new Logger(CommandProfiler.name);
   private warnedProcessLocalStorage = false;
 
@@ -29,6 +33,15 @@ export class CommandProfiler {
     private readonly cls: ClsService,
     private readonly core: ProfilerCoreService,
   ) {}
+
+  /**
+   * Registers the `command` entrypoint type so the profiler renders command
+   * profiles in their own list table and Command detail tab. Runs only when the
+   * collector is enabled (this provider exists only then).
+   */
+  onModuleInit(): void {
+    this.core.registerEntrypointType(COMMAND_ENTRYPOINT_TYPE_DEF);
+  }
 
   async profile(meta: CommandProfileMeta, exec: () => Promise<void>): Promise<void> {
     this.warnIfProcessLocalStorage();
@@ -69,18 +82,21 @@ export class CommandProfiler {
     );
   }
 
-  private buildProfile(meta: CommandProfileMeta): Profile {
+  private buildProfile(meta: CommandProfileMeta): Profile<CommandInfo> {
     const startTime = Date.now();
-    const url = [meta.name, ...meta.arguments].join(' ').trim();
+    const data: CommandInfo = {
+      name: meta.name,
+      arguments: meta.arguments,
+      options: meta.options,
+      exitCode: 0,
+      success: true,
+    };
     return {
       token: randomUUID(),
       createdAt: startTime,
-      request: {
-        method: 'CLI',
-        url,
-        headers: {},
-        query: {},
-      },
+      // The `command` entrypoint type (registered by CommanderCollectorModule)
+      // gives this profile its dedicated list table and Command detail tab.
+      entrypoint: { type: COMMAND_ENTRYPOINT_TYPE, data },
       performance: {
         startTime,
         heapUsed: process.memoryUsage().heapUsed,
@@ -91,7 +107,11 @@ export class CommandProfiler {
     };
   }
 
-  private finalize(profile: Profile, meta: CommandProfileMeta, error: Error | undefined): void {
+  private finalize(
+    profile: Profile<CommandInfo>,
+    _meta: CommandProfileMeta,
+    error: Error | undefined,
+  ): void {
     profile.performance.duration = Date.now() - profile.performance.startTime;
     profile.response = {
       statusCode: error ? 500 : 200,
@@ -108,14 +128,8 @@ export class CommandProfiler {
       });
     }
 
-    // Typed marker the profiler UI uses to render this profile as a command
-    // (dedicated list table + built-in Command tab, no request/response tabs).
-    profile.request.command = {
-      name: meta.name,
-      arguments: meta.arguments,
-      options: meta.options,
-      exitCode: error ? 1 : 0,
-      success: !error,
-    };
+    const data = profile.entrypoint.data;
+    data.exitCode = error ? 1 : 0;
+    data.success = !error;
   }
 }

@@ -9,6 +9,7 @@ import {
 } from '@eleven-labs/nest-profiler-graphql';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { AppController } from './app.controller.js';
 import { ProductModule } from './products/product.module.js';
 import { MongoModule } from './mongo/mongo.module.js';
@@ -93,6 +94,9 @@ import featuresConfig, {
       enabled: isProfilerEnabled(process.env),
       validationPipeOptions: { whitelist: true, transform: true },
     }),
+    // Registers the `command` entrypoint type so command profiles produced by the
+    // CLI process (shared via file storage) render in this HTTP app's profiler.
+    CommanderCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
 
     // Feature modules — no infra dependency
     AuthModule,

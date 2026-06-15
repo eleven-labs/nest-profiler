@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { TemplateRendererService } from './template-renderer.service';
+import { TEMPLATES_DIR } from '../views/template-engine';
 
 const MINIMAL_LIST_DATA = {
   title: 'Profiles',
@@ -17,12 +18,15 @@ const MINIMAL_DETAIL_DATA = {
   profilerPath: '/_profiler',
   token: 'abc12345678',
   activeTab: 'request',
+  summary: { badge: 'GET', badgeClass: 'badge-default', text: '/hello' },
+  entrypointTabs: [{ name: 'request', label: 'Request', icon: undefined, badge: 'GET' }],
+  entrypointTabTemplate: path.join(TEMPLATES_DIR, 'entrypoints', 'http-request.ejs'),
   collectorPanels: [],
   collectorData: undefined,
   profile: {
     token: 'abc12345678',
     createdAt: Date.now(),
-    request: { method: 'GET', url: '/hello', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/hello', headers: {}, query: {} } },
     response: { statusCode: 200, headers: {} },
     performance: { startTime: Date.now(), heapUsed: 1024 * 1024, duration: 12 },
     logs: [],
@@ -42,6 +46,53 @@ describe('TemplateRendererService', () => {
     const html = await service.render('list', MINIMAL_LIST_DATA);
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('Recent Profiles');
+  });
+
+  it('renders every section as a <details> disclosure and folds only defaultCollapsed ones', async () => {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tpl-section-'));
+    try {
+      await fs.promises.writeFile(path.join(dir, 'rows.ejs'), '<tbody data-rows></tbody>');
+      service.registerDir(dir);
+      const rowsPath = path.join(dir, 'rows.ejs');
+
+      const baseSection = {
+        title: 'HTTP',
+        description: undefined,
+        itemLabel: 'profile',
+        isDefault: true,
+        total: 0,
+        profiles: [],
+        filterDefs: [],
+        filterValues: {},
+        filterPrefix: 'http',
+        resetHref: '/_profiler',
+        templatePath: rowsPath,
+      };
+
+      const html = await service.render('list', {
+        ...MINIMAL_LIST_DATA,
+        sections: [
+          { ...baseSection, key: 'http', defaultCollapsed: false },
+          {
+            ...baseSection,
+            key: 'cmd',
+            title: 'Commands',
+            isDefault: false,
+            total: 2,
+            defaultCollapsed: true,
+          },
+        ],
+      });
+
+      expect(html).toContain('Commands');
+      // Every section is a disclosure: two sections → two <details>/<summary>.
+      expect(html.match(/<details/g)).toHaveLength(2);
+      expect(html.match(/<summary/g)).toHaveLength(2);
+      // Expanded by default, except the defaultCollapsed: true section → exactly one `open`.
+      expect(html.match(/<details[^>]*\sopen>/g)).toHaveLength(1);
+    } finally {
+      await fs.promises.rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('renders the built-in detail template', async () => {

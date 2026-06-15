@@ -3,7 +3,7 @@ title: GraphQL profiling
 description: Profile GraphQL queries and mutations with the nest-profiler-graphql package and inspect them in the profiler UI.
 ---
 
-This tutorial shows how to add GraphQL profiling to a NestJS application that uses `@nestjs/graphql`. After completing it, every GraphQL request will appear in `/_profiler` with a **GQL** badge and a dedicated section in the **Request** tab.
+This tutorial shows how to add GraphQL profiling to a NestJS application that uses `@nestjs/graphql`. After completing it, every GraphQL operation will appear in `/_profiler` in its own **GraphQL** table, with a dedicated **GraphQL** detail tab.
 
 ## Prerequisites
 
@@ -99,17 +99,19 @@ curl -X POST http://localhost:3000/graphql \
   }'
 ```
 
-Open `/_profiler` to see the captured profiles. Each GraphQL request shows a **GQL** badge followed by the operation type (**QUERY** or **MUTATION**) and the operation name or field name.
+Open `/_profiler` to see the captured profiles. GraphQL operations are listed in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY** / **MUTATION** / **SUBSCRIPTION**) and the operation or field name. The table has its own filter bar — the universal filters (search, status, duration…) plus an **Operation** filter to narrow by operation type.
 
-In the **Request** tab, a dedicated **GraphQL** section displays:
+Open an operation to land on its dedicated **GraphQL** detail tab, which displays:
 
-- **Operation type** badge (Query / Mutation)
+- **Operation type** badge (Query / Mutation / Subscription)
 - **Operation name** — if provided in the request
 - **Field name** — the entry-point resolver field
 - **Query** — the full document, syntax-highlighted
 - **Variables** — the variables object, syntax-highlighted as JSON
+- **Response** — the `{ data, errors }` envelope returned to the client
+- **Request headers** — the underlying HTTP headers
 
-The standard HTTP details (method, URL, headers, body) remain visible below the GraphQL section.
+GraphQL errors returned with an HTTP 200 are still surfaced in the **Exceptions** tab.
 
 ## Filtering playground and introspection requests
 
@@ -157,7 +159,7 @@ ProfilerGraphQLModule.forRoot({
 
 ## How it works
 
-`ProfilerGraphQLModule` registers a `GraphQLContextAdapter` with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius) and retrieves the profile that the HTTP middleware already created.
+`ProfilerGraphQLModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` — which is what routes it to the dedicated **GraphQL** list table and detail tab.
 
 A middleware `finish` hook also captures GraphQL errors for requests that Apollo handles without calling any resolver (e.g. schema validation failures), ensuring those profiles still appear in `/_profiler`.
 

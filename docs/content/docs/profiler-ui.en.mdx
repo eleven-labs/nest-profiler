@@ -7,31 +7,31 @@ Open `/_profiler` to browse the list of captured profiles, then click any row to
 
 ## Profiles list
 
-The `/_profiler` page lists captured profiles with their HTTP method, URL, status, and duration, a search field and status filters, and global panels such as **Config** that apply across the whole list.
+The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it — the universal filters (search, status, status class, duration, exceptions) plus filters specific to that kind (e.g. HTTP **method**) — so each list is filtered independently. Global panels such as **Config** apply across the whole page.
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 
-## GraphQL requests
+## GraphQL operations
 
 Requires [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql) — see the [GraphQL support section](/docs/getting-started#graphql-support) in Getting started.
 
-GraphQL requests appear in the list with a **GQL** badge followed by the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**). The operation name or field name is shown in place of the URL.
+GraphQL operations appear in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**) and the operation or field name. Its filter bar adds an **Operation** filter to narrow the list by operation type.
 
-![Profiles list showing GQL MUTATION and GQL QUERY badges alongside the operation name and status](/screenshots/profiler/graphql-list.png)
+![Profiles list showing the GraphQL table with QUERY and MUTATION operations alongside their status](/screenshots/profiler/graphql-list.png)
 
-The **Request** tab for GraphQL profiles adds a dedicated **GraphQL** section displaying:
+Opening an operation lands on its dedicated **GraphQL** detail tab, displaying:
 
 - **Operation type** badge (Query / Mutation / Subscription)
 - **Operation name** if present in the request
 - **Field name** — the entry-point resolver
 - **Query** — syntax-highlighted GraphQL document
 - **Variables** — the variables object, syntax-highlighted as JSON
+- **Response** — the `{ data, errors }` envelope returned to the client
+- **Request headers** — the underlying HTTP headers
 
-The HTTP method, URL, headers, and other standard fields remain visible below the GraphQL section.
+![GraphQL detail tab with operation type, name, syntax-highlighted query and variables (Query)](/screenshots/profiler/graphql-request.png)
 
-![Request tab showing the GraphQL section with operation type, name, syntax-highlighted query and variables (Query)](/screenshots/profiler/graphql-request.png)
-
-![Request tab showing the GraphQL section for a Mutation with input variables](/screenshots/profiler/graphql-mutation.png)
+![GraphQL detail tab for a Mutation with input variables](/screenshots/profiler/graphql-mutation.png)
 
 GraphQL-level errors (schema validation failures, resolver errors returned in `response.body.errors`) appear in the **Exceptions** tab with an amber `GraphQLError` badge, visually distinct from NestJS runtime exceptions which use a red badge.
 

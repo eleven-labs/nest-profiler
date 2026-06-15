@@ -4,7 +4,8 @@ import { ClsService } from 'nestjs-cls';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import { PROFILER_REQ_KEY } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
@@ -84,18 +85,21 @@ export class ProfilerMiddleware implements NestMiddleware {
     const requestId = req.headers['x-request-id'];
     const token = (Array.isArray(requestId) ? requestId[0] : requestId) ?? crypto.randomUUID();
 
-    const profile: Profile = {
+    const profile: Profile<HttpRequestData> = {
       token,
       createdAt: Date.now(),
-      request: {
-        method: req.method,
-        url: req.originalUrl ?? req.url,
-        headers: normalizeIncomingHeaders(req.headers),
-        query: req.query ?? {},
-        ip: req.ip,
-        body: this.collectBody ? req.body : undefined,
-        cookies: this.buildCookieMap(req),
-        session: this.buildSessionData(req),
+      entrypoint: {
+        type: HTTP_ENTRYPOINT_TYPE,
+        data: {
+          method: req.method,
+          url: req.originalUrl ?? req.url,
+          headers: normalizeIncomingHeaders(req.headers),
+          query: req.query ?? {},
+          ip: req.ip,
+          body: this.collectBody ? req.body : undefined,
+          cookies: this.buildCookieMap(req),
+          session: this.buildSessionData(req),
+        },
       },
       performance: {
         startTime: Date.now(),
@@ -128,7 +132,11 @@ export class ProfilerMiddleware implements NestMiddleware {
    * The hook also intercepts `res.json()` so it can capture the response body before it
    * is sent — needed to surface GraphQL-level errors as exceptions.
    */
-  private attachFinishHook(profile: Profile, req: PlatformRequest, res: PlatformResponse): void {
+  private attachFinishHook(
+    profile: Profile<HttpRequestData>,
+    req: PlatformRequest,
+    res: PlatformResponse,
+  ): void {
     if (!this.core) return; // only active in the enabled layer
     const rawRes = res as unknown as RawResponse;
     if (!rawRes.once) return;
@@ -142,7 +150,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         // the non-HTTP (resolver) context and only saw the resolver result — never the
         // transport-level { data, errors } envelope the driver writes afterwards. Backfill
         // it so the Response tab shows what the client actually received, errors included.
-        if (profile.request.graphql && interceptedResponseBody !== undefined) {
+        if (profile.entrypoint.data.graphql && interceptedResponseBody !== undefined) {
           profile.response.body = interceptedResponseBody;
           profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
           this.core.scheduleSave(profile);
@@ -174,7 +182,10 @@ export class ProfilerMiddleware implements NestMiddleware {
    * be consumed (body collection enabled, or a GraphQL request whose envelope we always
    * surface), are restricted to JSON responses, and are capped to bound memory.
    */
-  private interceptResponseBody(rawRes: RawResponse, profile: Profile): () => unknown {
+  private interceptResponseBody(
+    rawRes: RawResponse,
+    profile: Profile<HttpRequestData>,
+  ): () => unknown {
     let body: unknown;
     const capture = (value: unknown): void => {
       if (body !== undefined || value === undefined || value === null) return;
@@ -207,7 +218,7 @@ export class ProfilerMiddleware implements NestMiddleware {
     let bufferedBytes = 0;
     let overflow = false;
     const shouldBuffer = (): boolean => {
-      if (!this.collectBody && !profile.request.graphql) return false;
+      if (!this.collectBody && !profile.entrypoint.data.graphql) return false;
       const contentType = rawRes.getHeader?.('content-type');
       return typeof contentType === 'string' && contentType.includes('json');
     };

@@ -5,7 +5,7 @@ function makeProfile(token: string, overrides: Partial<Profile> = {}): Profile {
   return {
     token,
     createdAt: Date.now(),
-    request: { method: 'GET', url: `/${token}`, headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: `/${token}`, headers: {}, query: {} } },
     performance: { startTime: 0, heapUsed: 0, duration: 1 },
     logs: [],
     exceptions: [],
@@ -69,10 +69,14 @@ describe('MemoryStorageAdapter', () => {
     it('delegates filtering to applyProfileFilters', () => {
       const adapter = new MemoryStorageAdapter();
       adapter.save(
-        makeProfile('a', { request: { method: 'GET', url: '/a', headers: {}, query: {} } }),
+        makeProfile('a', {
+          entrypoint: { type: 'http', data: { method: 'GET', url: '/a', headers: {}, query: {} } },
+        }),
       );
       adapter.save(
-        makeProfile('b', { request: { method: 'POST', url: '/b', headers: {}, query: {} } }),
+        makeProfile('b', {
+          entrypoint: { type: 'http', data: { method: 'POST', url: '/b', headers: {}, query: {} } },
+        }),
       );
       const result = adapter.findAll({ method: 'POST' });
       expect(result.map((p) => p.token)).toEqual(['b']);

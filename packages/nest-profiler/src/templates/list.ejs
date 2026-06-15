@@ -5,16 +5,6 @@
   <%- include('_nav') %>
   <main class="max-w-7xl mx-auto px-6 py-8">
 
-    <%
-      // Commands are profiled separately from HTTP/GraphQL requests — split them out.
-      const requestProfiles = profiles.filter((p) => !p.request.command);
-      const commands = typeof commandProfiles !== 'undefined' && commandProfiles ? commandProfiles : [];
-      // When the user filters on the "command" type, hide the requests section entirely
-      // (and vice-versa: the commands section already only shows when commands match).
-      const activeType = typeof filterValues !== 'undefined' && filterValues ? filterValues.type : undefined;
-      const showRequests = activeType !== 'command';
-    %>
-
     <div class="mb-6">
       <h1 class="text-base font-semibold text-foreground">Recent Profiles</h1>
       <p class="text-foreground-muted text-xs mt-0.5">Profiles captured by the profiler</p>
@@ -61,47 +51,6 @@
       </div>
     <% } %>
 
-    <%
-      // Filter controls are contributed dynamically: the core registers the
-      // built-ins (type, method, search, status, duration…) and packages can add
-      // their own (e.g. the GraphQL "GraphQL only" checkbox). See ProfilerListFilter.
-      const filterDefinitions = typeof filterDefs !== 'undefined' && filterDefs ? filterDefs : [];
-      const currentValues = typeof filterValues !== 'undefined' && filterValues ? filterValues : {};
-      const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
-    %>
-    <form method="GET" action="<%= profilerPath %>" class="mb-4 flex flex-wrap gap-2 items-end bg-surface border border-line rounded-xl p-4">
-      <% for (const def of filterDefinitions) { %>
-        <% const value = currentValues[def.key]; %>
-        <% if (def.control === 'checkbox') { %>
-          <label class="flex items-center gap-1.5 text-xs text-foreground cursor-pointer self-end py-1.5">
-            <input type="checkbox" name="<%= def.key %>" value="1" <%= value ? 'checked' : '' %>
-                   class="accent-nest" />
-            <%= def.label %>
-          </label>
-        <% } else { %>
-          <div class="flex flex-col gap-1">
-            <label class="text-foreground-faint text-2xs uppercase tracking-widest"><%= def.label %></label>
-            <% if (def.control === 'select') { %>
-              <select name="<%= def.key %>" class="<%= inputClass %>">
-                <% for (const opt of (def.options || [])) { %>
-                  <option value="<%= opt.value %>" <%= value === opt.value ? 'selected' : '' %>><%= opt.label %></option>
-                <% } %>
-              </select>
-            <% } else { %>
-              <input type="<%= def.control === 'number' ? 'number' : 'text' %>" name="<%= def.key %>"
-                     value="<%= value || '' %>"
-                     placeholder="<%= def.placeholder || '' %>"
-                     class="<%= inputClass %> <%= def.control === 'number' ? 'w-24' : 'w-44' %>" />
-            <% } %>
-          </div>
-        <% } %>
-      <% } %>
-      <div class="flex gap-2">
-        <button type="submit" class="px-3 py-1.5 rounded bg-nest text-white text-xs font-medium hover:opacity-90 transition-opacity">Filter</button>
-        <a href="<%= profilerPath %>" class="px-3 py-1.5 rounded border border-line text-foreground-muted text-xs hover:text-foreground hover:border-line-active transition-colors">Reset</a>
-      </div>
-    </form>
-
     <% if (globalPanels && globalPanels.length > 0) { %>
       <% for (const gPanel of globalPanels) { %>
         <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden">
@@ -124,159 +73,84 @@
       <% } %>
     <% } %>
 
-    <% if (showRequests) { %>
-    <div class="flex items-start justify-between mb-4">
-      <div>
-        <h2 class="text-base font-semibold text-foreground">HTTP &amp; GraphQL</h2>
-        <p class="text-foreground-muted text-xs mt-0.5">HTTP &amp; GraphQL requests captured by the profiler</p>
-      </div>
-      <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
-        <%= requestProfiles.length %> profile<%= requestProfiles.length !== 1 ? 's' : '' %>
-      </span>
-    </div>
+    <%
+      // Profiles are grouped into independent tables — one per registered list
+      // section (the core ships the "HTTP" catch-all; packages contribute their
+      // own, e.g. "GraphQL", "Commands"). Each section has its own filter bar:
+      // the universal filters plus the filters scoped to that kind, with form
+      // fields namespaced by the section key so a section filters only itself.
+      const sectionBuckets = typeof sections !== 'undefined' && sections ? sections : [];
+      const sectionHelpers = { profilerPath, methodClass, gqlTypeClass, statusClass, isoDate, toJson, timeOnly };
+      const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
+    %>
 
-    <div class="rounded-xl border border-line overflow-hidden bg-surface">
-      <table class="w-full">
-        <thead>
-          <tr class="bg-surface-muted border-b border-line">
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Method</th>
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">URL</th>
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
-            <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-line-subtle">
-          <% if (requestProfiles.length === 0) { %>
-            <tr>
-              <td colspan="6" class="py-16 text-center">
-                <p class="text-foreground-muted text-sm mb-1">No profiles found</p>
-                <p class="text-foreground-faint text-xs">Make HTTP requests to the API to start collecting data.</p>
-              </td>
-            </tr>
-          <% } else { %>
-            <% for (const p of requestProfiles) { %>
-              <%
-                const dur = p.performance.duration;
-                const durClass = dur === undefined ? 'dur-none'
-                  : dur < 100  ? 'dur-fast'
-                  : dur < 500  ? 'dur-medium'
-                  : 'dur-slow';
-              %>
-              <tr class="hover:bg-surface-muted transition-colors">
-                <td class="py-2.5 px-4">
-                  <a href="<%= profilerPath %>/<%= p.token %>"
-                     class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
-                    <%= p.token.slice(0, 8) %>
-                  </a>
-                </td>
-                <td class="py-2.5 px-4">
-                  <% if (p.request.graphql) { %>
-                    <div class="flex items-center gap-1">
-                      <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">GQL</span>
-                      <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(p.request.graphql.operationType) %>"><%= p.request.graphql.operationType.toUpperCase() %></span>
-                    </div>
-                  <% } else { %>
-                    <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(p.request.method) %>">
-                      <%= p.request.method %>
-                    </span>
+    <%# One form wraps every section so submitting any bar preserves the others. %>
+    <form method="GET" action="<%= profilerPath %>">
+      <% sectionBuckets.forEach((section) => { %>
+        <% if (section.isDefault || section.total > 0) { %>
+          <%
+            const plural = section.total !== 1 ? 's' : '';
+            const countText = section.profiles.length !== section.total
+              ? `${section.profiles.length} of ${section.total} ${section.itemLabel}${plural}`
+              : `${section.total} ${section.itemLabel}${plural}`;
+          %>
+          <%# Every section is a collapsible disclosure; `defaultCollapsed` starts it folded. %>
+          <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden"<%= section.defaultCollapsed ? '' : ' open' %>>
+            <summary class="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+              <div class="flex items-center gap-2 min-w-0">
+                <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="text-xs font-semibold text-foreground shrink-0"><%= section.title %></span>
+                <% if (section.description) { %>
+                  <span class="text-foreground-faint text-2xs ml-1 font-normal truncate">— <%= section.description %></span>
+                <% } %>
+              </div>
+              <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums shrink-0"><%= countText %></span>
+            </summary>
+            <div class="p-4 border-t border-line">
+              <% if (section.filterDefs && section.filterDefs.length > 0) { %>
+                <div class="mb-4 flex flex-wrap gap-2 items-end bg-surface-muted border border-line rounded-xl p-4">
+                  <% for (const def of section.filterDefs) { %>
+                    <% const value = (section.filterValues || {})[def.key]; %>
+                    <% const fieldName = section.filterPrefix + '_' + def.key; %>
+                    <% if (def.control === 'checkbox') { %>
+                      <label class="flex items-center gap-1.5 text-xs text-foreground cursor-pointer self-end py-1.5">
+                        <input type="checkbox" name="<%= fieldName %>" value="1" <%= value ? 'checked' : '' %>
+                               class="accent-nest" />
+                        <%= def.label %>
+                      </label>
+                    <% } else { %>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-foreground-faint text-2xs uppercase tracking-widest"><%= def.label %></label>
+                        <% if (def.control === 'select') { %>
+                          <select name="<%= fieldName %>" class="<%= inputClass %>">
+                            <% for (const opt of (def.options || [])) { %>
+                              <option value="<%= opt.value %>" <%= value === opt.value ? 'selected' : '' %>><%= opt.label %></option>
+                            <% } %>
+                          </select>
+                        <% } else { %>
+                          <input type="<%= def.control === 'number' ? 'number' : 'text' %>" name="<%= fieldName %>"
+                                 value="<%= value || '' %>"
+                                 placeholder="<%= def.placeholder || '' %>"
+                                 class="<%= inputClass %> <%= def.control === 'number' ? 'w-24' : 'w-44' %>" />
+                        <% } %>
+                      </div>
+                    <% } %>
                   <% } %>
-                </td>
-                <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs truncate" title="<%= p.request.url %>">
-                  <% if (p.request.graphql) { %>
-                    <span class="text-foreground-secondary"><%= p.request.graphql.operationName || p.request.graphql.fieldName %></span>
-                    <span class="text-foreground-faint ml-1 text-2xs"><%= p.request.url %></span>
-                  <% } else { %>
-                    <%= p.request.url %>
-                  <% } %>
-                </td>
-                <td class="py-2.5 px-4">
-                  <% if (p.response) { %>
-                    <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= statusClass(p.response.statusCode) %>">
-                      <%= p.response.statusCode %>
-                    </span>
-                  <% } else { %>
-                    <span class="text-foreground-faint text-xs">—</span>
-                  <% } %>
-                </td>
-                <td class="py-2.5 px-4 text-xs tabular-nums">
-                  <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
-                </td>
-                <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
-              </tr>
-            <% } %>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
-    <% } %>
-
-    <% if (commands.length > 0) { %>
-      <div class="flex items-start justify-between mb-6 mt-10">
-        <div>
-          <h2 class="text-base font-semibold text-foreground">Commands</h2>
-          <p class="text-foreground-muted text-xs mt-0.5">CLI commands profiled via nest-commander</p>
-        </div>
-        <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums">
-          <%= commands.length %> command<%= commands.length !== 1 ? 's' : '' %>
-        </span>
-      </div>
-
-      <div class="rounded-xl border border-line overflow-hidden bg-surface">
-        <table class="w-full">
-          <thead>
-            <tr class="bg-surface-muted border-b border-line">
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Command</th>
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Arguments</th>
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
-              <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-line-subtle">
-            <% for (const p of commands) { %>
-              <%
-                const cmd = p.request.command;
-                const dur = p.performance.duration;
-                const durClass = dur === undefined ? 'dur-none'
-                  : dur < 100  ? 'dur-fast'
-                  : dur < 500  ? 'dur-medium'
-                  : 'dur-slow';
-              %>
-              <tr class="hover:bg-surface-muted transition-colors">
-                <td class="py-2.5 px-4">
-                  <a href="<%= profilerPath %>/<%= p.token %>"
-                     class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
-                    <%= p.token.slice(0, 8) %>
-                  </a>
-                </td>
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-1.5">
-                    <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">CLI</span>
-                    <code class="text-foreground-secondary text-xs"><%= cmd.name %></code>
+                  <div class="flex gap-2">
+                    <button type="submit" class="px-3 py-1.5 rounded bg-nest text-white text-xs font-medium hover:opacity-90 transition-opacity">Filter</button>
+                    <a href="<%= section.resetHref %>" class="px-3 py-1.5 rounded border border-line text-foreground-muted text-xs hover:text-foreground hover:border-line-active transition-colors">Reset</a>
                   </div>
-                </td>
-                <td class="py-2.5 px-4 text-foreground-faint text-xs max-w-xs truncate" title="<%= cmd.arguments.join(' ') %>">
-                  <%= cmd.arguments.length ? cmd.arguments.join(' ') : '—' %>
-                </td>
-                <td class="py-2.5 px-4">
-                  <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= cmd.success ? 'badge-2xx' : 'badge-5xx' %>">
-                    <%= cmd.success ? 'OK' : 'FAILED' %>
-                  </span>
-                  <span class="text-foreground-faint text-2xs ml-1 tabular-nums">exit <%= cmd.exitCode %></span>
-                </td>
-                <td class="py-2.5 px-4 text-xs tabular-nums">
-                  <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
-                </td>
-                <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
-              </tr>
-            <% } %>
-          </tbody>
-        </table>
-      </div>
-    <% } %>
+                </div>
+              <% } %>
+
+              <%- include(section.templatePath, { ...sectionHelpers, profiles: section.profiles }) %>
+            </div>
+          </details>
+        <% } %>
+      <% }) %>
+    </form>
 
   </main>
 </body>

@@ -39,7 +39,7 @@ export const server = (app: INestApplication): Server => app.getHttpServer() as 
 /** Extracts the profiler token issued for a profiled response. */
 export function tokenOf(res: Response): string {
   const token = res.headers['x-debug-token'];
-  if (typeof token !== 'string') {
+  if (!token) {
     throw new Error(`missing x-debug-token header on ${res.request.method} ${res.request.url}`);
   }
   return token;
@@ -50,10 +50,13 @@ export function tokenOf(res: Response): string {
  * Profiles are collected and saved after the response is sent, so this polls
  * briefly — like a client following X-Debug-Token-Link — until the profile lands.
  */
-export async function getProfile(app: INestApplication, token: string): Promise<Profile> {
+export async function getProfile<TData = unknown>(
+  app: INestApplication,
+  token: string,
+): Promise<Profile<TData>> {
   for (let attempt = 0; ; attempt++) {
     const res = await request(server(app)).get(`/_profiler/${token}/data`);
-    if (res.status === 200) return res.body as Profile;
+    if (res.status === 200) return res.body as Profile<TData>;
     if (attempt >= 20) {
       throw new Error(`expected profile ${token} to exist, got HTTP ${res.status}`);
     }
@@ -62,15 +65,15 @@ export async function getProfile(app: INestApplication, token: string): Promise<
 }
 
 /** Performs a request and returns the profile it produced. */
-export async function profileOf(
+export async function profileOf<TData = unknown>(
   app: INestApplication,
   method: 'get' | 'post' | 'delete',
   path: string,
   body?: string | object,
-): Promise<{ res: Response; profile: Profile }> {
+): Promise<{ res: Response; profile: Profile<TData> }> {
   let req = request(server(app))[method](path);
   if (body !== undefined) req = req.send(body);
   const res = await req;
-  const profile = await getProfile(app, tokenOf(res));
+  const profile = await getProfile<TData>(app, tokenOf(res));
   return { res, profile };
 }

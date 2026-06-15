@@ -1,62 +1,28 @@
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
 import { parseLenientInt } from './list-filter.utils';
 
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
-
-/** Lowercased haystack of everything the global search scans for a profile. */
-function searchHaystack(profile: Profile): string {
-  const { url, graphql, command } = profile.request;
-  return [url, graphql?.operationName, graphql?.fieldName, command?.name]
-    .filter((v): v is string => typeof v === 'string')
-    .join(' ')
-    .toLowerCase();
-}
-
 /**
- * Request kind — HTTP (REST), GraphQL and CLI commands are mutually exclusive.
- * The core ships the `http` and `command` options; protocol packages add their
- * own (e.g. `@eleven-labs/nest-profiler-graphql` registers a `graphql` option
- * via {@link ProfilerCoreService.registerFilterOption}). Matching for `graphql`
- * lives here because `request.graphql` is a core Profile field.
+ * Lowercased haystack of everything the global search scans for a profile.
+ *
+ * Entrypoint-agnostic by design: it flattens the string (and string-array)
+ * fields of `entrypoint.data`, so a new entrypoint kind's primary fields (a
+ * command name/arguments, an exchange/routing key…) become searchable without
+ * touching the core. GraphQL operation/field names are nested, so they are
+ * pulled in explicitly.
  */
-const typeFilter: ProfilerListFilter<string> = {
-  key: 'type',
-  label: 'Type',
-  control: 'select',
-  order: 10,
-  options: [
-    { value: '', label: 'All' },
-    { value: 'http', label: 'HTTP' },
-    { value: 'command', label: 'Command' },
-  ],
-  // Accept any non-empty value so options contributed by other packages work.
-  parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile, value) => {
-    const { graphql, command } = profile.request;
-    switch (value) {
-      case 'command':
-        return command !== undefined;
-      case 'graphql':
-        return graphql !== undefined;
-      // 'http' means a plain REST request: neither a GraphQL operation nor a command.
-      case 'http':
-        return graphql === undefined && command === undefined;
-      default:
-        return false;
-    }
-  },
-};
-
-const methodFilter: ProfilerListFilter<string> = {
-  key: 'method',
-  label: 'Method',
-  control: 'select',
-  order: 20,
-  options: [{ value: '', label: 'All' }, ...HTTP_METHODS.map((m) => ({ value: m, label: m }))],
-  parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile, value) => profile.request.method.toUpperCase() === value.toUpperCase(),
-};
+function searchHaystack(profile: Profile): string {
+  const data = profile.entrypoint.data as Record<string, unknown>;
+  const terms: string[] = [];
+  for (const value of Object.values(data ?? {})) {
+    if (typeof value === 'string') terms.push(value);
+    else if (Array.isArray(value))
+      terms.push(...value.filter((v): v is string => typeof v === 'string'));
+  }
+  const gql = (data as Partial<HttpRequestData>)?.graphql;
+  if (gql) terms.push(gql.operationName ?? '', gql.fieldName);
+  return terms.filter(Boolean).join(' ').toLowerCase();
+}
 
 /** Free-text search across URL, GraphQL operation/field name and command name. */
 const searchFilter: ProfilerListFilter<string> = {
@@ -129,10 +95,12 @@ const hasExceptionsFilter: ProfilerListFilter<boolean> = {
   matches: (profile) => profile.exceptions.length > 0,
 };
 
-/** The filters the core registers by default, in display order. */
+/**
+ * The universal filters the core registers by default, shown above every list
+ * (in display order). Kind-specific filters (HTTP method, GraphQL operation type…)
+ * are contributed by each entrypoint type and shown only above its own list.
+ */
 export const BUILTIN_LIST_FILTERS: ProfilerListFilter[] = [
-  typeFilter,
-  methodFilter,
   searchFilter,
   statusFilter,
   statusClassFilter,

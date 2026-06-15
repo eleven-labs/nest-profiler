@@ -16,8 +16,10 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import type { Profile } from '../interfaces/profile.interface';
 import { applyListFilters, parseFilterValues } from '../list-filters/list-filter.utils';
+import { bucketProfilesBySection } from '../list-sections/list-section.utils';
 
-const BUILTIN_TAB_NAMES = ['command', 'request', 'response', 'performance', 'logs', 'exceptions'];
+/** Universal tabs every profile shows, regardless of its entrypoint kind. */
+const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
 
 @UseGuards(ProfilerGuard)
 @Controller()
@@ -37,9 +39,6 @@ export class ProfilerController {
   async listProfiles(
     @Query() query: Record<string, string | string[] | undefined>,
   ): Promise<string> {
-    const filterDefs = this.core.getListFilters();
-    const { active, raw } = parseFilterValues(filterDefs, query);
-
     const [all, globalPanels] = await Promise.all([
       this.core.storage.findAll(),
       this.core.collectorRegistry.buildGlobalPanels(),
@@ -51,21 +50,51 @@ export class ProfilerController {
       .map((p) => p.performance.heapUsed)
       .filter((v) => v !== undefined);
 
-    // Filters apply uniformly to HTTP/GraphQL requests and CLI commands; the
-    // template splits the filtered set into its two tables.
-    const filtered = applyListFilters(active, all);
-    const commandProfiles = filtered.filter((p) => p.request.command);
+    // Each list has its own filter bar: the universal filters (no `forType`) plus
+    // the filters scoped to that section's entrypoint kind. Filters apply only to
+    // their own section, so query params are namespaced by section key.
+    const allFilters = this.core.getListFilters();
+    const buckets = bucketProfilesBySection(this.core.getListSections(), all);
+
+    const sections = buckets.map((bucket) => {
+      const filterDefs = allFilters.filter((f) => !f.forType || f.forType === bucket.key);
+      const namespaced: Record<string, string | string[] | undefined> = {};
+      for (const def of filterDefs) namespaced[def.key] = query[`${bucket.key}_${def.key}`];
+
+      const { active, raw } = parseFilterValues(filterDefs, namespaced);
+      return {
+        ...bucket,
+        total: bucket.profiles.length,
+        profiles: applyListFilters(active, bucket.profiles),
+        filterDefs,
+        filterValues: raw,
+        filterPrefix: bucket.key,
+        resetHref: this.buildResetHref(query, bucket.key),
+      };
+    });
 
     return this.templateRenderer.render('list', {
       title: 'Profiles',
       profilerPath: this.profilerPath,
-      profiles: filtered,
-      commandProfiles,
+      sections,
       globalPanels,
       heapSeries,
-      filterDefs,
-      filterValues: raw,
     });
+  }
+
+  /** Link that clears one section's filters while preserving every other section's. */
+  private buildResetHref(
+    query: Record<string, string | string[] | undefined>,
+    prefix: string,
+  ): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (key.startsWith(`${prefix}_`)) continue;
+      const v = Array.isArray(value) ? value[0] : value;
+      if (typeof v === 'string' && v.length > 0) params.set(key, v);
+    }
+    const qs = params.toString();
+    return qs ? `${this.profilerPath}?${qs}` : this.profilerPath;
   }
 
   @Get('/_profiler/:token/data')
@@ -87,12 +116,29 @@ export class ProfilerController {
     const collectorPanels = this.core.collectorRegistry.buildPanels(profile);
     const collectorTabNames = collectorPanels.map((p) => p.name);
 
-    // Commands have no request/response tabs — land on the built-in Command tab.
-    const isCommand = profile.request.command !== undefined;
-    const activeTab = tab ?? (isCommand ? 'command' : 'request');
+    // The active entrypoint type owns the primary tabs (e.g. Request/Response for
+    // HTTP, Command for a CLI command, Message for a consumed message). It falls
+    // back to the built-in HTTP type when the kind has no dedicated type.
+    const entrypointType = this.core.getEntrypointType(profile.entrypoint.type);
+    const entrypointTabs = entrypointType.detailTabs.map((t) => ({
+      name: t.name,
+      label: t.label,
+      icon: t.icon,
+      badge: t.badge?.(profile) ?? null,
+    }));
+    const entrypointTabNames = entrypointTabs.map((t) => t.name);
+    const builtinTabNames = [...entrypointTabNames, ...UNIVERSAL_TAB_NAMES];
+
+    const defaultTab = entrypointTabs[0]?.name ?? 'performance';
+    const activeTab = tab ?? defaultTab;
+
+    const summary = entrypointType.summary(profile);
+    const entrypointTabTemplate = entrypointType.detailTabs.find(
+      (t) => t.name === activeTab,
+    )?.templatePath;
 
     const isCollectorTab =
-      collectorTabNames.includes(activeTab) && !BUILTIN_TAB_NAMES.includes(activeTab);
+      collectorTabNames.includes(activeTab) && !builtinTabNames.includes(activeTab);
 
     let collectorData: unknown = undefined;
     if (isCollectorTab) {
@@ -114,6 +160,9 @@ export class ProfilerController {
       token: profile.token,
       profile,
       activeTab,
+      entrypointTabs,
+      entrypointTabTemplate,
+      summary,
       collectorPanels,
       collectorData,
     });

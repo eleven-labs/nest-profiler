@@ -14,7 +14,7 @@ function makeProfile(token: string): Profile {
   return {
     token,
     createdAt: Date.now(),
-    request: { method: 'GET', url: '/', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],

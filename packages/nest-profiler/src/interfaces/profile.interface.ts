@@ -25,20 +25,29 @@ export interface GraphQLInfo {
   fieldName: string;
 }
 
-export interface CommandInfo {
-  /** Command name as declared via `@Command({ name })`, e.g. `sync:posts`. */
-  name: string;
-  /** Positional parameters passed to the command. */
-  arguments: string[];
-  /** Parsed flag options passed to the command. */
-  options?: Record<string, unknown>;
-  /** Process exit code — `0` on success, `1` when the command threw. */
-  exitCode: number;
-  /** `true` when the command completed without throwing. */
-  success: boolean;
+/** `Profile.entrypoint.type` value for REST HTTP requests. */
+export const HTTP_ENTRYPOINT_TYPE = 'http';
+
+/**
+ * Describes what triggered a profile — an HTTP request, a GraphQL operation, a
+ * CLI command, a consumed message… Each entrypoint kind owns its own `data`
+ * shape: the core ships {@link HttpRequestData} for HTTP, while protocol packages
+ * (e.g. `@eleven-labs/nest-profiler-graphql`, `@eleven-labs/nest-profiler-commander`)
+ * contribute their own via {@link ProfilerCoreService.registerEntrypointType} — no
+ * core change needed.
+ */
+export interface ProfileEntrypoint<TData = unknown> {
+  /** Stable discriminator, e.g. `'http'`, `'command'`, … */
+  type: string;
+  /** Kind-specific payload owned by the package that registered the type. */
+  data: TData;
 }
 
-export interface RequestData {
+/**
+ * Payload of the built-in `http` entrypoint — a REST HTTP request.
+ * `@eleven-labs/nest-profiler-graphql` extends it for the `graphql` kind.
+ */
+export interface HttpRequestData {
   method: string;
   url: string;
   headers: Record<string, string | string[]>;
@@ -47,9 +56,11 @@ export interface RequestData {
   body?: unknown;
   cookies?: Record<string, string>;
   session?: Record<string, unknown>;
+  /**
+   * Set when the HTTP request carried a GraphQL operation. The GraphQL package
+   * reads this signal to promote the profile to the `graphql` entrypoint kind.
+   */
   graphql?: GraphQLInfo;
-  /** Present when the profile describes a CLI command instead of an HTTP request. */
-  command?: CommandInfo;
 }
 
 export interface ResponseData {
@@ -92,10 +103,11 @@ export interface SecurityContext {
   jwtClaims?: Record<string, unknown>;
 }
 
-export interface Profile {
+export interface Profile<TData = unknown> {
   token: string;
   createdAt: number;
-  request: RequestData;
+  /** What triggered this profile (HTTP request, command, message…). */
+  entrypoint: ProfileEntrypoint<TData>;
   response?: ResponseData;
   performance: PerformanceData;
   logs: LogEntry[];

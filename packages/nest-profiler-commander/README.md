@@ -24,6 +24,8 @@
 
 `@eleven-labs/nest-profiler-commander` profiles CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/) — the console equivalent of Symfony's command profiling. Every command run produces a profile that shows up in the web profiler at `/_profiler`, in a dedicated **Commands** table and with a built-in **Command** tab, plus any HTTP, cache, or database activity the command triggered.
 
+![Commands list — every profiled CLI command in a dedicated table with its status, exit code and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command-list.png)
+
 ![Command tab — a profiled nest-commander run with its arguments, options and exit code](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command.png)
 
 ## Installation
@@ -72,7 +74,7 @@ Run a command, then open `/_profiler` on your HTTP app (pointed at the same `sto
 
 ## What it collects
 
-Each command run sets `request.command` on the profile:
+Each command run sets a `command` entrypoint on the profile (`entrypoint.type = 'command'`, with this payload on `entrypoint.data`):
 
 | Field       | Description                                    |
 | ----------- | ---------------------------------------------- |
@@ -82,11 +84,11 @@ Each command run sets `request.command` on the profile:
 | `exitCode`  | `0` on success, `1` when the command threw     |
 | `success`   | Whether the command completed without throwing |
 
-Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, other collectors (e.g. `@eleven-labs/nest-profiler-axios`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
+Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-axios`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile (`request.method = 'CLI'`, `request.url = '<command> <args>'`, and `request.command`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The profiler UI renders command profiles in a dedicated Commands table and a built-in Command tab — no extra setup in your HTTP app. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
 
 ---
 

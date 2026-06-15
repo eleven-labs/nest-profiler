@@ -27,7 +27,7 @@ describe('App endpoints (e2e)', () => {
     it('records request, route, performance and logs in the profile', async () => {
       const { profile } = await profileOf(app, 'get', '/health');
 
-      expect(profile.request).toMatchObject({ method: 'GET', url: '/health' });
+      expect(profile.entrypoint.data).toMatchObject({ method: 'GET', url: '/health' });
       expect(profile.response).toMatchObject({ statusCode: 200 });
       expect(profile.route).toMatchObject({
         controller: 'AppController',
