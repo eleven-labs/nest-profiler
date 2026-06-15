@@ -1,0 +1,62 @@
+<%
+  const rmq = profile.entrypoint.data;
+  const msgDur = profile.performance.duration;
+  const msgDetails = {};
+  if (rmq.handler) msgDetails['Handler'] = rmq.handler;
+  if (rmq.queue) msgDetails['Queue'] = rmq.queue;
+  if (rmq.consumerTag) msgDetails['Consumer tag'] = rmq.consumerTag;
+  if (rmq.deliveryTag !== undefined) msgDetails['Delivery tag'] = String(rmq.deliveryTag);
+  if (rmq.messageId) msgDetails['Message ID'] = rmq.messageId;
+  if (rmq.appId) msgDetails['App ID'] = rmq.appId;
+%>
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+  <div class="bg-surface-muted border border-line rounded-lg p-4">
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Exchange</p>
+    <p class="text-foreground text-sm font-bold break-all"><%= rmq.exchange || '(default)' %></p>
+  </div>
+  <div class="bg-surface-muted border border-line rounded-lg p-4">
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Redelivered</p>
+    <p class="text-xl font-bold <%= rmq.redelivered ? 'text-danger' : 'text-success' %>"><%= rmq.redelivered ? 'Yes' : 'No' %></p>
+  </div>
+  <div class="bg-surface-muted border border-line rounded-lg p-4">
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>
+    <p class="text-foreground text-xl font-bold tabular-nums"><%= msgDur !== undefined ? msgDur + 'ms' : '—' %></p>
+  </div>
+  <div class="bg-surface-muted border border-line rounded-lg p-4">
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Received</p>
+    <p class="text-foreground text-sm font-bold tabular-nums"><%= timeOnly(profile.createdAt) %></p>
+  </div>
+</div>
+
+<section class="mb-6">
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Routing</h2>
+  <code class="block bg-surface-muted border border-line rounded-lg px-4 py-3 text-foreground text-sm break-all">
+    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">RMQ</span><%= rmq.exchange || '(default)' %> &rarr; <%= rmq.routingKey %>
+  </code>
+</section>
+
+<% if (Object.keys(msgDetails).length > 0) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Details</h2>
+    <%- kvTable(msgDetails) %>
+  </section>
+<% } %>
+
+<% if (rmq.headers && Object.keys(rmq.headers).length > 0) { %>
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Headers</h2>
+    <%- kvTable(rmq.headers) %>
+  </section>
+<% } %>
+
+<% if (rmq.payload !== undefined && rmq.payload !== null) { %>
+  <section>
+    <% const msgBodyIsText = typeof rmq.payload === 'string'; %>
+    <div class="flex items-center gap-2 mb-3">
+      <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Payload</h2>
+      <% if (msgBodyIsText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
+    </div>
+    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= msgBodyIsText ? '' : ' class="language-json"' %>><%= msgBodyIsText ? rmq.payload : toJson(rmq.payload) %></code></pre>
+  </section>
+<% } %>

@@ -1,0 +1,86 @@
+---
+title: nest-profiler-rabbitmq
+description: API reference for @eleven-labs/nest-profiler-rabbitmq — RabbitMQ message collector (@golevelup/nestjs-rabbitmq).
+---
+
+## RabbitMqInfo
+
+Payload of a message profile's `entrypoint.data` (entrypoint `type: 'rabbitmq'`). The module
+registers a `rabbitmq` entrypoint type, so the profiler renders a dedicated **RabbitMQ** list table
+— with its own filters: **Delivery** (first delivery / redelivered), **Exchange** and **Handler**
+(both populated from the values actually captured) and a free-text **Routing key** — and a
+**Message** detail tab, including the captured AMQP `headers` and `payload`. The HTTP-status filters
+do not appear here, since a consumed message has no HTTP response.
+
+<AutoTypeTable
+  path="packages/nest-profiler-rabbitmq/src/rabbitmq-collector.interface.ts"
+  name="RabbitMqInfo"
+/>
+
+## Public exports
+
+```ts
+import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RabbitMqContextAdapter } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RABBITMQ_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-rabbitmq';
+
+import type { RabbitMqCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { RabbitMqInfo } from '@eleven-labs/nest-profiler-rabbitmq';
+```
+
+## RabbitMqCollectorModuleOptions
+
+```ts
+interface RabbitMqCollectorModuleOptions {
+  /** Enable the collector. Default: `true`. */
+  enabled?: boolean;
+  /** Capture incoming AMQP message headers (masked). Default: `true`. */
+  captureHeaders?: boolean;
+  /** Capture the deserialized message payload. Default: `true`. */
+  captureBody?: boolean;
+  /** Extra header names (lowercase) to mask, merged with the built-in list. */
+  maskHeaders?: string[];
+}
+```
+
+When `enabled` is `false`, `forRoot()` registers no providers — the host application decides per environment.
+
+## Setup
+
+Register the module in the application that consumes your messages (the same process that hosts the profiler):
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    RabbitMqCollectorModule.forRoot(),
+    // your RabbitMQModule with @RabbitSubscribe handlers
+  ],
+})
+export class AppModule {}
+```
+
+`@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies — the ones you already
+install to consume messages. The module needs no changes to your `@RabbitSubscribe` handlers.
+
+## How a message profile is shaped
+
+A consumed message has no HTTP request/response. The profiler synthesises a profile whose
+`entrypoint` is `{ type: 'rabbitmq', data: RabbitMqInfo }`:
+
+| Field                        | Value                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `entrypoint.type`            | `rabbitmq`                                                                     |
+| `entrypoint.data.exchange`   | The exchange (empty string for the default exchange)                           |
+| `entrypoint.data.routingKey` | The routing key                                                                |
+| `entrypoint.data.headers`    | AMQP message headers, sensitive ones masked (when `captureHeaders` is enabled) |
+| `entrypoint.data.payload`    | The deserialized payload (when `captureBody` is enabled)                       |
+| `response.statusCode`        | `200` on success, `500` when the handler threw                                 |
+
+The exchange, routing key, handler, redelivered flag and AMQP consumer/delivery tags are kept on
+`entrypoint.data`. Because the handler runs inside the profiler's CLS context, profile-scoped
+collectors (HTTP client, database, …) capture the work it performs and contribute their own panels.

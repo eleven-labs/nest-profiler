@@ -97,11 +97,20 @@ describe('built-in list filters', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('contains only the universal filters (kind-specific ones live on their entrypoint type)', () => {
+  it('contains no kind-specific filters (HTTP method, GraphQL operation… live on their entrypoint type)', () => {
     const keys = BUILTIN_LIST_FILTERS.map((f) => f.key);
     expect(keys).not.toContain('type');
     expect(keys).not.toContain('method');
-    expect(BUILTIN_LIST_FILTERS.every((f) => f.forType === undefined)).toBe(true);
+  });
+
+  it('keeps search, duration and exceptions universal but scopes the HTTP-status filters', () => {
+    const universal = ['q', 'minDuration', 'maxDuration', 'hasExceptions'];
+    for (const key of universal) {
+      expect(BUILTIN_LIST_FILTERS.find((f) => f.key === key)?.forType).toBeUndefined();
+    }
+    for (const key of ['status', 'statusClass']) {
+      expect(BUILTIN_LIST_FILTERS.find((f) => f.key === key)?.forType).toEqual(['http', 'graphql']);
+    }
   });
 
   describe('q (global search)', () => {

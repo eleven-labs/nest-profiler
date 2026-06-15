@@ -35,11 +35,20 @@ const searchFilter: ProfilerListFilter<string> = {
   matches: (profile, value) => searchHaystack(profile).includes(value),
 };
 
+/**
+ * The entrypoint kinds the HTTP-status filters apply to: those that carry an HTTP
+ * `response`. REST (`http`) and GraphQL (`graphql`, which rides on HTTP) qualify;
+ * `command` and `rabbitmq` profiles have no response, so the status filters are
+ * hidden from their lists rather than shown inert.
+ */
+const HTTP_RESPONSE_TYPES = ['http', 'graphql'] as const;
+
 const statusFilter: ProfilerListFilter<number> = {
   key: 'status',
   label: 'Status',
   control: 'number',
   order: 40,
+  forType: HTTP_RESPONSE_TYPES,
   placeholder: '200',
   parse: parseLenientInt,
   matches: (profile, value) => profile.response?.statusCode === value,
@@ -50,6 +59,7 @@ const statusClassFilter: ProfilerListFilter<number> = {
   label: 'Status class',
   control: 'select',
   order: 50,
+  forType: HTTP_RESPONSE_TYPES,
   options: [
     { value: '', label: 'All' },
     { value: '2', label: '2xx' },
@@ -96,9 +106,12 @@ const hasExceptionsFilter: ProfilerListFilter<boolean> = {
 };
 
 /**
- * The universal filters the core registers by default, shown above every list
- * (in display order). Kind-specific filters (HTTP method, GraphQL operation type…)
- * are contributed by each entrypoint type and shown only above its own list.
+ * The filters the core registers by default (in display order). Most are
+ * universal — search, duration and exceptions apply to every list — while the
+ * HTTP-status pair (`status`, `statusClass`) is scoped via `forType` to the
+ * response-producing kinds ({@link HTTP_RESPONSE_TYPES}). Kind-specific filters
+ * (HTTP method, GraphQL operation type, RabbitMQ delivery…) are contributed by
+ * each entrypoint type and shown only above its own list.
  */
 export const BUILTIN_LIST_FILTERS: ProfilerListFilter[] = [
   searchFilter,

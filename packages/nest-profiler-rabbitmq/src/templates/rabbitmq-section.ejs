@@ -1,0 +1,51 @@
+<div class="rounded-xl border border-line overflow-hidden bg-surface">
+  <table class="w-full">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Exchange</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Routing key</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Handler</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Redelivered</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% for (const p of profiles) { %>
+        <%
+          const rmq = p.entrypoint.data || {};
+          const dur = p.performance.duration;
+          const durClass = dur === undefined ? 'dur-none'
+            : dur < 100  ? 'dur-fast'
+            : dur < 500  ? 'dur-medium'
+            : 'dur-slow';
+        %>
+        <tr class="hover:bg-surface-muted transition-colors">
+          <td class="py-2.5 px-4">
+            <a href="<%= profilerPath %>/<%= p.token %>"
+               class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
+              <%= p.token.slice(0, 8) %>
+            </a>
+          </td>
+          <td class="py-2.5 px-4">
+            <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= rmq.exchange || '(default)' %></span>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs font-mono max-w-xs truncate" title="<%= rmq.routingKey %>"><%= rmq.routingKey %></td>
+          <td class="py-2.5 px-4 text-foreground-faint text-xs font-mono max-w-xs truncate" title="<%= rmq.handler %>"><%= rmq.handler || '—' %></td>
+          <td class="py-2.5 px-4">
+            <% if (rmq.redelivered) { %>
+              <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-4xx">yes</span>
+            <% } else { %>
+              <span class="text-foreground-faint text-xs">no</span>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-xs tabular-nums">
+            <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>

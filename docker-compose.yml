@@ -7,11 +7,11 @@ services:
       POSTGRES_PASSWORD: profiler
       POSTGRES_DB: profiler_example
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U profiler -d profiler_example"]
+      test: ['CMD-SHELL', 'pg_isready -U profiler -d profiler_example']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,15 +22,34 @@ services:
     environment:
       MONGO_INITDB_DATABASE: profiler_example
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongodb_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
       interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Only needed when FEATURE_RABBITMQ=true. Management UI: http://localhost:15672 (profiler/profiler).
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: profiler
+      RABBITMQ_DEFAULT_PASS: profiler
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
   mongodb_data:
+  rabbitmq_data:

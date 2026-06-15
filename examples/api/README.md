@@ -45,6 +45,7 @@ The example app uses flags to conditionally load infrastructure-dependent module
 | `SQL_ORM`             | `typeorm` | SQL ORM for the products context: `typeorm` \| `mikro-orm` \| `none` |
 | `FEATURE_MONGOOSE`    | `true`    | Load Mongoose + MongoDB connection + `ReviewsModule`                 |
 | `FEATURE_GRAPHQL`     | `true`    | Load GraphQL + Apollo Server + `BooksModule`                         |
+| `FEATURE_RABBITMQ`    | `false`   | Load the RabbitMQ consumer/producer + `nest-profiler-rabbitmq`       |
 | `FEATURE_PINO_LOGGER` | `false`   | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`  |
 | `PROFILER_ENABLED`    | `true`    | Enable the profiler UI and all collectors                            |
 
@@ -59,7 +60,12 @@ SQL_ORM=none FEATURE_MONGOOSE=false pnpm example:dev
 
 # Run without GraphQL
 FEATURE_GRAPHQL=false pnpm example:dev
+
+# Profile RabbitMQ messages (start the broker first: docker compose up -d rabbitmq)
+FEATURE_RABBITMQ=true pnpm example:dev
 ```
+
+With `FEATURE_RABBITMQ=true`, `POST /notifications` publishes a message that a `@RabbitSubscribe` handler consumes; the consumed message is profiled as a `rabbitmq` entrypoint — open `/_profiler` to see it in the **RabbitMQ** table with its own **Message** tab.
 
 ## Run the application
 

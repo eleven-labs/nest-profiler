@@ -11,6 +11,7 @@
     "nest-profiler-auth",
     "nest-profiler-config",
     "nest-profiler-validator",
-    "nest-profiler-graphql"
+    "nest-profiler-graphql",
+    "nest-profiler-rabbitmq"
   ]
 }

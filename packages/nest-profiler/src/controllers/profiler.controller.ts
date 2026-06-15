@@ -15,7 +15,12 @@ import { TemplateRendererService } from '../services/template-renderer.service';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import type { Profile } from '../interfaces/profile.interface';
-import { applyListFilters, parseFilterValues } from '../list-filters/list-filter.utils';
+import {
+  applyListFilters,
+  filterAppliesToSection,
+  parseFilterValues,
+  resolveFilterForSection,
+} from '../list-filters/list-filter.utils';
 import { bucketProfilesBySection } from '../list-sections/list-section.utils';
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
@@ -57,7 +62,9 @@ export class ProfilerController {
     const buckets = bucketProfilesBySection(this.core.getListSections(), all);
 
     const sections = buckets.map((bucket) => {
-      const filterDefs = allFilters.filter((f) => !f.forType || f.forType === bucket.key);
+      const filterDefs = allFilters
+        .filter((f) => filterAppliesToSection(f, bucket.key))
+        .map((f) => resolveFilterForSection(f, bucket.profiles));
       const namespaced: Record<string, string | string[] | undefined> = {};
       for (const def of filterDefs) namespaced[def.key] = query[`${bucket.key}_${def.key}`];
 
