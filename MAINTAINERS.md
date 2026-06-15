@@ -36,7 +36,7 @@ CI maps these to workflows: **CI** (`ci.yml`: check + a Node 22/24 test matrix, 
 
 Releases run in **CI** from `main` via `changesets/action` (`release.yml`).
 
-### Stable (0.x)
+### Stable
 
 1. Merge PRs, each carrying a `pnpm changeset`.
 2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`: guard-major → `changeset version` → fill lockstep changelogs).
@@ -67,7 +67,7 @@ git push
 
 ### Versioning policy (`ALLOW_MAJOR_BUMPS`)
 
-While in `0.x`, breaking changes ship as a **minor** with a `BREAKING:` note. `pnpm changeset:guard-major` (run in CI and in `version-packages`) **fails** on any `major` changeset unless the `ALLOW_MAJOR_BUMPS` Actions variable is `true`. Set it to `true` only when intentionally cutting v1.
+Breaking changes ship as a **major** with a `BREAKING:` note. `pnpm changeset:guard-major` (run in CI and in `version-packages`) **fails** on any `major` changeset unless the `ALLOW_MAJOR_BUMPS` Actions variable is `true`, so a major release is always deliberate — never accidental. Set it to `true` only when intentionally cutting a major version.
 
 ## Repository automation
 

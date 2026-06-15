@@ -3,11 +3,11 @@
 # Milestones are editorial — add or edit entries and merge to main, or run the
 # "Repository config" workflow manually. Closing/removing a milestone is done in the UI.
 
-- title: '0.x-alpha'
-  description: 'Alpha prereleases on the 0.x line.'
+- title: '1.0.0-alpha'
+  description: 'Alpha prereleases leading to 1.0.0.'
   state: 'open'
-- title: '0.x-beta'
-  description: 'Beta prereleases on the 0.x line.'
+- title: '1.0.0-beta'
+  description: 'Beta prereleases leading to 1.0.0.'
   state: 'open'
 - title: '1.0.0'
   description: 'First stable public release.'

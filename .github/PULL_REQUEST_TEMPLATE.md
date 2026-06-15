@@ -17,7 +17,7 @@
 - [ ] Tests were added or updated to cover the change
 - [ ] Documentation was added or updated
 - [ ] A changeset was added, or this PR does not affect published packages
-- [ ] Breaking changes in `0.x` use a `minor` changeset with a `BREAKING:` note
+- [ ] Breaking changes use a `major` changeset with a `BREAKING:` note
 
 ## Breaking changes
 

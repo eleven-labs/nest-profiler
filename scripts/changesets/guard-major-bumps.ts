@@ -127,10 +127,10 @@ function main(): void {
 
   console.error('');
   console.error(
-    'While packages are in 0.x, use a minor changeset for breaking changes and describe them with "BREAKING:" in the changeset body.',
+    'A major bump corresponds to a breaking change (describe it with "BREAKING:" in the changeset body). Major bumps are gated so they are never accidental.',
   );
   console.error(
-    'Set ALLOW_MAJOR_BUMPS=true only when intentionally preparing v1 or another major release.',
+    'Set ALLOW_MAJOR_BUMPS=true only when you intentionally mean to cut a major release.',
   );
   process.exit(1);
 }
