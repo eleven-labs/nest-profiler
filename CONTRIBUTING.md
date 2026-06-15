@@ -51,10 +51,9 @@ pnpm changeset
 Use:
 
 - `patch` for fixes and small improvements.
-- `minor` for backward-compatible features — and for breaking changes while the suite is
-  in `0.x` (add a `BREAKING:` note in the changeset body).
-- `major` only for the explicit v1 transition (gated by `ALLOW_MAJOR_BUMPS`; CI rejects
-  stray major bumps).
+- `minor` for backward-compatible features.
+- `major` for breaking changes (add a `BREAKING:` note in the changeset body). Gated by
+  `ALLOW_MAJOR_BUMPS`; CI rejects accidental major bumps.
 
 ## Commit convention
 
@@ -70,7 +69,7 @@ docs: update publishing guide
 
 Breaking changes must include:
 
-- A `minor` changeset (major bumps are gated in `0.x`).
+- A `major` changeset (major bumps are gated by `ALLOW_MAJOR_BUMPS`).
 - A `BREAKING:` note in the changeset body.
 - A migration note and updated examples where relevant.
 
