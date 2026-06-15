@@ -8,7 +8,7 @@ function makeProfile(token: string, createdAt = Date.now()): Profile {
   return {
     token,
     createdAt,
-    request: { method: 'GET', url: '/', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: createdAt, heapUsed: 0 },
     logs: [],
     exceptions: [],

@@ -22,11 +22,11 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-graphql` captures GraphQL queries and mutations and displays them in the profiler **Request** tab with a dedicated **GraphQL** section.
+`@eleven-labs/nest-profiler-graphql` captures GraphQL queries and mutations and displays them in their own **GraphQL** list table, each with a dedicated **GraphQL** detail tab (operation, query, variables and response).
 
 ![Profiles list showing GQL MUTATION and GQL QUERY badges alongside the operation name and status](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-list.png)
 
-![Request tab showing the GraphQL section with operation type, operation name, syntax-highlighted query and variables](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-request.png)
+![GraphQL detail tab showing operation type, operation name, syntax-highlighted query and variables](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-request.png)
 
 ## Installation
 
@@ -129,7 +129,7 @@ Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:
 | `query`         | The full GraphQL document (formatted)          |
 | `variables`     | Variables object                               |
 
-Registering this module also adds a **GraphQL** choice to the **Type** filter on the `/_profiler` list, so you can narrow the list to GraphQL operations.
+Registering this module installs the `graphql` entrypoint type: GraphQL operations get their own **GraphQL** table on the `/_profiler` list, with a filter bar including an **Operation** filter (query / mutation / subscription).
 
 GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions.
 

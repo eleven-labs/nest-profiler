@@ -1,20 +1,23 @@
 import { applyProfileFilters } from './storage-filters';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 
 function makeProfile(overrides: {
   method?: string;
   url?: string;
   statusCode?: number;
   duration?: number;
-}): Profile {
+}): Profile<HttpRequestData> {
   return {
     token: Math.random().toString(36).slice(2),
     createdAt: Date.now(),
-    request: {
-      method: overrides.method ?? 'GET',
-      url: overrides.url ?? '/',
-      headers: {},
-      query: {},
+    entrypoint: {
+      type: 'http',
+      data: {
+        method: overrides.method ?? 'GET',
+        url: overrides.url ?? '/',
+        headers: {},
+        query: {},
+      },
     },
     response:
       overrides.statusCode !== undefined
@@ -41,7 +44,7 @@ describe('applyProfileFilters', () => {
   it('filters by method case-insensitively', () => {
     const result = applyProfileFilters(profiles, { method: 'get' });
     expect(result).toHaveLength(2);
-    expect(result.every((p) => p.request.method === 'GET')).toBe(true);
+    expect(result.every((p) => p.entrypoint.data.method === 'GET')).toBe(true);
   });
 
   it('filters by minimum duration', () => {
@@ -73,7 +76,7 @@ describe('applyProfileFilters', () => {
 
   it('filters by url substring case-insensitively', () => {
     const result = applyProfileFilters(profiles, { urlPattern: 'users' });
-    expect(result.map((p) => p.request.url)).toEqual(['/users', '/Users/42']);
+    expect(result.map((p) => p.entrypoint.data.url)).toEqual(['/users', '/Users/42']);
   });
 
   it('combines multiple filters', () => {
@@ -83,6 +86,6 @@ describe('applyProfileFilters', () => {
       maxDuration: 20,
     });
     expect(result).toHaveLength(1);
-    expect(result[0]?.request.url).toBe('/users');
+    expect(result[0]?.entrypoint.data.url).toBe('/users');
   });
 });

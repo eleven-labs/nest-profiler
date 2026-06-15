@@ -5,11 +5,12 @@ description: API reference for @eleven-labs/nest-profiler-commander — CLI comm
 
 ## CommandInfo
 
-Command profiles set `request.command` (a core type) instead of an HTTP method/URL. The profiler
-UI uses it to render the dedicated Commands table and the built-in **Command** tab.
+Payload of a command profile's `entrypoint.data` (entrypoint `type: 'command'`). The module
+registers a `command` entrypoint type, so the profiler renders a dedicated Commands table and a
+**Command** detail tab for these profiles.
 
 <AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  path="packages/nest-profiler-commander/src/commander-collector.interface.ts"
   name="CommandInfo"
 />
 
@@ -18,9 +19,10 @@ UI uses it to render the dedicated Commands table and the built-in **Command** t
 ```ts
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { CommandProfiler } from '@eleven-labs/nest-profiler-commander';
+import { COMMAND_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-commander';
 
 import type { CommanderCollectorModuleOptions } from '@eleven-labs/nest-profiler-commander';
-import type { CommandInfo } from '@eleven-labs/nest-profiler';
+import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
 ```
 
 ## CommanderCollectorModuleOptions
@@ -72,12 +74,15 @@ Every provider that extends nest-commander's `CommandRunner` is wrapped automati
 
 ## How a command profile is shaped
 
-A command has no HTTP request/response, so the profiler synthesises a profile shaped like an HTTP one:
+A command has no HTTP request/response. The profiler synthesises a profile whose `entrypoint` is
+`{ type: 'command', data: CommandInfo }`:
 
-| Field                 | Value                                                       |
-| --------------------- | ----------------------------------------------------------- |
-| `request.method`      | `CLI`                                                       |
-| `request.url`         | `<command-name> <arguments…>` (e.g. `sync:posts --limit 3`) |
-| `response.statusCode` | `200` on success, `500` when the command threw              |
+| Field                       | Value                                          |
+| --------------------------- | ---------------------------------------------- |
+| `entrypoint.type`           | `command`                                      |
+| `entrypoint.data.name`      | The command name (e.g. `sync:posts`)           |
+| `entrypoint.data.arguments` | The positional arguments                       |
+| `entrypoint.data.exitCode`  | `0` on success, `1` when the command threw     |
+| `response.statusCode`       | `200` on success, `500` when the command threw |
 
-The command name, arguments, options, and exit code are kept on `request.command`. Because the command body runs inside the profiler's CLS context, other collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.
+The command name, arguments, options, and exit code are kept on `entrypoint.data`. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.

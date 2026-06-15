@@ -26,8 +26,12 @@ import request from 'supertest';
 import type { Server } from 'node:http';
 import type { FastifyRequest } from 'fastify';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import type { Profile } from '@eleven-labs/nest-profiler';
+import type { HttpRequestData, Profile } from '@eleven-labs/nest-profiler';
 import { ProfilerGraphQLModule } from './profiler-graphql.module';
+
+function gqlOf(profile: Profile<HttpRequestData>): HttpRequestData['graphql'] {
+  return profile.entrypoint.data.graphql;
+}
 
 interface FastifyReady {
   ready(): Promise<void>;
@@ -111,12 +115,12 @@ async function gql(server: Server, body: GqlBody): Promise<GqlResult> {
   };
 }
 
-async function getProfile(server: Server, token: string): Promise<Profile> {
+async function getProfile(server: Server, token: string): Promise<Profile<HttpRequestData>> {
   // Profiles are collected and saved after the response is sent, so poll briefly
   // until the deferred persistence lands instead of asserting on a 404 race.
   for (let attempt = 0; ; attempt++) {
     const res = await request(server).get(`/_profiler/${token}/data`);
-    if (res.status === 200 || attempt >= 20) return res.body as Profile;
+    if (res.status === 200 || attempt >= 20) return res.body as Profile<HttpRequestData>;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 }
@@ -181,8 +185,8 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
 
       const profile = await getProfile(getServer(), token!);
 
-      expect(profile.request.graphql?.operationType).toBe('query');
-      expect(profile.request.graphql?.fieldName).toBe('books');
+      expect(gqlOf(profile)?.operationType).toBe('query');
+      expect(gqlOf(profile)?.fieldName).toBe('books');
     });
 
     it('captures operationName', async () => {
@@ -193,7 +197,7 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
 
       const profile = await getProfile(getServer(), token!);
 
-      expect(profile.request.graphql?.operationName).toBe('GetBooks');
+      expect(gqlOf(profile)?.operationName).toBe('GetBooks');
     });
 
     it('captures variables', async () => {
@@ -205,7 +209,7 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
 
       const profile = await getProfile(getServer(), token!);
 
-      expect(profile.request.graphql?.variables).toEqual({ id: '1' });
+      expect(gqlOf(profile)?.variables).toEqual({ id: '1' });
     });
 
     it('captures the query document', async () => {
@@ -215,8 +219,8 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
       const profile = await getProfile(getServer(), token!);
 
       // query is formatted by tryFormatQuery — check it contains the key identifiers
-      expect(profile.request.graphql?.query).toContain('GetBooks');
-      expect(profile.request.graphql?.query).toContain('books');
+      expect(gqlOf(profile)?.query).toContain('GetBooks');
+      expect(gqlOf(profile)?.query).toContain('books');
     });
 
     it('captures mutation operationType and fieldName', async () => {
@@ -229,8 +233,8 @@ function sharedGraphQLAssertions(getServer: () => Server, driverLabel: string): 
 
       const profile = await getProfile(getServer(), token!);
 
-      expect(profile.request.graphql?.operationType).toBe('mutation');
-      expect(profile.request.graphql?.fieldName).toBe('createBook');
+      expect(gqlOf(profile)?.operationType).toBe('mutation');
+      expect(gqlOf(profile)?.fieldName).toBe('createBook');
     });
 
     it('captures the resolver result as response body (statusCode 200)', async () => {

@@ -38,9 +38,10 @@ export { FileStorageAdapter } from './storage/file-storage.adapter';
 export type { FileStorageAdapterOptions } from './storage/file-storage.adapter';
 export type {
   Profile,
+  ProfileEntrypoint,
   LogEntry,
   ExceptionEntry,
-  RequestData,
+  HttpRequestData,
   ResponseData,
   PerformanceData,
   LogLevel,
@@ -49,8 +50,16 @@ export type {
   EventEntry,
   SecurityContext,
   GraphQLInfo,
-  CommandInfo,
 } from './interfaces/profile.interface';
+export { HTTP_ENTRYPOINT_TYPE } from './interfaces/profile.interface';
+export { PROFILER_ENTRYPOINT_TYPES } from './entrypoints/profiler-entrypoint-type.interface';
+export type {
+  ProfilerEntrypointType,
+  ProfilerDetailTab,
+  EntrypointSummary,
+  EntrypointListSection,
+} from './entrypoints/profiler-entrypoint-type.interface';
+export { HTTP_ENTRYPOINT_TYPE_DEF } from './entrypoints/builtin-http-entrypoint';
 export { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
 export type { IContextAdapter } from './adapters/context-adapter.interface';
 export { PROFILER_REQ_KEY } from './constants';
@@ -63,3 +72,7 @@ export type {
   ProfilerFilterControl,
   ProfilerFilterOption,
 } from './list-filters/profiler-list-filter.interface';
+export { PROFILER_LIST_SECTIONS } from './list-sections/profiler-list-section.interface';
+export type { ProfilerListSection } from './list-sections/profiler-list-section.interface';
+export { bucketProfilesBySection, DEFAULT_SECTION_ORDER } from './list-sections/list-section.utils';
+export type { ProfilerListSectionBucket } from './list-sections/list-section.utils';

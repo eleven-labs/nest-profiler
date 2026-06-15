@@ -3,6 +3,9 @@ import type { ClsService } from 'nestjs-cls';
 import type { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { CommandProfiler } from './command-profiler.service';
+import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';
+import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
+import type { CommandInfo } from './commander-collector.interface';
 
 function createCls(): { cls: ClsService; set: jest.Mock } {
   const store = new Map<string, unknown>();
@@ -19,24 +22,40 @@ function createCore(crossProcess = true): {
   core: ProfilerCoreService;
   save: jest.Mock;
   collectAll: jest.Mock;
-  saved: () => Profile;
+  registerEntrypointType: jest.Mock;
+  saved: () => Profile<CommandInfo>;
 } {
-  let savedProfile: Profile | undefined;
-  const save = jest.fn((profile: Profile) => {
+  let savedProfile: Profile<CommandInfo> | undefined;
+  const save = jest.fn((profile: Profile<CommandInfo>) => {
     savedProfile = profile;
     return Promise.resolve();
   });
   const collectAll = jest.fn(() => Promise.resolve());
+  const registerEntrypointType = jest.fn();
   const core = {
     storage: { save, crossProcess },
     collectorRegistry: { collectAll },
+    registerEntrypointType,
   } as unknown as ProfilerCoreService;
-  return { core, save, collectAll, saved: () => savedProfile as Profile };
+  return {
+    core,
+    save,
+    collectAll,
+    registerEntrypointType,
+    saved: () => savedProfile as Profile<CommandInfo>,
+  };
 }
 
 const META = { name: 'sync:posts', arguments: ['--limit', '5'], options: { dryRun: true } };
 
 describe('CommandProfiler', () => {
+  it('registers the command entrypoint type on module init', () => {
+    const { cls } = createCls();
+    const { core, registerEntrypointType } = createCore();
+    new CommandProfiler(cls, core).onModuleInit();
+    expect(registerEntrypointType).toHaveBeenCalledWith(COMMAND_ENTRYPOINT_TYPE_DEF);
+  });
+
   it('profiles a successful command and saves the profile', async () => {
     const { cls, set } = createCls();
     const { core, save, collectAll, saved } = createCore();
@@ -50,9 +69,8 @@ describe('CommandProfiler', () => {
     expect(set).toHaveBeenCalledWith('profiler.profile', expect.any(Object));
 
     const profile = saved();
-    expect(profile.request.method).toBe('CLI');
-    expect(profile.request.url).toBe('sync:posts --limit 5');
-    expect(profile.request.command).toMatchObject({
+    expect(profile.entrypoint.type).toBe(COMMAND_ENTRYPOINT_TYPE);
+    expect(profile.entrypoint.data).toMatchObject({
       name: 'sync:posts',
       arguments: ['--limit', '5'],
       options: { dryRun: true },
@@ -85,7 +103,7 @@ describe('CommandProfiler', () => {
 
     const profile = saved();
     expect(profile.response?.statusCode).toBe(500);
-    expect(profile.request.command).toMatchObject({ exitCode: 1, success: false });
+    expect(profile.entrypoint.data).toMatchObject({ exitCode: 1, success: false });
     expect(profile.exceptions).toHaveLength(1);
     expect(profile.exceptions[0]).toMatchObject({ name: 'Error', message: 'boom' });
 
@@ -103,18 +121,21 @@ describe('CommandProfiler', () => {
     await expect(profiler.profile(META, exec)).rejects.toThrow('string failure');
 
     const profile = saved();
-    expect(profile.request.command).toMatchObject({ success: false });
+    expect(profile.entrypoint.data).toMatchObject({ success: false });
     expect(profile.exceptions[0]).toMatchObject({ message: 'string failure' });
   });
 
-  it('builds the url from the command name only when there are no arguments', async () => {
+  it('records the command name and empty arguments when none are passed', async () => {
     const { cls } = createCls();
     const { core, saved } = createCore();
     const profiler = new CommandProfiler(cls, core);
 
     await profiler.profile({ name: 'demo:greet', arguments: [], options: {} }, jest.fn());
 
-    expect(saved().request.url).toBe('demo:greet');
+    expect(saved().entrypoint.data).toMatchObject({
+      name: 'demo:greet',
+      arguments: [],
+    });
   });
 
   it('warns once when commands are profiled to a process-local store', async () => {

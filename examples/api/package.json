@@ -16,6 +16,7 @@
     "cli:dev": "nest start --entryFile cli --",
     "test": "echo 'No tests for example-api'",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.cjs",
+    "test:e2e:no-stress": "PROFILER_STRESS=false pnpm test:e2e",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import type { DynamicModule, OnModuleInit, Provider } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, PROFILER_CONTEXT_ADAPTERS } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
+import { GRAPHQL_ENTRYPOINT_TYPE_DEF } from './graphql-entrypoint';
 
 export interface ProfilerGraphQLModuleOptions {
   /** Enable GraphQL profiling. Default: `true`. */
@@ -24,8 +25,9 @@ export class ProfilerGraphQLModule implements OnModuleInit {
       // even when ProfilerModule is imported as a sibling rather than a parent.
       const core = this.moduleRef.get<ProfilerCoreService>(ProfilerCoreService, { strict: false });
       core.registerContextAdapter(this.adapter);
-      // Surface GraphQL as a choice in the list page's "Type" filter.
-      core.registerFilterOption('type', { value: 'graphql', label: 'GraphQL' });
+      // Render GraphQL operations in their own list table and detail tab, and add
+      // the "GraphQL" option to the list page's "Type" filter.
+      core.registerEntrypointType(GRAPHQL_ENTRYPOINT_TYPE_DEF);
     } catch {
       // ProfilerCoreService unavailable — profiler may not be configured.
     }

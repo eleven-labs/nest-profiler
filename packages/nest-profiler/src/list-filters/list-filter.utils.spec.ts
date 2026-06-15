@@ -1,12 +1,12 @@
 import { applyListFilters, parseFilterValues, parseLenientInt } from './list-filter.utils';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 
 function makeProfile(method: string, statusCode?: number): Profile {
   return {
     token: Math.random().toString(36).slice(2),
     createdAt: Date.now(),
-    request: { method, url: '/', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method, url: '/', headers: {}, query: {} } },
     response: statusCode !== undefined ? { statusCode, headers: {} } : undefined,
     performance: { startTime: 0, heapUsed: 0 },
     logs: [],
@@ -20,7 +20,7 @@ const methodFilter: ProfilerListFilter<string> = {
   label: 'Method',
   control: 'select',
   parse: (raw) => (raw && raw.length > 0 ? raw : undefined),
-  matches: (p, v) => p.request.method === v,
+  matches: (p, v) => (p.entrypoint.data as HttpRequestData).method === v,
 };
 
 const statusFilter: ProfilerListFilter<number> = {

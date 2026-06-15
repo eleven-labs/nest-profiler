@@ -21,25 +21,29 @@ Every non-profiler request receives response headers:
 
 ## List filters
 
-The profile list supports server-side filtering via query parameters:
+Each list (HTTP, GraphQL, Commands…) has its own filter bar and is filtered
+independently, so query parameters are **namespaced by the section key**:
+`<section>_<filter>`. The HTTP list, for example, uses `http_method`, `http_status`…
 
 ```
-GET /_profiler?method=GET&minDuration=100&q=/api&statusClass=2
+GET /_profiler?http_method=GET&http_minDuration=100&http_q=/api&http_statusClass=2
 ```
 
-| Parameter       | Description                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| `type`          | Request kind: `http` (REST), `command` (CLI), or `graphql` when the GraphQL package is installed |
-| `method`        | HTTP method (GET, POST, …)                                                                       |
-| `q`             | Search across URL, GraphQL operation name and command name                                       |
-| `status`        | Exact response status code                                                                       |
-| `statusClass`   | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)                                             |
-| `minDuration`   | Minimum duration in ms                                                                           |
-| `maxDuration`   | Maximum duration in ms                                                                           |
-| `hasExceptions` | When set, only profiles that captured an exception                                               |
+The **universal** filters (available on every list) are:
 
-Optional packages extend the filters — for example `@eleven-labs/nest-profiler-graphql`
-adds a **GraphQL** choice to the `type` select via `registerFilterOption('type', …)`.
+| Parameter       | Description                                                |
+| --------------- | ---------------------------------------------------------- |
+| `q`             | Search across URL, GraphQL operation name and command name |
+| `status`        | Exact response status code                                 |
+| `statusClass`   | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)       |
+| `minDuration`   | Minimum duration in ms                                     |
+| `maxDuration`   | Maximum duration in ms                                     |
+| `hasExceptions` | When set, only profiles that captured an exception         |
+
+Each entrypoint kind also contributes **scoped** filters, shown only above its own
+list — e.g. `method` (HTTP), `operationType` (GraphQL, via
+`@eleven-labs/nest-profiler-graphql`), `commandStatus` (Commands). A scoped filter
+is namespaced like any other: `graphql_operationType=mutation`.
 
 ### Custom list filters
 

@@ -2,13 +2,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { FileStorageAdapter } from './file-storage.adapter';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 
-function makeProfile(token: string, createdAt = Date.now()): Profile {
+function makeProfile(token: string, createdAt = Date.now()): Profile<HttpRequestData> {
   return {
     token,
     createdAt,
-    request: { method: 'GET', url: `/${token}`, headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: `/${token}`, headers: {}, query: {} } },
     performance: { startTime: createdAt, heapUsed: 0, duration: 10 },
     logs: [],
     exceptions: [],
@@ -99,14 +99,16 @@ describe('FileStorageAdapter', () => {
 
   it('findAll applies method filter', async () => {
     const get = makeProfile('get');
-    get.request.method = 'GET';
+    get.entrypoint.data.method = 'GET';
     const post = makeProfile('post');
-    post.request.method = 'POST';
+    post.entrypoint.data.method = 'POST';
     await adapter.save(get);
     await adapter.save(post);
 
     const results = await adapter.findAll({ method: 'POST' });
-    expect(results.every((p) => p.request.method === 'POST')).toBe(true);
+    expect(results.every((p) => (p.entrypoint.data as HttpRequestData).method === 'POST')).toBe(
+      true,
+    );
   });
 
   it('reconstructs index from disk on new adapter instance', async () => {
@@ -277,7 +279,7 @@ describe('FileStorageAdapter', () => {
       await bigAdapter.findAll(); // warm
 
       const updated = makeProfile('rewritten', original.createdAt);
-      updated.request.url = '/changed-externally';
+      updated.entrypoint.data.url = '/changed-externally';
       const filePath = path.join(dir, 'rewritten.json');
       await fs.promises.writeFile(filePath, JSON.stringify(updated), 'utf-8');
       // Force a different mtime even on coarse-grained filesystems.
@@ -285,13 +287,15 @@ describe('FileStorageAdapter', () => {
       await fs.promises.utimes(filePath, future, future);
 
       const found = await bigAdapter.findOne('rewritten');
-      expect(found?.request.url).toBe('/changed-externally');
+      expect((found?.entrypoint.data as HttpRequestData | undefined)?.url).toBe(
+        '/changed-externally',
+      );
     });
 
     it('never surfaces a partially written profile to concurrent readers', async () => {
       // A profile large enough that a non-atomic write would be observable mid-flight.
       const big = makeProfile('huge', Date.now());
-      big.request.body = 'x'.repeat(2 * 1024 * 1024);
+      big.entrypoint.data.body = 'x'.repeat(2 * 1024 * 1024);
 
       const save = bigAdapter.save(big);
       const reads = Array.from({ length: 10 }, () => bigAdapter.findOne('huge'));
@@ -300,10 +304,15 @@ describe('FileStorageAdapter', () => {
 
       // Each concurrent read either misses (not yet renamed) or gets the complete profile.
       for (const r of results) {
-        if (r !== undefined) expect((r.request.body as string).length).toBe(2 * 1024 * 1024);
+        if (r !== undefined)
+          expect(((r.entrypoint.data as HttpRequestData).body as string).length).toBe(
+            2 * 1024 * 1024,
+          );
       }
       const final = await bigAdapter.findOne('huge');
-      expect((final?.request.body as string).length).toBe(2 * 1024 * 1024);
+      expect(((final?.entrypoint.data as HttpRequestData | undefined)?.body as string).length).toBe(
+        2 * 1024 * 1024,
+      );
     });
   });
 });

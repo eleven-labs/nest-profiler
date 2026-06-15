@@ -5,7 +5,7 @@ export interface ProfilerCollectorMetadata {
   label?: string;
   icon?: string;
   priority?: number;
-  scope?: 'request' | 'global';
+  scope?: 'profile' | 'global';
   group?: string;
   groupLabel?: string;
   groupIcon?: string;

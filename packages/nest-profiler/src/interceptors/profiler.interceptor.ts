@@ -65,10 +65,10 @@ export class ProfilerInterceptor implements NestInterceptor {
     const activeProfile = profile ?? adapter.recoverProfile(ctx);
     if (!activeProfile) return next.handle();
 
-    // Only enrich once — the first resolver in the request captures the operation info.
-    if (!activeProfile.request.graphql) {
-      adapter.enrichProfile(activeProfile, ctx);
-    }
+    // Adapters are idempotent (e.g. the GraphQL adapter enriches only the first
+    // resolver of a request), so it is safe to call this unconditionally — the
+    // core no longer needs to know which protocol field signals "already enriched".
+    adapter.enrichProfile(activeProfile, ctx);
 
     if (profile) {
       // CLS already active — route directly to the non-HTTP pipeline.

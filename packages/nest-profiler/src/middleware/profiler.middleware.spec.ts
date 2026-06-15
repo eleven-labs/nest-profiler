@@ -3,9 +3,14 @@ import { ClsModule, ClsService } from 'nestjs-cls';
 import { ProfilerMiddleware } from './profiler.middleware';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import type { ProfilerCoreService } from '../services/profiler-core.service';
+
+/** Reads the HTTP request data from a possibly-undefined profile's entrypoint. */
+function reqData(profile: Profile<HttpRequestData> | undefined): HttpRequestData | undefined {
+  return profile?.entrypoint?.data;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,11 +38,11 @@ function runMiddleware(
   middleware: ProfilerMiddleware,
   req: Partial<PlatformRequest>,
   cls: ClsService,
-): Promise<Profile | undefined> {
-  return new Promise<Profile | undefined>((resolve) => {
+): Promise<Profile<HttpRequestData> | undefined> {
+  return new Promise<Profile<HttpRequestData> | undefined>((resolve) => {
     const next = () => {
       try {
-        resolve(cls.get<Profile | undefined>('profiler.profile'));
+        resolve(cls.get<Profile<HttpRequestData> | undefined>('profiler.profile'));
       } catch {
         resolve(undefined); // called outside CLS context — request was skipped
       }
@@ -85,7 +90,7 @@ describe('ProfilerMiddleware', () => {
       );
 
       expect(profile).toBeDefined();
-      expect(profile?.request.url).toBe('/users?page=2');
+      expect(reqData(profile)?.url).toBe('/users?page=2');
     });
 
     it('captures cookies from req.cookies when already parsed', async () => {
@@ -102,7 +107,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.cookies).toEqual({ session_id: 'abc123', theme: 'dark' });
+      expect(reqData(profile)?.cookies).toEqual({ session_id: 'abc123', theme: 'dark' });
     });
 
     it('masks specified cookie values', async () => {
@@ -121,8 +126,8 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.cookies?.['auth_token']).toBe('***');
-      expect(profile?.request.cookies?.['user_id']).toBe('42');
+      expect(reqData(profile)?.cookies?.['auth_token']).toBe('***');
+      expect(reqData(profile)?.cookies?.['user_id']).toBe('42');
     });
 
     it('captures session data when req.session is present', async () => {
@@ -139,7 +144,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.session).toEqual({ userId: 7, role: 'admin' });
+      expect(reqData(profile)?.session).toEqual({ userId: 7, role: 'admin' });
     });
 
     it('excludes the profiler path itself from profiling', async () => {
@@ -175,7 +180,7 @@ describe('ProfilerMiddleware', () => {
       );
 
       expect(profile).toBeDefined();
-      expect(profile?.request.url).toBe('/products');
+      expect(reqData(profile)?.url).toBe('/products');
     });
 
     it('parses cookies from Cookie header when req.cookies is absent', async () => {
@@ -191,7 +196,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.cookies).toEqual({ session_id: 'xyz', theme: 'light' });
+      expect(reqData(profile)?.cookies).toEqual({ session_id: 'xyz', theme: 'light' });
     });
 
     it('has no cookies field when neither req.cookies nor Cookie header are present', async () => {
@@ -201,7 +206,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.cookies).toBeUndefined();
+      expect(reqData(profile)?.cookies).toBeUndefined();
     });
 
     it('has no session field when req.session is absent', async () => {
@@ -211,7 +216,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.session).toBeUndefined();
+      expect(reqData(profile)?.session).toBeUndefined();
     });
 
     it('excludes profiler path using url when path is absent', async () => {
@@ -231,7 +236,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.ip).toBe('192.168.1.1');
+      expect(reqData(profile)?.ip).toBe('192.168.1.1');
     });
   });
 
@@ -301,7 +306,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.body).toEqual({ title: 'Hello' });
+      expect(reqData(profile)?.body).toEqual({ title: 'Hello' });
     });
 
     it('does not capture body when collectBody is false (default)', async () => {
@@ -311,7 +316,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(profile?.request.body).toBeUndefined();
+      expect(reqData(profile)?.body).toBeUndefined();
     });
 
     it('uses the x-request-id header as the token when present', async () => {
@@ -344,7 +349,7 @@ describe('ProfilerMiddleware', () => {
         },
         cls,
       );
-      expect(profile?.request.session).toEqual({ userId: 1 });
+      expect(reqData(profile)?.session).toEqual({ userId: 1 });
     });
 
     it('omits session data entirely when it contains only functions', async () => {
@@ -359,7 +364,7 @@ describe('ProfilerMiddleware', () => {
         },
         cls,
       );
-      expect(profile?.request.session).toBeUndefined();
+      expect(reqData(profile)?.session).toBeUndefined();
     });
 
     it('skips malformed cookie segments without an "=" separator', async () => {
@@ -368,7 +373,7 @@ describe('ProfilerMiddleware', () => {
         { method: 'GET', url: '/p', headers: { cookie: 'flag; a=b' }, query: {} },
         cls,
       );
-      expect(profile?.request.cookies).toEqual({ a: 'b' });
+      expect(reqData(profile)?.cookies).toEqual({ a: 'b' });
     });
   });
 
@@ -645,9 +650,9 @@ describe('ProfilerMiddleware', () => {
     });
 
     /** Reads the live profile the middleware created (captured via cls.set). */
-    const capturedProfile = (cls: ClsService): Profile => {
+    const capturedProfile = (cls: ClsService): Profile<HttpRequestData> => {
       const calls = (cls as unknown as { set: jest.Mock }).set.mock.calls as [string, unknown][];
-      return calls.find((c) => c[0] === 'profiler.profile')?.[1] as Profile;
+      return calls.find((c) => c[0] === 'profiler.profile')?.[1] as Profile<HttpRequestData>;
     };
 
     it('backfills the GraphQL transport envelope into an already-finalized response', async () => {
@@ -658,7 +663,10 @@ describe('ProfilerMiddleware', () => {
       await runMw(middleware, res, '/graphql');
 
       const profile = capturedProfile(cls);
-      profile.request.graphql = { operationType: 'mutation', fieldName: 'createBook' };
+      profile.entrypoint.data.graphql = {
+        operationType: 'mutation',
+        fieldName: 'createBook',
+      };
       profile.response = { statusCode: 500, headers: {}, body: undefined };
 
       const envelope = { errors: [{ message: 'boom' }], data: null };

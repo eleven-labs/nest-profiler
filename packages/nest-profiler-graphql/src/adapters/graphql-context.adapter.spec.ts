@@ -1,18 +1,22 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
-import type { Profile } from '@eleven-labs/nest-profiler';
+import type { HttpRequestData, Profile } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './graphql-context.adapter';
 
-function makeProfile(): Profile {
+function makeProfile(): Profile<HttpRequestData> {
   return {
     token: 'tok',
     createdAt: Date.now(),
-    request: { method: 'POST', url: '/graphql', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'POST', url: '/graphql', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],
     collectors: {},
   };
+}
+
+function gqlOf(profile: Profile<HttpRequestData>): HttpRequestData['graphql'] {
+  return profile.entrypoint.data.graphql;
 }
 
 function makeCtx(args: unknown[]): ExecutionContext {
@@ -81,6 +85,13 @@ describe('GraphQLContextAdapter', () => {
   });
 
   describe('enrichProfile()', () => {
+    it('promotes the http profile to the graphql entrypoint kind', () => {
+      const profile = makeProfile();
+      expect(profile.entrypoint.type).toBe('http');
+      adapter.enrichProfile(profile, makeCtx([undefined, undefined, { req: {} }, undefined]));
+      expect(profile.entrypoint.type).toBe('graphql');
+    });
+
     it('sets all fields from req.body when present', () => {
       const profile = makeProfile();
       const req = {
@@ -98,12 +109,12 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.operationType).toBe('query');
-      expect(profile.request.graphql?.fieldName).toBe('books');
-      expect(profile.request.graphql?.operationName).toBe('GetBooks');
-      expect(profile.request.graphql?.variables).toEqual({ limit: 10 });
+      expect(gqlOf(profile)?.operationType).toBe('query');
+      expect(gqlOf(profile)?.fieldName).toBe('books');
+      expect(gqlOf(profile)?.operationName).toBe('GetBooks');
+      expect(gqlOf(profile)?.variables).toEqual({ limit: 10 });
       // query is formatted by tryFormatQuery — just check it's present
-      expect(profile.request.graphql?.query).toContain('books');
+      expect(gqlOf(profile)?.query).toContain('books');
     });
 
     it('handles mutation operationType', () => {
@@ -113,7 +124,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.operationType).toBe('mutation');
+      expect(gqlOf(profile)?.operationType).toBe('mutation');
     });
 
     it('handles subscription operationType', () => {
@@ -126,7 +137,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.operationType).toBe('subscription');
+      expect(gqlOf(profile)?.operationType).toBe('subscription');
     });
 
     it('defaults operationType to "query" when info is missing', () => {
@@ -135,7 +146,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.operationType).toBe('query');
+      expect(gqlOf(profile)?.operationType).toBe('query');
     });
 
     it('defaults operationType to "query" when info.operation.operation is absent', () => {
@@ -145,7 +156,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.operationType).toBe('query');
+      expect(gqlOf(profile)?.operationType).toBe('query');
     });
 
     it('omits undefined optional fields', () => {
@@ -155,10 +166,10 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql).toEqual({ operationType: 'query', fieldName: 'books' });
-      expect(profile.request.graphql).not.toHaveProperty('operationName');
-      expect(profile.request.graphql).not.toHaveProperty('query');
-      expect(profile.request.graphql).not.toHaveProperty('variables');
+      expect(gqlOf(profile)).toEqual({ operationType: 'query', fieldName: 'books' });
+      expect(gqlOf(profile)).not.toHaveProperty('operationName');
+      expect(gqlOf(profile)).not.toHaveProperty('query');
+      expect(gqlOf(profile)).not.toHaveProperty('variables');
     });
 
     it('reads body from gqlCtx.request for Mercurius', () => {
@@ -169,8 +180,8 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.query).toContain('createBook');
-      expect(profile.request.graphql?.operationName).toBe('CreateBook');
+      expect(gqlOf(profile)?.query).toContain('createBook');
+      expect(gqlOf(profile)?.operationName).toBe('CreateBook');
     });
 
     it('preserves complex nested variables', () => {
@@ -182,7 +193,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.variables).toEqual(variables);
+      expect(gqlOf(profile)?.variables).toEqual(variables);
     });
 
     it('defaults fieldName to "unknown" when info is absent', () => {
@@ -191,7 +202,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('formats the query with graphql.print(parse())', () => {
@@ -206,7 +217,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichProfile(profile, ctx);
 
-      expect(profile.request.graphql?.query).toContain('GetBooks');
+      expect(gqlOf(profile)?.query).toContain('GetBooks');
     });
   });
 
@@ -214,6 +225,18 @@ describe('GraphQLContextAdapter', () => {
     function makeHttpReq(body: Record<string, unknown>): Record<string, unknown> {
       return { body };
     }
+
+    it('promotes the profile to the graphql kind when the body carries a query', () => {
+      const profile = makeProfile();
+      adapter.enrichHttpResponse(profile, makeHttpReq({ query: '{ books { id } }' }), {});
+      expect(profile.entrypoint.type).toBe('graphql');
+    });
+
+    it('leaves a non-graphql response as the http kind', () => {
+      const profile = makeProfile();
+      adapter.enrichHttpResponse(profile, makeHttpReq({}), {});
+      expect(profile.entrypoint.type).toBe('http');
+    });
 
     it('populates graphql info from HTTP body when no resolver ran (validation failure)', () => {
       const profile = makeProfile();
@@ -228,10 +251,10 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, responseBody);
 
-      expect(profile.request.graphql?.operationType).toBe('query');
-      expect(profile.request.graphql?.fieldName).toBe('book');
-      expect(profile.request.graphql?.operationName).toBe('GetBook');
-      expect(profile.request.graphql?.variables).toEqual({ id: '1' });
+      expect(gqlOf(profile)?.operationType).toBe('query');
+      expect(gqlOf(profile)?.fieldName).toBe('book');
+      expect(gqlOf(profile)?.operationName).toBe('GetBook');
+      expect(gqlOf(profile)?.variables).toEqual({ id: '1' });
       expect(profile.exceptions).toHaveLength(1);
       expect(profile.exceptions[0]?.name).toBe('GraphQLError');
       expect(profile.exceptions[0]?.message).toContain("Cannot query field 'idf'");
@@ -245,7 +268,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('book');
+      expect(gqlOf(profile)?.fieldName).toBe('book');
     });
 
     it('detects a field after comments and string values in operation metadata', () => {
@@ -267,7 +290,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('book');
+      expect(gqlOf(profile)?.fieldName).toBe('book');
     });
 
     it('detects aliased fields from shorthand queries', () => {
@@ -276,7 +299,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('books');
+      expect(gqlOf(profile)?.fieldName).toBe('books');
     });
 
     it('falls back to unknown for malformed shorthand selections', () => {
@@ -285,7 +308,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('falls back to unknown for non-operation documents', () => {
@@ -294,7 +317,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('falls back to unknown for invalid directives', () => {
@@ -303,7 +326,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('falls back to unknown when no selection set is present', () => {
@@ -312,7 +335,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('handles pathological operation text without backtracking', () => {
@@ -321,7 +344,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
 
     it('detects mutation in HTTP body', () => {
@@ -330,7 +353,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.operationType).toBe('mutation');
+      expect(gqlOf(profile)?.operationType).toBe('mutation');
     });
 
     it('detects subscription in HTTP body', () => {
@@ -339,12 +362,12 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.operationType).toBe('subscription');
+      expect(gqlOf(profile)?.operationType).toBe('subscription');
     });
 
     it('reformats the query when graphql info was already set by the resolver', () => {
       const profile = makeProfile();
-      profile.request.graphql = {
+      profile.entrypoint.data.graphql = {
         operationType: 'query',
         fieldName: 'books',
         query: 'query{books{id}}',
@@ -353,13 +376,13 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.fieldName).toBe('books');
-      expect(profile.request.graphql?.query).toContain('books');
+      expect(gqlOf(profile)?.fieldName).toBe('books');
+      expect(gqlOf(profile)?.query).toContain('books');
     });
 
     it('keeps the original query text when the stored query cannot be parsed', () => {
       const profile = makeProfile();
-      profile.request.graphql = {
+      profile.entrypoint.data.graphql = {
         operationType: 'query',
         fieldName: 'books',
         query: 'query {',
@@ -368,7 +391,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.query).toBe('query {');
+      expect(gqlOf(profile)?.query).toBe('query {');
     });
 
     it('skips when request body has no query field', () => {
@@ -377,7 +400,7 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql).toBeUndefined();
+      expect(gqlOf(profile)).toBeUndefined();
     });
 
     it('adds locations and extensions to exception stack', () => {
@@ -416,9 +439,9 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.operationType).toBe('mutation');
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
-      expect(profile.request.graphql?.query).toBe('mutation CreateBook {');
+      expect(gqlOf(profile)?.operationType).toBe('mutation');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.query).toBe('mutation CreateBook {');
     });
 
     it('detects subscription from raw text', () => {
@@ -427,8 +450,8 @@ describe('GraphQLContextAdapter', () => {
 
       adapter.enrichHttpResponse(profile, req, {});
 
-      expect(profile.request.graphql?.operationType).toBe('subscription');
-      expect(profile.request.graphql?.fieldName).toBe('unknown');
+      expect(gqlOf(profile)?.operationType).toBe('subscription');
+      expect(gqlOf(profile)?.fieldName).toBe('unknown');
     });
   });
 });

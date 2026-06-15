@@ -5,15 +5,15 @@ import { ClsService } from 'nestjs-cls';
 import { ProfilerInterceptor } from './profiler.interceptor';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
 
-function makeProfile(): Profile {
+function makeProfile(): Profile<HttpRequestData> {
   return {
     token: 'tok',
     createdAt: Date.now(),
-    request: { method: 'GET', url: '/hello', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/hello', headers: {}, query: {} } },
     performance: { startTime: Date.now() - 5, heapUsed: 0 },
     logs: [],
     exceptions: [],
@@ -441,16 +441,19 @@ describe('ProfilerInterceptor', () => {
       expect(profile.response?.statusCode).toBe(500);
     });
 
-    it('does not call enrichProfile a second time when graphql info is already set', async () => {
+    it('calls enrichProfile unconditionally even when graphql info is already set (adapters are idempotent)', async () => {
       const profile = makeProfile();
-      profile.request.graphql = { operationType: 'query', fieldName: 'books' };
+      profile.entrypoint.data.graphql = {
+        operationType: 'query',
+        fieldName: 'books',
+      };
       const adapter = makeAdapter(profile);
       const core = makeCore(adapter);
       const interceptor = makeInterceptor(profile, core);
 
       await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler(null)));
 
-      expect(adapter.enrichProfile).not.toHaveBeenCalled();
+      expect(adapter.enrichProfile).toHaveBeenCalledWith(profile, expect.any(Object));
     });
   });
 

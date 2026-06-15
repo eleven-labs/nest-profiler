@@ -1,0 +1,30 @@
+<% if (!profile.response) { %>
+  <div class="py-8 text-center">
+    <p class="text-foreground-muted text-sm">Response not yet captured.</p>
+  </div>
+<% } else { %>
+
+  <div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
+    <div>
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
+      <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= statusClass(profile.response.statusCode) %>"><%= profile.response.statusCode %></span>
+    </div>
+  </div>
+
+  <section class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Response Headers</h2>
+    <%- kvTable(profile.response.headers) %>
+  </section>
+
+  <% if (profile.response.body !== undefined && profile.response.body !== null) { %>
+    <section>
+      <% const respBodyIsText = typeof profile.response.body === 'string'; %>
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Body</h2>
+        <% if (respBodyIsText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
+      </div>
+      <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= respBodyIsText ? '' : ' class="language-json"' %>><%= respBodyIsText ? profile.response.body : toJson(profile.response.body) %></code></pre>
+    </section>
+  <% } %>
+
+<% } %>

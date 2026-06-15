@@ -6,23 +6,16 @@
   <main class="max-w-7xl mx-auto px-6 py-8 pb-16">
 
     <%
-      /* ── Precompute panel map & badge helpers ─────────────────────────── */
+      /* ── Precompute panel map ──────────────────────────────────────────── */
       const collectorPanelMap = {};
       if (collectorPanels) {
         for (const p of collectorPanels) collectorPanelMap[p.name] = p;
       }
 
-      const BUILTIN_TABS = [
-        {
-          name: 'request',
-          label: 'Request',
-          icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>',
-        },
-        {
-          name: 'response',
-          label: 'Response',
-          icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>',
-        },
+      /* The entrypoint type contributes the primary tabs (Request/Response for
+         HTTP, Command for a CLI command, Message for a consumed message…). The
+         universal tabs (Performance/Logs/Exceptions) follow for every kind. */
+      const UNIVERSAL_TABS = [
         {
           name: 'performance',
           label: 'Performance',
@@ -43,35 +36,15 @@
         },
       ];
 
-      // CLI commands have no HTTP request/response — swap those built-in tabs for a Command tab.
-      const isCommand = !!profile.request.command;
-      const COMMAND_TAB = {
-        name: 'command',
-        label: 'Command',
-        icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>',
-      };
-      const builtinTabs = isCommand
-        ? [COMMAND_TAB, ...BUILTIN_TABS.filter((t) => t.name === 'performance' || t.name === 'logs' || t.name === 'exceptions')]
-        : BUILTIN_TABS;
+      const builtinTabs = [...(entrypointTabs || []), ...UNIVERSAL_TABS];
     %>
 
     <!-- ── Breadcrumb ────────────────────────────────────────────────────── -->
     <nav class="flex items-center gap-2 text-xs mb-6 flex-wrap">
       <a href="<%= profilerPath %>" class="text-foreground-muted hover:text-foreground transition-colors">Profiles</a>
       <span class="text-foreground-faint">/</span>
-      <% if (profile.request.command) { %>
-        <% const cmd = profile.request.command; %>
-        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">CLI</span>
-        <span class="text-foreground-secondary truncate max-w-xs"><%= cmd.name %><% if (cmd.arguments.length) { %> <%= cmd.arguments.join(' ') %><% } %></span>
-        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= cmd.success ? 'badge-2xx' : 'badge-5xx' %>"><%= cmd.success ? 'OK' : 'FAILED' %></span>
-      <% } else if (profile.request.graphql) { %>
-        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">GQL</span>
-        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(profile.request.graphql.operationType) %>"><%= profile.request.graphql.operationType.toUpperCase() %></span>
-        <span class="text-foreground-secondary truncate max-w-xs"><%= profile.request.graphql.operationName || profile.request.graphql.fieldName %></span>
-      <% } else { %>
-        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(profile.request.method) %>"><%= profile.request.method %></span>
-        <span class="text-foreground-secondary truncate max-w-xs"><%= profile.request.url %></span>
-      <% } %>
+      <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= summary.badgeClass || 'badge-default' %>"><%= summary.badge %></span>
+      <span class="text-foreground-secondary truncate max-w-xs"><%= summary.text %></span>
       <span class="text-foreground-faint">/</span>
       <code class="text-foreground-secondary bg-surface border border-line px-2 py-0.5 rounded"><%= profile.token.slice(0, 8) %></code>
       <% if (profile.route) { %>
@@ -111,7 +84,7 @@
                    : isEmpty
                      ? 'border-transparent text-foreground-faint hover:text-foreground-muted hover:bg-surface-muted'
                      : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted' %>">
-              <span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><%- bt.icon %></span>
+              <% if (bt.icon) { %><span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><%- bt.icon %></span><% } %>
               <span class="flex-1"><%= bt.label %></span>
               <% if (badge !== null) { %>
                 <span class="px-1.5 py-0.5 rounded-full text-2xs font-bold border
@@ -163,188 +136,7 @@
       <div class="flex-1 min-w-0 bg-surface border border-line rounded-xl">
         <div class="p-6 min-h-56">
 
-          <% if (activeTab === 'command') { %>
-
-            <%
-              const cmd = profile.request.command;
-              const cmdDur = profile.performance.duration;
-              const cmdOptions = cmd.options || {};
-              const cmdError = profile.exceptions.length > 0 ? profile.exceptions[0].message : null;
-            %>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-              <div class="bg-surface-muted border border-line rounded-lg p-4">
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
-                <p class="text-xl font-bold <%= cmd.success ? 'text-success' : 'text-danger' %>"><%= cmd.success ? 'OK' : 'Failed' %></p>
-              </div>
-              <div class="bg-surface-muted border border-line rounded-lg p-4">
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Exit Code</p>
-                <p class="text-foreground text-xl font-bold tabular-nums"><%= cmd.exitCode %></p>
-              </div>
-              <div class="bg-surface-muted border border-line rounded-lg p-4">
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>
-                <p class="text-foreground text-xl font-bold tabular-nums"><%= cmdDur !== undefined ? cmdDur + 'ms' : '—' %></p>
-              </div>
-              <div class="bg-surface-muted border border-line rounded-lg p-4">
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Started</p>
-                <p class="text-foreground text-sm font-bold tabular-nums"><%= timeOnly(profile.performance.startTime) %></p>
-              </div>
-            </div>
-
-            <section class="mb-6">
-              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Command</h2>
-              <code class="block bg-surface-muted border border-line rounded-lg px-4 py-3 text-foreground text-sm break-all">
-                <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">CLI</span><%= cmd.name %><% if (cmd.arguments.length) { %> <%= cmd.arguments.join(' ') %><% } %>
-              </code>
-            </section>
-
-            <section class="mb-6">
-              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments</h2>
-              <% if (!cmd.arguments.length) { %>
-                <p class="text-foreground-faint text-xs italic py-1">No positional arguments.</p>
-              <% } else { %>
-                <div class="flex flex-wrap gap-2">
-                  <% for (const arg of cmd.arguments) { %>
-                    <span class="px-2 py-1 rounded text-xs bg-surface-muted border border-line text-foreground-secondary"><%= arg %></span>
-                  <% } %>
-                </div>
-              <% } %>
-            </section>
-
-            <section <%= cmdError ? 'class="mb-6"' : '' %>>
-              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options</h2>
-              <% if (Object.keys(cmdOptions).length === 0) { %>
-                <p class="text-foreground-faint text-xs italic py-1">No options.</p>
-              <% } else { %>
-                <%- kvTable(cmdOptions) %>
-              <% } %>
-            </section>
-
-            <% if (cmdError) { %>
-              <section>
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Error</h2>
-                <pre class="bg-danger-bg border border-danger-line rounded-lg px-4 py-3 text-danger text-xs whitespace-pre-wrap break-all"><%= cmdError %></pre>
-              </section>
-            <% } %>
-
-          <% } else if (activeTab === 'request') { %>
-
-            <div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
-              <div>
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Method</p>
-                <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= methodClass(profile.request.method) %>"><%= profile.request.method %></span>
-              </div>
-              <div>
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">URL</p>
-                <code class="text-foreground-secondary text-xs"><%= profile.request.url %></code>
-              </div>
-              <div>
-                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">IP</p>
-                <span class="text-foreground-secondary text-xs"><%= profile.request.ip || '—' %></span>
-              </div>
-            </div>
-
-            <% if (profile.request.graphql) { %>
-              <% const gql = profile.request.graphql; %>
-              <section class="mb-6 pb-6 border-b border-line-subtle">
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3 flex items-center gap-2">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
-                  GraphQL
-                </h2>
-                <div class="flex flex-wrap items-center gap-2 mb-4">
-                  <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(gql.operationType) %>"><%= gql.operationType.toUpperCase() %></span>
-                  <% if (gql.operationName) { %>
-                    <span class="px-2.5 py-1 rounded text-2xs font-medium bg-surface-muted border border-line text-foreground-secondary"><%= gql.operationName %></span>
-                  <% } %>
-                  <span class="text-foreground-faint text-2xs">field:</span>
-                  <code class="text-foreground-secondary text-xs bg-surface-muted border border-line px-2 py-0.5 rounded"><%= gql.fieldName %></code>
-                </div>
-                <% if (gql.query) { %>
-                  <div class="mb-4">
-                    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Query</p>
-                    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code class="language-graphql"><%= gql.query %></code></pre>
-                  </div>
-                <% } %>
-                <% if (gql.variables && Object.keys(gql.variables).length > 0) { %>
-                  <div>
-                    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Variables</p>
-                    <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code class="language-json"><%= toJson(gql.variables) %></code></pre>
-                  </div>
-                <% } %>
-              </section>
-            <% } %>
-
-            <% if (Object.keys(profile.request.query).length > 0) { %>
-              <section class="mb-6">
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Query Parameters</h2>
-                <%- kvTable(profile.request.query) %>
-              </section>
-            <% } %>
-
-            <% if (profile.request.cookies && Object.keys(profile.request.cookies).length > 0) { %>
-              <section class="mb-6">
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Cookies</h2>
-                <%- kvTable(profile.request.cookies) %>
-              </section>
-            <% } %>
-
-            <% if (profile.request.session && Object.keys(profile.request.session).length > 0) { %>
-              <section class="mb-6">
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Session</h2>
-                <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code class="language-json"><%= toJson(profile.request.session) %></code></pre>
-              </section>
-            <% } %>
-
-            <section class="mb-6">
-              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Request Headers</h2>
-              <%- kvTable(profile.request.headers) %>
-            </section>
-
-            <% if (profile.request.body !== undefined && profile.request.body !== null) { %>
-              <section>
-                <% const reqBodyIsText = typeof profile.request.body === 'string'; %>
-                <div class="flex items-center gap-2 mb-3">
-                  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Body</h2>
-                  <% if (reqBodyIsText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
-                </div>
-                <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= reqBodyIsText ? '' : ' class="language-json"' %>><%= reqBodyIsText ? profile.request.body : toJson(profile.request.body) %></code></pre>
-              </section>
-            <% } %>
-
-          <% } else if (activeTab === 'response') { %>
-
-            <% if (!profile.response) { %>
-              <div class="py-8 text-center">
-                <p class="text-foreground-muted text-sm">Response not yet captured.</p>
-              </div>
-            <% } else { %>
-
-              <div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
-                <div>
-                  <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
-                  <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= statusClass(profile.response.statusCode) %>"><%= profile.response.statusCode %></span>
-                </div>
-              </div>
-
-              <section class="mb-6">
-                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Response Headers</h2>
-                <%- kvTable(profile.response.headers) %>
-              </section>
-
-              <% if (profile.response.body !== undefined && profile.response.body !== null) { %>
-                <section>
-                  <% const respBodyIsText = typeof profile.response.body === 'string'; %>
-                  <div class="flex items-center gap-2 mb-3">
-                    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Body</h2>
-                    <% if (respBodyIsText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
-                  </div>
-                  <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= respBodyIsText ? '' : ' class="language-json"' %>><%= respBodyIsText ? profile.response.body : toJson(profile.response.body) %></code></pre>
-                </section>
-              <% } %>
-
-            <% } %>
-
-          <% } else if (activeTab === 'performance') { %>
+          <% if (activeTab === 'performance') { %>
 
             <%
               const heapUsed = profile.performance.heapUsed;
@@ -467,6 +259,10 @@
                 <% } %>
               </div>
             <% } %>
+
+          <% } else if (entrypointTabTemplate) { %>
+
+            <%- include(entrypointTabTemplate, { profile, methodClass, gqlTypeClass, statusClass, logLevelClass, isoDate, timeOnly, toJson, kvTable, highlightSql, mb }) %>
 
           <% } else { %>
 

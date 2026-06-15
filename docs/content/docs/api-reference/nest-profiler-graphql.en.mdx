@@ -14,11 +14,20 @@ Options passed to `ProfilerGraphQLModule.forRoot()`.
 
 ## GraphQLInfo
 
-GraphQL metadata attached to `profile.request.graphql` for every profiled GraphQL operation.
+GraphQL metadata attached to `profile.entrypoint.data.graphql` for every profiled GraphQL operation.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/interfaces/profile.interface.ts"
   name="GraphQLInfo"
+/>
+
+## GraphQLEntrypointData
+
+Payload of the `graphql` entrypoint (`profile.entrypoint.data`). GraphQL runs over HTTP but is its own entrypoint kind, so this extends `HttpRequestData` with a guaranteed `graphql`. Registering `ProfilerGraphQLModule` installs the `graphql` type (`GRAPHQL_ENTRYPOINT_TYPE`) via `GRAPHQL_ENTRYPOINT_TYPE_DEF`, giving operations their own list table, detail tab and an **Operation** filter above the GraphQL list.
+
+<AutoTypeTable
+  path="packages/nest-profiler-graphql/src/graphql-entrypoint.ts"
+  name="GraphQLEntrypointData"
 />
 
 ## ProfilerFilterRequest

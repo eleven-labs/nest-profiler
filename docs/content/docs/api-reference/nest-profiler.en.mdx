@@ -23,15 +23,60 @@ Options passed to `ProfilerModule.forRootAsync()`.
 
 ## Profile
 
-Full data structure for a collected request profile.
+Full data structure for a collected profile. The `entrypoint` field records what
+triggered it (an HTTP request, a CLI command, a consumed message…).
 
 <AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="Profile" />
 
-## RequestData
+## ProfileEntrypoint
+
+The discriminated descriptor of a profile's entrypoint. `type` identifies the kind
+(`'http'`, `'command'`, …) and `data` holds the kind-specific payload,
+owned by the package that registered the type.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="RequestData"
+  name="ProfileEntrypoint"
+/>
+
+## HttpRequestData
+
+Payload of the built-in `http` entrypoint — an HTTP request (REST or GraphQL).
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="HttpRequestData"
+/>
+
+## ProfilerEntrypointType
+
+Everything the profiler needs to support an entrypoint kind, registered in one call
+via `ProfilerCoreService.registerEntrypointType()`: the list-page table, the detail
+tab(s), the kind-scoped list filters and the breadcrumb summary.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/entrypoints/profiler-entrypoint-type.interface.ts"
+  name="ProfilerEntrypointType"
+/>
+
+## ProfilerDetailTab
+
+A primary detail-page tab contributed by an entrypoint type. Its body is rendered
+from `templatePath` (an absolute path to an EJS partial that receives `{ profile }`
+plus the shared template helpers).
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/entrypoints/profiler-entrypoint-type.interface.ts"
+  name="ProfilerDetailTab"
+/>
+
+## EntrypointSummary
+
+The compact summary an entrypoint type renders in the detail-page breadcrumb.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/entrypoints/profiler-entrypoint-type.interface.ts"
+  name="EntrypointSummary"
 />
 
 ## ResponseData
@@ -182,7 +227,8 @@ import type {
   MemoryStorageAdapterOptions,
   CollectorPanelInfo,
   Profile,
-  RequestData,
+  ProfileEntrypoint,
+  HttpRequestData,
   ResponseData,
   PerformanceData,
   RouteInfo,

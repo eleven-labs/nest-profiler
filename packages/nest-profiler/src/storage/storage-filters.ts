@@ -1,8 +1,14 @@
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { StorageFindOptions } from './storage-adapter.interface';
 
+/** `method`/`url` are HTTP concepts; non-HTTP entrypoints simply don't carry them. */
+function httpData(profile: Profile): Partial<HttpRequestData> {
+  return profile.entrypoint.data as Partial<HttpRequestData>;
+}
+
 function matchesMethod(profile: Profile, method?: string): boolean {
-  return !method || profile.request.method.toUpperCase() === method.toUpperCase();
+  if (!method) return true;
+  return httpData(profile).method?.toUpperCase() === method.toUpperCase();
 }
 
 function matchesDuration(profile: Profile, min?: number, max?: number): boolean {
@@ -12,10 +18,7 @@ function matchesDuration(profile: Profile, min?: number, max?: number): boolean 
 
 function matchesStatusAndUrl(profile: Profile, statusCode?: number, urlPattern?: string): boolean {
   if (statusCode !== undefined && profile.response?.statusCode !== statusCode) return false;
-  if (urlPattern && !profile.request.url.toLowerCase().includes(urlPattern.toLowerCase())) {
-    return false;
-  }
-  return true;
+  return !(urlPattern && !httpData(profile).url?.toLowerCase().includes(urlPattern.toLowerCase()));
 }
 
 function matchesFilters(profile: Profile, options: StorageFindOptions): boolean {
@@ -26,7 +29,10 @@ function matchesFilters(profile: Profile, options: StorageFindOptions): boolean 
   );
 }
 
-export function applyProfileFilters(profiles: Profile[], options?: StorageFindOptions): Profile[] {
+export function applyProfileFilters<T = unknown>(
+  profiles: Profile<T>[],
+  options?: StorageFindOptions,
+): Profile<T>[] {
   if (!options) return profiles;
   return profiles.filter((p) => matchesFilters(p, options));
 }

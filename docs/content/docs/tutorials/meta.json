@@ -15,6 +15,7 @@
     "validator-collector",
     "graphql-collector",
     "custom-collector",
+    "build-entrypoint-type",
     "file-storage"
   ]
 }

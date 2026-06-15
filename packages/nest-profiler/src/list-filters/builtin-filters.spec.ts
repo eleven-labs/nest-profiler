@@ -2,10 +2,18 @@ import { BUILTIN_LIST_FILTERS } from './builtin-filters';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
 import type {
   GraphQLInfo,
-  CommandInfo,
   ExceptionEntry,
+  ProfileEntrypoint,
   Profile,
 } from '../interfaces/profile.interface';
+
+/** Shape of the generic `command` entrypoint a protocol package would register. */
+interface CommandData {
+  name: string;
+  arguments: string[];
+  exitCode: number;
+  success: boolean;
+}
 
 function makeProfile(overrides: {
   method?: string;
@@ -13,30 +21,51 @@ function makeProfile(overrides: {
   statusCode?: number;
   duration?: number;
   graphql?: Partial<GraphQLInfo>;
-  command?: Partial<CommandInfo>;
+  command?: Partial<CommandData>;
   exceptions?: ExceptionEntry[];
 }): Profile {
+  // Each kind is matched generically by its `entrypoint.type`: a command profile
+  // is `command`, a GraphQL operation is `graphql` (its own kind, carried on HTTP),
+  // and a plain REST request is `http`.
+  let entrypoint: ProfileEntrypoint;
+  if (overrides.command) {
+    entrypoint = {
+      type: 'command',
+      data: {
+        name: 'sync:posts',
+        arguments: [],
+        exitCode: 0,
+        success: true,
+        ...overrides.command,
+      } satisfies CommandData,
+    };
+  } else if (overrides.graphql) {
+    entrypoint = {
+      type: 'graphql',
+      data: {
+        method: overrides.method ?? 'POST',
+        url: overrides.url ?? '/graphql',
+        headers: {},
+        query: {},
+        graphql: { operationType: 'query', fieldName: 'books', ...overrides.graphql },
+      },
+    };
+  } else {
+    entrypoint = {
+      type: 'http',
+      data: {
+        method: overrides.method ?? 'GET',
+        url: overrides.url ?? '/',
+        headers: {},
+        query: {},
+      },
+    };
+  }
+
   return {
     token: Math.random().toString(36).slice(2),
     createdAt: Date.now(),
-    request: {
-      method: overrides.method ?? 'GET',
-      url: overrides.url ?? '/',
-      headers: {},
-      query: {},
-      ...(overrides.graphql && {
-        graphql: { operationType: 'query', fieldName: 'books', ...overrides.graphql },
-      }),
-      ...(overrides.command && {
-        command: {
-          name: 'sync:posts',
-          arguments: [],
-          exitCode: 0,
-          success: true,
-          ...overrides.command,
-        },
-      }),
-    },
+    entrypoint,
     response:
       overrides.statusCode !== undefined
         ? { statusCode: overrides.statusCode, headers: {} }
@@ -68,43 +97,11 @@ describe('built-in list filters', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  describe('type', () => {
-    const http = makeProfile({});
-    const gql = makeProfile({ method: 'POST', graphql: {} });
-    const cli = makeProfile({ method: 'CLI', command: {} });
-
-    it('http matches plain REST only (not GraphQL or commands)', () => {
-      expect(applies('type', 'http', http)).toBe(true);
-      expect(applies('type', 'http', gql)).toBe(false);
-      expect(applies('type', 'http', cli)).toBe(false);
-    });
-
-    it('command matches CLI commands only', () => {
-      expect(applies('type', 'command', cli)).toBe(true);
-      expect(applies('type', 'command', http)).toBe(false);
-    });
-
-    it('graphql matches GraphQL operations only', () => {
-      expect(applies('type', 'graphql', gql)).toBe(true);
-      expect(applies('type', 'graphql', http)).toBe(false);
-      expect(applies('type', 'graphql', cli)).toBe(false);
-    });
-
-    it('is inactive for an empty value and matches nothing for unknown kinds', () => {
-      expect(applies('type', '', http)).toBe('inactive');
-      expect(applies('type', 'rpc', http)).toBe(false);
-    });
-  });
-
-  describe('method', () => {
-    it('matches case-insensitively', () => {
-      expect(applies('method', 'get', makeProfile({ method: 'GET' }))).toBe(true);
-      expect(applies('method', 'POST', makeProfile({ method: 'GET' }))).toBe(false);
-    });
-
-    it('is inactive for an empty value', () => {
-      expect(applies('method', '', makeProfile({}))).toBe('inactive');
-    });
+  it('contains only the universal filters (kind-specific ones live on their entrypoint type)', () => {
+    const keys = BUILTIN_LIST_FILTERS.map((f) => f.key);
+    expect(keys).not.toContain('type');
+    expect(keys).not.toContain('method');
+    expect(BUILTIN_LIST_FILTERS.every((f) => f.forType === undefined)).toBe(true);
   });
 
   describe('q (global search)', () => {

@@ -8,11 +8,22 @@
  * which needs the synchronous vm module APIs.
  */
 
+// The stress suite (profiler-stress.e2e-spec) runs by default; set PROFILER_STRESS to a
+// falsy value (0/false/off/no) to skip its concurrent bursts for a faster local run.
+const stressEnabled = !['0', 'false', 'off', 'no'].includes(
+  (process.env.PROFILER_STRESS ?? '').trim().toLowerCase(),
+);
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: '@repo/jest-config',
   rootDir: '..',
   testMatch: ['<rootDir>/test/**/*.e2e-spec.ts'],
+  // Default Jest ignore plus, when stress is disabled, the stress spec.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    ...(stressEnabled ? [] : ['profiler-stress\\.e2e-spec']),
+  ],
   // Empties `.profiler` once per run; the suite's profiles are kept afterwards for browsing.
   globalSetup: '<rootDir>/test/global-setup.ts',
   setupFiles: ['reflect-metadata', '<rootDir>/test/setup-env.ts'],

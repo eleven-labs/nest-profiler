@@ -17,13 +17,23 @@ import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
 import { ProfilerService } from '../services/nest-profiler.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
+import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerCollector } from '../collectors/collector.decorator';
 import type { IProfilerCollector } from '../collectors/collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import type {
+  EntrypointSummary,
+  ProfilerEntrypointType,
+} from '../entrypoints/profiler-entrypoint-type.interface';
 
 // Absolute path to a throwaway sub-panel template, written in beforeAll. The
 // grouped collector points at it so the group tab renders end-to-end.
 let subPanelTemplate = '';
+// Throwaway templates for a fake `command` entrypoint type registered in the
+// test — the `command` kind is no longer a core concern, so the core e2e test
+// contributes its own type to exercise the entrypoint-section/tabs machinery.
+let commandSectionTemplate = '';
+let commandTabTemplate = '';
 
 @Controller()
 class DummyController {
@@ -100,6 +110,17 @@ describe('ProfilerController (e2e)', () => {
       '<div class="sql-panel"><%= toJson(data) %></div>',
     );
 
+    commandSectionTemplate = path.join(templateDir, 'command-section.ejs');
+    await fs.promises.writeFile(
+      commandSectionTemplate,
+      '<table><% for (const p of profiles) { %><tr><td><%= p.entrypoint.data.name %></td></tr><% } %></table>',
+    );
+    commandTabTemplate = path.join(templateDir, 'command-tab.ejs');
+    await fs.promises.writeFile(
+      commandTabTemplate,
+      '<div class="command-tab"><%= profile.entrypoint.data.name %></div>',
+    );
+
     const moduleRef = await Test.createTestingModule({
       imports: [ProfilerModule.forRoot({ collectBody: true })],
       controllers: [DummyController],
@@ -107,6 +128,29 @@ describe('ProfilerController (e2e)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
+
+    // Register a fake `command` entrypoint type so the command section/tabs exist
+    // (the `command` kind itself is no longer shipped by the core).
+    const commandType: ProfilerEntrypointType = {
+      type: 'command',
+      label: 'Command',
+      listSection: {
+        title: 'Commands',
+        description: 'CLI commands',
+        order: 20,
+        itemLabel: 'command',
+        templatePath: commandSectionTemplate,
+      },
+      detailTabs: [{ name: 'command', label: 'Command', templatePath: commandTabTemplate }],
+      summary(
+        profile: Profile<{ name: string; arguments: string[]; success: boolean }>,
+      ): EntrypointSummary {
+        const cmd = profile.entrypoint.data;
+        const args = cmd.arguments.length ? ` ${cmd.arguments.join(' ')}` : '';
+        return { badge: cmd.success ? 'OK' : 'FAILED', text: `${cmd.name}${args}` };
+      },
+    };
+    app.get(ProfilerCoreService).registerEntrypointType(commandType);
   });
 
   afterAll(async () => {
@@ -145,37 +189,41 @@ describe('ProfilerController (e2e)', () => {
       expect(res.text).toContain(token.slice(0, 8));
     });
 
-    it('narrows the list by HTTP method', async () => {
+    // Each list has its own filter bar, so filter params are namespaced by the
+    // section key (`http_…` for the HTTP list).
+    it('narrows the HTTP list by method', async () => {
       const getToken = await createProfile('/hello', 'get');
       const postToken = await createProfile('/widgets', 'post');
 
-      const res = await request(server()).get('/_profiler').query({ method: 'POST' });
+      const res = await request(server()).get('/_profiler').query({ http_method: 'POST' });
       expect(res.text).toContain(short(postToken));
       expect(res.text).not.toContain(short(getToken));
     });
 
-    it('narrows the list by exact status and by status class', async () => {
+    it('narrows the HTTP list by exact status and by status class', async () => {
       const okToken = await createProfile('/hello', 'get'); // 200
       const errToken = await createProfile('/boom', 'get'); // 400
 
-      const byExact = await request(server()).get('/_profiler').query({ status: '400' });
+      const byExact = await request(server()).get('/_profiler').query({ http_status: '400' });
       expect(byExact.text).toContain(short(errToken));
       expect(byExact.text).not.toContain(short(okToken));
 
-      const byClass = await request(server()).get('/_profiler').query({ statusClass: '4' });
+      const byClass = await request(server()).get('/_profiler').query({ http_statusClass: '4' });
       expect(byClass.text).toContain(short(errToken));
       expect(byClass.text).not.toContain(short(okToken));
     });
 
-    it('narrows the list by global search and by exceptions', async () => {
+    it('narrows the HTTP list by global search and by exceptions', async () => {
       const helloToken = await createProfile('/hello', 'get');
       const errToken = await createProfile('/boom', 'get');
 
-      const bySearch = await request(server()).get('/_profiler').query({ q: 'hello' });
+      const bySearch = await request(server()).get('/_profiler').query({ http_q: 'hello' });
       expect(bySearch.text).toContain(short(helloToken));
       expect(bySearch.text).not.toContain(short(errToken));
 
-      const byException = await request(server()).get('/_profiler').query({ hasExceptions: '1' });
+      const byException = await request(server())
+        .get('/_profiler')
+        .query({ http_hasExceptions: '1' });
       expect(byException.text).toContain(short(errToken));
       expect(byException.text).not.toContain(short(helloToken));
     });
@@ -184,7 +232,7 @@ describe('ProfilerController (e2e)', () => {
       const token = await createProfile('/hello');
       const res = await request(server())
         .get('/_profiler')
-        .query({ status: 'not-a-number', minDuration: 'abc' });
+        .query({ http_status: 'not-a-number', http_minDuration: 'abc' });
       expect(res.status).toBe(200);
       // Invalid numeric filters are dropped, so the profile is still listed.
       expect(res.text).toContain(token.slice(0, 8));
@@ -196,9 +244,9 @@ describe('ProfilerController (e2e)', () => {
       const token = await createProfile('/hello');
       const res = await request(server()).get(`/_profiler/${token}/data`);
       expect(res.status).toBe(200);
-      const body = res.body as Profile;
+      const body = res.body as Profile<HttpRequestData>;
       expect(body.token).toBe(token);
-      expect(body.request.url).toBe('/hello');
+      expect(body.entrypoint.data.url).toBe('/hello');
     });
 
     it('returns 404 for an unknown token', async () => {
@@ -245,15 +293,11 @@ describe('ProfilerController (e2e)', () => {
       await storage.save({
         token: cmdToken,
         createdAt: Date.now(),
-        request: {
-          method: 'CLI',
-          url: 'demo:greet world',
-          headers: {},
-          query: {},
-          command: {
+        entrypoint: {
+          type: 'command',
+          data: {
             name: 'demo:greet',
             arguments: ['world'],
-            options: {},
             exitCode: success ? 0 : 1,
             success,
           },
@@ -302,7 +346,10 @@ describe('ProfilerController (e2e)', () => {
       await storage.save({
         token: logToken,
         createdAt: Date.now(),
-        request: { method: 'GET', url: '/hello', headers: {}, query: {} },
+        entrypoint: {
+          type: 'http',
+          data: { method: 'GET', url: '/hello', headers: {}, query: {} },
+        },
         response: { statusCode: 200, headers: {} },
         performance: { startTime: Date.now(), heapUsed: 1024, duration: 5 },
         logs: [

@@ -2,6 +2,8 @@ import { CommandTestFactory } from 'nest-commander-testing';
 import request from 'supertest';
 import { ProfilerStorageService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { COMMAND_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-commander';
+import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
 import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-axios';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import { CliModule } from '../src/cli.module.js';
@@ -12,7 +14,7 @@ import { lockNetwork, mockJsonPlaceholder, unlockNetwork } from './helpers/jsonp
  * Runs a CLI command in-process (CommandTestFactory) and returns the profile it wrote to the
  * shared file storage. Failing commands rethrow after the profile is saved — tolerated here.
  */
-async function runCommand(args: string[]): Promise<Profile> {
+async function runCommand(args: string[]): Promise<Profile<CommandInfo>> {
   const cmd = await CommandTestFactory.createTestingCommand({ imports: [CliModule] }).compile();
   const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
   try {
@@ -26,18 +28,22 @@ async function runCommand(args: string[]): Promise<Profile> {
   const storage = cmd.get(ProfilerStorageService);
   const profiles = await storage.findAll();
   const profile = profiles
-    .filter((p) => p.request.command?.name === args[0])
+    .filter(
+      (p) =>
+        p.entrypoint.type === COMMAND_ENTRYPOINT_TYPE &&
+        (p.entrypoint.data as CommandInfo).name === args[0],
+    )
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   if (!profile) throw new Error(`no profile recorded for command "${args[0] ?? ''}"`);
-  return profile;
+  return profile as Profile<CommandInfo>;
 }
 
 describe('CLI commands (e2e) — commander collector + cross-process file storage', () => {
   it('profiles demo:greet with its parsed options', async () => {
     const profile = await runCommand(['demo:greet', '-n', 'Ada']);
 
-    expect(profile.request.method).toBe('CLI');
-    expect(profile.request.command).toMatchObject({
+    expect(profile.entrypoint.type).toBe(COMMAND_ENTRYPOINT_TYPE);
+    expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
       options: { name: 'Ada' },
       exitCode: 0,
@@ -52,7 +58,7 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
   it('records a failed command with its exception', async () => {
     const profile = await runCommand(['demo:greet', '--fail']);
 
-    expect(profile.request.command).toMatchObject({
+    expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
       exitCode: 1,
       success: false,
@@ -72,7 +78,10 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
     try {
       const profile = await runCommand(['sync:posts', '-l', '3']);
 
-      expect(profile.request.command).toMatchObject({ name: 'sync:posts', success: true });
+      expect(profile.entrypoint.data).toMatchObject({
+        name: 'sync:posts',
+        success: true,
+      });
 
       const axios = profile.collectors['axios'] as HttpRequestEntry[];
       expect(axios).toEqual(
@@ -104,7 +113,9 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
     try {
       const res = await request(server(app)).get(`/_profiler/${cmdProfile.token}/data`);
       expect(res.status).toBe(200);
-      expect((res.body as Profile).request.command).toMatchObject({ name: 'demo:greet' });
+      expect((res.body as Profile<CommandInfo>).entrypoint.data).toMatchObject({
+        name: 'demo:greet',
+      });
 
       const list = await request(server(app)).get('/_profiler');
       expect(list.status).toBe(200);

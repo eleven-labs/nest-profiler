@@ -10,6 +10,11 @@ import type {
   ProfilerListFilter,
 } from '../list-filters/profiler-list-filter.interface';
 import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
+import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils';
+import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
+import { HTTP_ENTRYPOINT_TYPE_DEF } from '../entrypoints/builtin-http-entrypoint';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 
 /** Default display order for contributed filters with no explicit `order`. */
 const DEFAULT_FILTER_ORDER = 100;
@@ -19,6 +24,9 @@ const DEFAULT_FILTER_ORDER = 100;
 export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly contextAdapters: IContextAdapter[] = [];
   private readonly listFilters: ProfilerListFilter[] = [...BUILTIN_LIST_FILTERS];
+  private readonly listSections: ProfilerListSection[] = [];
+  /** Registered entrypoint types, keyed by {@link ProfilerEntrypointType.type}. */
+  private readonly entrypointTypes = new Map<string, ProfilerEntrypointType>();
   /** Options contributed to an existing `'select'` filter, keyed by filter key. */
   private readonly filterOptions = new Map<string, ProfilerFilterOption[]>();
   /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
@@ -28,7 +36,10 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     readonly storage: ProfilerStorageService,
     readonly collectorRegistry: CollectorRegistry,
     readonly routeCollector: RouteCollector,
-  ) {}
+  ) {
+    // Seed the built-in HTTP entrypoint — the catch-all for REST requests.
+    this.registerEntrypointType(HTTP_ENTRYPOINT_TYPE_DEF);
+  }
 
   /**
    * Runs the collectors then persists the profile **off the response path** — the
@@ -168,5 +179,87 @@ export class ProfilerCoreService implements OnApplicationShutdown {
         if (!extra || !filter.options) return filter;
         return { ...filter, options: [...filter.options, ...extra] };
       });
+  }
+
+  /**
+   * Registers a {@link ProfilerListSection} so the profiler list page renders
+   * the matching profiles in their own table. The core seeds the built-in "HTTP"
+   * catch-all section; packages contribute their own — e.g.
+   * `@eleven-labs/nest-profiler-graphql` adds a "GraphQL" table and
+   * `@eleven-labs/nest-profiler-commander` a "Commands" table — without touching
+   * the core.
+   *
+   * Registration is idempotent per {@link ProfilerListSection.key}: a second
+   * section declaring an already-registered key is ignored, so calling this
+   * from a module's `onModuleInit` is safe across re-initialization.
+   *
+   * @param section - The list section to register.
+   */
+  registerListSection(section: ProfilerListSection): void {
+    if (!this.listSections.some((s) => s.key === section.key)) {
+      this.listSections.push(section);
+    }
+  }
+
+  /**
+   * Returns all registered list sections sorted by ascending display order. The
+   * controller buckets the displayed profiles across these sections.
+   */
+  getListSections(): ProfilerListSection[] {
+    return [...this.listSections].sort(
+      (a, b) => (a.order ?? DEFAULT_SECTION_ORDER) - (b.order ?? DEFAULT_SECTION_ORDER),
+    );
+  }
+
+  /**
+   * Registers a {@link ProfilerEntrypointType}, teaching the profiler a new kind
+   * of profile (CLI command, consumed message…) in a single call: it derives and
+   * registers the list section, registers the kind's scoped list filters, and
+   * makes the detail tab(s) and breadcrumb summary available to the controller —
+   * all without touching the core. The core seeds the built-in `http` type.
+   *
+   * Registration is idempotent per {@link ProfilerEntrypointType.type}: a second
+   * type declaring an already-registered discriminator is ignored, so calling
+   * this from a module's `onModuleInit` is safe across re-initialization.
+   *
+   * @param entrypointType - The entrypoint type to register.
+   */
+  registerEntrypointType(entrypointType: ProfilerEntrypointType): void {
+    if (this.entrypointTypes.has(entrypointType.type)) return;
+    this.entrypointTypes.set(entrypointType.type, entrypointType);
+
+    this.registerListSection({
+      key: entrypointType.type,
+      isDefault: entrypointType.isDefault,
+      matches: (profile) => profile.entrypoint.type === entrypointType.type,
+      ...entrypointType.listSection,
+    });
+
+    // Scope each contributed filter to this kind so it is shown and applied only
+    // above this kind's list (the controller partitions filters by `forType`).
+    for (const filter of entrypointType.listFilters ?? []) {
+      this.registerListFilter({ ...filter, forType: entrypointType.type });
+    }
+  }
+
+  /**
+   * Returns the entrypoint type registered for the given discriminator, falling
+   * back to the default (`http`) type when none matches — so a profile whose kind
+   * is not registered (e.g. a `graphql` profile when the GraphQL package is not
+   * loaded) still resolves a list section and detail tabs.
+   *
+   * @param type - The {@link ProfileEntrypoint.type} to resolve.
+   */
+  getEntrypointType(type: string): ProfilerEntrypointType {
+    return (
+      this.entrypointTypes.get(type) ??
+      this.entrypointTypes.get(HTTP_ENTRYPOINT_TYPE) ??
+      HTTP_ENTRYPOINT_TYPE_DEF
+    );
+  }
+
+  /** Returns every registered entrypoint type. */
+  getEntrypointTypes(): ProfilerEntrypointType[] {
+    return [...this.entrypointTypes.values()];
   }
 }

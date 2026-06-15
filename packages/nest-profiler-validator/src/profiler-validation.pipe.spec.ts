@@ -14,7 +14,10 @@ function makeProfile(): Profile {
   return {
     token: 'test',
     createdAt: Date.now(),
-    request: { method: 'POST', url: '/products', headers: {}, query: {} },
+    entrypoint: {
+      type: 'http',
+      data: { method: 'POST', url: '/products', headers: {}, query: {} },
+    },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],

@@ -19,7 +19,7 @@ function makeProfile(): Profile {
   return {
     token: 'test',
     createdAt: Date.now(),
-    request: { method: 'POST', url: '/widgets', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'POST', url: '/widgets', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],

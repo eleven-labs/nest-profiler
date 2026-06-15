@@ -7,6 +7,7 @@ import type { IProfilerCollector } from './collector.interface';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 
 const GROUPED_PANEL_TEMPLATE = path.join(__dirname, '..', 'templates', 'grouped-panel.ejs');
 
@@ -85,7 +86,7 @@ export class CollectorRegistry implements OnModuleInit {
 
   async collectAll(profile: Profile): Promise<void> {
     const sorted = [...this.collectors.values()]
-      .filter(({ instance, meta }) => (meta.scope ?? instance.scope ?? 'request') !== 'global')
+      .filter(({ instance, meta }) => (meta.scope ?? instance.scope ?? 'profile') !== 'global')
       .sort(
         (a, b) =>
           (a.meta.priority ?? a.instance.priority ?? 100) -
@@ -102,7 +103,7 @@ export class CollectorRegistry implements OnModuleInit {
 
   buildPanels(profile: Profile): CollectorPanelInfo[] {
     const requestCollectors = [...this.collectors.values()]
-      .filter(({ instance, meta }) => (meta.scope ?? instance.scope ?? 'request') !== 'global')
+      .filter(({ instance, meta }) => (meta.scope ?? instance.scope ?? 'profile') !== 'global')
       .sort(
         (a, b) =>
           (a.meta.priority ?? a.instance.priority ?? 100) -
@@ -170,12 +171,15 @@ export class CollectorRegistry implements OnModuleInit {
 
   async buildGlobalPanels(): Promise<GlobalPanelInfo[]> {
     const globals = [...this.collectors.values()].filter(
-      ({ instance, meta }) => (meta.scope ?? instance.scope ?? 'request') === 'global',
+      ({ instance, meta }) => (meta.scope ?? instance.scope ?? 'profile') === 'global',
     );
     const emptyProfile: Profile = {
       token: '',
       createdAt: 0,
-      request: { method: '', url: '', headers: {}, query: {} },
+      entrypoint: {
+        type: HTTP_ENTRYPOINT_TYPE,
+        data: { method: '', url: '', headers: {}, query: {} },
+      },
       performance: { startTime: 0, heapUsed: 0 },
       logs: [],
       exceptions: [],

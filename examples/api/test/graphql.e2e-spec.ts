@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import type { HttpRequestData } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
 import { createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
 
@@ -34,8 +35,8 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
     const { data } = res.body as { data: { books: unknown[] } };
     expect(data.books.length).toBeGreaterThanOrEqual(3);
 
-    const profile = await getProfile(app, tokenOf(res));
-    expect(profile.request.graphql).toMatchObject({
+    const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
+    expect(profile.entrypoint.data.graphql).toMatchObject({
       operationType: 'query',
       fieldName: 'books',
     });
@@ -53,14 +54,14 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
     const { data } = res.body as { data: { book: unknown } };
     expect(data.book).toMatchObject({ id: '1', title: 'Clean Code' });
 
-    const profile = await getProfile(app, tokenOf(res));
-    expect(profile.request.graphql).toMatchObject({
+    const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
+    expect(profile.entrypoint.data.graphql).toMatchObject({
       operationType: 'query',
       operationName: 'GetBook',
       fieldName: 'book',
       variables: { id: '1' },
     });
-    expect(profile.request.graphql?.query).toContain('GetBook');
+    expect(profile.entrypoint.data.graphql?.query).toContain('GetBook');
   });
 
   it('mutation: creates a book and validates the input type', async () => {
@@ -76,8 +77,8 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
     const { data } = res.body as { data: { createBook: unknown } };
     expect(data.createBook).toMatchObject({ title: 'E2E Book' });
 
-    const profile = await getProfile(app, tokenOf(res));
-    expect(profile.request.graphql).toMatchObject({
+    const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
+    expect(profile.entrypoint.data.graphql).toMatchObject({
       operationType: 'mutation',
       operationName: 'CreateBook',
       fieldName: 'createBook',

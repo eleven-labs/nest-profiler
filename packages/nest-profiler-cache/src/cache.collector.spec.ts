@@ -11,7 +11,7 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
     createdAt: Date.now(),
-    request: { method: 'GET', url: '/', headers: {}, query: {} },
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
     logs: [],
     exceptions: [],

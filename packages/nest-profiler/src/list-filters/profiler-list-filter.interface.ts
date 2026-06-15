@@ -23,13 +23,13 @@ export interface ProfilerFilterOption {
  *
  * Each filter is self-describing: it carries how to render its control, how to
  * parse its raw query-string value, and whether a given profile matches. The
- * core ships the built-in filters (method, search, status, duration…) and any
- * package can contribute its own — e.g. `@eleven-labs/nest-profiler-graphql`
- * adds a "GraphQL only" checkbox — without touching the core.
+ * core ships the universal filters (search, status, duration…) shown above every
+ * list; a filter contributed by an entrypoint type's {@link ProfilerEntrypointType.listFilters}
+ * is scoped to that kind and shown only above its table.
  *
- * Contribute one via the {@link PROFILER_LIST_FILTERS} multi-token or by
- * calling {@link ProfilerCoreService.registerListFilter} from a module's
- * `onModuleInit` (the cross-module path used by the protocol packages).
+ * Contribute a universal one via the {@link PROFILER_LIST_FILTERS} multi-token or
+ * by calling {@link ProfilerCoreService.registerListFilter} from a module's
+ * `onModuleInit`; contribute a kind-scoped one through the entrypoint type.
  *
  * @typeParam T - The parsed value type produced by {@link parse} and consumed
  *   by {@link matches}.
@@ -50,6 +50,13 @@ export interface ProfilerListFilter<T = unknown> {
    * default to 100 so they render after the built-ins.
    */
   readonly order?: number;
+  /**
+   * Entrypoint type this filter is scoped to. Set by the core when a filter is
+   * contributed through {@link ProfilerEntrypointType.listFilters}: the filter is
+   * then shown and applied only above that kind's list. Absent for the universal
+   * filters that apply to every list.
+   */
+  readonly forType?: string;
   /**
    * Parses the raw query-string value into a typed value. Return `undefined` to
    * treat the filter as inactive (empty input, unchecked box, non-numeric text…)

@@ -1,0 +1,54 @@
+<div class="rounded-xl border border-line overflow-hidden bg-surface">
+  <table class="w-full">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Type</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Operation</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% for (const p of profiles) { %>
+        <%
+          const gql = p.entrypoint.data.graphql;
+          const dur = p.performance.duration;
+          const durClass = dur === undefined ? 'dur-none'
+            : dur < 100  ? 'dur-fast'
+            : dur < 500  ? 'dur-medium'
+            : 'dur-slow';
+        %>
+        <tr class="hover:bg-surface-muted transition-colors">
+          <td class="py-2.5 px-4">
+            <a href="<%= profilerPath %>/<%= p.token %>"
+               class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
+              <%= p.token.slice(0, 8) %>
+            </a>
+          </td>
+          <td class="py-2.5 px-4">
+            <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(gql.operationType) %>"><%= gql.operationType.toUpperCase() %></span>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs truncate" title="<%= gql.operationName || gql.fieldName %>">
+            <%= gql.operationName || gql.fieldName %>
+            <span class="text-foreground-faint ml-1 text-2xs">field:<%= gql.fieldName %></span>
+          </td>
+          <td class="py-2.5 px-4">
+            <% if (p.response) { %>
+              <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= statusClass(p.response.statusCode) %>">
+                <%= p.response.statusCode %>
+              </span>
+            <% } else { %>
+              <span class="text-foreground-faint text-xs">—</span>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-xs tabular-nums">
+            <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
