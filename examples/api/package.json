@@ -6,7 +6,7 @@
   "prettier": "@repo/prettier-config",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "clean": "rimraf dist coverage",
+    "clean": "repo-clean dist coverage",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,cjs}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,cjs}\"",
     "lint": "eslint src",
@@ -64,6 +64,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",
     "@nestjs/testing": "^11.1.3",
+    "@repo/build": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
