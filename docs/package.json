@@ -5,7 +5,7 @@
   "prettier": "@repo/prettier-config",
   "scripts": {
     "build": "fumadocs-mdx && next build",
-    "clean": "rimraf .next .source",
+    "clean": "repo-clean .next .source",
     "dev": "fumadocs-mdx && next dev --port 3002",
     "format": "prettier --write \"{app,components,content,lib,messages}/**/*.{ts,tsx,css,json,mdx}\" \"*.{ts,json,mjs}\"",
     "format:check": "prettier --check \"{app,components,content,lib,messages}/**/*.{ts,tsx,css,json,mdx}\" \"*.{ts,json,mjs}\"",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.2.4",
+    "@repo/build": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
@@ -38,7 +39,6 @@
     "eslint": "^10.4.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.12",
-    "rimraf": "^6.0.1",
     "shiki": "^4.1.0",
     "tailwindcss": "^4.2.4",
     "typescript": "^6.0.3"

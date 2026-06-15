@@ -1,0 +1,10 @@
+{
+  "name": "@repo/build",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "repo-build": "./index.mjs",
+    "repo-clean": "./clean.mjs"
+  }
+}

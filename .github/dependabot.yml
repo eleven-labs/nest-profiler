@@ -114,7 +114,6 @@ updates:
           - 'tsx'
           - '@changesets/*'
           - 'prettier'
-          - 'rimraf'
           - 'publint'
         update-types:
           - 'minor'
