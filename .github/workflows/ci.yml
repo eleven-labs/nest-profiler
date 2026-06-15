@@ -86,6 +86,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
+          set -euo pipefail
           curl -Os https://cli.codecov.io/latest/linux/codecov
           chmod +x codecov
           for dir in packages/*/; do
@@ -93,8 +94,12 @@ jobs:
             file="${dir}coverage/lcov.info"
             [ -f "$file" ] || continue
             echo "Uploading coverage for $name"
-            ./codecov upload-process --disable-search \
-              --flag "$name" --file "$file" --fail-on-error
+            ./codecov upload-process \
+              --disable-search \
+              --flag "$name" \
+              --file "$file" \
+              --fail-on-error \
+              --token "$CODECOV_TOKEN"
           done
 
   e2e:
