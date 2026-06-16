@@ -4,7 +4,7 @@ import { ProfilerStorageService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-commander';
 import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
-import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-axios';
+import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import { CliModule } from '../src/cli.module.js';
 import { createE2EApp, server } from './helpers/app.js';
@@ -83,7 +83,7 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
         success: true,
       });
 
-      const axios = profile.collectors['axios'] as HttpRequestEntry[];
+      const axios = profile.collectors['http-client'] as HttpRequestEntry[];
       expect(axios).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

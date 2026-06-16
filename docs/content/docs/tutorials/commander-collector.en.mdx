@@ -64,11 +64,11 @@ Create a dedicated module for the CLI. Use **file** storage with the same `stora
 
 ```ts title="cli.module.ts"
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
-import { AxiosCollectorModule } from '@eleven-labs/nest-profiler-axios';
+import { HttpModule } from '@nestjs/axios';
+import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 import { SyncPostsCommand } from './sync-posts.command';
 
@@ -76,8 +76,8 @@ import { SyncPostsCommand } from './sync-posts.command';
   imports: [
     ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
     CommanderCollectorModule.forRoot(),
-    HttpModule,
-    AxiosCollectorModule.forRoot(),
+    HttpModule, // provides HttpService for the bundled axios adapter
+    HttpCollectorModule.forRoot(),
     CacheModule.register({ isGlobal: true }),
     CacheCollectorModule.forRoot(),
   ],

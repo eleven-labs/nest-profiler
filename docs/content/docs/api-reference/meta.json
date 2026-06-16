@@ -6,7 +6,7 @@
     "nest-profiler-typeorm",
     "nest-profiler-mikro-orm",
     "nest-profiler-mongoose",
-    "nest-profiler-axios",
+    "nest-profiler-http",
     "nest-profiler-cache",
     "nest-profiler-commander",
     "nest-profiler-auth",

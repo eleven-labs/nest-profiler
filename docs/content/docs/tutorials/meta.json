@@ -7,7 +7,7 @@
     "typeorm-collector",
     "mikro-orm-collector",
     "mongoose-collector",
-    "axios-collector",
+    "http-collector",
     "cache-collector",
     "commander-collector",
     "auth-collector",

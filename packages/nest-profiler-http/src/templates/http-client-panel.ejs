@@ -33,12 +33,12 @@
             const hasRequest = (r.requestHeaders && Object.keys(r.requestHeaders).length > 0) || r.requestBody != null;
             const hasResponse = (r.responseHeaders && Object.keys(r.responseHeaders).length > 0) || r.responseBody != null;
             const hasDetails = hasRequest || hasResponse;
-            const detailsRowId = `axios-row-details-${i}`;
+            const detailsRowId = `http-row-details-${i}`;
           %>
           <tr
             class="<%= hasDetails ? 'cursor-pointer hover:bg-surface-muted' : 'hover:bg-surface-muted' %> transition-colors align-top"
             <% if (hasDetails) { %>
-              onclick="(function(row){var detailsId=row.getAttribute('data-details-id');var details=document.getElementById(detailsId);if(!details)return;var open=row.getAttribute('aria-expanded')==='true';details.classList.toggle('hidden',open);row.setAttribute('aria-expanded',open?'false':'true');var icon=row.querySelector('[data-axios-indicator]');if(icon){icon.textContent=open?'▸':'▾';}})(this)"
+              onclick="(function(row){var detailsId=row.getAttribute('data-details-id');var details=document.getElementById(detailsId);if(!details)return;var open=row.getAttribute('aria-expanded')==='true';details.classList.toggle('hidden',open);row.setAttribute('aria-expanded',open?'false':'true');var icon=row.querySelector('[data-http-indicator]');if(icon){icon.textContent=open?'▸':'▾';}})(this)"
               data-details-id="<%= detailsRowId %>"
               aria-expanded="false"
               role="button"
@@ -50,7 +50,7 @@
               <div class="inline-flex items-center gap-2">
                 <% if (hasDetails) { %>
                   <span class="inline-flex h-5 w-5 items-center justify-center rounded border border-line-subtle text-foreground-faint">
-                    <span data-axios-indicator="true" class="text-2xs leading-none">▸</span>
+                    <span data-http-indicator="true" class="text-2xs leading-none">▸</span>
                   </span>
                 <% } else { %>
                   <span class="inline-flex h-5 w-5 items-center justify-center text-foreground-faint text-2xs">•</span>
@@ -74,7 +74,7 @@
           </tr>
 
           <% if (hasDetails) { %>
-            <tr id="<%= detailsRowId %>" class="hidden bg-surface-subtle" data-axios-details="true">
+            <tr id="<%= detailsRowId %>" class="hidden bg-surface-subtle" data-http-details="true">
               <td colspan="5" class="px-4 py-3">
                 <div class="space-y-3">
                   <% if (hasRequest) { %>

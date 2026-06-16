@@ -5,6 +5,7 @@
     "@eleven-labs/nest-profiler": "0.5.0",
     "@eleven-labs/nest-profiler-auth": "0.5.0",
     "@eleven-labs/nest-profiler-axios": "0.5.0",
+    "@eleven-labs/nest-profiler-http": "0.5.0",
     "@eleven-labs/nest-profiler-cache": "0.5.0",
     "@eleven-labs/nest-profiler-commander": "0.5.0",
     "@eleven-labs/nest-profiler-config": "0.5.0",

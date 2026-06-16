@@ -13,7 +13,7 @@ PROFILER_ENABLED=true
 PROFILER_STORAGE_TYPE=memory
 ```
 
-Active collectors on the live demo: **Posts** (Axios + Cache), **Auth**, **Config**, **Validator**, **GraphQL** (Books).
+Active collectors on the live demo: **Posts** (HTTP + Cache), **Auth**, **Config**, **Validator**, **GraphQL** (Books).
 
 | Endpoint                 | URL                                                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
@@ -161,7 +161,7 @@ AppModule
 │   └── ReviewsModule   → MongooseCollectorModule (nest-profiler-mongoose)
 ├── AppGraphQLModule [FEATURE_GRAPHQL]
 │   └── BooksModule     → ProfilerGraphQLModule (nest-profiler-graphql) + Apollo Server
-├── PostsModule     → AxiosCollectorModule + CacheCollectorModule
+├── PostsModule     → HttpCollectorModule (nest-profiler-http) + CacheCollectorModule
 │                     uses global ValidatorCollectorModule (POST /posts)
 ├── AuthModule      → AuthCollectorModule (nest-profiler-auth)
 ├── ConfigCollectorModule  (nest-profiler-config, global)
@@ -238,21 +238,22 @@ Each infrastructure module's only role is to wire its ORM connection + collector
 export class ProductMikroOrmModule {}
 ```
 
-### PostsModule — demonstrates `nest-profiler-axios` + `nest-profiler-cache` + `nest-profiler-validator`
+### PostsModule — demonstrates `nest-profiler-http` + `nest-profiler-cache` + `nest-profiler-validator`
 
 ```ts title="posts/posts.module.ts"
 @Module({
   imports: [
-    HttpModule, // prerequisite for AxiosCollectorModule
-    AxiosCollectorModule.forRoot(),
+    HttpModule, // provides HttpService for the bundled axios adapter
+    HttpCollectorModule.forRoot({ captureResponseBody: true }),
     CacheCollectorModule.forRoot(),
   ],
   controllers: [PostsController],
+  providers: [PostsService, PostsFetchService],
 })
 export class PostsModule {}
 ```
 
-`PostsController` exposes both `GET /posts` (Axios + Cache) and `POST /posts` (Validator). The global `ProfilerValidationPipe` registered by `ValidatorCollectorModule` intercepts `CreatePostDto` automatically.
+`PostsController` stays thin — it only maps routes to two dedicated services. `PostsService` holds the axios (`HttpService`) + cache logic, while `PostsFetchService` makes a native `fetch` call and records it with `HttpProfilerRecorder.capture(...)` — so the **HTTP Client** panel shows axios and fetch calls side by side. The global `ProfilerValidationPipe` registered by `ValidatorCollectorModule` intercepts `CreatePostDto` automatically.
 
 ### ReviewsModule — demonstrates `nest-profiler-mongoose`
 
@@ -317,12 +318,14 @@ The database is seeded automatically at startup — no manual step required. The
 | `POST /products`       | Create product                        |
 | `DELETE /products/:id` | Delete product (SELECT + DELETE)      |
 
-### Posts (`PostsModule` → Axios + Cache + Validator)
+### Posts (`PostsModule` → HTTP (axios + fetch) + Cache + Validator)
 
 | Endpoint                 | Description                                                              |
 | ------------------------ | ------------------------------------------------------------------------ |
 | `GET /posts`             | First call: GET_MISS + axios → SET. Subsequent: GET_HIT                  |
 | `POST /posts`            | Create with `CreatePostDto` — captures valid/invalid via Validator panel |
+| `POST /posts/forward`    | Forward via axios POST — request/response body + headers in HTTP Client  |
+| `GET /posts/via-fetch`   | Native `fetch` (no axios), recorded via `HttpProfilerRecorder.capture()` |
 | `GET /posts/cache/clear` | Clear posts cache (force next MISS)                                      |
 | `GET /posts/todos/:id`   | Per-item cached todo from JSONPlaceholder                                |
 
@@ -495,7 +498,7 @@ FEATURE_PINO_LOGGER=true FEATURE_TYPEORM=false FEATURE_MONGOOSE=false pnpm examp
 
 ### Capturing a directly-injected logger
 
-`app.useLogger()` only captures logs that flow through NestJS's `Logger`. `PostsController` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `profiler.createLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode, call `GET /posts/cache/clear`, and check the **Logs** tab.
+`app.useLogger()` only captures logs that flow through NestJS's `Logger`. `PostsService` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `profiler.createLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode, call `GET /posts/cache/clear`, and check the **Logs** tab.
 
 ### Structured log context
 
@@ -508,7 +511,7 @@ this.logger.log('Health check');
 // message-first payload — ReviewsService
 this.logger.log('Fetching reviews for product', { productId });
 
-// pino object-first — PostsController (the injected PinoLogger also provides
+// pino object-first — PostsService (the injected PinoLogger also provides
 // its `@InjectPinoLogger(...)` context name automatically)
 this.logger?.info({ postCount, authorCount, cacheKey }, 'Resolved authors, caching enriched posts');
 ```
