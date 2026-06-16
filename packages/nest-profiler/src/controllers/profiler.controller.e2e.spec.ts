@@ -237,6 +237,19 @@ describe('ProfilerController (e2e)', () => {
       // Invalid numeric filters are dropped, so the profile is still listed.
       expect(res.text).toContain(token.slice(0, 8));
     });
+
+    // A repeated query param arrives as an array; the HTTP section's reset link
+    // keeps only its first value while preserving params from other sections.
+    it('preserves foreign filter params (taking the first of repeated values) in reset links', async () => {
+      await createProfile('/hello');
+      const res = await request(server())
+        .get('/_profiler')
+        .query('command_status=failed&command_status=success');
+      expect(res.status).toBe(200);
+      // The HTTP section's Reset link drops its own params but keeps command_status=failed.
+      expect(res.text).toContain('command_status=failed');
+      expect(res.text).not.toContain('command_status=success');
+    });
   });
 
   describe('GET /_profiler/:token/data', () => {

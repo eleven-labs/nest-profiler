@@ -44,6 +44,10 @@ describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
     it('is inactive for an empty value', () => {
       expect(filter?.parse('')).toBeUndefined();
     });
+
+    it('keeps a non-empty value as the active filter', () => {
+      expect(filter?.parse('success')).toBe('success');
+    });
   });
 
   describe('summary', () => {

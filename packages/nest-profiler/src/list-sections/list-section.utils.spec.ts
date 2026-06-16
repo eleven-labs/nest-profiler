@@ -60,6 +60,15 @@ describe('bucketProfilesBySection', () => {
     expect(buckets.map((b) => b.key)).toEqual(['requests', 'commands', 'messages']);
   });
 
+  it('falls back to the default order for sections that omit it', () => {
+    const { order: _omitted, ...unordered } = commands;
+    // `unordered` (no explicit order → DEFAULT_SECTION_ORDER = 100) sorts after
+    // `requests` (order 10) but before a section with an order above the default.
+    const late: ProfilerListSection = { ...messages, order: 200 };
+    const buckets = bucketProfilesBySection([late, unordered, requests], []);
+    expect(buckets.map((b) => b.key)).toEqual(['requests', 'commands', 'messages']);
+  });
+
   it('defaults itemLabel to "profile" and exposes isDefault', () => {
     const buckets = bucketProfilesBySection([requests, commands], []);
     const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
