@@ -7,7 +7,7 @@ Open `/_profiler` to browse the list of captured profiles, then click any row to
 
 ## Profiles list
 
-The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it — the universal filters (search, status, status class, duration, exceptions) plus filters specific to that kind (e.g. HTTP **method**) — so each list is filtered independently. Global panels such as **Config** apply across the whole page.
+The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it — the universal filters (search, duration, exceptions), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) — so each list is filtered independently. Global panels such as **Config** apply across the whole page.
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 

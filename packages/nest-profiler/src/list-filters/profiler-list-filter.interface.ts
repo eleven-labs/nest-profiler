@@ -41,8 +41,21 @@ export interface ProfilerListFilter<T = unknown> {
   readonly label: string;
   /** Which HTML control to render. */
   readonly control: ProfilerFilterControl;
-  /** Options for a `'select'` control. The first option is the "any" choice. */
+  /**
+   * Static options for a `'select'` control. The first option is the "any"
+   * choice. For options that depend on the captured data (the exchanges or
+   * handlers actually seen, say) provide {@link optionsFor} instead — it is
+   * evaluated per section and takes precedence over this.
+   */
   readonly options?: ProfilerFilterOption[];
+  /**
+   * Builds the `'select'` options from the section's profiles, so a filter can
+   * offer only the values actually present (e.g. the distinct RabbitMQ exchanges
+   * or `@RabbitSubscribe` handlers). Called once per section with that section's
+   * unfiltered profiles; when set, its result is used in place of {@link options}.
+   * Include the leading "any" option yourself.
+   */
+  optionsFor?(profiles: Profile[]): ProfilerFilterOption[];
   /** Placeholder for `'text'`/`'number'` controls. */
   readonly placeholder?: string;
   /**
@@ -51,12 +64,14 @@ export interface ProfilerListFilter<T = unknown> {
    */
   readonly order?: number;
   /**
-   * Entrypoint type this filter is scoped to. Set by the core when a filter is
-   * contributed through {@link ProfilerEntrypointType.listFilters}: the filter is
-   * then shown and applied only above that kind's list. Absent for the universal
-   * filters that apply to every list.
+   * Entrypoint type(s) this filter is scoped to — a single type or a set. Set by
+   * the core to the owning type when a filter is contributed through
+   * {@link ProfilerEntrypointType.listFilters}: the filter is then shown and
+   * applied only above that kind's list. The core also scopes its HTTP-response
+   * filters (`status`, `statusClass`) to the response-producing kinds this way.
+   * Absent for the universal filters that apply to every list.
    */
-  readonly forType?: string;
+  readonly forType?: string | readonly string[];
   /**
    * Parses the raw query-string value into a typed value. Return `undefined` to
    * treat the filter as inactive (empty input, unchecked box, non-numeric text…)

@@ -12,6 +12,32 @@ export function parseLenientInt(raw: string | undefined): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/**
+ * Whether a filter belongs in a given section's filter bar. Universal filters
+ * (no {@link ProfilerListFilter.forType}) apply everywhere; a scoped filter
+ * applies only to the section(s) named by its `forType` (a single type or a set).
+ */
+export function filterAppliesToSection(filter: ProfilerListFilter, sectionKey: string): boolean {
+  if (!filter.forType) return true;
+  return Array.isArray(filter.forType)
+    ? filter.forType.includes(sectionKey)
+    : filter.forType === sectionKey;
+}
+
+/**
+ * Resolves a filter's `'select'` options for a section: {@link ProfilerListFilter.optionsFor}
+ * (computed from the section's profiles) when present, otherwise its static
+ * {@link ProfilerListFilter.options}. Returns a def whose `options` are concrete so
+ * the template can render the control without knowing which source was used.
+ */
+export function resolveFilterForSection(
+  filter: ProfilerListFilter,
+  profiles: Profile[],
+): ProfilerListFilter {
+  if (!filter.optionsFor) return filter;
+  return { ...filter, options: filter.optionsFor(profiles) };
+}
+
 /** A parsed, active filter value paired with the definition that produced it. */
 interface ActiveFilter {
   filter: ProfilerListFilter;

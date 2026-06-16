@@ -13,6 +13,7 @@
     "nest-profiler-config",
     "nest-profiler-validator",
     "nest-profiler-graphql",
+    "nest-profiler-rabbitmq",
     "template-reference"
   ]
 }

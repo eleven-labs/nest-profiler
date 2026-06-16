@@ -1,0 +1,114 @@
+{
+  "name": "@eleven-labs/nest-profiler-rabbitmq",
+  "version": "1.0.0-alpha.3",
+  "description": "RabbitMQ message collector for @eleven-labs/nest-profiler",
+  "keywords": [
+    "nestjs",
+    "rabbitmq",
+    "amqp",
+    "message",
+    "golevelup",
+    "profiler",
+    "debug",
+    "monitoring",
+    "devtools",
+    "nest-profiler",
+    "web-debug-toolbar",
+    "observability"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "prettier": "@repo/prettier-config",
+  "scripts": {
+    "build": "rimraf dist && tsc -p tsconfig.build.json && find src -name '*.ejs' | while IFS= read -r f; do dest=\"dist/${f#src/}\"; mkdir -p \"$(dirname \"$dest\")\" && cp \"$f\" \"$dest\"; done",
+    "clean": "rimraf dist coverage",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src",
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "typecheck": "tsc --noEmit --incremental false"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
+    "reflect-metadata": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@golevelup/nestjs-rabbitmq": {
+      "optional": true
+    },
+    "amqplib": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.24",
+    "@nestjs/core": "^11.1.3",
+    "@nestjs/testing": "^11.1.3",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/jest-config": "workspace:*",
+    "@repo/prettier-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/amqplib": "^0.10.5",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.32",
+    "@eleven-labs/nest-profiler": "workspace:*",
+    "amqplib": "^0.10.4",
+    "jest": "^30.4.2",
+    "reflect-metadata": "^0.2.2",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.3.0",
+    "typescript": "^6.0.3"
+  },
+  "jest": {
+    "preset": "@repo/jest-config",
+    "rootDir": ".",
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s",
+      "!src/index.ts"
+    ],
+    "coverageDirectory": "coverage"
+  },
+  "author": {
+    "name": "Fabien Pasquet",
+    "url": "https://github.com/fpasquet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eleven-labs/nest-profiler.git",
+    "directory": "packages/nest-profiler-rabbitmq"
+  },
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-rabbitmq",
+  "bugs": {
+    "url": "https://github.com/eleven-labs/nest-profiler/issues"
+  },
+  "contributors": [
+    {
+      "name": "Eleven Labs",
+      "url": "https://eleven-labs.com"
+    }
+  ],
+  "funding": "https://eleven-labs.com"
+}

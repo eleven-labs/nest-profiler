@@ -16,11 +16,13 @@ import { MongoModule } from './mongo/mongo.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { AppGraphQLModule } from './graphql.module.js';
+import { AppRabbitMqModule } from './rabbitmq/rabbitmq.module.js';
 import appConfig, { isProfilerEnabled } from './config/app.config.js';
 import featuresConfig, {
   isMongooseEnabled,
   isGraphQLEnabled,
   isPinoLoggerEnabled,
+  isRabbitMqEnabled,
   isSqlOrmEnabled,
 } from './config/features.config.js';
 
@@ -55,6 +57,9 @@ import featuresConfig, {
 
     // GraphQL + BooksModule — disabled when FEATURE_GRAPHQL=false
     ConditionalModule.registerWhen(AppGraphQLModule, isGraphQLEnabled),
+
+    // RabbitMQ consumer/producer + nest-profiler-rabbitmq — opt-in via FEATURE_RABBITMQ=true
+    ConditionalModule.registerWhen(AppRabbitMqModule, isRabbitMqEnabled),
 
     // Global cache — consumed by PostsModule and any other module that needs caching
     CacheModule.register({ isGlobal: true, ttl: 30000 }),

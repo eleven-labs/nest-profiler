@@ -1,0 +1,102 @@
+---
+title: RabbitMQ message profiling
+description: Profile RabbitMQ messages consumed via @RabbitSubscribe and inspect each one in the web profiler.
+---
+
+This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile — with a **Message** panel plus any HTTP, cache, or database activity the handler triggered — that appears in a dedicated **RabbitMQ** table at `/_profiler`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@golevelup/nestjs-rabbitmq` consuming messages via `@RabbitSubscribe`
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-rabbitmq
+```
+
+`@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies — the ones you already use to consume messages.
+
+## Step 2 — Register the module
+
+Add `RabbitMqCollectorModule` to the application that consumes your messages (the same process that hosts the profiler):
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RabbitMQModule } from './rabbitmq.module';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    RabbitMqCollectorModule.forRoot(),
+    RabbitMQModule,
+  ],
+})
+export class AppModule {}
+```
+
+## Step 3 — Keep your consumer unchanged
+
+You do not change anything for profiling — write an ordinary `@RabbitSubscribe` handler:
+
+```ts title="narration.service.ts"
+import { Injectable } from '@nestjs/common';
+import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import type { ConsumeMessage } from 'amqplib';
+
+@Injectable()
+export class NarrationService {
+  @RabbitSubscribe({
+    exchange: 'articles.events',
+    routingKey: 'published.*',
+    queue: 'tts.narration',
+  })
+  async createGeneration(message: ArticleEvent, raw: ConsumeMessage): Promise<void> {
+    // … your business logic …
+  }
+}
+```
+
+## Step 4 — Inspect the profile
+
+Publish a message (or trigger your normal flow) and open `/_profiler`. Messages appear in a dedicated **RabbitMQ** table — separate from the HTTP/GraphQL and Commands tables — and you can isolate them with the **Type** filter (choose _RabbitMQ_). Open one to find:
+
+- **Message** — exchange, routing key, handler, redelivered flag, consumer/delivery tags, headers and payload (the HTTP request/response tabs are hidden)
+- **HTTP Client**, **Database**, … — whatever the handler triggered
+
+A handler that throws is captured too: its profile is marked failed (status `500`) and the thrown error appears in the **Exceptions** tab.
+
+## Try it in the example app
+
+The example API wires this end to end behind a feature flag (off by default). Start a broker and run it with the flag on:
+
+```bash
+docker compose up -d rabbitmq
+FEATURE_RABBITMQ=true pnpm example:dev
+```
+
+Then publish a message and open `/_profiler` to see it profiled:
+
+```bash
+curl -X POST http://localhost:3000/notifications \
+  -H 'content-type: application/json' \
+  -d '{ "subject": "Deploy done", "body": "v1.2.3 shipped" }'
+```
+
+## Configuration
+
+```ts
+RabbitMqCollectorModule.forRoot({
+  enabled: true, // set false to disable per environment
+  captureHeaders: true, // AMQP headers (sensitive ones masked)
+  captureBody: true, // deserialized payload — disable if payloads are large
+  maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
+});
+```
+
+## How it works
+
+A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` execution context that **creates** a fresh profile per message with a `rabbitmq` entrypoint (`entrypoint.type = 'rabbitmq'`, the message details on `entrypoint.data`). The core `ProfilerInterceptor` opens a CLS context, runs the handler — so profile-scoped collectors keep capturing — then runs all collectors and persists the profile. The module also registers the `rabbitmq` entrypoint type, contributing the RabbitMQ list table, the **Message** detail tab and the `rabbitmq` option on the **Type** filter. `@golevelup/nestjs-rabbitmq` is an optional peer dependency: when no consumer runs, the module never produces a profile.
