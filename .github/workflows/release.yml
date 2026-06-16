@@ -63,4 +63,3 @@ jobs:
           # No NPM_TOKEN: the publish authenticates via npm trusted publishing (OIDC),
           # which also attaches build provenance to every package (needs id-token: write).
           NPM_CONFIG_PROVENANCE: true
-          ALLOW_MAJOR_BUMPS: ${{ vars.ALLOW_MAJOR_BUMPS }}

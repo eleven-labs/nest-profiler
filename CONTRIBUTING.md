@@ -52,8 +52,7 @@ Use:
 
 - `patch` for fixes and small improvements.
 - `minor` for backward-compatible features.
-- `major` for breaking changes (add a `BREAKING:` note in the changeset body). Gated by
-  `ALLOW_MAJOR_BUMPS`; CI rejects accidental major bumps.
+- `major` for breaking changes (add a `BREAKING:` note in the changeset body).
 
 ## Commit convention
 
@@ -69,12 +68,12 @@ docs: update publishing guide
 
 Breaking changes must include:
 
-- A `major` changeset (major bumps are gated by `ALLOW_MAJOR_BUMPS`).
+- A `major` changeset.
 - A `BREAKING:` note in the changeset body.
 - A migration note and updated examples where relevant.
 
 ## Releasing
 
 Releases and the alpha/beta prerelease flow run in CI from `main`. The full runbook, the
-`ALLOW_MAJOR_BUMPS` policy, label/milestone automation, and the one-time repository setup
+versioning policy, label/milestone automation, and the one-time repository setup
 live in [MAINTAINERS.md](MAINTAINERS.md).

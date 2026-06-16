@@ -39,7 +39,7 @@ Releases run in **CI** from `main` via `changesets/action` (`release.yml`).
 ### Stable
 
 1. Merge PRs, each carrying a `pnpm changeset`.
-2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`: guard-major → `changeset version` → fill lockstep changelogs).
+2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`: `changeset version` → fill lockstep changelogs).
 3. Merging that PR publishes every bumped package with the `latest` dist-tag.
 
 The whole suite is a Changesets `fixed` group, so all 11 packages move to the same version.
@@ -57,17 +57,19 @@ git push                     # CI opens the version PR; merging publishes `alpha
 
 `pnpm release` resolves the dist-tag from `.changeset/pre.json`, so CI publishes under the matching tag automatically. Consumers install with `pnpm add @eleven-labs/nest-profiler@alpha`.
 
-Leave prerelease mode before resuming stable releases:
+Leave prerelease mode before resuming stable releases. This is a rare, one-off step done manually from `main` by a maintainer:
 
 ```bash
-pnpm changeset:pre:exit
-git commit -am "chore: exit prerelease"
-git push
+pnpm changeset:pre:exit                  # flips .changeset/pre.json to "mode": "exit"
+git commit -am "chore: exit prerelease mode"
+git push                                  # CI's Release workflow then cuts the stable version PR
 ```
 
-### Versioning policy (`ALLOW_MAJOR_BUMPS`)
+`changeset pre exit` does not delete `.changeset/pre.json`; it sets `"mode": "exit"`. The next `changeset version` (run by the Release workflow once the commit lands on `main`) produces stable versions from the accumulated changesets and removes `pre.json`.
 
-Breaking changes ship as a **major** with a `BREAKING:` note. `pnpm changeset:guard-major` (run in CI and in `version-packages`) **fails** on any `major` changeset unless the `ALLOW_MAJOR_BUMPS` Actions variable is `true`, so a major release is always deliberate — never accidental. Set it to `true` only when intentionally cutting a major version.
+### Versioning policy
+
+Breaking changes ship as a **major** with a `BREAKING:` note in the changeset body. In alpha/beta (prerelease) mode a major never moves the base version — every run only bumps the `-alpha.N` / `-beta.N` counter — so breaking changes flow freely; the major only materializes when you leave prerelease mode and cut the stable version. Review the `chore(release): version packages` PR before merging it: that diff is the deliberate gate on what actually ships.
 
 ## Repository automation
 

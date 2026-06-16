@@ -32,11 +32,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate changeset release policy
-        run: pnpm changeset:guard-major
-        env:
-          ALLOW_MAJOR_BUMPS: ${{ vars.ALLOW_MAJOR_BUMPS }}
-
       - name: Build packages
         run: pnpm build
         env:
