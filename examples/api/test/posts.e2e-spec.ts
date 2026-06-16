@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-axios';
+import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
 import { createE2EApp, profileOf, server } from './helpers/app.js';
@@ -12,7 +12,7 @@ import {
 } from './helpers/jsonplaceholder.js';
 
 const axiosEntries = (collectors: Record<string, unknown>): HttpRequestEntry[] =>
-  (collectors['axios'] as HttpRequestEntry[] | undefined) ?? [];
+  (collectors['http-client'] as HttpRequestEntry[] | undefined) ?? [];
 const cacheEntries = (collectors: Record<string, unknown>): CacheOperationEntry[] =>
   (collectors['cache'] as CacheOperationEntry[] | undefined) ?? [];
 const validatorEntries = (collectors: Record<string, unknown>): ValidationEntry[] =>
@@ -144,6 +144,34 @@ describe('Posts endpoints (e2e) — axios + cache + validator collectors', () =>
       });
       expect(post?.requestBody).toMatchObject({ title: 'Forwarded post', userId: 1 });
       expect(post?.responseBody).toBeDefined(); // captureResponseBody: true in PostsModule
+    });
+  });
+
+  describe('GET /posts/via-fetch — bring-your-own client (native fetch, no axios)', () => {
+    const realFetch = globalThis.fetch;
+    afterEach(() => {
+      globalThis.fetch = realFetch;
+    });
+
+    it('records the native fetch call in the HTTP Client panel via HttpProfilerRecorder', async () => {
+      const headers = new Headers({ 'content-type': 'application/json', 'x-served-by': 'mock' });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ id: 1, title: 'fetched via fetch' }), {
+            status: 200,
+            headers,
+          }),
+        ),
+      );
+
+      const { res, profile } = await profileOf(app, 'get', '/posts/via-fetch');
+      expect(res.status).toBe(200);
+
+      const fetched = axiosEntries(profile.collectors).find((e) => e.url.endsWith('/posts/1'));
+      expect(fetched).toMatchObject({ method: 'GET', statusCode: 200 });
+      expect(fetched?.requestHeaders).toMatchObject({ accept: 'application/json' });
+      expect(fetched?.responseHeaders?.['content-type']).toBe('application/json');
+      expect(fetched?.responseBody).toEqual({ id: 1, title: 'fetched via fetch' });
     });
   });
 

@@ -84,7 +84,7 @@ Each command run sets a `command` entrypoint on the profile (`entrypoint.type = 
 | `exitCode`  | `0` on success, `1` when the command threw     |
 | `success`   | Whether the command completed without throwing |
 
-Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-axios`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
+Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-http`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
 
 ## How it works
 

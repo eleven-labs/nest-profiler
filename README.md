@@ -45,7 +45,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core + Timeline panel
 - [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
 - [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
-- [`@eleven-labs/nest-profiler-axios`](packages/nest-profiler-axios/README.md) — HTTP Client panel
+- [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (ships axios wiring, bring your own client)
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel

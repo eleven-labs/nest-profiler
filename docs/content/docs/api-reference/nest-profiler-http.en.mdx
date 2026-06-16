@@ -1,0 +1,161 @@
+---
+title: nest-profiler-http
+description: API reference for @eleven-labs/nest-profiler-http — the client-agnostic HTTP Client panel, recorder, instrumentation interface and bundled axios adapter.
+---
+
+This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder`, the `HttpInstrumentation` interface and a bundled **axios adapter** (`AxiosInstrumentation`, enabled by default). Any HTTP client (fetch, undici, got, a custom module…) can feed the same panel through the recorder.
+
+<Callout type="info" title="Renamed from nest-profiler-axios">
+  `@eleven-labs/nest-profiler-axios` is **deprecated** and now re-exports
+  `@eleven-labs/nest-profiler-http`. Migrate your imports to the `-http` name.
+  `AxiosCollectorModule` survives only as a deprecated alias of `HttpCollectorModule`, exported from
+  the shim package.
+</Callout>
+
+## HttpCollectorModule
+
+Registers the HTTP Client panel and the `HttpProfilerRecorder`, then installs any HTTP instrumentations (the bundled axios adapter by default). Import it once with `HttpCollectorModule.forRoot(options)`.
+
+## HttpCollectorModuleOptions
+
+Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `enabled` flag, an `axios` toggle and an `instrumentations` array.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-collector.module.ts"
+  name="HttpCollectorModuleOptions"
+/>
+
+- `enabled` (default `true`) — register the collector and instrumentations.
+- `axios` (default `true`) — enable the bundled axios adapter. It is a no-op when `@nestjs/axios` is absent, so it is safe to leave on for non-axios apps.
+- `instrumentations` (default `[]`) — additional `HttpInstrumentation` providers to install (e.g. a custom fetch/got/undici adapter).
+
+## HttpProfilerRecorder
+
+Injectable façade for recording outgoing HTTP requests into the active profile. This is the API to reach for from application code or a custom instrumentation: inject it and call `capture` with the raw request/response material. Its `maskHeaders` property exposes the built-in mask list merged with the configured `maskHeaders`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-profiler-recorder.service.ts"
+  name="HttpProfilerRecorder"
+/>
+
+`capture(input: HttpCaptureInput): void` builds an `HttpRequestEntry` from raw request/response material, honouring the configured `HttpCaptureOptions` (capture flags) and masking sensitive headers, then records it. This is the recommended entry point — it guarantees a custom client captures the same request/response detail (shown in the panel) as the bundled axios adapter.
+
+`record(entry: HttpRequestEntry): void` appends an already-built entry as-is (no capture flags / masking applied) — use it only to bypass the options. Both methods are a no-op outside a CLS context or when no profile is active.
+
+### HttpCaptureInput
+
+Raw request/response material handed to `capture`. Header bags may be plain records, `fetch` `Headers`, a `Map`, or axios `AxiosHeaders`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-request.interface.ts"
+  name="HttpCaptureInput"
+/>
+
+## HttpInstrumentation
+
+Interface to implement when teaching the profiler how to capture requests from a given client. Register implementations via `HttpCollectorModule.forRoot({ instrumentations: [MyInstrumentation] })`. Implementations are NestJS providers, so they may inject `ModuleRef`, config, etc. through their constructor.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-instrumentation.interface.ts"
+  name="HttpInstrumentation"
+/>
+
+`install(recorder: HttpProfilerRecorder): void | Promise<void>` is called once at application bootstrap. Use `recorder.capture(...)` to push captured requests — it applies the capture options and header masking for you.
+
+## AxiosInstrumentation
+
+The bundled axios adapter, implementing `HttpInstrumentation`. It patches the `HttpService` provided by `@nestjs/axios` and records each request via the recorder. It is installed automatically unless `axios: false` is passed to `forRoot`; you rarely reference it directly.
+
+## HttpRequestEntry
+
+One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-agnostic by design: the bundled axios adapter produces these, but any client can record the same shape via `HttpProfilerRecorder` or `appendHttpRequestEntry`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-request.interface.ts"
+  name="HttpRequestEntry"
+/>
+
+## HttpCaptureOptions
+
+Capture/redaction flags shared by every instrumentation so they expose the same option surface. `HttpCollectorModuleOptions` extends it.
+
+<AutoTypeTable
+  path="packages/nest-profiler-http/src/http-request.interface.ts"
+  name="HttpCaptureOptions"
+/>
+
+## appendHttpRequestEntry
+
+```ts
+function appendHttpRequestEntry(cls: ClsService, entry: HttpRequestEntry): void;
+```
+
+Low-level primitive for feeding the HTTP Client panel directly from a `ClsService`. Reads the active profile from the CLS store and appends the entry; a no-op outside a CLS context or when no profile is active. In application code, prefer the injectable `HttpProfilerRecorder` — it wraps this and exposes the merged `maskHeaders`.
+
+## Redaction helpers
+
+Client-agnostic header redaction helpers shared by instrumentations.
+
+- `DEFAULT_MASK_HEADERS: string[]` — built-in list of header names masked by default (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`).
+- `extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string>` — normalises a header bag (a `fetch` `Headers`, an axios `AxiosHeaders` or a plain record) into a flat record, replacing the values of `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Pass `recorder.maskHeaders` to honour the configured mask list.
+- `formatHeaderValue(value: unknown): string` — renders an arbitrary header value as a display string.
+
+## Constants
+
+- `HTTP_CLIENT_REQUESTS_KEY` — the private `profile.collectors` key where instrumentations accumulate raw `HttpRequestEntry` items before the collector migrates them to the public `http-client` key.
+- `HTTP_COLLECTOR_OPTIONS` — DI token for the resolved `HttpCollectorModuleOptions`, injected by `HttpProfilerRecorder`.
+- `HTTP_INSTRUMENTATIONS` — DI token for the array of resolved `HttpInstrumentation` instances.
+
+## Public exports
+
+```ts
+import {
+  HttpCollectorModule,
+  HttpProfilerRecorder,
+  HttpClientCollector,
+  AxiosInstrumentation,
+  appendHttpRequestEntry,
+  DEFAULT_MASK_HEADERS,
+  extractHeaders,
+  formatHeaderValue,
+  HTTP_CLIENT_REQUESTS_KEY,
+  HTTP_COLLECTOR_OPTIONS,
+  HTTP_INSTRUMENTATIONS,
+} from '@eleven-labs/nest-profiler-http';
+
+import type {
+  HttpCollectorModuleOptions,
+  HttpInstrumentation,
+  HttpRequestEntry,
+  HttpCaptureOptions,
+} from '@eleven-labs/nest-profiler-http';
+```
+
+## Installation
+
+```bash
+pnpm add @eleven-labs/nest-profiler-http
+# for the bundled axios adapter (optional):
+pnpm add @nestjs/axios axios
+```
+
+**Optional peer dependencies:** `axios ^1.0.0`, `@nestjs/axios ^4.0.0` — only needed for the bundled axios adapter.
+
+## Setup
+
+Import `HttpModule` (from `@nestjs/axios`) and `HttpCollectorModule.forRoot()`. The axios adapter is on by default and patches the `HttpService` provided by `HttpModule`:
+
+```ts
+import { HttpModule } from '@nestjs/axios';
+import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+
+@Module({
+  imports: [
+    HttpModule, // provides HttpService — required for the axios adapter
+    HttpCollectorModule.forRoot(),
+  ],
+})
+export class PostsModule {}
+```
+
+At bootstrap each registered instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.

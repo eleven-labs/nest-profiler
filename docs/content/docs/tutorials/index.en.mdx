@@ -47,9 +47,9 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
     description="Display authenticated user info and JWT claims in the Security panel."
   />
   <Card
-    href="/docs/tutorials/axios-collector"
-    title="Axios/HTTP client profiling"
-    description="Capture outgoing HTTP requests made with HttpService and inspect them in the HTTP Client panel."
+    href="/docs/tutorials/http-collector"
+    title="HTTP client profiling"
+    description="Capture outgoing HTTP requests — with the axios adapter or any client of your own — and inspect them in the HTTP Client panel."
   />
   <Card
     href="/docs/tutorials/config-collector"
@@ -85,23 +85,23 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 
 ## Covered patterns
 
-| Tutorial                       | NestJS pattern                            | Package                                |
-| ------------------------------ | ----------------------------------------- | -------------------------------------- |
-| Set up the profiler            | Middleware + interceptor + global guard   | `@eleven-labs/nest-profiler`           |
-| Log capture with context       | app.useLogger proxy + argument parsing    | `@eleven-labs/nest-profiler`           |
-| TypeORM query profiling        | DataSource patching + QueryRunner wrap    | `@eleven-labs/nest-profiler-typeorm`   |
-| MikroORM query profiling       | Logger.logQuery wrap + CLS context        | `@eleven-labs/nest-profiler-mikro-orm` |
-| MongoDB query profiling        | Query/Aggregate.exec patch + CLS context  | `@eleven-labs/nest-profiler-mongoose`  |
-| Cache profiling                | CACHE_MANAGER proxy + CLS context         | `@eleven-labs/nest-profiler-cache`     |
-| Command profiling              | CommandRunner wrap + CommandFactory       | `@eleven-labs/nest-profiler-commander` |
-| Auth/Security profiling        | request.user + JWT decode                 | `@eleven-labs/nest-profiler-auth`      |
-| Axios/HTTP client profiling    | Axios interceptor + axiosRef patch        | `@eleven-labs/nest-profiler-axios`     |
-| Configuration profiling        | ConfigService internalConfig + registerAs | `@eleven-labs/nest-profiler-config`    |
-| DTO validation profiling       | APP_PIPE + class-validator / nestjs-zod   | `@eleven-labs/nest-profiler-validator` |
-| GraphQL profiling              | IContextAdapter + GraphQL execution ctx   | `@eleven-labs/nest-profiler-graphql`   |
-| Build a custom collector       | @ProfilerCollector + EJS template         | `@eleven-labs/nest-profiler`           |
-| Build a custom entrypoint type | IContextAdapter + registerEntrypointType  | `@eleven-labs/nest-profiler`           |
-| File-based profile storage     | storageType: 'file' + LRU/TTL eviction    | `@eleven-labs/nest-profiler`           |
+| Tutorial                       | NestJS pattern                               | Package                                |
+| ------------------------------ | -------------------------------------------- | -------------------------------------- |
+| Set up the profiler            | Middleware + interceptor + global guard      | `@eleven-labs/nest-profiler`           |
+| Log capture with context       | app.useLogger proxy + argument parsing       | `@eleven-labs/nest-profiler`           |
+| TypeORM query profiling        | DataSource patching + QueryRunner wrap       | `@eleven-labs/nest-profiler-typeorm`   |
+| MikroORM query profiling       | Logger.logQuery wrap + CLS context           | `@eleven-labs/nest-profiler-mikro-orm` |
+| MongoDB query profiling        | Query/Aggregate.exec patch + CLS context     | `@eleven-labs/nest-profiler-mongoose`  |
+| Cache profiling                | CACHE_MANAGER proxy + CLS context            | `@eleven-labs/nest-profiler-cache`     |
+| Command profiling              | CommandRunner wrap + CommandFactory          | `@eleven-labs/nest-profiler-commander` |
+| Auth/Security profiling        | request.user + JWT decode                    | `@eleven-labs/nest-profiler-auth`      |
+| HTTP client profiling          | HttpProfilerRecorder + bundled axios adapter | `@eleven-labs/nest-profiler-http`      |
+| Configuration profiling        | ConfigService internalConfig + registerAs    | `@eleven-labs/nest-profiler-config`    |
+| DTO validation profiling       | APP_PIPE + class-validator / nestjs-zod      | `@eleven-labs/nest-profiler-validator` |
+| GraphQL profiling              | IContextAdapter + GraphQL execution ctx      | `@eleven-labs/nest-profiler-graphql`   |
+| Build a custom collector       | @ProfilerCollector + EJS template            | `@eleven-labs/nest-profiler`           |
+| Build a custom entrypoint type | IContextAdapter + registerEntrypointType     | `@eleven-labs/nest-profiler`           |
+| File-based profile storage     | storageType: 'file' + LRU/TTL eviction       | `@eleven-labs/nest-profiler`           |
 
 <Callout type="info" title="Example application">
   The `examples/api` directory contains a complete application demonstrating all collectors working

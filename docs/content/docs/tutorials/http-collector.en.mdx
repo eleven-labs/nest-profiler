@@ -1,0 +1,154 @@
+---
+title: HTTP client profiling
+description: Capture outgoing HTTP requests and inspect them in the HTTP Client panel — with the axios adapter or any client of your own.
+---
+
+This tutorial shows how to profile outgoing HTTP requests in a NestJS application. The HTTP Client panel lives in `@eleven-labs/nest-profiler-http` and is client-agnostic: use the bundled axios adapter (enabled by default), or wire any client (`fetch`, undici, got…) yourself through the `HttpProfilerRecorder`.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- For the axios adapter: `@nestjs/axios` and `axios` installed
+
+## Step 1 — Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-http @nestjs/axios axios
+```
+
+<Callout type="info" title="Renamed from nest-profiler-axios">
+  `@eleven-labs/nest-profiler-axios` is deprecated and now re-exports
+  `@eleven-labs/nest-profiler-http`. `AxiosCollectorModule` survives only as a deprecated alias of
+  `HttpCollectorModule` — swap the install/import name and use `HttpCollectorModule`.
+</Callout>
+
+## Step 2 — Register the module
+
+Import `HttpModule` (from `@nestjs/axios`) alongside `HttpCollectorModule.forRoot()` in the feature module that uses `HttpService`. The bundled axios adapter is enabled by default and patches the `HttpService` provided by `HttpModule`:
+
+```ts title="posts.module.ts"
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+import { PostsController } from './posts.controller';
+import { PostsService } from './posts.service';
+
+@Module({
+  imports: [HttpModule, HttpCollectorModule.forRoot()],
+  controllers: [PostsController],
+  providers: [PostsService],
+})
+export class PostsModule {}
+```
+
+If several feature modules use `HttpService`, register `HttpModule` + `HttpCollectorModule.forRoot()` in each one. The collector is idempotent — registering it multiple times is safe.
+
+## Step 3 — Use HttpService in a service
+
+```ts title="posts.service.ts"
+import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+
+@Injectable()
+export class PostsService {
+  constructor(private readonly http: HttpService) {}
+
+  async findAll(): Promise<unknown[]> {
+    const { data } = await firstValueFrom(
+      this.http.get('https://jsonplaceholder.typicode.com/posts?_limit=5'),
+    );
+    return data;
+  }
+}
+```
+
+## Step 4 — Test it
+
+Start your application and trigger a request that makes an outgoing HTTP call:
+
+```bash
+# Cache miss — triggers an outgoing call to the external API
+curl -i http://localhost:3000/posts
+```
+
+Copy the `X-Debug-Token` from the response headers, open `/_profiler/{token}`, and click the **HTTP Client** tab.
+
+You will see each outgoing request with:
+
+- **Method** — `GET`, `POST`, `PUT`, etc.
+- **URL** — full URL including query parameters
+- **Status** — HTTP response status code (e.g., `200`, `404`)
+- **Duration** — round-trip time in milliseconds
+
+The toolbar badge displays `{n}req` — for example `3req` when three outgoing requests were made during the incoming request.
+
+## Combining with cache profiling
+
+A common pattern is to fetch from an external API and cache the result. With both `CacheCollectorModule` and `HttpCollectorModule` registered, you can compare the two panels across requests:
+
+```bash
+# First call — Cache MISS, outgoing call fires → HTTP Client tab shows 1req
+curl http://localhost:3000/posts
+
+# Second call — Cache HIT, no outgoing call → HTTP Client tab shows 0req
+curl http://localhost:3000/posts
+```
+
+## Wire your own HTTP client
+
+No `@nestjs/axios`? Feed the panel yourself by injecting `HttpProfilerRecorder` — exported and provided by `HttpCollectorModule`. Time your call and pass the raw request/response material to `recorder.capture(...)`: it applies your capture options (request/response headers + body) and masks sensitive headers for you, so a custom client shows the same detail in the panel as axios. The collector registered by `HttpCollectorModule` renders the panel, so no other import is needed.
+
+```ts title="weather.service.ts"
+import { Injectable } from '@nestjs/common';
+import { HttpProfilerRecorder } from '@eleven-labs/nest-profiler-http';
+
+@Injectable()
+export class WeatherService {
+  constructor(private readonly recorder: HttpProfilerRecorder) {}
+
+  async getForecast(): Promise<unknown> {
+    const url = 'https://api.weather.example.com/forecast';
+    const requestHeaders = { accept: 'application/json' };
+
+    const startedAt = Date.now();
+    const response = await fetch(url, { headers: requestHeaders });
+    const body = await response.json();
+
+    this.recorder.capture({
+      method: 'GET',
+      url,
+      startedAt,
+      duration: Date.now() - startedAt,
+      statusCode: response.status,
+      requestHeaders,
+      responseHeaders: response.headers, // fetch `Headers` and `Map` are supported
+      responseBody: body,
+    });
+
+    return body;
+  }
+}
+```
+
+`capture()` honours the configured `captureRequestHeaders` / `captureRequestBody` / `captureResponseHeaders` / `captureResponseBody` flags and the `maskHeaders` list, normalising any header bag (a `fetch` `Headers`, an axios `AxiosHeaders`, a `Map`, or a plain record) and redacting sensitive values with `[REDACTED]`. It is a no-op outside a request context, so it is safe to call unconditionally. If you have already built a final `HttpRequestEntry` and want to bypass the options, call `recorder.record(entry)` instead. A runnable version ships in the example API at `GET /posts/via-fetch`.
+
+For a **reusable adapter**, implement the `HttpInstrumentation` interface instead of recording inline, then register it once via `HttpCollectorModule.forRoot({ instrumentations: [WeatherInstrumentation] })`:
+
+```ts title="weather.instrumentation.ts"
+import { Injectable } from '@nestjs/common';
+import { HttpInstrumentation, HttpProfilerRecorder } from '@eleven-labs/nest-profiler-http';
+
+@Injectable()
+export class WeatherInstrumentation implements HttpInstrumentation {
+  install(recorder: HttpProfilerRecorder): void {
+    // Hook your client here; on each request call recorder.capture({ ... }).
+  }
+}
+```
+
+## How it works
+
+The bundled axios adapter (`AxiosInstrumentation`) installs request/response interceptors on the `HttpService`'s internal `axiosRef`. The request interceptor records the start time; the response interceptor records the end time, status code, and final URL, then pushes an `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`.
+
+Outgoing requests made outside a request context (e.g., in `onModuleInit`) are silently ignored since there is no active CLS profile.

@@ -1,14 +1,19 @@
 {
-  "name": "@eleven-labs/nest-profiler-axios",
+  "name": "@eleven-labs/nest-profiler-http",
   "version": "1.0.0-alpha.3",
-  "description": "DEPRECATED — renamed to @eleven-labs/nest-profiler-http. This package re-exports it.",
+  "description": "HTTP client collector for @eleven-labs/nest-profiler — ships axios wiring, bring your own client",
   "keywords": [
     "nestjs",
-    "axios",
     "http-client",
+    "axios",
+    "fetch",
     "profiler",
-    "deprecated",
-    "nest-profiler"
+    "debug",
+    "monitoring",
+    "devtools",
+    "nest-profiler",
+    "web-debug-toolbar",
+    "observability"
   ],
   "license": "MIT",
   "type": "commonjs",
@@ -43,9 +48,6 @@
     "test:cov": "jest --coverage",
     "typecheck": "tsc --noEmit --incremental false"
   },
-  "dependencies": {
-    "@eleven-labs/nest-profiler-http": "workspace:*"
-  },
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
@@ -63,9 +65,10 @@
   },
   "devDependencies": {
     "@eleven-labs/nest-profiler": "workspace:*",
-    "@eleven-labs/nest-profiler-http": "workspace:*",
+    "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.1.24",
     "@nestjs/core": "^11.1.3",
+    "@nestjs/testing": "^11.1.3",
     "@repo/build": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-config": "workspace:*",
@@ -73,6 +76,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.32",
+    "axios": "^1.9.0",
     "jest": "^30.4.2",
     "nestjs-cls": "^4.5.0",
     "reflect-metadata": "^0.2.2",
@@ -83,7 +87,8 @@
     "preset": "@repo/jest-config",
     "rootDir": ".",
     "collectCoverageFrom": [
-      "src/**/*.(t|j)s"
+      "src/**/*.(t|j)s",
+      "!src/index.ts"
     ],
     "coverageDirectory": "coverage"
   },
@@ -94,7 +99,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eleven-labs/nest-profiler.git",
-    "directory": "packages/nest-profiler-axios"
+    "directory": "packages/nest-profiler-http"
   },
   "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-http",
   "bugs": {
