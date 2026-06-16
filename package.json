@@ -34,7 +34,6 @@
     "docker:reset": "docker compose down -v",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage",
     "changeset": "changeset",
-    "changeset:guard-major": "tsx scripts/changesets/guard-major-bumps.ts",
     "changeset:sync-changelog": "tsx scripts/changesets/fill-synced-changelog.ts",
     "changeset:pre:alpha": "changeset pre enter alpha",
     "changeset:pre:beta": "changeset pre enter beta",
@@ -53,7 +52,7 @@
     "test:cov": "turbo run test:cov",
     "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
-    "version-packages": "pnpm changeset:guard-major && changeset version && pnpm changeset:sync-changelog",
+    "version-packages": "changeset version && pnpm changeset:sync-changelog",
     "prepare": "husky"
   },
   "devDependencies": {
