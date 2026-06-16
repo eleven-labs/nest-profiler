@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-config",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "description": "@nestjs/config collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",

@@ -19,14 +19,21 @@
     "@repo/eslint-config": "0.0.0",
     "@repo/jest-config": "0.0.0",
     "@repo/prettier-config": "0.0.0",
-    "@repo/typescript-config": "0.0.0"
+    "@repo/typescript-config": "0.0.0",
+    "@repo/build": "0.0.0",
+    "@eleven-labs/nest-profiler-rabbitmq": "1.0.0-alpha.3"
   },
   "changesets": [
     "add-profiler-cdn-sri",
+    "add-rabbitmq-collector",
     "capture-guard-exceptions",
     "capture-structured-log-context",
+    "commander-entrypoint-type",
+    "extensible-entrypoint-types",
     "extensible-list-filters",
     "fix-graphql-redos",
+    "graphql-entrypoint-data",
+    "http-client-agnostic",
     "nest-profiler-auth",
     "nest-profiler-axios",
     "nest-profiler-cache",
