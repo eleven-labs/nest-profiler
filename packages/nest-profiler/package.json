@@ -41,7 +41,7 @@
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
-    "build": "repo-build",
+    "build": "repo-build && node ./build/build-assets.mjs",
     "clean": "repo-clean dist coverage",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
@@ -67,6 +67,8 @@
     "@repo/jest-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@highlightjs/cdn-assets": "11.11.1",
+    "@tailwindcss/cli": "^4.3.0",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
@@ -80,6 +82,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "supertest": "^7.1.1",
+    "tailwindcss": "^4.3.0",
     "ts-jest": "^29.3.0",
     "typescript": "^6.0.3",
     "winston": "^3.19.0"

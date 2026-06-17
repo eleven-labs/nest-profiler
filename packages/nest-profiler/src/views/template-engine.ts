@@ -2,6 +2,9 @@ import * as path from 'path';
 
 export const TEMPLATES_DIR = path.join(__dirname, '../templates');
 
+/** Directory holding built static assets (compiled Tailwind CSS, vendored highlight.js). */
+export const PUBLIC_DIR = path.join(__dirname, '../public');
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

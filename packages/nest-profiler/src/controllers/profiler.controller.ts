@@ -9,9 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { TemplateRendererService } from '../services/template-renderer.service';
+import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import type { Profile } from '../interfaces/profile.interface';
@@ -26,9 +29,20 @@ import { bucketProfilesBySection } from '../list-sections/list-section.utils';
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
 
+/**
+ * Files the profiler serves same-origin from its `public` directory, grouped by
+ * sub-directory. The allowlist doubles as path-traversal protection: any name not
+ * listed here is rejected with a 404.
+ */
+const ASSET_ALLOWLIST = {
+  styles: ['profiler.css', 'github.min.css', 'github-dark.min.css'],
+  scripts: ['highlight.min.js', 'graphql.min.js'],
+} as const;
+
 @UseGuards(ProfilerGuard)
 @Controller()
 export class ProfilerController {
+  private static readonly assetCache = new Map<string, string>();
   private readonly profilerPath: string;
 
   constructor(
@@ -37,6 +51,33 @@ export class ProfilerController {
     @Optional() @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions = {},
   ) {
     this.profilerPath = options.path ?? '/_profiler';
+  }
+
+  @Get('/_profiler/__assets/styles/:file')
+  @Header('Content-Type', 'text/css; charset=utf-8')
+  @Header('Cache-Control', 'public, max-age=31536000, immutable')
+  getStyle(@Param('file') file: string): string {
+    return this.readAsset('styles', file);
+  }
+
+  @Get('/_profiler/__assets/scripts/:file')
+  @Header('Content-Type', 'text/javascript; charset=utf-8')
+  @Header('Cache-Control', 'public, max-age=31536000, immutable')
+  getScript(@Param('file') file: string): string {
+    return this.readAsset('scripts', file);
+  }
+
+  /** Reads an allowlisted static asset from `public/`, caching its contents in memory. */
+  private readAsset(dir: keyof typeof ASSET_ALLOWLIST, file: string): string {
+    const allowed = ASSET_ALLOWLIST[dir] as readonly string[];
+    if (!allowed.includes(file)) throw new NotFoundException(`Asset "${file}" not found.`);
+    const key = `${dir}/${file}`;
+    let content = ProfilerController.assetCache.get(key);
+    if (content === undefined) {
+      content = readFileSync(join(PUBLIC_DIR, dir, file), 'utf-8');
+      ProfilerController.assetCache.set(key, content);
+    }
+    return content;
   }
 
   @Get('/_profiler')
