@@ -2,9 +2,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> — NestJS Profiler</title>
-  <!-- highlight.js — syntax highlighting for JSON (and other languages) -->
-  <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" integrity="sha384-eFTL69TLRZTkNfYZOLM+G04821K1qZao/4QLJbet1pP4tcF+fdXq/9CdqAbWRl/L" crossorigin="anonymous">
-  <link id="hljs-dark"  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH" crossorigin="anonymous">
+  <!-- Profiler styles — Tailwind compiled at build time, served same-origin -->
+  <link rel="stylesheet" href="<%= profilerPath %>/__assets/styles/profiler.css">
+  <!-- highlight.js themes — syntax highlighting for JSON (and other languages) -->
+  <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css">
+  <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css">
   <script>
     // Runs synchronously before first paint to avoid flash
     (function () {
@@ -19,131 +21,7 @@
       document.getElementById('hljs-dark').disabled = !isDark;
     }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0" integrity="sha384-AIH1kL7JmmReCxSwiSyaRNwzSFO7h4Ir4F/PO28EKezqFza1LwIMgEPLd83KwmZ4" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/graphql.min.js" integrity="sha384-M04f/a+xFV20/v8ZQLe5lPeqUKrH0A0h6HUSWFRvq4RE4xlU1yaJIE5XqNSuR2Ke" crossorigin="anonymous"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', function () { hljs.highlightAll(); });</script>
-  <!-- Strip hljs background so the profiler's own surface colour shows through -->
-  <style>.hljs { background: transparent !important; padding: 0 !important; }</style>
-  <style type="text/tailwindcss">
-    @custom-variant dark (&:where(.dark, .dark *));
-
-    @theme {
-      /* Typography */
-      --text-2xs: 0.625rem; /* 10px — smallest label size */
-
-      /* Z-index */
-      --z-toolbar: 9999;
-
-      /* Brand */
-      --color-nest:       #E0234E;
-      --color-nest-light: #f4536d;
-      --color-nest-dark:  #b81a3e;
-
-      /* Semantic design tokens — values set in @layer base */
-      --color-background:            var(--profiler-background);
-      --color-surface:               var(--profiler-surface);
-      --color-surface-muted:         var(--profiler-surface-muted);
-      --color-foreground:            var(--profiler-foreground);
-      --color-foreground-secondary:  var(--profiler-foreground-secondary);
-      --color-foreground-muted:      var(--profiler-foreground-muted);
-      --color-foreground-faint:      var(--profiler-foreground-faint);
-      --color-line:                  var(--profiler-line);
-      --color-line-subtle:           var(--profiler-line-subtle);
-      --color-surface-active:        var(--profiler-surface-active);
-      --color-danger:                var(--profiler-danger);
-      --color-danger-bg:             var(--profiler-danger-bg);
-      --color-danger-line:           var(--profiler-danger-line);
-      --color-danger-line-subtle:    var(--profiler-danger-line-subtle);
-      --color-success:               var(--profiler-success);
-      --color-code-text:             var(--profiler-code-text);
-    }
-
-    @layer base {
-      /* ── Light (default) ─────────────────────────────── */
-      :root {
-        --profiler-background:            #f8fafc; /* slate-50  */
-        --profiler-surface:               #ffffff; /* white     */
-        --profiler-surface-muted:         #f8fafc; /* slate-50  */
-        --profiler-surface-active:        #ffffff; /* white     */
-        --profiler-foreground:            #0f172a; /* slate-900 */
-        --profiler-foreground-secondary:  #475569; /* slate-600 */
-        --profiler-foreground-muted:      #64748b; /* slate-500 */
-        --profiler-foreground-faint:      #94a3b8; /* slate-400 */
-        --profiler-line:                  #e2e8f0; /* slate-200 */
-        --profiler-line-subtle:           #f1f5f9; /* slate-100 */
-        --profiler-danger:                #dc2626; /* red-600   */
-        --profiler-danger-bg:             #fef2f2; /* red-50    */
-        --profiler-danger-line:           #fecaca; /* red-200   */
-        --profiler-danger-line-subtle:    #fee2e2; /* red-100   */
-        --profiler-success:               #16a34a; /* emerald-600 */
-        --profiler-code-text:             #475569; /* slate-600   */
-      }
-
-      /* ── Dark ────────────────────────────────────────── */
-      .dark {
-        --profiler-background:            #020617;             /* slate-950      */
-        --profiler-surface:               #0f172a;             /* slate-900      */
-        --profiler-surface-muted:         rgba(15,23,42,0.60); /* slate-900/60   */
-        --profiler-surface-active:        rgba(30,41,59,0.40); /* slate-800/40   */
-        --profiler-foreground:            #f1f5f9;             /* slate-100      */
-        --profiler-foreground-secondary:  #94a3b8;             /* slate-400      */
-        --profiler-foreground-muted:      #64748b;             /* slate-500      */
-        --profiler-foreground-faint:      #475569;             /* slate-600      */
-        --profiler-line:                  #1e293b;             /* slate-800      */
-        --profiler-line-subtle:           rgba(30,41,59,0.60); /* slate-800/60   */
-        --profiler-danger:                #f87171;             /* red-400        */
-        --profiler-danger-bg:             rgba(69,10,10,0.20); /* red-950/20     */
-        --profiler-danger-line:           rgba(127,29,29,0.40);/* red-900/40     */
-        --profiler-danger-line-subtle:    rgba(127,29,29,0.30);/* red-900/30     */
-        --profiler-success:               #10b981;             /* emerald-500    */
-        --profiler-code-text:             #6ee7b7;             /* emerald-300    */
-      }
-
-      /* Scrollbar */
-      ::-webkit-scrollbar { width: 5px; height: 5px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: var(--profiler-line); border-radius: 9999px; }
-      ::-webkit-scrollbar-thumb:hover { background: var(--profiler-foreground-muted); }
-
-      /* Selection */
-      ::selection { background-color: color-mix(in srgb, #E0234E 20%, transparent); }
-    }
-
-    @layer utilities {
-      /* ── Method badges ──────────────────────────────── */
-      .badge-get     { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
-      .badge-post    { @apply bg-blue-100    text-blue-700    dark:bg-blue-900/40    dark:text-blue-300;    }
-      .badge-put     { @apply bg-amber-100   text-amber-700   dark:bg-amber-900/40   dark:text-amber-300;   }
-      .badge-patch   { @apply bg-orange-100  text-orange-700  dark:bg-orange-900/40  dark:text-orange-300;  }
-      .badge-delete  { @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;     }
-      .badge-head    { @apply bg-purple-100  text-purple-700  dark:bg-purple-900/40  dark:text-purple-300;  }
-      .badge-options { @apply bg-slate-100   text-slate-600   dark:bg-slate-800      dark:text-slate-300;   }
-      /* ── GraphQL operation type badges ─────────────── */
-      .badge-gql-query        { @apply bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300; }
-      .badge-gql-mutation     { @apply bg-pink-100   text-pink-700   dark:bg-pink-900/40   dark:text-pink-300;   }
-      .badge-gql-subscription { @apply bg-cyan-100   text-cyan-700   dark:bg-cyan-900/40   dark:text-cyan-300;   }
-      /* ── HTTP status badges ─────────────────────────── */
-      .badge-2xx { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
-      .badge-3xx { @apply bg-sky-100     text-sky-700     dark:bg-sky-900/40     dark:text-sky-300;     }
-      .badge-4xx { @apply bg-amber-100   text-amber-700   dark:bg-amber-900/40   dark:text-amber-300;   }
-      .badge-5xx { @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;     }
-      /* ── Log level badges ───────────────────────────── */
-      .badge-log     { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
-      .badge-warn    { @apply bg-amber-100   text-amber-700   dark:bg-amber-900/40   dark:text-amber-300;   }
-      .badge-error   { @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;     }
-      .badge-debug   { @apply bg-blue-100    text-blue-700    dark:bg-blue-900/40    dark:text-blue-300;    }
-      .badge-verbose { @apply bg-slate-100   text-slate-600   dark:bg-slate-800      dark:text-slate-300;   }
-      .badge-fatal   { @apply bg-red-200     text-red-700     dark:bg-red-950        dark:text-red-300;     }
-      .badge-default { @apply bg-slate-100   text-slate-600   dark:bg-slate-700      dark:text-slate-200;   }
-      /* ── Duration ───────────────────────────────────── */
-      .dur-fast   { @apply text-emerald-600 dark:text-emerald-400; }
-      .dur-medium { @apply text-amber-600   dark:text-amber-400;   }
-      .dur-slow   { @apply text-red-600     dark:text-red-400;     }
-      .dur-none   { @apply text-foreground-faint;                   }
-      /* ── Memory delta ───────────────────────────────── */
-      .delta-positive { @apply text-amber-600   dark:text-amber-400;   }
-      .delta-negative { @apply text-emerald-600 dark:text-emerald-400; }
-    }
-  </style>
 </head>

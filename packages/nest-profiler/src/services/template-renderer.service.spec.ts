@@ -100,18 +100,20 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('<!DOCTYPE html>');
   });
 
-  it('loads CDN assets with subresource integrity', async () => {
+  it('references local same-origin assets instead of external CDNs', async () => {
     const html = await service.render('list', MINIMAL_LIST_DATA);
-    const cdnTags = html.match(/<(?:script|link)\b[^>]+https:\/\/[^>]+>/g) ?? [];
 
-    expect(cdnTags).toHaveLength(5);
-    expect(html).toContain('https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0');
-    expect(html).not.toContain('https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"');
+    // No third-party CDN is loaded — everything is served from the profiler itself.
+    expect(html).not.toMatch(/https:\/\/cdn\.jsdelivr\.net|https:\/\/cdnjs\.cloudflare\.com/);
+    expect(html).not.toMatch(/<script[^>]+https:\/\//);
+    expect(html).not.toMatch(/<link[^>]+https:\/\//);
 
-    for (const tag of cdnTags) {
-      expect(tag).toContain('integrity="sha384-');
-      expect(tag).toContain('crossorigin="anonymous"');
-    }
+    // Local, build-time assets served under the configured profiler path.
+    expect(html).toContain('/_profiler/__assets/styles/profiler.css');
+    expect(html).toContain('/_profiler/__assets/styles/github.min.css');
+    expect(html).toContain('/_profiler/__assets/styles/github-dark.min.css');
+    expect(html).toContain('/_profiler/__assets/scripts/highlight.min.js');
+    expect(html).toContain('/_profiler/__assets/scripts/graphql.min.js');
   });
 
   it('throws when template name does not exist', async () => {

@@ -390,12 +390,30 @@ describe('ProfilerController (e2e)', () => {
     });
   });
 
+  describe('GET /_profiler/__assets/*', () => {
+    // Note: actual asset *delivery* (200 + content-type) is verified against built
+    // output (dist/public/{styles,scripts}); tests run against src, so here we only
+    // assert the allowlist/routing guards, which need no built files.
+    it('returns 404 for a file outside the allowlist (no path traversal)', async () => {
+      const res = await request(server()).get('/_profiler/__assets/styles/secret.css');
+      expect(res.status).toBe(404);
+    });
+
+    it('does not treat the assets path as a profile token', async () => {
+      // `/_profiler/:token` must not swallow the deeper asset route.
+      const res = await request(server()).get('/_profiler/__assets/scripts/unknown.js');
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe('toolbar injection', () => {
     it('injects the profiler toolbar into HTML responses', async () => {
       const res = await request(server()).get('/page');
       expect(res.status).toBe(200);
       expect(res.text).toContain('id="profiler-toolbar"');
       expect(res.text.indexOf('id="profiler-toolbar"')).toBeLessThan(res.text.indexOf('</body>'));
+      // The toolbar pulls the profiler's local stylesheet so it is styled on host pages.
+      expect(res.text).toContain('/_profiler/__assets/styles/profiler.css');
     });
   });
 
