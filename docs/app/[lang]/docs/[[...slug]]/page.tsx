@@ -91,7 +91,7 @@ export default async function Page({
   );
 
   return (
-    <DocsPage className="pt-0 xl:pt-0" full={page.data.full} toc={page.data.toc}>
+    <DocsPage full={page.data.full} toc={page.data.toc}>
       <JsonLd
         data={techArticleJsonLd({
           title: page.data.title,
@@ -101,7 +101,6 @@ export default async function Page({
         })}
       />
       <JsonLd data={breadcrumbJsonLd(breadcrumbs)} />
-      <HeaderOrFooter />
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
@@ -121,6 +120,7 @@ export default async function Page({
           <ViewOptionsPopover markdownUrl={markdownUrl} />
         </div>
       </DocsBody>
+      <HeaderOrFooter />
     </DocsPage>
   );
 }

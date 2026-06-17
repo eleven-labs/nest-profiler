@@ -1,10 +1,9 @@
 import { ElevenLabsLogo } from '@/components/Eleven-labs-logo';
-import { cn } from '@/lib/cn';
 import { ELEVEN_LABS_URL } from '@/lib/constants';
 
 export function HeaderOrFooter({ className }: { className?: string }) {
   return (
-    <footer className={cn('border-t border-fd-border', className)}>
+    <footer className={className}>
       <div
         className="
           mx-auto flex w-full max-w-6xl items-center justify-center gap-2 px-6 py-8 text-sm
@@ -19,7 +18,7 @@ export function HeaderOrFooter({ className }: { className?: string }) {
           rel="noreferrer"
           target="_blank"
         >
-          <ElevenLabsLogo className="h-5 w-auto" />
+          <ElevenLabsLogo className="h-5 w-auto text-fd-primary" />
         </a>
       </div>
     </footer>
