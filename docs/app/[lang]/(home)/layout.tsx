@@ -23,7 +23,7 @@ export default async function HomeRootLayout({
       nav={{ title: SITE_NAME, url: base || '/' }}
     >
       {children}
-      <HeaderOrFooter className="bg-fd-card/30" />
+      <HeaderOrFooter className="border-t border-fd-border bg-fd-card/30" />
     </HomeLayout>
   );
 }

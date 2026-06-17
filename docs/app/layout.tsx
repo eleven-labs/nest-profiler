@@ -18,6 +18,36 @@ import {
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+      },
+      {
+        type: 'image/svg+xml',
+        url: '/favicon.svg',
+      },
+      {
+        sizes: '16x16',
+        type: 'image/png',
+        url: '/icon-16.png',
+      },
+      {
+        sizes: '32x32',
+        type: 'image/png',
+        url: '/icon-32.png',
+      },
+    ],
+
+    apple: [
+      {
+        sizes: '180x180',
+        url: '/apple-touch-icon.png',
+      },
+    ],
+
+    shortcut: ['/favicon.ico'],
+  },
   title: {
     default: `${SITE_NAME} — ${SITE_TAGLINE}`,
     template: `%s · ${SITE_NAME}`,
