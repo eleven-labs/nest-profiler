@@ -14,7 +14,7 @@
     "typecheck": "fumadocs-mdx && tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.16",
     "class-variance-authority": "^0.7.1",
     "eslint-plugin-better-tailwindcss": "^4.5.0",
     "fumadocs-core": "^16.8.5",
