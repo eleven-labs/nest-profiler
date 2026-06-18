@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "NestJS web profiler module inspired by Symfony's Web Profiler",
   "keywords": [
     "nestjs",

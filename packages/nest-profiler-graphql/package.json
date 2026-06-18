@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-graphql",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "GraphQL support for @eleven-labs/nest-profiler — Apollo, Mercurius and graphql-yoga",
   "keywords": [
     "nestjs",

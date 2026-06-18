@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-http
 
+## 1.0.0-alpha.5
+
+### Patch Changes
+
+- Version bump only — released in lockstep with `@eleven-labs/nest-profiler` to keep the suite on a single version (Changesets `fixed` group). No functional changes to this package.
+
 ## 1.0.0-alpha.4
 
 ### Major Changes

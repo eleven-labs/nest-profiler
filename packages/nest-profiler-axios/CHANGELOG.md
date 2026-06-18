@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-axios
 
+## 1.0.0-alpha.5
+
+### Patch Changes
+
+- @eleven-labs/nest-profiler-http@1.0.0-alpha.5
+
 ## 1.0.0-alpha.4
 
 ### Major Changes

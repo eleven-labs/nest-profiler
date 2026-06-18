@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-axios",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "DEPRECATED — renamed to @eleven-labs/nest-profiler-http. This package re-exports it.",
   "keywords": [
     "nestjs",
