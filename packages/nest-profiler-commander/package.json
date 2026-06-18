@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-commander",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "CLI command collector for @eleven-labs/nest-profiler (via nest-commander)",
   "keywords": [
     "nestjs",

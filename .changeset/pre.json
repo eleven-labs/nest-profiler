@@ -24,7 +24,6 @@
     "@eleven-labs/nest-profiler-rabbitmq": "1.0.0-alpha.3"
   },
   "changesets": [
-    "add-profiler-cdn-sri",
     "add-rabbitmq-collector",
     "capture-guard-exceptions",
     "capture-structured-log-context",
@@ -45,6 +44,7 @@
     "nest-profiler-typeorm",
     "nest-profiler-validator",
     "nest-profiler",
-    "profiler-load-reliability"
+    "profiler-load-reliability",
+    "self-host-profiler-assets"
   ]
 }
