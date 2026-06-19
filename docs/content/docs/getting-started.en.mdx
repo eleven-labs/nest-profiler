@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Install and configure @eleven-labs/nest-profiler in a NestJS application.
+description: Install and configure @eleven-labs/nest-profiler in a NestJS 11 app - set up the core module, enable collectors, and open the /_profiler UI in minutes.
 ---
 
 ## Requirements
@@ -15,7 +15,7 @@ description: Install and configure @eleven-labs/nest-profiler in a NestJS applic
 pnpm add @eleven-labs/nest-profiler nestjs-cls
 ```
 
-The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies — a NestJS application already provides all of them except `nestjs-cls`, which is why it is installed explicitly above.
+The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies - a NestJS application already provides all of them except `nestjs-cls`, which is why it is installed explicitly above.
 
 ## Configure the core module
 
@@ -36,11 +36,11 @@ export class AppModule {}
 
 ## Async configuration
 
-Use `forRootAsync` when your options depend on injected providers such as `ConfigService`. One field is different: `enabled` stays at the top level, **outside** `useFactory`. It decides whether the profiler's providers are registered at all, so it must be known synchronously at bootstrap — it cannot be resolved from the async factory.
+Use `forRootAsync` when your options depend on injected providers such as `ConfigService`. One field is different: `enabled` stays at the top level, **outside** `useFactory`. It decides whether the profiler's providers are registered at all, so it must be known synchronously at bootstrap - it cannot be resolved from the async factory.
 
 ```ts title="app.module.ts"
 ProfilerModule.forRootAsync({
-  // Static bootstrap flag — evaluated before the factory runs.
+  // Static bootstrap flag - evaluated before the factory runs.
   enabled: process.env.NODE_ENV !== 'production',
   useFactory: (config: ConfigService) => ({
     storageType: config.get('PROFILER_STORAGE_TYPE', 'memory'),
@@ -65,7 +65,7 @@ await app.listen(3000);
 
 ## Optional collector packages
 
-Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments — **not** in the root module — so the dependency is co-located with the code it observes.
+Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments - **not** in the root module - so the dependency is co-located with the code it observes.
 
 | Package                                | Panel       | Prerequisite                                                            |
 | -------------------------------------- | ----------- | ----------------------------------------------------------------------- |
@@ -84,7 +84,7 @@ Each collector is a separate package installed alongside the core. Import each o
 
 Each optional collector is registered in the feature module it instruments:
 
-```ts title="products/products.module.ts — with TypeORM"
+```ts title="products/products.module.ts - with TypeORM"
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
@@ -96,7 +96,7 @@ import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 export class ProductsModule {}
 ```
 
-```ts title="products/products.module.ts — with MikroORM"
+```ts title="products/products.module.ts - with MikroORM"
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
 @Module({
@@ -162,7 +162,7 @@ export class AppModule {}
 
 ## GraphQL support
 
-GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphql` package. The core `ProfilerModule` is HTTP-only — without this package, GraphQL requests pass through without profiling and without errors.
+GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphql` package. The core `ProfilerModule` is HTTP-only - without this package, GraphQL requests pass through without profiling and without errors.
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-graphql
@@ -170,7 +170,7 @@ pnpm add @eleven-labs/nest-profiler-graphql
 
 Import `ProfilerGraphQLModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
 
-```ts title="app.module.ts — Apollo (Express / Fastify) or graphql-yoga"
+```ts title="app.module.ts - Apollo (Express / Fastify) or graphql-yoga"
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
 
 @Module({
@@ -180,14 +180,14 @@ import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      context: ({ req }) => ({ req }), // required — exposes the request to the profiler
+      context: ({ req }) => ({ req }), // required - exposes the request to the profiler
     }),
   ],
 })
 export class AppModule {}
 ```
 
-```ts title="app.module.ts — Mercurius (Fastify)"
+```ts title="app.module.ts - Mercurius (Fastify)"
 GraphQLModule.forRoot<MercuriusDriverConfig>({
   driver: MercuriusDriver,
   autoSchemaFile: true,
@@ -201,15 +201,15 @@ Each captured GraphQL request appears in `/_profiler` with a **GQL** badge and t
 
 ## Custom protocol adapters
 
-`ProfilerModule` exports an `IContextAdapter` interface and a `PROFILER_CONTEXT_ADAPTERS` multi-token that let you profile any NestJS execution context beyond HTTP — gRPC, Kafka, WebSockets, and more. `@eleven-labs/nest-profiler-graphql` is the reference implementation. See the [Custom protocol adapters](/docs/packages/nest-profiler/context-adapters) page for a full adapter example.
+`ProfilerModule` exports an `IContextAdapter` interface and a `PROFILER_CONTEXT_ADAPTERS` multi-token that let you profile any NestJS execution context beyond HTTP - gRPC, Kafka, WebSockets, and more. `@eleven-labs/nest-profiler-graphql` is the reference implementation. See the [Custom protocol adapters](/docs/packages/nest-profiler/context-adapters) page for a full adapter example.
 
 ## Storage backends
 
 ```ts
-// Default — in-memory LRU, cleared on restart
+// Default - in-memory LRU, cleared on restart
 ProfilerModule.forRoot({ storageType: 'memory', maxProfiles: 100 });
 
-// File — persists to .profiler/ as JSON files, survives restarts
+// File - persists to .profiler/ as JSON files, survives restarts
 ProfilerModule.forRoot({ storageType: 'file', storagePath: '.profiler' });
 ```
 
@@ -234,7 +234,7 @@ curl -X POST http://localhost:3000/posts \
   -d '{"title":"Hi","body":"too short"}'  # Validator violations
 curl http://localhost:3000/slow            # Timeline spans
 
-# GraphQL — requires FEATURE_GRAPHQL=true (default)
+# GraphQL - requires FEATURE_GRAPHQL=true (default)
 # Query with operation name
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \

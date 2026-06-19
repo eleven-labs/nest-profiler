@@ -1,6 +1,8 @@
 ---
 title: Build a custom collector
-description: Create a custom profiler panel with your own data and an EJS template.
+description: Create your own profiler panel with custom data and an EJS template using the @ProfilerCollector() decorator.
+seo:
+  title: How to build a custom collector
 ---
 
 This tutorial shows how to build a custom collector that adds a new panel to the profiler UI. As an example, we'll track all `EventEmitter2` events emitted during a request.
@@ -13,7 +15,7 @@ A collector that:
 - Shows them in a custom panel with event names, listener counts, and timestamps
 - Displays a badge with the event count in the toolbar
 
-## Step 1 — Create the collector class
+## Step 1 - Create the collector class
 
 ```ts title="event.collector.ts"
 import * as path from 'path';
@@ -67,7 +69,7 @@ export class EventCollector implements IProfilerCollector {
 }
 ```
 
-## Step 2 — Emit events into the profile
+## Step 2 - Emit events into the profile
 
 Create a service that patches `EventEmitter2.emit` to record events into the CLS profile:
 
@@ -114,7 +116,7 @@ export class EventPatchService implements OnModuleInit {
 }
 ```
 
-## Step 3 — Create the EJS panel template
+## Step 3 - Create the EJS panel template
 
 <Callout type="info">
   The profiler exposes a full design system of Tailwind tokens, badge classes, duration classes, and
@@ -176,7 +178,7 @@ export class EventPatchService implements OnModuleInit {
 <% } %>
 ```
 
-## Step 4 — Register as a provider
+## Step 4 - Register as a provider
 
 ```ts title="events-profiler.module.ts"
 import { Module } from '@nestjs/common';
@@ -200,7 +202,7 @@ export class EventsProfilerModule {}
 export class AppModule {}
 ```
 
-## Step 5 — Test it
+## Step 5 - Test it
 
 Emit some events in a controller:
 
@@ -223,7 +225,7 @@ Open `/_profiler/{token}` → **Events** tab. The toolbar badge shows `2`.
 | `label`             |          | Display label in the tab (or sub-tab inside a group)      |
 | `icon`              |          | SVG string for the tab icon and toolbar                   |
 | `priority`          |          | Tab display order (lower = leftmost), default `100`       |
-| `group`             |          | Group key — merge several collectors into one sidebar tab |
+| `group`             |          | Group key - merge several collectors into one sidebar tab |
 | `groupLabel`        |          | Sidebar label for the group tab                           |
 | `groupIcon`         |          | SVG icon for the group tab                                |
 | `groupPriority`     |          | Sort priority of the group tab                            |
@@ -235,7 +237,7 @@ The `collect()` method is called after the request completes (in the interceptor
 
 ## Grouping collectors into a single tab
 
-Multiple collectors can share a single sidebar tab by declaring the same `group` key. This is useful when two independent packages cover related concerns and should present as one unified panel to the user — for example TypeORM (SQL) and Mongoose (MongoDB) both appearing under a single **Database** tab.
+Multiple collectors can share a single sidebar tab by declaring the same `group` key. This is useful when two independent packages cover related concerns and should present as one unified panel to the user - for example TypeORM (SQL) and Mongoose (MongoDB) both appearing under a single **Database** tab.
 
 Each collector remains fully independent: it can be installed alone or alongside other collectors in the same group.
 
@@ -284,8 +286,8 @@ export class NoSqlCollector implements IProfilerCollector {
 
 **Rendering behaviour:**
 
-- **One collector active** — the group tab renders the single collector's template directly, with no sub-tabs.
-- **Multiple collectors active** — the group tab renders a sub-tab switcher. Only collectors that have data for the current request are shown; empty sub-tabs are hidden automatically.
-- **Badge** — the sidebar badge concatenates each collector's individual badge (e.g. `5q · 3q`).
+- **One collector active** - the group tab renders the single collector's template directly, with no sub-tabs.
+- **Multiple collectors active** - the group tab renders a sub-tab switcher. Only collectors that have data for the current request are shown; empty sub-tabs are hidden automatically.
+- **Badge** - the sidebar badge concatenates each collector's individual badge (e.g. `5q · 3q`).
 
 The grouping logic is handled entirely by the core profiler (`@eleven-labs/nest-profiler`). The two collector packages do not need to know about each other.

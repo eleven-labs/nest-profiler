@@ -1,6 +1,8 @@
 ---
 title: MongoDB query profiling
-description: Capture every Mongoose query and aggregation and inspect them in the MongoDB panel.
+description: Capture every Mongoose query and aggregation and inspect collection, duration and result count in the profiler's MongoDB panel.
+seo:
+  title: How to profile Mongoose queries
 ---
 
 This tutorial shows how to add the Mongoose collector to profile MongoDB queries in a NestJS application that uses `@nestjs/mongoose`.
@@ -10,13 +12,13 @@ This tutorial shows how to add the Mongoose collector to profile MongoDB queries
 - `@eleven-labs/nest-profiler` installed and configured
 - `@nestjs/mongoose` and `mongoose` installed with a working `MongooseModule` connection
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-mongoose
 ```
 
-## Step 2 — Register the collector
+## Step 2 - Register the collector
 
 Add `MongooseCollectorModule` in the feature module that performs MongoDB operations:
 
@@ -37,7 +39,7 @@ export class ReviewsModule {}
 
 The collector injects the `Connection` automatically via `@InjectConnection()`.
 
-## Step 3 — Instrument your services with spans
+## Step 3 - Instrument your services with spans
 
 ```ts
 import { ProfilerService } from '@eleven-labs/nest-profiler';
@@ -70,7 +72,7 @@ export class ReviewsService {
 }
 ```
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 ```bash
 curl -i http://localhost:3000/reviews
@@ -99,6 +101,6 @@ The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.pr
 Queries executed outside a request context (e.g., during module initialization or seeding) are silently ignored since there is no active CLS profile.
 
 <Callout type="info" title="Anti-double-patch guard">
-  If multiple modules import `MongooseCollectorModule.forRoot()`, the patch is applied only once — a
+  If multiple modules import `MongooseCollectorModule.forRoot()`, the patch is applied only once - a
   `__profilerPatched` flag prevents double-wrapping `Query.prototype.exec`.
 </Callout>

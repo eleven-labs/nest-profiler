@@ -1,6 +1,8 @@
 ---
 title: File-based profile storage
 description: Persist profiles to disk so they survive application restarts and can be inspected across debug sessions.
+seo:
+  title: How to persist profiles to disk
 ---
 
 This tutorial shows how to configure `@eleven-labs/nest-profiler` to store profiles in files instead of memory, making them available across application restarts.
@@ -14,7 +16,7 @@ The default in-memory storage loses all profiles when the application restarts. 
 - You need to share profile files with a teammate
 - Your application under load produces more profiles than memory storage can hold
 
-## Step 1 — Configure file storage
+## Step 1 - Configure file storage
 
 Pass `storageType: 'file'` and a `storagePath` to `ProfilerModule.forRoot()`:
 
@@ -39,7 +41,7 @@ export class AppModule {}
 
 If `storagePath` is omitted, the default path `.profiler` (relative to the current working directory) is used.
 
-## Step 2 — Add .profiler/ to .gitignore
+## Step 2 - Add .profiler/ to .gitignore
 
 Profile files contain request data including headers and response bodies. Add the storage directory to `.gitignore`:
 
@@ -64,8 +66,8 @@ Each file contains the full profile object: request/response metadata, timing, l
 
 File storage applies the same eviction policies as memory storage:
 
-- **LRU eviction** — when the maximum number of stored profiles is reached, the oldest (least recently accessed) file is deleted to make room for the new one.
-- **TTL cleanup** — on module initialization, files older than the configured TTL are deleted. Stale files are not served even if they still exist on disk.
+- **LRU eviction** - when the maximum number of stored profiles is reached, the oldest (least recently accessed) file is deleted to make room for the new one.
+- **TTL cleanup** - on module initialization, files older than the configured TTL are deleted. Stale files are not served even if they still exist on disk.
 
 Both limits are configured via `ProfilerModule.forRoot()`:
 
@@ -78,7 +80,7 @@ ProfilerModule.forRoot({
 });
 ```
 
-`maxProfiles` also bounds the in-memory cache the file storage keeps for fast list rendering, so memory usage grows with `maxProfiles × average profile size` — keep it reasonable when `collectBody` is enabled.
+`maxProfiles` also bounds the in-memory cache the file storage keeps for fast list rendering, so memory usage grows with `maxProfiles × average profile size` - keep it reasonable when `collectBody` is enabled.
 
 ## Custom storage adapter
 
@@ -125,6 +127,6 @@ ProfilerModule.forRoot({
 ```
 
 <Callout type="warn" title="Production warning">
-  Profile files contain sensitive request data. Never enable the profiler — regardless of storage
-  type — in production environments. Use `enabled: false` or an environment-based condition.
+  Profile files contain sensitive request data. Never enable the profiler - regardless of storage
+  type - in production environments. Use `enabled: false` or an environment-based condition.
 </Callout>

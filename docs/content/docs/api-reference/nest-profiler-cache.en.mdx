@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-cache
-description: API reference for @eleven-labs/nest-profiler-cache — cache operations collector.
+description: Types and API of the cache collector.
+seo:
+  title: Cache collector API reference
+  description: API reference for @eleven-labs/nest-profiler-cache - cache operations collector.
 ---
 
 ## CacheOperationEntry
@@ -18,10 +21,10 @@ One entry per cache operation (get, set, del) executed during a request.
 type CacheOperation = 'GET_HIT' | 'GET_MISS' | 'SET' | 'DEL';
 ```
 
-- `GET_HIT` — cache `get()` returned a value
-- `GET_MISS` — cache `get()` returned `undefined` or `null`
-- `SET` — cache `set()` was called
-- `DEL` — cache `del()` was called
+- `GET_HIT` - cache `get()` returned a value
+- `GET_MISS` - cache `get()` returned `undefined` or `null`
+- `SET` - cache `set()` was called
+- `DEL` - cache `del()` was called
 
 ## Public exports
 

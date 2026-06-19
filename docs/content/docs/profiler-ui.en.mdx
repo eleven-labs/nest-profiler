@@ -1,19 +1,21 @@
 ---
 title: Profiler UI
-description: A visual tour of the profiler web interface — the profiles list, the built-in tabs, and every collector panel.
+description: A visual tour of the profiler web interface - the profiles list, the built-in tabs, and every collector panel.
+seo:
+  title: 'Web UI tour: panels & tabs'
 ---
 
 Open `/_profiler` to browse the list of captured profiles, then click any row to open its detail view. The detail view is organized into **built-in tabs** (request, response, performance, logs, exceptions) plus **one tab per active collector**. The screenshots below come from the [example application](/docs/example-api) with every collector enabled.
 
 ## Profiles list
 
-The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it — the universal filters (search, duration, exceptions), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) — so each list is filtered independently. Global panels such as **Config** apply across the whole page.
+The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it - the universal filters (search, duration, exceptions), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) - so each list is filtered independently. Global panels such as **Config** apply across the whole page.
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 
 ## GraphQL operations
 
-Requires [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql) — see the [GraphQL support section](/docs/getting-started#graphql-support) in Getting started.
+Requires [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql) - see the [GraphQL support section](/docs/getting-started#graphql-support) in Getting started.
 
 GraphQL operations appear in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**) and the operation or field name. Its filter bar adds an **Operation** filter to narrow the list by operation type.
 
@@ -23,11 +25,11 @@ Opening an operation lands on its dedicated **GraphQL** detail tab, displaying:
 
 - **Operation type** badge (Query / Mutation / Subscription)
 - **Operation name** if present in the request
-- **Field name** — the entry-point resolver
-- **Query** — syntax-highlighted GraphQL document
-- **Variables** — the variables object, syntax-highlighted as JSON
-- **Response** — the `{ data, errors }` envelope returned to the client
-- **Request headers** — the underlying HTTP headers
+- **Field name** - the entry-point resolver
+- **Query** - syntax-highlighted GraphQL document
+- **Variables** - the variables object, syntax-highlighted as JSON
+- **Response** - the `{ data, errors }` envelope returned to the client
+- **Request headers** - the underlying HTTP headers
 
 ![GraphQL detail tab with operation type, name, syntax-highlighted query and variables (Query)](/screenshots/profiler/graphql-request.png)
 
@@ -51,7 +53,7 @@ The **Performance** tab groups request duration, memory, and timestamps.
 
 ![Performance tab with duration, memory, and request timeline](/screenshots/profiler/performance.png)
 
-The **Logs** tab lists entries captured through `profilerService.createLogger()`. Each row shows the message first — with structured payloads rendered as a JSON block under it — then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
+The **Logs** tab lists entries captured through `profilerService.createLogger()`. Each row shows the message first - with structured payloads rendered as a JSON block under it - then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
 
 ![Logs tab with one log entry captured during the request](/screenshots/profiler/logs.png)
 

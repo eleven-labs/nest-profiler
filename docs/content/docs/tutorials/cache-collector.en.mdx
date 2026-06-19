@@ -1,6 +1,8 @@
 ---
 title: Cache profiling
-description: Track cache HIT/MISS/SET/DEL operations and analyse the hit ratio in the Cache panel.
+description: Track cache GET_HIT/GET_MISS/SET/DEL operations and the hit ratio in the profiler's Cache panel with nest-profiler-cache.
+seo:
+  title: How to profile cache hits & misses
 ---
 
 This tutorial shows how to add the cache collector to profile `@nestjs/cache-manager` operations in a NestJS application.
@@ -10,13 +12,13 @@ This tutorial shows how to add the cache collector to profile `@nestjs/cache-man
 - `@eleven-labs/nest-profiler` installed and configured
 - `@nestjs/cache-manager` and `cache-manager` installed
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-cache @nestjs/cache-manager cache-manager
 ```
 
-## Step 2 — Register the modules
+## Step 2 - Register the modules
 
 ```ts title="app.module.ts"
 import { CacheModule } from '@nestjs/cache-manager';
@@ -32,7 +34,7 @@ import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 export class AppModule {}
 ```
 
-## Step 3 — Use the cache in a service or controller
+## Step 3 - Use the cache in a service or controller
 
 ```ts
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -61,13 +63,13 @@ export class PostsController {
 }
 ```
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 ```bash
-# First call — MISS + SET
+# First call - MISS + SET
 curl http://localhost:3000/posts
 
-# Second call — HIT
+# Second call - HIT
 curl http://localhost:3000/posts
 ```
 

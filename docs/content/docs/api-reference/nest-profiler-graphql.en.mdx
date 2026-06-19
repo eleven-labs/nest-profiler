@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-graphql
-description: API reference for @eleven-labs/nest-profiler-graphql — GraphQL collector for Apollo, Mercurius and graphql-yoga.
+description: Types and API of the GraphQL collector.
+seo:
+  title: GraphQL collector API reference
+  description: API reference for @eleven-labs/nest-profiler-graphql - GraphQL collector for Apollo, Mercurius and graphql-yoga.
 ---
 
 ## ProfilerGraphQLModuleOptions
@@ -74,7 +77,7 @@ Skips GraphQL introspection queries sent by the playground and other tooling to 
 function combineFilters(...filters: ProfilerRequestFilter[]): ProfilerRequestFilter;
 ```
 
-Combines multiple filter predicates with an OR — the request is skipped when **any** filter returns `true`.
+Combines multiple filter predicates with an OR - the request is skipped when **any** filter returns `true`.
 
 ```ts
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';

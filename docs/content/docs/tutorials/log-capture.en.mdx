@@ -1,15 +1,17 @@
 ---
 title: Log capture with context
-description: Wrap your logger so request-scoped logs — with context names and structured payloads — appear in the profiler's Logs tab.
+description: Wrap your logger so request-scoped logs - with context names and structured payloads - appear in the profiler's Logs tab.
+seo:
+  title: How to capture request logs
 ---
 
 This tutorial shows how to capture application logs into `@eleven-labs/nest-profiler` profiles, first with NestJS's built-in `ConsoleLogger`, then with `nestjs-pino`.
 
 ## Why capture logs in the profiler
 
-In a busy console, the logs of concurrent requests interleave. The profiler stores each log entry **in the profile of the request that produced it**, so the Logs tab shows exactly what happened during one request — next to its queries, HTTP calls and timeline — including structured payloads rendered as JSON.
+In a busy console, the logs of concurrent requests interleave. The profiler stores each log entry **in the profile of the request that produced it**, so the Logs tab shows exactly what happened during one request - next to its queries, HTTP calls and timeline - including structured payloads rendered as JSON.
 
-## Step 1 — Wrap the application logger
+## Step 1 - Wrap the application logger
 
 In `main.ts`, wrap the logger with `profilerService.createLogger()` and register it with `app.useLogger()`:
 
@@ -33,9 +35,9 @@ void bootstrap();
 
 `bufferLogs: true` holds startup logs until the custom logger is registered, so nothing is lost.
 
-## Step 2 — Log with context in a service
+## Step 2 - Log with context in a service
 
-Use the standard NestJS `Logger` facade. The message comes first; pass a payload object after it — the facade appends the class name as the context automatically:
+Use the standard NestJS `Logger` facade. The message comes first; pass a payload object after it - the facade appends the class name as the context automatically:
 
 ```ts title="users.service.ts"
 import { Injectable, Logger } from '@nestjs/common';
@@ -53,7 +55,7 @@ export class UsersService {
 }
 ```
 
-## Step 3 — Inspect the Logs tab
+## Step 3 - Inspect the Logs tab
 
 Make a request, then open the link from the `X-Debug-Token-Link` response header (or browse `/_profiler`):
 
@@ -61,11 +63,11 @@ Make a request, then open the link from the `X-Debug-Token-Link` response header
 curl -i http://localhost:3000/users -X POST -H 'Content-Type: application/json' -d '{"email":"jane@example.com","plan":"pro"}'
 ```
 
-The **Logs** tab lists each entry with its time, level badge, message — with the payload as a JSON block underneath — and the `UsersService` context name:
+The **Logs** tab lists each entry with its time, level badge, message - with the payload as a JSON block underneath - and the `UsersService` context name:
 
 ![Logs tab showing messages with context names and structured JSON payloads](/screenshots/profiler/logs.png)
 
-## Step 4 — Use nestjs-pino instead
+## Step 4 - Use nestjs-pino instead
 
 The same wrapper works with `nestjs-pino`. Register its `Logger` through `app.useLogger()`:
 
@@ -91,9 +93,9 @@ constructor(
 this.logger.info({ postCount: 5, cacheKey: 'external:posts' }, 'Posts cached');
 ```
 
-The captured entry has `message: 'Posts cached'`, `context: 'PostsController'` and the merging object as `data` — and the real pino line is emitted unchanged.
+The captured entry has `message: 'Posts cached'`, `context: 'PostsController'` and the merging object as `data` - and the real pino line is emitted unchanged.
 
-## Step 5 — Handle an exotic logger
+## Step 5 - Handle an exotic logger
 
 If a logger uses an argument convention the default parser cannot classify, pass a custom `parseArgs`:
 
@@ -108,5 +110,5 @@ profiler.createLogger(weirdLogger, {
 
 ## See also
 
-- [Log capture](/docs/packages/nest-profiler/logs) — supported conventions, context name resolution, JSON-safety and customization in detail.
+- [Log capture](/docs/packages/nest-profiler/logs) - supported conventions, context name resolution, JSON-safety and customization in detail.
 - [`LogEntry`](/docs/api-reference/nest-profiler#logentry) and [`ProfilerLoggerOptions`](/docs/api-reference/nest-profiler#profilerloggeroptions) in the API reference.

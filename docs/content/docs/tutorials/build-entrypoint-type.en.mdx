@@ -1,14 +1,16 @@
 ---
 title: Build a custom entrypoint type
-description: Profile a non-HTTP entrypoint end to end — give it its own data shape, its own list-page table and its own detail tab — without touching the core.
+description: Profile a non-HTTP entrypoint end to end - give it its own data shape, its own list-page table and its own detail tab - without touching the core.
+seo:
+  title: How to build a custom entrypoint type
 ---
 
-The profiler handles HTTP, GraphQL and CLI commands out of the box — each in its own list table — but the entrypoint model is open: you can teach the profiler about **any** kind of trigger — a WebSocket message, a queue job, a gRPC call, a scheduled task — and have it show up in its own list table with its own detail view. This tutorial profiles **WebSocket messages** end to end.
+The profiler handles HTTP, GraphQL and CLI commands out of the box - each in its own list table - but the entrypoint model is open: you can teach the profiler about **any** kind of trigger - a WebSocket message, a queue job, a gRPC call, a scheduled task - and have it show up in its own list table with its own detail view. This tutorial profiles **WebSocket messages** end to end.
 
 Adding an entrypoint kind is always the same two-part story, and **neither part touches the core**:
 
-1. **Produce** the profile and fill its `entrypoint` — here, with an [`IContextAdapter`](/docs/packages/nest-profiler/context-adapters).
-2. **Render** it — with `ProfilerCoreService.registerEntrypointType()`, which contributes the list-page table, the detail tab(s), the kind-scoped filter bar and the breadcrumb summary.
+1. **Produce** the profile and fill its `entrypoint` - here, with an [`IContextAdapter`](/docs/packages/nest-profiler/context-adapters).
+2. **Render** it - with `ProfilerCoreService.registerEntrypointType()`, which contributes the list-page table, the detail tab(s), the kind-scoped filter bar and the breadcrumb summary.
 
 ## What we'll build
 
@@ -21,19 +23,19 @@ A small module that:
 
 <Callout type="info">
   The WebSocket gateway and the profiler UI run in the **same process**, so the default in-memory
-  storage is enough — no file storage required. (A separate-process entrypoint like a CLI command
+  storage is enough - no file storage required. (A separate-process entrypoint like a CLI command
   would need cross-process storage; see [Command profiling](/docs/tutorials/commander-collector).)
 </Callout>
 
-## Step 1 — Define the entrypoint's data shape
+## Step 1 - Define the entrypoint's data shape
 
-Every profile records what triggered it on a single discriminated field — `entrypoint: { type, data }`. Pick a stable `type` discriminator and a typed `data` shape that your templates will read. The `Profile<TData>` generic carries this shape through your code, so you never cast `entrypoint.data`.
+Every profile records what triggered it on a single discriminated field - `entrypoint: { type, data }`. Pick a stable `type` discriminator and a typed `data` shape that your templates will read. The `Profile<TData>` generic carries this shape through your code, so you never cast `entrypoint.data`.
 
 ```ts title="websocket-entrypoint.types.ts"
 /** `entrypoint.type` discriminator for profiles produced by a WebSocket message. */
 export const WEBSOCKET_ENTRYPOINT_TYPE = 'websocket';
 
-/** Payload of the `websocket` entrypoint — owned entirely by this module. */
+/** Payload of the `websocket` entrypoint - owned entirely by this module. */
 export interface WebSocketMessageData {
   /** The message handler's method name (e.g. `onChat`). Reflect `MESSAGE_MAPPING_METADATA` if you need the exact `@SubscribeMessage` event string. */
   event: string;
@@ -46,11 +48,11 @@ export interface WebSocketMessageData {
 }
 ```
 
-## Step 2 — Produce the profile (`IContextAdapter`)
+## Step 2 - Produce the profile (`IContextAdapter`)
 
 Implement `IContextAdapter` and register it (Step 4): `ProfilerInterceptor` automatically routes every execution context whose type equals `contextType` (`'ws'` for WebSockets) to your adapter.
 
-A WebSocket message never passes through the HTTP middleware, so there is no profile to recover — `recoverProfile` **mints** a fresh one. `enrichProfile` then fills the typed `entrypoint.data`. Note how both methods are typed `Profile<WebSocketMessageData>`: no `as` casts anywhere.
+A WebSocket message never passes through the HTTP middleware, so there is no profile to recover - `recoverProfile` **mints** a fresh one. `enrichProfile` then fills the typed `entrypoint.data`. Note how both methods are typed `Profile<WebSocketMessageData>`: no `as` casts anywhere.
 
 ```ts title="websocket-context.adapter.ts"
 import { randomUUID } from 'node:crypto';
@@ -94,11 +96,11 @@ export class WebSocketContextAdapter implements IContextAdapter {
 ```
 
 <Callout type="warn">
-  Adapters must be **idempotent** — the interceptor may call `enrichProfile` more than once per
+  Adapters must be **idempotent** - the interceptor may call `enrichProfile` more than once per
   profile. Recomputing `entrypoint.data` from the context (as above) is naturally safe.
 </Callout>
 
-## Step 3 — Render it (`registerEntrypointType`)
+## Step 3 - Render it (`registerEntrypointType`)
 
 A single call teaches the profiler how to display the kind. It derives the list section, registers the filters scoped to this kind (shown above the WebSocket list only), and exposes the detail tab and breadcrumb summary. Typing the `summary` and `matches` parameters as `Profile<WebSocketMessageData>` keeps `entrypoint.data` cast-free here too.
 
@@ -156,7 +158,7 @@ function registerWebSocketEntrypoint(core: ProfilerCoreService): void {
 }
 ```
 
-The two `templatePath`s are absolute paths to EJS partials your package ships (bundle the `templates/` folder into `dist`). A **list-section** partial receives `{ profiles, profilerPath }`; a **detail-tab** partial receives `{ profile }`. Both also get the shared template helpers (`methodClass`, `statusClass`, `kvTable`, `isoDate`, `timeOnly`, `toJson`…) — see the [Template reference](/docs/api-reference/template-reference).
+The two `templatePath`s are absolute paths to EJS partials your package ships (bundle the `templates/` folder into `dist`). A **list-section** partial receives `{ profiles, profilerPath }`; a **detail-tab** partial receives `{ profile }`. Both also get the shared template helpers (`methodClass`, `statusClass`, `kvTable`, `isoDate`, `timeOnly`, `toJson`…) - see the [Template reference](/docs/api-reference/template-reference).
 
 ```html title="templates/websocket-section.ejs"
 <div class="rounded-xl border border-line overflow-hidden bg-surface">
@@ -234,7 +236,7 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
   <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">
     Client
   </h2>
-  <p class="text-foreground-secondary text-xs font-mono"><%= msg.clientId || '—' %></p>
+  <p class="text-foreground-secondary text-xs font-mono"><%= msg.clientId || '-' %></p>
 </section>
 
 <section>
@@ -249,7 +251,7 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
 </section>
 ```
 
-## Step 4 — Wire up the module
+## Step 4 - Wire up the module
 
 Expose the adapter through the `PROFILER_CONTEXT_ADAPTERS` multi-token, and register the entrypoint type in `onModuleInit` (so it runs after the profiler core is available):
 
@@ -286,9 +288,9 @@ export class WebSocketProfilerModule implements OnModuleInit {
 export class AppModule {}
 ```
 
-## Step 5 — Test it
+## Step 5 - Test it
 
-Any ordinary gateway works — you change nothing for profiling:
+Any ordinary gateway works - you change nothing for profiling:
 
 ```ts title="chat.gateway.ts"
 import { MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
@@ -302,11 +304,11 @@ export class ChatGateway {
 }
 ```
 
-Emit a `chat` message from a client, then open `/_profiler`: a **WebSocket** table lists the message. Open it to find the **Message** tab with the event, namespace, client id and payload — alongside any cache/DB/HTTP-client activity the handler triggered, captured by the profile-scoped collectors.
+Emit a `chat` message from a client, then open `/_profiler`: a **WebSocket** table lists the message. Open it to find the **Message** tab with the event, namespace, client id and payload - alongside any cache/DB/HTTP-client activity the handler triggered, captured by the profile-scoped collectors.
 
 ## How it works
 
-For a non-HTTP context, `ProfilerInterceptor` looks up the adapter registered for the context type. It uses the profile already in CLS, or calls `recoverProfile()` — which here mints one. It then calls `enrichProfile()` (idempotently) to fill `entrypoint.data`, re-establishes the CLS context so `ProfilerService.addLog()` and profile-scoped collectors work inside the handler, runs the handler, then collects and persists the profile off the response path. Because the kind was registered with `registerEntrypointType()`, the profiler renders its dedicated list table, **Message** detail tab and its own filter bar (the universal filters plus your `listFilters`) — no core change required.
+For a non-HTTP context, `ProfilerInterceptor` looks up the adapter registered for the context type. It uses the profile already in CLS, or calls `recoverProfile()` - which here mints one. It then calls `enrichProfile()` (idempotently) to fill `entrypoint.data`, re-establishes the CLS context so `ProfilerService.addLog()` and profile-scoped collectors work inside the handler, runs the handler, then collects and persists the profile off the response path. Because the kind was registered with `registerEntrypointType()`, the profiler renders its dedicated list table, **Message** detail tab and its own filter bar (the universal filters plus your `listFilters`) - no core change required.
 
 <Callout type="info">
   For the full extensibility model and a gRPC variant, see [Custom entrypoints &

@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-mikro-orm
-description: API reference for @eleven-labs/nest-profiler-mikro-orm — MikroORM query collector.
+description: Types and API of the MikroORM query collector.
+seo:
+  title: MikroORM collector API reference
+  description: API reference for @eleven-labs/nest-profiler-mikro-orm - MikroORM query collector.
 ---
 
 ## MikroOrmCollectorModuleOptions
@@ -48,7 +51,7 @@ import type {
 ```ts
 // In any module that uses MikroORM:
 MikroOrmCollectorModule.forRoot({
-  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+  slowQueryThreshold: 50, // ms - queries above this are highlighted red
 });
 ```
 
