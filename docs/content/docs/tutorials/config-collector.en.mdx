@@ -1,6 +1,8 @@
 ---
 title: Configuration profiling
 description: Inspect your application's resolved configuration values in the Config panel, with sensitive key masking.
+seo:
+  title: How to profile configuration values
 ---
 
 This tutorial shows how to add the config collector to display resolved configuration values in the profiler's **Config** panel.
@@ -8,7 +10,7 @@ This tutorial shows how to add the config collector to display resolved configur
 ## Prerequisites
 
 - `@eleven-labs/nest-profiler` installed and configured
-- `@nestjs/config` installed with **load factories** (required — see note below)
+- `@nestjs/config` installed with **load factories** (required - see note below)
 
 <Callout type="warn" title="Load factories are required">
   The config collector reads `ConfigService`'s internal config map. This map is only populated when
@@ -17,13 +19,13 @@ This tutorial shows how to add the config collector to display resolved configur
   no entries.
 </Callout>
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-config
 ```
 
-## Step 2 — Define config factories with registerAs
+## Step 2 - Define config factories with registerAs
 
 Create one factory per configuration domain:
 
@@ -49,7 +51,7 @@ export const appConfig = registerAs('app', () => ({
 }));
 ```
 
-## Step 3 — Register the modules
+## Step 3 - Register the modules
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
@@ -76,7 +78,7 @@ export class AppModule {}
 
 The `maskKeys` option accepts dot-notation paths. Matched values are replaced with `***` in the profiler UI.
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 Start your application and open any profile:
 

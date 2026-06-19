@@ -1,9 +1,11 @@
 ---
 title: Command profiling
-description: Profile nest-commander CLI commands and inspect them in the web profiler — the console equivalent of Symfony's command profiling.
+description: Profile nest-commander CLI commands and inspect them in the web profiler - the console equivalent of Symfony's command profiling.
+seo:
+  title: How to profile nest-commander commands
 ---
 
-This tutorial shows how to profile CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/). Each command run produces a profile — with a **Command** panel plus any HTTP, cache, or database activity the command triggered — that appears alongside your HTTP profiles at `/_profiler`.
+This tutorial shows how to profile CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/). Each command run produces a profile - with a **Command** panel plus any HTTP, cache, or database activity the command triggered - that appears alongside your HTTP profiles at `/_profiler`.
 
 ## Prerequisites
 
@@ -12,20 +14,20 @@ This tutorial shows how to profile CLI commands built with [nest-commander](http
 
 <Callout type="warn">
   Command profiling needs a **cross-process** storage adapter (`storageType: 'file'`, or a Redis/DB
-  adapter). The CLI and the web server are separate processes, so in-memory storage — local to a
-  single process — can never surface command profiles in the server. The profiler logs a warning if
+  adapter). The CLI and the web server are separate processes, so in-memory storage - local to a
+  single process - can never surface command profiles in the server. The profiler logs a warning if
   you profile a command against an in-memory store.
 </Callout>
 
-## Step 1 — Install the packages
+## Step 1 - Install the packages
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-commander nest-commander
 ```
 
-## Step 2 — Write a command
+## Step 2 - Write a command
 
-You do not change anything for profiling — write an ordinary nest-commander command:
+You do not change anything for profiling - write an ordinary nest-commander command:
 
 ```ts title="sync-posts.command.ts"
 import { Inject } from '@nestjs/common';
@@ -58,7 +60,7 @@ export class SyncPostsCommand extends CommandRunner {
 }
 ```
 
-## Step 3 — Register the CLI module
+## Step 3 - Register the CLI module
 
 Create a dedicated module for the CLI. Use **file** storage with the same `storagePath` as your HTTP app so the two processes share profiles:
 
@@ -86,7 +88,7 @@ import { SyncPostsCommand } from './sync-posts.command';
 export class CliModule {}
 ```
 
-## Step 4 — Bootstrap the CLI
+## Step 4 - Bootstrap the CLI
 
 ```ts title="cli.ts"
 import 'reflect-metadata';
@@ -102,26 +104,26 @@ void bootstrap();
 
 <Callout type="warn">
   Bootstrap the CLI with a compiler that emits decorator metadata (`tsc` / `nest start`), **not** a
-  plain esbuild/`tsx` runner — otherwise NestJS cannot resolve your command's injected dependencies.
+  plain esbuild/`tsx` runner - otherwise NestJS cannot resolve your command's injected dependencies.
 </Callout>
 
-## Step 5 — Run a command
+## Step 5 - Run a command
 
 ```bash
 # build first, then run the compiled entry
 node dist/cli.js sync:posts --limit 3
 ```
 
-## Step 6 — Inspect the profile
+## Step 6 - Inspect the profile
 
 Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. Commands appear in a dedicated **Commands** table (separate from HTTP/GraphQL requests). Open one to find:
 
-- **Command** — name, arguments, options, duration, exit code (the request/response tabs are hidden)
-- **HTTP Client** — the outgoing request the command made
-- **Cache** — the `SET` operation
+- **Command** - name, arguments, options, duration, exit code (the request/response tabs are hidden)
+- **HTTP Client** - the outgoing request the command made
+- **Cache** - the `SET` operation
 
 A command that throws is captured too: its profile is marked failed (status `500`) and the thrown error appears in the **Exceptions** tab.
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command — so profile-scoped collectors keep capturing — then runs all collectors and persists the profile through the profiler's shared storage. The module also registers the `command` entrypoint type with the profiler core, contributing the Commands list table, the **Command** detail tab and a **Status** (success / failed) filter above the Commands list — so import it in the HTTP app too when you want command profiles to render there. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command - so profile-scoped collectors keep capturing - then runs all collectors and persists the profile through the profiler's shared storage. The module also registers the `command` entrypoint type with the profiler core, contributing the Commands list table, the **Command** detail tab and a **Status** (success / failed) filter above the Commands list - so import it in the HTTP app too when you want command profiles to render there. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.

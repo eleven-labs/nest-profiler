@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-typeorm
-description: API reference for @eleven-labs/nest-profiler-typeorm — TypeORM query collector.
+description: Types and API of the TypeORM query collector.
+seo:
+  title: TypeORM collector API reference
+  description: API reference for @eleven-labs/nest-profiler-typeorm - TypeORM query collector.
 ---
 
 ## TypeOrmCollectorModuleOptions
@@ -47,7 +50,7 @@ import type {
 ```ts
 // In ProductsModule (or any module that uses TypeORM):
 TypeOrmCollectorModule.forRoot({
-  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+  slowQueryThreshold: 50, // ms - queries above this are highlighted red
 });
 ```
 

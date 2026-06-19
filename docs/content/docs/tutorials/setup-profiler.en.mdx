@@ -1,11 +1,13 @@
 ---
 title: Set up the profiler
-description: Install @eleven-labs/nest-profiler and inspect HTTP requests in the profiler UI.
+description: Install @eleven-labs/nest-profiler, enable the core module and inspect your first HTTP requests in the profiler UI.
+seo:
+  title: Install & capture your first request
 ---
 
 This tutorial shows how to add `@eleven-labs/nest-profiler` to a NestJS application and inspect collected request data in the built-in profiler UI.
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler nestjs-cls
@@ -13,7 +15,7 @@ pnpm add @eleven-labs/nest-profiler nestjs-cls
 
 `nestjs-cls` is required for per-request context propagation.
 
-## Step 2 — Register the module
+## Step 2 - Register the module
 
 Import `ProfilerModule` in your root module:
 
@@ -32,7 +34,7 @@ import { ProfilerModule } from '@eleven-labs/nest-profiler';
 export class AppModule {}
 ```
 
-## Step 3 — Enable log capture
+## Step 3 - Enable log capture
 
 Wrap your existing logger in `main.ts` so log entries appear in the profiler's **Logs** tab:
 
@@ -55,9 +57,9 @@ async function bootstrap() {
 void bootstrap();
 ```
 
-The capture is logger-agnostic and keeps structured context — message, context name and payload all land in the **Logs** tab whichever logger the app uses. The [Log capture with context](/docs/tutorials/log-capture) tutorial and the [Log capture](/docs/packages/nest-profiler/logs) page cover the supported conventions in detail.
+The capture is logger-agnostic and keeps structured context - message, context name and payload all land in the **Logs** tab whichever logger the app uses. The [Log capture with context](/docs/tutorials/log-capture) tutorial and the [Log capture](/docs/packages/nest-profiler/logs) page cover the supported conventions in detail.
 
-## Step 4 — Make a request and inspect the profile
+## Step 4 - Make a request and inspect the profile
 
 Start the application, then make any HTTP request:
 
@@ -74,13 +76,13 @@ X-Debug-Token-Link: /_profiler/550e8400-e29b-...
 
 Open `http://localhost:3000/_profiler` in your browser to see the list of recent profiles. Click a token to open the detail view with tabs:
 
-- **Request** — method, URL, headers, query params
-- **Response** — status code, headers
-- **Performance** — duration, memory delta
-- **Logs** — log entries captured during the request
-- **Exceptions** — errors thrown during the request
+- **Request** - method, URL, headers, query params
+- **Response** - status code, headers
+- **Performance** - duration, memory delta
+- **Logs** - log entries captured during the request
+- **Exceptions** - errors thrown during the request
 
-## Step 5 — Secure the profiler (optional)
+## Step 5 - Secure the profiler (optional)
 
 Set `PROFILER_TOKEN` in your environment to restrict access to `/_profiler/*`:
 
@@ -99,8 +101,8 @@ curl -H "Authorization: Bearer my-dev-secret" http://localhost:3000/_profiler
   parameters, and logs. Use `enabled: false` or an environment-based condition (e.g.
   `process.env.NODE_ENV !== 'production'`) to disable it in non-development environments.
 
-When disabled, the core registers only an inert layer: `ProfilerService` stays injectable — so
-`app.useLogger(...)` and any service that injects it keep working — but all its methods are no-ops,
+When disabled, the core registers only an inert layer: `ProfilerService` stays injectable - so
+`app.useLogger(...)` and any service that injects it keep working - but all its methods are no-ops,
 and no controller, interceptor, middleware, storage or collector is registered. Collector modules
 register nothing at all.
 

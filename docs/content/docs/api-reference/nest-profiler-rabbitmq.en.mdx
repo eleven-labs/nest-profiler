@@ -1,16 +1,20 @@
 ---
 title: nest-profiler-rabbitmq
-description: API reference for @eleven-labs/nest-profiler-rabbitmq — RabbitMQ message collector (@golevelup/nestjs-rabbitmq).
+description: Types and API of the RabbitMQ message collector.
+seo:
+  title: RabbitMQ collector API reference
+  description: API reference for @eleven-labs/nest-profiler-rabbitmq - RabbitMQ message collector (@golevelup/nestjs-rabbitmq).
 ---
 
 ## RabbitMqInfo
 
 Payload of a message profile's `entrypoint.data` (entrypoint `type: 'rabbitmq'`). The module
 registers a `rabbitmq` entrypoint type, so the profiler renders a dedicated **RabbitMQ** list table
-— with its own filters: **Delivery** (first delivery / redelivered), **Exchange** and **Handler**
-(both populated from the values actually captured) and a free-text **Routing key** — and a
-**Message** detail tab, including the captured AMQP `headers` and `payload`. The HTTP-status filters
-do not appear here, since a consumed message has no HTTP response.
+
+- with its own filters: **Delivery** (first delivery / redelivered), **Exchange** and **Handler**
+  (both populated from the values actually captured) and a free-text **Routing key** - and a
+  **Message** detail tab, including the captured AMQP `headers` and `payload`. The HTTP-status filters
+  do not appear here, since a consumed message has no HTTP response.
 
 <AutoTypeTable
   path="packages/nest-profiler-rabbitmq/src/rabbitmq-collector.interface.ts"
@@ -43,7 +47,7 @@ interface RabbitMqCollectorModuleOptions {
 }
 ```
 
-When `enabled` is `false`, `forRoot()` registers no providers — the host application decides per environment.
+When `enabled` is `false`, `forRoot()` registers no providers - the host application decides per environment.
 
 ## Setup
 
@@ -64,7 +68,7 @@ import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 export class AppModule {}
 ```
 
-`@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies — the ones you already
+`@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies - the ones you already
 install to consume messages. The module needs no changes to your `@RabbitSubscribe` handlers.
 
 ## How a message profile is shaped

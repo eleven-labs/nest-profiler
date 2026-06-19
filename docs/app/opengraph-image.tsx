@@ -9,7 +9,7 @@ export const contentType = 'image/png';
 
 export default function OpenGraphImage(): ImageResponse {
   return renderOGImage({
-    title: 'A Symfony-inspired Web Profiler for NestJS',
+    title: SITE_TAGLINE,
     description:
       'Profile every request - HTTP, database, cache, security, GraphQL, timeline and more.',
   });

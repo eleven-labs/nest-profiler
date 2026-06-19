@@ -1,6 +1,8 @@
 ---
 title: MikroORM query profiling
-description: Capture every SQL query executed by MikroORM and inspect them in the Database panel.
+description: Capture every MikroORM SQL query and inspect duration and slow queries in the profiler's Database panel.
+seo:
+  title: How to profile MikroORM queries
 ---
 
 This tutorial shows how to add the MikroORM collector to profile SQL queries in a NestJS application that uses PostgreSQL via `@mikro-orm/nestjs`.
@@ -10,13 +12,13 @@ This tutorial shows how to add the MikroORM collector to profile SQL queries in 
 - `@eleven-labs/nest-profiler` installed and configured
 - `@mikro-orm/core`, `@mikro-orm/nestjs` and a driver (e.g. `@mikro-orm/postgresql`) installed with a working `MikroOrmModule.forRoot()`
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-mikro-orm
 ```
 
-## Step 2 — Register the collector
+## Step 2 - Register the collector
 
 Add `MikroOrmCollectorModule` **after** `MikroOrmModule` in your root module:
 
@@ -37,10 +39,10 @@ import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 export class AppModule {}
 ```
 
-No other configuration is needed — the collector wraps the MikroORM logger automatically and
+No other configuration is needed - the collector wraps the MikroORM logger automatically and
 requires no `debug` flag.
 
-## Step 3 — Instrument your services with spans
+## Step 3 - Instrument your services with spans
 
 Use `startSpan()` to add meaningful labels to the Timeline panel alongside your MikroORM calls:
 
@@ -64,7 +66,7 @@ export class ProductsService {
 }
 ```
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 Start your application and make a request that triggers a database query:
 

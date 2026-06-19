@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-mongoose
-description: API reference for @eleven-labs/nest-profiler-mongoose — Mongoose query collector.
+description: Types and API of the Mongoose query collector.
+seo:
+  title: Mongoose collector API reference
+  description: API reference for @eleven-labs/nest-profiler-mongoose - Mongoose query collector.
 ---
 
 ## MongooseCollectorModuleOptions
@@ -38,7 +41,7 @@ import type {
 ```ts
 // In ReviewsModule (or any module that uses @nestjs/mongoose):
 MongooseCollectorModule.forRoot({
-  slowQueryThreshold: 50, // ms — queries above this are highlighted red
+  slowQueryThreshold: 50, // ms - queries above this are highlighted red
 });
 ```
 

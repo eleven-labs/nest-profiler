@@ -1,9 +1,11 @@
 ---
 title: Introduction
-description: NestJS profiler — a Symfony Web Profiler-inspired toolkit for debugging and performance analysis.
+description: An open-source NestJS profiler inspired by Symfony's Web Profiler - inspect SQL, HTTP, GraphQL, cache, auth and custom spans to debug and optimize performance.
+seo:
+  title: Symfony-inspired request profiling
 ---
 
-`@eleven-labs/nest-profiler` is a **Symfony Web Profiler-inspired** toolkit for NestJS applications. Every profiled execution — an HTTP request, a GraphQL operation, or a CLI command — receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, database queries, and more, in real time.
+`@eleven-labs/nest-profiler` is a **Symfony Web Profiler-inspired** toolkit for NestJS applications. Every profiled execution - an HTTP request, a GraphQL operation, or a CLI command - receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, database queries, and more, in real time.
 
 The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
 
@@ -21,7 +23,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/docs/example-api"
     title="Example application"
-    description="Full NestJS app organized by module — one module per collector package."
+    description="Full NestJS app organized by module - one module per collector package."
   />
   <Card
     href="/docs/tutorials"
@@ -46,20 +48,20 @@ The ecosystem is built around an **extensible collector architecture**: the core
 | [`@eleven-labs/nest-profiler-http`](/docs/packages/nest-profiler-http)           | HTTP Client     | Outgoing requests via `HttpService`: method, URL, status, duration             |
 | [`@eleven-labs/nest-profiler-cache`](/docs/packages/nest-profiler-cache)         | Cache           | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                            |
 | [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander) | Command         | `nest-commander` CLI runs: name, arguments, options, exit code                 |
-| [`@eleven-labs/nest-profiler-auth`](/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles — sensitive fields masked                    |
+| [`@eleven-labs/nest-profiler-auth`](/docs/packages/nest-profiler-auth)           | Security        | `request.user`, JWT claims, roles - sensitive fields masked                    |
 | [`@eleven-labs/nest-profiler-config`](/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                                   |
-| [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator) | Validator       | DTO validation results — property violations with constraint names             |
+| [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator) | Validator       | DTO validation results - property violations with constraint names             |
 | [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)     | GraphQL         | GraphQL queries/mutations: operation type, name, query, variables              |
 
 ## Key features
 
-- **Floating toolbar** — injected into HTML responses with per-collector badges (query count, hit ratio, violation count, …)
-- **Extensible collectors** — implement `IProfilerCollector` to add your own panel with a custom EJS template and toolbar badge
-- **Two storage backends** — in-memory LRU (default) or file-based persistence that survives restarts
-- **Request sampling & path filtering** — `sampleRate` and `ignorePaths` to control overhead in busy environments
-- **Module-per-collector pattern** — each optional package is imported in the feature module it instruments, not in the root module
-- **GraphQL support** — profiles queries and mutations with a **GQL** badge, operation type/name, and syntax-highlighted query via `@eleven-labs/nest-profiler-graphql`; compatible with Apollo, Mercurius, and graphql-yoga
-- **CLI command profiling** — profiles `nest-commander` commands with a **CLI** badge in a dedicated **Command** panel via `@eleven-labs/nest-profiler-commander`; with file storage the command profiles show up next to HTTP requests at `/_profiler`
+- **Floating toolbar** - injected into HTML responses with per-collector badges (query count, hit ratio, violation count, …)
+- **Extensible collectors** - implement `IProfilerCollector` to add your own panel with a custom EJS template and toolbar badge
+- **Two storage backends** - in-memory LRU (default) or file-based persistence that survives restarts
+- **Request sampling & path filtering** - `sampleRate` and `ignorePaths` to control overhead in busy environments
+- **Module-per-collector pattern** - each optional package is imported in the feature module it instruments, not in the root module
+- **GraphQL support** - profiles queries and mutations with a **GQL** badge, operation type/name, and syntax-highlighted query via `@eleven-labs/nest-profiler-graphql`; compatible with Apollo, Mercurius, and graphql-yoga
+- **CLI command profiling** - profiles `nest-commander` commands with a **CLI** badge in a dedicated **Command** panel via `@eleven-labs/nest-profiler-commander`; with file storage the command profiles show up next to HTTP requests at `/_profiler`
 
 <Callout type="warn" title="Development only">
   The profiler is designed for development environments. Disable it in production with `enabled:

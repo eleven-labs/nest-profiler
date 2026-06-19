@@ -1,6 +1,8 @@
 ---
 title: GraphQL profiling
 description: Profile GraphQL queries and mutations with the nest-profiler-graphql package and inspect them in the profiler UI.
+seo:
+  title: How to profile GraphQL operations
 ---
 
 This tutorial shows how to add GraphQL profiling to a NestJS application that uses `@nestjs/graphql`. After completing it, every GraphQL operation will appear in `/_profiler` in its own **GraphQL** table, with a dedicated **GraphQL** detail tab.
@@ -10,13 +12,13 @@ This tutorial shows how to add GraphQL profiling to a NestJS application that us
 - `@eleven-labs/nest-profiler` installed and configured
 - `@nestjs/graphql` and a driver package installed (`@nestjs/apollo`, `@nestjs/mercurius`, or `nestjs-graphql-yoga`)
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-graphql
 ```
 
-## Step 2 — Register ProfilerGraphQLModule
+## Step 2 - Register ProfilerGraphQLModule
 
 Import `ProfilerGraphQLModule` alongside `ProfilerModule` in your application module. The module must be registered **before** `GraphQLModule` in the imports array so the adapter is ready when the GraphQL context is created.
 
@@ -35,16 +37,16 @@ import type { ApolloDriverConfig } from '@nestjs/apollo';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      context: ({ req }) => ({ req }), // required — see Step 3
+      context: ({ req }) => ({ req }), // required - see Step 3
     }),
   ],
 })
 export class AppModule {}
 ```
 
-## Step 3 — Configure the `context` factory
+## Step 3 - Configure the `context` factory
 
-The profiler retrieves the active HTTP profile through the GraphQL execution context. You must expose the HTTP request object in that context — the exact key depends on your driver:
+The profiler retrieves the active HTTP profile through the GraphQL execution context. You must expose the HTTP request object in that context - the exact key depends on your driver:
 
 | Driver                           | Key to expose | `context` factory                         |
 | -------------------------------- | ------------- | ----------------------------------------- |
@@ -52,11 +54,11 @@ The profiler retrieves the active HTTP profile through the GraphQL execution con
 | Mercurius (Fastify)              | `request`     | `context: ({ request }) => ({ request })` |
 | graphql-yoga (Express / Fastify) | `req`         | `context: ({ req }) => ({ req })`         |
 
-Without the `context` factory the profiler silently falls back to passthrough mode — GraphQL requests are still handled but not profiled.
+Without the `context` factory the profiler silently falls back to passthrough mode - GraphQL requests are still handled but not profiled.
 
 ### Mercurius example
 
-```ts title="app.module.ts — Mercurius"
+```ts title="app.module.ts - Mercurius"
 import { MercuriusDriver } from '@nestjs/mercurius';
 import type { MercuriusDriverConfig } from '@nestjs/mercurius';
 
@@ -67,7 +69,7 @@ GraphQLModule.forRoot<MercuriusDriverConfig>({
 });
 ```
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 Start your application and send a GraphQL query:
 
@@ -99,17 +101,17 @@ curl -X POST http://localhost:3000/graphql \
   }'
 ```
 
-Open `/_profiler` to see the captured profiles. GraphQL operations are listed in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY** / **MUTATION** / **SUBSCRIPTION**) and the operation or field name. The table has its own filter bar — the universal filters (search, status, duration…) plus an **Operation** filter to narrow by operation type.
+Open `/_profiler` to see the captured profiles. GraphQL operations are listed in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY** / **MUTATION** / **SUBSCRIPTION**) and the operation or field name. The table has its own filter bar - the universal filters (search, status, duration…) plus an **Operation** filter to narrow by operation type.
 
 Open an operation to land on its dedicated **GraphQL** detail tab, which displays:
 
 - **Operation type** badge (Query / Mutation / Subscription)
-- **Operation name** — if provided in the request
-- **Field name** — the entry-point resolver field
-- **Query** — the full document, syntax-highlighted
-- **Variables** — the variables object, syntax-highlighted as JSON
-- **Response** — the `{ data, errors }` envelope returned to the client
-- **Request headers** — the underlying HTTP headers
+- **Operation name** - if provided in the request
+- **Field name** - the entry-point resolver field
+- **Query** - the full document, syntax-highlighted
+- **Variables** - the variables object, syntax-highlighted as JSON
+- **Response** - the `{ data, errors }` envelope returned to the client
+- **Request headers** - the underlying HTTP headers
 
 GraphQL errors returned with an HTTP 200 are still surfaced in the **Exceptions** tab.
 
@@ -134,12 +136,12 @@ ProfilerGraphQLModule.forRoot(),
 
 | Filter                       | What it skips                                                                                  |
 | ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `ignoreGraphQLPlayground`    | `GET /graphql` with `Accept: text/html` — the Sandbox page load                                |
+| `ignoreGraphQLPlayground`    | `GET /graphql` with `Accept: text/html` - the Sandbox page load                                |
 | `ignoreGraphQLIntrospection` | Any POST with `operationName: IntrospectionQuery` or a query referencing `__schema` / `__type` |
 
 ## GraphQL errors in the Exceptions tab
 
-GraphQL-level errors — schema validation failures and resolver errors returned in `response.body.errors` — appear in the **Exceptions** tab with an amber **GraphQLError** badge. They are visually distinct from NestJS runtime exceptions, which use a red badge.
+GraphQL-level errors - schema validation failures and resolver errors returned in `response.body.errors` - appear in the **Exceptions** tab with an amber **GraphQLError** badge. They are visually distinct from NestJS runtime exceptions, which use a red badge.
 
 This means you can inspect them even when Apollo returns an HTTP 200 with an `errors` array (the standard GraphQL error behaviour).
 
@@ -159,8 +161,8 @@ ProfilerGraphQLModule.forRoot({
 
 ## How it works
 
-`ProfilerGraphQLModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` — which is what routes it to the dedicated **GraphQL** list table and detail tab.
+`ProfilerGraphQLModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` - which is what routes it to the dedicated **GraphQL** list table and detail tab.
 
 A middleware `finish` hook also captures GraphQL errors for requests that Apollo handles without calling any resolver (e.g. schema validation failures), ensuring those profiles still appear in `/_profiler`.
 
-`@eleven-labs/nest-profiler-graphql` is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context — see the [custom protocol adapters](/docs/getting-started#custom-protocol-adapters) section.
+`@eleven-labs/nest-profiler-graphql` is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context - see the [custom protocol adapters](/docs/getting-started#custom-protocol-adapters) section.

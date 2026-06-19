@@ -1,6 +1,8 @@
 ---
 title: Auth/Security profiling
-description: Display authenticated user info and JWT claims in the Security panel.
+description: Capture the authenticated user, roles and JWT claims in the profiler's Security panel with nest-profiler-auth.
+seo:
+  title: How to profile auth & JWT claims
 ---
 
 This tutorial shows how to add the auth collector to capture authentication context (Passport user, JWT claims, roles) in the Security panel.
@@ -10,13 +12,13 @@ This tutorial shows how to add the auth collector to capture authentication cont
 - `@eleven-labs/nest-profiler` installed and configured
 - Passport (or any auth strategy that populates `request.user`)
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-auth
 ```
 
-## Step 2 — Register the module
+## Step 2 - Register the module
 
 ```ts title="app.module.ts"
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
@@ -32,9 +34,9 @@ import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 export class AppModule {}
 ```
 
-## Step 3 — Set up authentication
+## Step 3 - Set up authentication
 
-The auth collector reads `request.user` automatically. Any guard or middleware that sets `request.user` will work — Passport, JWT guards, API key guards, etc.
+The auth collector reads `request.user` automatically. Any guard or middleware that sets `request.user` will work - Passport, JWT guards, API key guards, etc.
 
 **Example with a minimal JWT guard:**
 
@@ -56,7 +58,7 @@ export class JwtAuthGuard implements CanActivate {
       }
     }
 
-    return true; // always allow — auth is for display only
+    return true; // always allow - auth is for display only
   }
 }
 ```
@@ -69,13 +71,13 @@ import { APP_GUARD } from '@nestjs/core';
 providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 ```
 
-## Step 4 — Test it
+## Step 4 - Test it
 
 ```bash
-# Without auth — Security tab shows "Anonymous"
+# Without auth - Security tab shows "Anonymous"
 curl http://localhost:3000/profile
 
-# With a JWT — Security tab shows user info and claims
+# With a JWT - Security tab shows user info and claims
 TOKEN=$(curl -s "http://localhost:3000/auth/token" | jq -r .token)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/profile
 ```
@@ -102,7 +104,7 @@ AuthCollectorModule.forRoot({
 ```
 
 <Callout type="info">
-  The JWT is decoded **without signature verification** — the displayed claims are for debugging
+  The JWT is decoded **without signature verification** - the displayed claims are for debugging
   only. Never rely on this data for authorization decisions in your application code.
 </Callout>
 

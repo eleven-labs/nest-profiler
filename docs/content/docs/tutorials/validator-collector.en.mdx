@@ -1,6 +1,8 @@
 ---
 title: DTO validation profiling
-description: Inspect DTO validations — both successful and failed — in the Validator panel.
+description: Inspect successful and failed DTO validations - class-validator or zod - in the profiler's Validator panel.
+seo:
+  title: How to profile DTO validation
 ---
 
 This tutorial shows how to add the validator collector to a NestJS application. The collector is **validator-agnostic**; this walkthrough uses `class-validator` (the default), and a nestjs-zod variant is shown below.
@@ -8,14 +10,14 @@ This tutorial shows how to add the validator collector to a NestJS application. 
 ## Prerequisites
 
 - `@eleven-labs/nest-profiler` installed and configured
-- A validation library. This tutorial uses `class-validator` + `class-transformer`, which are required **only** for the default class-validator pipe — they are not dependencies of `@eleven-labs/nest-profiler-validator` itself. For the nestjs-zod variant, install `nestjs-zod` + `zod` instead.
+- A validation library. This tutorial uses `class-validator` + `class-transformer`, which are required **only** for the default class-validator pipe - they are not dependencies of `@eleven-labs/nest-profiler-validator` itself. For the nestjs-zod variant, install `nestjs-zod` + `zod` instead.
 
 <Callout type="info" title="No separate pipe needed">
   `ValidatorCollectorModule` registers a global `APP_PIPE` internally. You do not need to call
-  `app.useGlobalPipes()` or configure `ValidationPipe` yourself — the module handles it.
+  `app.useGlobalPipes()` or configure `ValidationPipe` yourself - the module handles it.
 </Callout>
 
-## Step 1 — Install the package
+## Step 1 - Install the package
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-validator
@@ -23,7 +25,7 @@ pnpm add @eleven-labs/nest-profiler-validator
 pnpm add class-validator class-transformer
 ```
 
-## Step 2 — Register the module
+## Step 2 - Register the module
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
@@ -36,7 +38,7 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 export class AppModule {}
 ```
 
-## Step 3 — Create a DTO with validation constraints
+## Step 3 - Create a DTO with validation constraints
 
 <Callout type="warn" title="Use value imports, not type imports">
   Always import decorator functions from `class-validator` as value imports (not `import type`). The
@@ -65,7 +67,7 @@ export class CreateArticleDto {
 }
 ```
 
-## Step 4 — Use the DTO in a controller
+## Step 4 - Use the DTO in a controller
 
 ```ts title="articles.controller.ts"
 import { Body, Controller, Post } from '@nestjs/common';
@@ -80,7 +82,7 @@ export class ArticlesController {
 }
 ```
 
-## Step 5 — Test it
+## Step 5 - Test it
 
 **Valid request:**
 
@@ -102,23 +104,23 @@ Open `/_profiler/{token}` and click the **Validator** tab.
 
 For the **valid request**, you will see:
 
-- **Source** — `ArticlesController.create`
-- **DTO class** — `CreateArticleDto`
-- **Status** — `valid`
-- **Violations** — none
+- **Source** - `ArticlesController.create`
+- **DTO class** - `CreateArticleDto`
+- **Status** - `valid`
+- **Violations** - none
 
 For the **invalid request**, you will see:
 
-- **Source** — `ArticlesController.create`
-- **DTO class** — `CreateArticleDto`
-- **Status** — `invalid`
-- **Violations** — one entry per failing property, listing the constraint names and messages
+- **Source** - `ArticlesController.create`
+- **DTO class** - `CreateArticleDto`
+- **Status** - `invalid`
+- **Violations** - one entry per failing property, listing the constraint names and messages
 
 The toolbar badge shows the total count of validated DTOs, or `N violations` when at least one validation failed (e.g., `2 violations`).
 
 ## Capturing both valid and invalid validations
 
-The collector records every validation that passes through the pipe — both successful and failed. This lets you:
+The collector records every validation that passes through the pipe - both successful and failed. This lets you:
 
 - Confirm that valid payloads pass all constraints
 - See exactly which constraints failed and on which properties
@@ -131,7 +133,7 @@ The collector records every validation that passes through the pipe — both suc
 
 ## Using a different validator (nestjs-zod)
 
-The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, pass its pipe via the `pipe` option — `class-validator` is never loaded:
+The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, pass its pipe via the `pipe` option - `class-validator` is never loaded:
 
 ```ts title="app.module.ts"
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -158,8 +160,8 @@ const ArticleSchema = z.object({
 export class CreateArticleDto extends createZodDto(ArticleSchema) {}
 ```
 
-The Validator panel renders zod violations exactly the same way — one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time.
+The Validator panel renders zod violations exactly the same way - one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time.
 
 ## How it works
 
-`ValidatorCollectorModule` registers `ProfilerValidationPipe` as a global `APP_PIPE`. Rather than validating itself, this pipe **wraps** the validation pipe you configure (a class-validator `ValidationPipe` by default, or any pipe you pass via `pipe`). After delegating, it writes an entry into the CLS profile for the current request — the DTO class name, handler source, and status. On failure it runs a chain of duck-typed **extractors** over the thrown error (`class-validator`, then `zod`, then a generic `HttpException` fallback) to normalize the violations, then re-throws the original exception. To support another validator, implement `ValidationViolationExtractor` and pass it via the `extractors` option.
+`ValidatorCollectorModule` registers `ProfilerValidationPipe` as a global `APP_PIPE`. Rather than validating itself, this pipe **wraps** the validation pipe you configure (a class-validator `ValidationPipe` by default, or any pipe you pass via `pipe`). After delegating, it writes an entry into the CLS profile for the current request - the DTO class name, handler source, and status. On failure it runs a chain of duck-typed **extractors** over the thrown error (`class-validator`, then `zod`, then a generic `HttpException` fallback) to normalize the violations, then re-throws the original exception. To support another validator, implement `ValidationViolationExtractor` and pass it via the `extractors` option.

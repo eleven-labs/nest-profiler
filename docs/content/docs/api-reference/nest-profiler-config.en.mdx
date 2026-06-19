@@ -1,6 +1,9 @@
 ---
 title: nest-profiler-config
-description: API reference for @eleven-labs/nest-profiler-config — configuration snapshot collector.
+description: Types and API of the configuration snapshot collector.
+seo:
+  title: Config collector API reference
+  description: API reference for @eleven-labs/nest-profiler-config - configuration snapshot collector.
 ---
 
 ## ConfigCollectorModuleOptions
@@ -18,12 +21,12 @@ Keys matching `/password|secret|key|token|credential|api_key|apikey/i` are repla
 
 ## What is captured
 
-The collector reads `ConfigService.internalConfig` — the merged output of all `load` factory functions passed to `ConfigModule.forRoot()`. It does **not** read `process.env` directly.
+The collector reads `ConfigService.internalConfig` - the merged output of all `load` factory functions passed to `ConfigModule.forRoot()`. It does **not** read `process.env` directly.
 
 **Prerequisite:** `ConfigModule.forRoot({ isGlobal: true, load: [factory1, factory2] })` must be registered with at least one `load` factory using `registerAs`. Without `load` factories, `internalConfig` is empty and nothing is captured.
 
 ```ts
-// Required setup — config factory
+// Required setup - config factory
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('database', () => ({

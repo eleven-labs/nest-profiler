@@ -1,6 +1,9 @@
 ---
 title: Template reference
-description: Color tokens, utility classes, and EJS helpers available when building a custom collector panel template.
+description: Color tokens, utility classes and EJS helpers for panel templates.
+seo:
+  title: Custom collector template reference
+  description: Color tokens, utility classes, and EJS helpers available when building a custom collector panel template.
 ---
 
 All profiler templates share a single design system based on **Tailwind CSS 4**, compiled at build time into a static stylesheet and served same-origin by the module (no external CDN). The semantic CSS custom properties and utility classes live in `src/public/profiler.css`. Any `.ejs` template registered through a custom collector automatically has access to every class and helper described here.
@@ -13,7 +16,7 @@ All profiler templates share a single design system based on **Tailwind CSS 4**,
 
 ## Color tokens
 
-Tokens adapt automatically to the light/dark theme. Use the Tailwind utility name (e.g. `text-foreground`) in your template — never hardcode hex values.
+Tokens adapt automatically to the light/dark theme. Use the Tailwind utility name (e.g. `text-foreground`) in your template - never hardcode hex values.
 
 ### Neutral / surface
 
@@ -45,7 +48,7 @@ Tokens adapt automatically to the light/dark theme. Use the Tailwind utility nam
 
 | Tailwind class                                        | Purpose                                      |
 | ----------------------------------------------------- | -------------------------------------------- |
-| `text-danger` / `bg-danger-bg` / `border-danger-line` | Error state — text, background, border       |
+| `text-danger` / `bg-danger-bg` / `border-danger-line` | Error state - text, background, border       |
 | `border-danger-line-subtle`                           | Subtle danger border (stack trace separator) |
 | `text-success`                                        | Success state                                |
 | `text-code-text`                                      | Monospace code content                       |
@@ -54,7 +57,7 @@ Tokens adapt automatically to the light/dark theme. Use the Tailwind utility nam
 
 | Tailwind class                          | Purpose                                         |
 | --------------------------------------- | ----------------------------------------------- |
-| `text-nest` / `bg-nest` / `border-nest` | NestJS brand red — active tab indicator, accent |
+| `text-nest` / `bg-nest` / `border-nest` | NestJS brand red - active tab indicator, accent |
 | `text-nest-light`                       | Lighter brand red for hover                     |
 | `text-nest-dark`                        | Darker brand red for pressed states             |
 
@@ -64,9 +67,9 @@ Tokens adapt automatically to the light/dark theme. Use the Tailwind utility nam
 
 | Class       | Value             | Purpose                                      |
 | ----------- | ----------------- | -------------------------------------------- |
-| `text-2xs`  | `0.625rem` (10px) | Smallest label size — column headers, badges |
+| `text-2xs`  | `0.625rem` (10px) | Smallest label size - column headers, badges |
 | `text-xs`   | `0.75rem` (12px)  | Primary content in tables and panels         |
-| `font-mono` | —                 | Monospace font for code, identifiers, URLs   |
+| `font-mono` | -                 | Monospace font for code, identifiers, URLs   |
 
 ---
 
@@ -138,12 +141,12 @@ These functions are automatically injected into every template.
 | `toJson`        | `(value) → string`                              | Pretty-prints any value as indented JSON                            |
 | `isoDate`       | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `YYYY-MM-DD HH:MM:SS`                |
 | `timeOnly`      | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `HH:MM:SS.mmm`                       |
-| `highlightSql`  | `(sql: string) → HTML string`                   | Wraps SQL keywords in `<span class="sql-keyword">` — use with `<%-` |
+| `highlightSql`  | `(sql: string) → HTML string`                   | Wraps SQL keywords in `<span class="sql-keyword">` - use with `<%-` |
 | `methodClass`   | `(method: string) → string`                     | Returns the correct `badge-*` class for an HTTP method              |
 | `statusClass`   | `(status: number) → string`                     | Returns the correct `badge-*` class for an HTTP status code         |
 | `logLevelClass` | `(level: string) → string`                      | Returns the correct `badge-*` class for a log level                 |
 | `mb`            | `(bytes: number) → string`                      | Converts bytes to a human-readable `X.XX MB` string                 |
-| `kvTable`       | `(data: Record<string, unknown>) → HTML string` | Renders a key/value table — use with `<%-`                          |
+| `kvTable`       | `(data: Record<string, unknown>) → HTML string` | Renders a key/value table - use with `<%-`                          |
 
 ---
 
@@ -205,7 +208,7 @@ These functions are automatically injected into every template.
 </pre>
 ```
 
-Highlight.js runs automatically on `DOMContentLoaded` — any `<code class="language-*">` block is highlighted.
+Highlight.js runs automatically on `DOMContentLoaded` - any `<code class="language-*">` block is highlighted.
 
 ### SQL with keyword highlighting
 
@@ -239,7 +242,7 @@ Highlight.js runs automatically on `DOMContentLoaded` — any `<code class="lang
 
 ## Dark mode
 
-All semantic token classes (`text-foreground`, `bg-surface`, `border-line`, badge classes, duration classes) adapt automatically — no extra `dark:` variants needed. When you need Tailwind colour palette classes (e.g. `bg-blue-100`) always add the corresponding `dark:` variant:
+All semantic token classes (`text-foreground`, `bg-surface`, `border-line`, badge classes, duration classes) adapt automatically - no extra `dark:` variants needed. When you need Tailwind colour palette classes (e.g. `bg-blue-100`) always add the corresponding `dark:` variant:
 
 ```ejs
 <span class="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
