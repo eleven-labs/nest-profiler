@@ -4,11 +4,12 @@ import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
+// 16.10 ships these page-action components publicly (previously vendored).
+import { MarkdownCopyButton, ViewOptionsPopover } from 'fumadocs-ui/layouts/docs/page';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 
-import { MarkdownCopyButton, ViewOptionsPopover } from '@/components/ai/page-actions';
 import { AutoTypeTable } from '@/components/auto-type-table';
 import { HeaderOrFooter } from '@/components/header-or-footer';
 import { DOCS_BASE_PATH, SITE_NAME, TWITTER_HANDLE } from '@/lib/constants';
@@ -25,24 +26,28 @@ export async function generateMetadata({
   if (!page) notFound();
 
   const { title, description } = page.data;
+  // `seo.*` overrides the search-facing metadata only; the page <h1>, sidebar
+  // label and on-page lede keep using `title`/`description`.
+  const metaTitle = page.data.seo?.title ?? title;
+  const metaDescription = page.data.seo?.description ?? description;
   const ogImage = {
     url: `/og/${lang}/docs/${(slug ?? []).join('/')}`,
     width: 1200,
     height: 630,
-    alt: title,
+    alt: metaTitle,
   };
 
   return {
-    title,
-    description,
+    title: metaTitle,
+    description: metaDescription,
     alternates: {
       canonical: page.url,
     },
     openGraph: {
       type: 'article',
       siteName: SITE_NAME,
-      title,
-      description,
+      title: metaTitle,
+      description: metaDescription,
       url: page.url,
       images: [ogImage],
     },
@@ -52,8 +57,8 @@ export async function generateMetadata({
       card: 'summary_large_image',
       site: TWITTER_HANDLE,
       creator: TWITTER_HANDLE,
-      title,
-      description,
+      title: metaTitle,
+      description: metaDescription,
       images: [ogImage],
     },
   };

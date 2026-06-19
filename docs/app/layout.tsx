@@ -4,8 +4,6 @@ import './global.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
-import { RootProvider } from 'fumadocs-ui/provider/next';
-
 import {
   DEFAULT_LANGUAGE,
   GOOGLE_SITE_VERIFICATION,
@@ -49,8 +47,8 @@ export const metadata: Metadata = {
     shortcut: ['/favicon.ico'],
   },
   title: {
-    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
-    template: `%s · ${SITE_NAME}`,
+    default: `${SITE_NAME} - ${SITE_TAGLINE}`,
+    template: `${SITE_NAME} - %s`,
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
@@ -72,7 +70,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
   },
@@ -80,7 +77,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: TWITTER_HANDLE,
     creator: TWITTER_HANDLE,
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
   },
   robots: {
@@ -115,9 +111,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang={DEFAULT_LANGUAGE} suppressHydrationWarning>
-      <body>
-        <RootProvider>{children}</RootProvider>
-      </body>
+      {/* The single Fumadocs RootProvider lives in app/[lang]/layout.tsx with the
+          i18n config. Nesting a second one here duplicated the next-themes /
+          search providers, so the root layout only renders html/body. */}
+      <body>{children}</body>
     </html>
   );
 }

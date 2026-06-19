@@ -15,15 +15,14 @@ import {
   ShieldCheck,
   Terminal,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
-import { GITHUB_URL, SITE_NAME, SITE_TAGLINE } from '@/lib/constants';
+import { GITHUB_URL } from '@/lib/constants';
 import { i18n } from '@/lib/i18n';
 import { JsonLd, softwareSourceCodeJsonLd } from '@/lib/json-ld';
 
 export const metadata: Metadata = {
-  // `absolute` bypasses the `%s · NestJS Profiler` template from the root layout.
-  title: { absolute: `${SITE_NAME} — ${SITE_TAGLINE}` },
   alternates: {
     canonical: '/',
   },
@@ -51,7 +50,7 @@ const COLLECTORS: Collector[] = [
     icon: Globe,
     title: 'HTTP Client / GraphQL',
     description:
-      'Outgoing HttpService calls and GraphQL queries/mutations — method, URL, operation type and name.',
+      'Outgoing HttpService calls and GraphQL queries/mutations - method, URL, operation type and name.',
   },
   {
     icon: Boxes,
@@ -61,12 +60,12 @@ const COLLECTORS: Collector[] = [
   {
     icon: Terminal,
     title: 'Command',
-    description: 'nest-commander CLI runs — command name, arguments, options and exit code.',
+    description: 'nest-commander CLI runs - command name, arguments, options and exit code.',
   },
   {
     icon: ShieldCheck,
     title: 'Security',
-    description: 'request.user, JWT claims and roles — sensitive fields masked.',
+    description: 'request.user, JWT claims and roles - sensitive fields masked.',
   },
   {
     icon: Settings2,
@@ -86,12 +85,12 @@ const COLLECTORS: Collector[] = [
 ];
 
 const HIGHLIGHTS = [
-  'Extensible collectors — implement IProfilerCollector to add your own panel',
+  'Extensible collectors - implement IProfilerCollector to add your own panel',
   'Two storage backends: in-memory LRU or file-based persistence',
   'Request sampling & path filtering to control overhead',
-  'Module-per-collector pattern — import each package where it belongs',
-  'GraphQL support — Apollo, Mercurius and graphql-yoga via nest-profiler-graphql',
-  'CLI command profiling — nest-commander runs shown next to HTTP requests via nest-profiler-commander',
+  'Module-per-collector pattern - import each package where it belongs',
+  'GraphQL support - Apollo, Mercurius and graphql-yoga via nest-profiler-graphql',
+  'CLI command profiling - nest-commander runs shown next to HTTP requests via nest-profiler-commander',
 ];
 
 const GALLERY: { alt: string; src: string }[] = [
@@ -121,7 +120,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         <p className="mt-5 max-w-2xl text-lg text-fd-muted-foreground">
           An execution profiler for NestJS with a rich panel UI at{' '}
           <code className="rounded-sm bg-fd-secondary px-1.5 py-0.5 text-sm">/_profiler</code>.
-          Inspect SQL, HTTP calls, GraphQL, cache, auth, validation and custom spans — in real time.
+          Inspect SQL, HTTP calls, GraphQL, cache, auth, validation and custom spans - in real time.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -141,11 +140,14 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         </div>
 
         <div className="mt-12 w-full overflow-hidden rounded-xl border border-fd-border bg-fd-card shadow-2xl shadow-fd-primary/5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt="Profiler UI — profiles list with filters, HTTP statuses, durations and global panels"
-            className="w-full"
+          <Image
+            alt="Profiler UI - profiles list with filters, HTTP statuses, durations and global panels"
+            className="h-auto w-full"
+            height={1000}
+            priority
+            sizes="(max-width: 1152px) 100vw, 1152px"
             src="/screenshots/profiler/profiles-list.png"
+            width={1440}
           />
         </div>
       </section>
@@ -203,8 +205,14 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
               className="overflow-hidden rounded-xl border border-fd-border bg-fd-card"
               key={src}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt={alt} className="w-full" src={src} />
+              <Image
+                alt={alt}
+                className="h-auto w-full"
+                height={1000}
+                sizes="(max-width: 768px) 100vw, 576px"
+                src={src}
+                width={1440}
+              />
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
 export const SITE_NAME = 'NestJS Profiler';
 export const SITE_TAGLINE = 'A Symfony-inspired Web Profiler';
 export const SITE_DESCRIPTION =
-  'A Symfony Web Profiler-inspired toolkit for NestJS: profile every request with a rich panel UI — HTTP, database, cache, security, GraphQL, timeline and more. Powered & maintained by Eleven Labs.';
+  'A Symfony Web Profiler-inspired toolkit for NestJS: profile every request with a rich panel UI - HTTP, database, cache, security, GraphQL, timeline and more. Powered & maintained by Eleven Labs.';
 export const GITHUB_URL = 'https://github.com/eleven-labs/nest-profiler';
 export const GITHUB_OWNER = 'eleven-labs';
 export const GITHUB_REPOSITORY = 'nest-profiler';

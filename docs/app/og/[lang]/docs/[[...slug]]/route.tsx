@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
   if (!page) notFound();
 
   return renderOGImage({
-    title: page.data.title,
-    description: page.data.description,
+    title: page.data.seo?.title ?? page.data.title,
+    description: page.data.seo?.description ?? page.data.description,
   });
 }

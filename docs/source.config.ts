@@ -1,14 +1,33 @@
 import type { LanguageRegistration } from 'shiki';
 
-import { defineConfig, defineDocs, remarkInclude } from 'fumadocs-mdx/config';
+import { defineConfig, defineDocs, frontmatterSchema, remarkInclude } from 'fumadocs-mdx/config';
 import lastModified from 'fumadocs-mdx/plugins/last-modified';
+import { z } from 'zod';
 
 import { DOCS_CONTENT_DIR } from './lib/constants';
 
 interface MdastNode {
   children?: MdastNode[];
+  depth?: number;
   type?: string;
   url?: string;
+}
+
+/**
+ * Included package READMEs open with a top-level `# @eleven-labs/...` heading,
+ * but Fumadocs already renders the page title as the page's single `<h1>` (via
+ * `<DocsTitle>`). Two `<h1>` per page hurts the heading hierarchy and SEO, so
+ * demote every body-level `# H1` to `## H2`. Hand-written docs already start at
+ * `##`, so this only affects the included READMEs.
+ */
+function remarkDemoteBodyH1() {
+  return (tree: MdastNode): void => {
+    const visit = (node: MdastNode): void => {
+      if (node.type === 'heading' && node.depth === 1) node.depth = 2;
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
 }
 
 /**
@@ -33,7 +52,7 @@ function remarkStripRawHtml() {
  * `../../docs/public/screenshots/profiler/x.png`) so they render on the GitHub
  * repo view and stay free of any hardcoded github link. Inside the docs we
  * normalize any such path to the web-root `/screenshots/profiler/...` so the
- * images resolve from `docs/public` — identical preview locally and in prod,
+ * images resolve from `docs/public` - identical preview locally and in prod,
  * without pushing. The match is on the stable `screenshots/profiler/` segment,
  * so it works regardless of how `<include>` leaves the relative prefix.
  */
@@ -116,6 +135,18 @@ const ejsLanguage: LanguageRegistration = {
 export const docs = defineDocs({
   dir: DOCS_CONTENT_DIR,
   docs: {
+    // `title`/`description` drive the sidebar label, the page <h1> and the
+    // on-page lede (UX). The optional `seo` object overrides only the
+    // `<title>`, meta description and Open Graph tags (search), so the
+    // human-facing content and the search snippet can be tuned independently.
+    schema: frontmatterSchema.extend({
+      seo: z
+        .object({
+          title: z.string().optional(),
+          description: z.string().optional(),
+        })
+        .optional(),
+    }),
     postprocess: {
       includeProcessedMarkdown: true,
     },
@@ -141,6 +172,7 @@ export default defineConfig({
         includeIndex === -1 ? 0 : includeIndex + 1,
         0,
         remarkStripRawHtml as (typeof plugins)[number],
+        remarkDemoteBodyH1 as (typeof plugins)[number],
         remarkLocalScreenshots as (typeof plugins)[number],
         remarkReadmeLinks as (typeof plugins)[number],
       );
