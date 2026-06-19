@@ -3,6 +3,7 @@ title: RabbitMQ message profiling
 description: Profile RabbitMQ messages consumed via @RabbitSubscribe and inspect routing key, payload and timing in the web profiler.
 seo:
   title: How to profile RabbitMQ messages
+  description: 'A step-by-step guide to profiling RabbitMQ messages consumed via @RabbitSubscribe and inspecting their routing key, payload and timing in the web profiler, from install to live inspection.'
 ---
 
 This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile - with a **Message** panel plus any HTTP, cache, or database activity the handler triggered - that appears in a dedicated **RabbitMQ** table at `/_profiler`.

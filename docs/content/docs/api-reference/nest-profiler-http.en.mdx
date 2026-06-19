@@ -15,11 +15,13 @@ This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, th
   the shim package.
 </Callout>
 
-## HttpCollectorModule
+## Module
+
+### HttpCollectorModule
 
 Registers the HTTP Client panel and the `HttpProfilerRecorder`, then installs any HTTP instrumentations (the bundled axios adapter by default). Import it once with `HttpCollectorModule.forRoot(options)`.
 
-## HttpCollectorModuleOptions
+### HttpCollectorModuleOptions
 
 Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `enabled` flag, an `axios` toggle and an `instrumentations` array.
 
@@ -32,7 +34,9 @@ Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpC
 - `axios` (default `true`) - enable the bundled axios adapter. It is a no-op when `@nestjs/axios` is absent, so it is safe to leave on for non-axios apps.
 - `instrumentations` (default `[]`) - additional `HttpInstrumentation` providers to install (e.g. a custom fetch/got/undici adapter).
 
-## HttpProfilerRecorder
+## Recorder
+
+### HttpProfilerRecorder
 
 Injectable façade for recording outgoing HTTP requests into the active profile. This is the API to reach for from application code or a custom instrumentation: inject it and call `capture` with the raw request/response material. Its `maskHeaders` property exposes the built-in mask list merged with the configured `maskHeaders`.
 
@@ -45,7 +49,7 @@ Injectable façade for recording outgoing HTTP requests into the active profile.
 
 `record(entry: HttpRequestEntry): void` appends an already-built entry as-is (no capture flags / masking applied) - use it only to bypass the options. Both methods are a no-op outside a CLS context or when no profile is active.
 
-### HttpCaptureInput
+#### HttpCaptureInput
 
 Raw request/response material handed to `capture`. Header bags may be plain records, `fetch` `Headers`, a `Map`, or axios `AxiosHeaders`.
 
@@ -54,7 +58,9 @@ Raw request/response material handed to `capture`. Header bags may be plain reco
   name="HttpCaptureInput"
 />
 
-## HttpInstrumentation
+## Instrumentations
+
+### HttpInstrumentation
 
 Interface to implement when teaching the profiler how to capture requests from a given client. Register implementations via `HttpCollectorModule.forRoot({ instrumentations: [MyInstrumentation] })`. Implementations are NestJS providers, so they may inject `ModuleRef`, config, etc. through their constructor.
 
@@ -65,11 +71,13 @@ Interface to implement when teaching the profiler how to capture requests from a
 
 `install(recorder: HttpProfilerRecorder): void | Promise<void>` is called once at application bootstrap. Use `recorder.capture(...)` to push captured requests - it applies the capture options and header masking for you.
 
-## AxiosInstrumentation
+### AxiosInstrumentation
 
 The bundled axios adapter, implementing `HttpInstrumentation`. It patches the `HttpService` provided by `@nestjs/axios` and records each request via the recorder. It is installed automatically unless `axios: false` is passed to `forRoot`; you rarely reference it directly.
 
-## HttpRequestEntry
+## Types
+
+### HttpRequestEntry
 
 One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-agnostic by design: the bundled axios adapter produces these, but any client can record the same shape via `HttpProfilerRecorder` or `appendHttpRequestEntry`.
 
@@ -78,7 +86,7 @@ One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-a
   name="HttpRequestEntry"
 />
 
-## HttpCaptureOptions
+### HttpCaptureOptions
 
 Capture/redaction flags shared by every instrumentation so they expose the same option surface. `HttpCollectorModuleOptions` extends it.
 
@@ -87,7 +95,9 @@ Capture/redaction flags shared by every instrumentation so they expose the same 
   name="HttpCaptureOptions"
 />
 
-## appendHttpRequestEntry
+## Helpers
+
+### appendHttpRequestEntry
 
 ```ts
 function appendHttpRequestEntry(cls: ClsService, entry: HttpRequestEntry): void;
@@ -95,7 +105,7 @@ function appendHttpRequestEntry(cls: ClsService, entry: HttpRequestEntry): void;
 
 Low-level primitive for feeding the HTTP Client panel directly from a `ClsService`. Reads the active profile from the CLS store and appends the entry; a no-op outside a CLS context or when no profile is active. In application code, prefer the injectable `HttpProfilerRecorder` - it wraps this and exposes the merged `maskHeaders`.
 
-## Redaction helpers
+### Redaction helpers
 
 Client-agnostic header redaction helpers shared by instrumentations.
 
@@ -103,7 +113,7 @@ Client-agnostic header redaction helpers shared by instrumentations.
 - `extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string>` - normalises a header bag (a `fetch` `Headers`, an axios `AxiosHeaders` or a plain record) into a flat record, replacing the values of `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Pass `recorder.maskHeaders` to honour the configured mask list.
 - `formatHeaderValue(value: unknown): string` - renders an arbitrary header value as a display string.
 
-## Constants
+### Constants
 
 - `HTTP_CLIENT_REQUESTS_KEY` - the private `profile.collectors` key where instrumentations accumulate raw `HttpRequestEntry` items before the collector migrates them to the public `http-client` key.
 - `HTTP_COLLECTOR_OPTIONS` - DI token for the resolved `HttpCollectorModuleOptions`, injected by `HttpProfilerRecorder`.

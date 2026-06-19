@@ -3,6 +3,7 @@ title: Build a custom entrypoint type
 description: Profile a non-HTTP entrypoint end to end - give it its own data shape, its own list-page table and its own detail tab - without touching the core.
 seo:
   title: How to build a custom entrypoint type
+  description: 'Profile a non-HTTP entrypoint end to end: give it its own data shape, its own list-page table and its own detail tab in the profiler UI, all without touching the core profiler module.'
 ---
 
 The profiler handles HTTP, GraphQL and CLI commands out of the box - each in its own list table - but the entrypoint model is open: you can teach the profiler about **any** kind of trigger - a WebSocket message, a queue job, a gRPC call, a scheduled task - and have it show up in its own list table with its own detail view. This tutorial profiles **WebSocket messages** end to end.

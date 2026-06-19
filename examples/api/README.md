@@ -21,12 +21,14 @@ Active collectors on the live demo: **Posts** (HTTP + Cache), **Auth**, **Config
 | Apollo Sandbox (GraphQL) | [nest-profiler-example.eleven-labs.com/graphql](https://nest-profiler-example.eleven-labs.com/graphql)      |
 | Profiler UI              | [nest-profiler-example.eleven-labs.com/\_profiler](https://nest-profiler-example.eleven-labs.com/_profiler) |
 
-## Prerequisites
+## Getting started
+
+### Prerequisites
 
 - Node.js 22+, pnpm 10+
 - Docker (optional — only needed when `SQL_ORM` is set to a database ORM or `FEATURE_MONGOOSE` is enabled)
 
-## Start the infrastructure
+### Start the infrastructure
 
 A `docker-compose.yml` is provided at the **project root**:
 
@@ -36,7 +38,7 @@ docker compose up -d
 
 This starts **PostgreSQL 16** on port `5432` for the TypeORM collector demo, and **MongoDB 7** on port `27017` for the Mongoose collector demo.
 
-## Feature flags
+### Feature flags
 
 The example app uses flags to conditionally load infrastructure-dependent modules. Set them in `.env`:
 
@@ -67,7 +69,7 @@ FEATURE_RABBITMQ=true pnpm example:dev
 
 With `FEATURE_RABBITMQ=true`, `POST /notifications` publishes a message that a `@RabbitSubscribe` handler consumes; the consumed message is profiled as a `rabbitmq` entrypoint — open `/_profiler` to see it in the **RabbitMQ** table with its own **Message** tab.
 
-## Run the application
+### Run the application
 
 ```bash
 pnpm example:dev
@@ -76,7 +78,7 @@ pnpm example:dev
 The API starts on port `3000`. Copy `.env.example` to `.env` to customise the database connection.  
 Profiles are persisted to `.profiler/` (file storage) — they survive restarts.
 
-## Profiling CLI commands (`nest-profiler-commander`)
+### Profiling CLI commands (`nest-profiler-commander`)
 
 A separate CLI entrypoint (`src/cli.ts` → `CliModule`) demonstrates profiling `nest-commander`
 commands. It writes to the same `.profiler/` file storage as the HTTP app, so the command runs
@@ -97,11 +99,13 @@ Then start the HTTP app (`pnpm example:dev`) and open `/_profiler` to inspect th
 (listed with a `CLI` method badge). Commands are wrapped automatically — `SyncPostsCommand` and
 `GreetCommand` are ordinary `nest-commander` commands with no profiling code.
 
-## Swagger UI
+## Exploring the API
+
+### Swagger UI
 
 Open **[http://localhost:3000/api](http://localhost:3000/api)** to access the interactive Swagger UI. Every endpoint is documented with its parameters, request body, and expected responses.
 
-### Testing authenticated endpoints
+#### Testing authenticated endpoints
 
 The `/auth/me` endpoint requires a Bearer JWT. The built-in `/auth/token` shortcut generates a demo token in one click:
 
@@ -112,11 +116,11 @@ The `/auth/me` endpoint requires a Bearer JWT. The built-in `/auth/token` shortc
 
 > **Note:** The authorization is persisted across page reloads (`persistAuthorization: true`), so you only need to set it once per session.
 
-### Swagger + profiler
+#### Swagger + profiler
 
 Every request sent through Swagger UI generates a full profiler profile. After executing any call, copy the `X-Debug-Token` response header value and open `/_profiler/{token}` to inspect the collected data — SQL queries, cache operations, validation results, and more.
 
-## Apollo Sandbox
+### Apollo Sandbox
 
 Open **[http://localhost:3000/graphql](http://localhost:3000/graphql)** to access the Apollo Sandbox. The schema is auto-generated from the `BooksModule` resolvers.
 

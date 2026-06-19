@@ -3,10 +3,12 @@ title: nest-profiler
 description: Module options, profile structure, service, collector interface and storage.
 seo:
   title: Core module API reference
-  description: API reference for @eleven-labs/nest-profiler - module options, profile structure, service, collector interface and storage adapters.
+  description: 'Complete API reference for @eleven-labs/nest-profiler: the module options, profile structure, profiler service, collector interface and storage adapters that sit at the heart of the profiler.'
 ---
 
-## ProfilerModuleOptions
+## Module options
+
+### ProfilerModuleOptions
 
 Options passed to `ProfilerModule.forRoot()`.
 
@@ -15,7 +17,7 @@ Options passed to `ProfilerModule.forRoot()`.
   name="ProfilerModuleOptions"
 />
 
-## ProfilerModuleAsyncOptions
+### ProfilerModuleAsyncOptions
 
 Options passed to `ProfilerModule.forRootAsync()`.
 
@@ -24,14 +26,16 @@ Options passed to `ProfilerModule.forRootAsync()`.
   name="ProfilerModuleAsyncOptions"
 />
 
-## Profile
+## Profile structure
+
+### Profile
 
 Full data structure for a collected profile. The `entrypoint` field records what
 triggered it (an HTTP request, a CLI command, a consumed message…).
 
 <AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="Profile" />
 
-## ProfileEntrypoint
+### ProfileEntrypoint
 
 The discriminated descriptor of a profile's entrypoint. `type` identifies the kind
 (`'http'`, `'command'`, …) and `data` holds the kind-specific payload,
@@ -42,7 +46,7 @@ owned by the package that registered the type.
   name="ProfileEntrypoint"
 />
 
-## HttpRequestData
+### HttpRequestData
 
 Payload of the built-in `http` entrypoint - an HTTP request (REST or GraphQL).
 
@@ -51,7 +55,56 @@ Payload of the built-in `http` entrypoint - an HTTP request (REST or GraphQL).
   name="HttpRequestData"
 />
 
-## ProfilerEntrypointType
+### ResponseData
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="ResponseData"
+/>
+
+### PerformanceData
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="PerformanceData"
+/>
+
+### RouteInfo
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="RouteInfo" />
+
+### SecurityContext
+
+Populated by the Auth collector when `request.user` is present.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="SecurityContext"
+/>
+
+### ExceptionEntry
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="ExceptionEntry"
+/>
+
+### TimelineSpan
+
+Entry written by `ProfilerService.startSpan()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="TimelineSpan"
+/>
+
+### LogEntry
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="LogEntry" />
+
+## Entrypoint types
+
+### ProfilerEntrypointType
 
 Everything the profiler needs to support an entrypoint kind, registered in one call
 via `ProfilerCoreService.registerEntrypointType()`: the list-page table, the detail
@@ -62,7 +115,7 @@ tab(s), the kind-scoped list filters and the breadcrumb summary.
   name="ProfilerEntrypointType"
 />
 
-## ProfilerDetailTab
+### ProfilerDetailTab
 
 A primary detail-page tab contributed by an entrypoint type. Its body is rendered
 from `templatePath` (an absolute path to an EJS partial that receives `{ profile }`
@@ -73,7 +126,7 @@ plus the shared template helpers).
   name="ProfilerDetailTab"
 />
 
-## EntrypointSummary
+### EntrypointSummary
 
 The compact summary an entrypoint type renders in the detail-page breadcrumb.
 
@@ -82,29 +135,9 @@ The compact summary an entrypoint type renders in the detail-page breadcrumb.
   name="EntrypointSummary"
 />
 
-## ResponseData
+## Logging
 
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="ResponseData"
-/>
-
-## PerformanceData
-
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="PerformanceData"
-/>
-
-## RouteInfo
-
-<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="RouteInfo" />
-
-## LogEntry
-
-<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="LogEntry" />
-
-## ProfilerLoggerOptions
+### ProfilerLoggerOptions
 
 Options accepted by `ProfilerService.createLogger()` (and `createProfilerLogger()`). The default `parseArgs` implementation, exported as `parseLogArgs`, understands the NestJS (`log(message, context)`, `error(message, stack, context)`), pino / nestjs-pino (`info(mergingObject, message)`) and message-first (`log(message, payloadObject)`) conventions; pass a custom `parseArgs` for loggers with an exotic argument convention.
 
@@ -113,7 +146,7 @@ Options accepted by `ProfilerService.createLogger()` (and `createProfilerLogger(
   name="ProfilerLoggerOptions"
 />
 
-## ParsedLogCall
+### ParsedLogCall
 
 Return value of a `LogArgsParser`: what the profiler stores for one log call.
 
@@ -122,32 +155,9 @@ Return value of a `LogArgsParser`: what the profiler stores for one log call.
   name="ParsedLogCall"
 />
 
-## ExceptionEntry
+## Service
 
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="ExceptionEntry"
-/>
-
-## TimelineSpan
-
-Entry written by `ProfilerService.startSpan()`.
-
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="TimelineSpan"
-/>
-
-## SecurityContext
-
-Populated by the Auth collector when `request.user` is present.
-
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="SecurityContext"
-/>
-
-## ProfilerService
+### ProfilerService
 
 Injectable facade. Inject it in any provider or controller to instrument your application.
 
@@ -156,7 +166,9 @@ Injectable facade. Inject it in any provider or controller to instrument your ap
   name="ProfilerService"
 />
 
-## IProfilerCollector
+## Collectors
+
+### IProfilerCollector
 
 Interface to implement when building a custom collector.
 
@@ -165,7 +177,18 @@ Interface to implement when building a custom collector.
   name="IProfilerCollector"
 />
 
-## IProfilerStorageAdapter
+### CollectorPanelInfo
+
+Panel metadata returned by `CollectorRegistry.buildPanels()`, passed to EJS templates and the toolbar.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/collectors/collector-registry.service.ts"
+  name="CollectorPanelInfo"
+/>
+
+## Storage
+
+### IProfilerStorageAdapter
 
 Interface for plugging in a custom storage backend.
 
@@ -174,7 +197,7 @@ Interface for plugging in a custom storage backend.
   name="IProfilerStorageAdapter"
 />
 
-## StorageFindOptions
+### StorageFindOptions
 
 Filter options accepted by `IProfilerStorageAdapter.findAll()`.
 
@@ -183,22 +206,13 @@ Filter options accepted by `IProfilerStorageAdapter.findAll()`.
   name="StorageFindOptions"
 />
 
-## FileStorageAdapterOptions
+### FileStorageAdapterOptions
 
 Options for the built-in file-system storage adapter.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/storage/file-storage.adapter.ts"
   name="FileStorageAdapterOptions"
-/>
-
-## CollectorPanelInfo
-
-Panel metadata returned by `CollectorRegistry.buildPanels()`, passed to EJS templates and the toolbar.
-
-<AutoTypeTable
-  path="packages/nest-profiler/src/collectors/collector-registry.service.ts"
-  name="CollectorPanelInfo"
 />
 
 ## Public exports
