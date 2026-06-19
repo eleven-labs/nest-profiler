@@ -80,7 +80,7 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^22.19.21",
     "@types/supertest": "^6.0.3",
     "fastify": "^5.2.1",
     "graphql": "^16.11.0",

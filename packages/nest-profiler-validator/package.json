@@ -68,7 +68,7 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^22.19.21",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "jest": "^30.4.2",

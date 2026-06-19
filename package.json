@@ -68,7 +68,7 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^22.19.21",
     "eslint": "^10.4.0",
     "husky": "^9.1.7",
     "jest": "^30.4.2",

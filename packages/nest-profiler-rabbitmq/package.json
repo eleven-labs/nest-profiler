@@ -73,7 +73,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/amqplib": "^0.10.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^22.19.21",
     "@eleven-labs/nest-profiler": "workspace:*",
     "amqplib": "^0.10.4",
     "jest": "^30.4.2",
