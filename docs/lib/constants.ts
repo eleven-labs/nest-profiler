@@ -1,5 +1,5 @@
 export const SITE_NAME = 'NestJS Profiler';
-export const SITE_TAGLINE = 'Symfony-inspired request debugging & insights';
+export const SITE_TAGLINE = 'Symfony-inspired request profiling';
 export const SITE_DESCRIPTION =
   "Open-source NestJS profiler inspired by Symfony's Web Profiler: inspect every request — SQL, HTTP, GraphQL, cache and security — to debug and optimize.";
 export const GITHUB_URL = 'https://github.com/eleven-labs/nest-profiler';
