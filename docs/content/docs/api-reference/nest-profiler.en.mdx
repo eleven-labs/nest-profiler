@@ -215,6 +215,20 @@ Options for the built-in file-system storage adapter.
   name="FileStorageAdapterOptions"
 />
 
+## Copy helpers
+
+Pure functions backing the profiler UI's "copy" buttons, exported for reuse.
+
+### buildCurlCommand
+
+Builds a runnable, multi-line `curl` command from captured HTTP request data. Relative URLs are made absolute using the `host` (and `x-forwarded-proto`) headers.
+
+<AutoTypeTable path="packages/nest-profiler/src/views/copy/build-curl.ts" name="CurlInput" />
+
+### interpolateSql
+
+`interpolateSql(sql, parameters)` inlines bound parameters into a SQL string, returning a runnable query. Supports both `$N` (Postgres/TypeORM) and `?` (MySQL/MikroORM) placeholders.
+
 ## Public exports
 
 ```ts
@@ -232,6 +246,8 @@ import {
   createProfilerLogger,
   parseLogArgs,
   DEFAULT_LOG_METHODS,
+  buildCurlCommand,
+  interpolateSql,
 } from '@eleven-labs/nest-profiler';
 
 import type {
@@ -259,5 +275,6 @@ import type {
   TimelineSpan,
   EventEntry,
   SecurityContext,
+  CurlInput,
 } from '@eleven-labs/nest-profiler';
 ```

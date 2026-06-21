@@ -67,7 +67,12 @@ describe('RabbitMqContextAdapter', () => {
       appId: 'api-notif',
       headers: {},
       payload: { graphId: 'g1', externalId: 'e1' },
+      publishSnippet: data.publishSnippet,
     });
+    expect(data.publishSnippet).toContain(`channel.publish(`);
+    expect(data.publishSnippet).toContain(
+      `Buffer.from(JSON.stringify({"graphId":"g1","externalId":"e1"}))`,
+    );
   });
 
   it('masks sensitive headers and keeps the rest', () => {

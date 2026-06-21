@@ -19,6 +19,7 @@ interface PatchableQuery {
 /** Narrow surface of mongoose.Aggregate used during patching. */
 interface PatchableAggregate {
   _model?: { collection?: { name?: string } };
+  _pipeline?: unknown[];
 }
 
 interface PatchableExec {
@@ -118,6 +119,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     ): Promise<unknown> {
       const startedAt = Date.now();
       const collection = this._model?.collection?.name ?? 'unknown';
+      const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
       let resultArray: unknown[] | undefined;
       let error: string | undefined;
       try {
@@ -135,6 +137,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
             const entry: MongooseQueryEntry = {
               collection,
               operation: 'aggregate',
+              pipeline,
               duration,
               isSlow: duration >= threshold,
               startedAt,

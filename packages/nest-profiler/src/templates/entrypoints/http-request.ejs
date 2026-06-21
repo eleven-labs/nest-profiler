@@ -13,6 +13,9 @@
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">IP</p>
     <span class="text-foreground-secondary text-xs"><%= req.ip || '—' %></span>
   </div>
+  <div class="ml-auto self-end">
+    <%- copyBtn(buildCurl({ method: req.method, url: req.url, headers: req.headers, body: req.body }), 'Copy as cURL') %>
+  </div>
 </div>
 
 <% if (Object.keys(req.query).length > 0) { %>

@@ -25,6 +25,9 @@ export { TimelineCollector } from './collectors/timeline/timeline.collector';
 export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';
 export { detectQueryType } from './collectors/sql/sql-query.interface';
 export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface';
+export { interpolateSql } from './collectors/sql/interpolate-sql';
+export { buildCurlCommand } from './views/copy/build-curl';
+export type { CurlInput } from './views/copy/build-curl';
 export { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
 export type {
   IProfilerStorageAdapter,

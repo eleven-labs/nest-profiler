@@ -5,6 +5,7 @@ import type { IProfilerCollector, Profile } from '@eleven-labs/nest-profiler';
 import { getCollectorEntries } from '@eleven-labs/nest-profiler';
 import type { MongooseQueryEntry } from './mongoose-collector.interface';
 import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
+import { buildMongoCommand } from './build-mongo-command';
 
 const MONGO_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5c-.8 1-2 3-2 4.5a2 2 0 0 0 4 0c0-1.5-1.2-3.5-2-4.5z"/><path d="M8 9.5v5"/></svg>`;
 const DB_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy="4" rx="6" ry="2"/><path d="M2 4v3c0 1.1 2.7 2 6 2s6-.9 6-2V4"/><path d="M2 7v3c0 1.1 2.7 2 6 2s6-.9 6-2V7"/><path d="M2 10v2c0 1.1 2.7 2 6 2s6-.9 6-2v-2"/></svg>`;
@@ -47,6 +48,6 @@ export class MongooseCollector implements IProfilerCollector {
   collect(profile: Profile): MongooseQueryEntry[] {
     const queries = getCollectorEntries<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY);
     delete profile.collectors[MONGOOSE_QUERIES_KEY];
-    return queries;
+    return queries.map((query) => ({ ...query, command: buildMongoCommand(query) }));
   }
 }

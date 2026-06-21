@@ -84,4 +84,32 @@ Every profile detail page has an **Export JSON** button. You can also download t
 curl http://localhost:3000/_profiler/{token}/data > profile.json
 ```
 
+## Copying requests & queries
+
+Inspired by the Symfony Web Profiler, the detail page offers one-click **copy** buttons that turn a captured operation into something you can paste straight into a terminal or REPL:
+
+| Panel                    | Button                      | What you get                                                                               |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------ |
+| Request                  | Copy as cURL                | A runnable `curl` command for the incoming request (method, absolute URL, headers, body)   |
+| HTTP Client              | Copy as cURL                | The same, for each outgoing request the handler made                                       |
+| SQL (TypeORM / MikroORM) | Copy SQL                    | The query with its bound parameters inlined, ready to run in a SQL client                  |
+| MongoDB                  | Copy query                  | A `mongosh` command — `db.<collection>.<op>(<filter>)` or `db.<collection>.aggregate([…])` |
+| RabbitMQ                 | Copy payload / Copy publish | The decoded message payload, and an amqplib `channel.publish(…)` snippet that re-emits it  |
+
+Header values that the profiler masks at capture time (e.g. `authorization`) stay masked in the copied command — the feature is for replaying requests during development, not for exfiltrating secrets.
+
+The cURL and SQL builders are also exported for programmatic use:
+
+```ts
+import { buildCurlCommand, interpolateSql } from '@eleven-labs/nest-profiler';
+
+buildCurlCommand({
+  method: 'POST',
+  url: '/users',
+  headers: { host: 'localhost:3000' },
+  body: { name: 'Ada' },
+});
+interpolateSql('SELECT * FROM "user" WHERE id = $1', [42]); // → SELECT * FROM "user" WHERE id = 42
+```
+
 > **Visual tour** — the [Profiler UI](https://nest-profiler.eleven-labs.com/docs/profiler-ui) page walks through the profiles list, every built-in tab and every collector panel with screenshots.

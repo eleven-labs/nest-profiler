@@ -39,11 +39,13 @@ describe('MongooseCollector', () => {
     collector = new MongooseCollector();
   });
 
-  it('returns queries and removes the key from collectors', () => {
-    const q = makeQuery();
+  it('returns queries with a precomputed command and removes the key from collectors', () => {
+    const q = makeQuery({ operation: 'find', filter: { status: 'active' } });
     const profile = makeProfile({ collectors: { [MONGOOSE_QUERIES_KEY]: [q] } });
     const result = collector.collect(profile);
-    expect(result).toEqual([q]);
+    expect(result).toEqual([
+      { ...q, command: `db.reviews.find(${JSON.stringify({ status: 'active' }, null, 2)})` },
+    ]);
     expect(profile.collectors[MONGOOSE_QUERIES_KEY]).toBeUndefined();
   });
 
@@ -249,6 +251,19 @@ describe('MongooseConnectionPatch', () => {
       expect(e.operation).toBe('aggregate');
       expect(e.collection).toBe('orders');
       expect(e.count).toBe(1);
+    });
+
+    it('captures the aggregation pipeline', async () => {
+      const { base, profile } = setup({ threshold: 100 });
+      const pipeline = [{ $match: { status: 'active' } }, { $count: 'n' }];
+      await base.Aggregate.prototype.exec.call({ ...aggCtx, _pipeline: pipeline });
+      expect(firstEntry(profile).pipeline).toEqual(pipeline);
+    });
+
+    it('leaves the pipeline undefined when none is present', async () => {
+      const { base, profile } = setup({ threshold: 100 });
+      await base.Aggregate.prototype.exec.call(aggCtx);
+      expect(firstEntry(profile).pipeline).toBeUndefined();
     });
 
     it('defaults the collection to "unknown" and records errors', async () => {

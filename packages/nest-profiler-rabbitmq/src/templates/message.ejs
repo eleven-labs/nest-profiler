@@ -30,7 +30,10 @@
 </div>
 
 <section class="mb-6">
-  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Routing</h2>
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Routing</h2>
+    <% if (rmq.publishSnippet) { %><%- copyBtn(rmq.publishSnippet, 'Copy publish') %><% } %>
+  </div>
   <code class="block bg-surface-muted border border-line rounded-lg px-4 py-3 text-foreground text-sm break-all">
     <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">RMQ</span><%= rmq.exchange || '(default)' %> &rarr; <%= rmq.routingKey %>
   </code>
@@ -56,6 +59,7 @@
     <div class="flex items-center gap-2 mb-3">
       <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Payload</h2>
       <% if (msgBodyIsText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
+      <span class="ml-auto"><%- copyBtn(msgBodyIsText ? rmq.payload : toJson(rmq.payload), 'Copy payload') %></span>
     </div>
     <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs overflow-x-auto leading-relaxed"><code<%= msgBodyIsText ? '' : ' class="language-json"' %>><%= msgBodyIsText ? rmq.payload : toJson(rmq.payload) %></code></pre>
   </section>

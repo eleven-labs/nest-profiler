@@ -59,8 +59,13 @@
               </div>
             </td>
             <td class="py-2 px-4 text-foreground-secondary text-xs break-all">
-              <%= r.url %>
-              <% if (r.error) { %><span class="block text-danger text-2xs mt-0.5"><%= r.error %></span><% } %>
+              <div class="flex items-start justify-between gap-2">
+                <span class="min-w-0">
+                  <%= r.url %>
+                  <% if (r.error) { %><span class="block text-danger text-2xs mt-0.5"><%= r.error %></span><% } %>
+                </span>
+                <span class="shrink-0"><%- copyBtn(buildCurl({ method: r.method, url: r.url, headers: r.requestHeaders, body: r.requestBody }), 'Copy as cURL') %></span>
+              </div>
             </td>
             <td class="py-2 px-4 whitespace-nowrap">
               <% if (r.statusCode) { %>
