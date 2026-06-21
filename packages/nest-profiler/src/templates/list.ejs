@@ -85,7 +85,7 @@
     %>
 
     <%# One form wraps every section so submitting any bar preserves the others. %>
-    <form method="GET" action="<%= profilerPath %>">
+    <form id="profiler-filters" method="GET" action="<%= profilerPath %>">
       <% sectionBuckets.forEach((section) => { %>
         <% if (section.isDefault || section.total > 0) { %>
           <%
@@ -151,6 +151,24 @@
         <% } %>
       <% }) %>
     </form>
+
+    <script>
+      (function () {
+        var form = document.getElementById('profiler-filters');
+        if (!form) return;
+        form.addEventListener('submit', function () {
+          // Drop empty fields so they don't pollute the GET query string.
+          // Disabled controls are excluded from native form serialization,
+          // and the page reloads on submit so the disabled state is throwaway.
+          var fields = form.querySelectorAll('input[name], select[name]');
+          for (var i = 0; i < fields.length; i++) {
+            var el = fields[i];
+            if (el.type === 'checkbox') continue; // unchecked boxes already aren't sent
+            if (String(el.value).trim() === '') el.disabled = true;
+          }
+        });
+      })();
+    </script>
 
   </main>
 </body>
