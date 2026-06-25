@@ -20,7 +20,7 @@ import Link from 'next/link';
 
 import { GITHUB_URL } from '@/lib/constants';
 import { i18n } from '@/lib/i18n';
-import { JsonLd, softwareSourceCodeJsonLd } from '@/lib/json-ld';
+import { JsonLd, softwareSourceCodeJsonLd, webSiteJsonLd } from '@/lib/json-ld';
 
 export const metadata: Metadata = {
   alternates: {
@@ -108,6 +108,7 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
 
   return (
     <main className="flex flex-1 flex-col">
+      <JsonLd data={webSiteJsonLd()} />
       <JsonLd data={softwareSourceCodeJsonLd()} />
       {/* Hero */}
       <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pt-16 pb-12 text-center md:pt-24">
