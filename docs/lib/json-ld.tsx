@@ -27,6 +27,19 @@ export function JsonLd({ data }: { data: object }): ReactNode {
   );
 }
 
+export function webSiteJsonLd(): object {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    alternateName: 'nest-profiler',
+    url: SITE_URL,
+    description: SITE_DESCRIPTION,
+    publisher: ORGANIZATION,
+    inLanguage: 'en',
+  };
+}
+
 export function softwareSourceCodeJsonLd(): object {
   return {
     '@context': 'https://schema.org',
