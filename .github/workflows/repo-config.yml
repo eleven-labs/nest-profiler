@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Sync labels from .github/labels.yml
         uses: crazy-max/ghaction-github-labeler@v6
@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Create missing milestones from .github/milestones.yml
         env:
