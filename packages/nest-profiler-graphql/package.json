@@ -63,7 +63,7 @@
     }
   },
   "devDependencies": {
-    "@apollo/server": "^4.11.3",
+    "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@eleven-labs/nest-profiler": "workspace:*",
     "@nestjs/apollo": "^13.0.3",
