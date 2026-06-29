@@ -32,7 +32,7 @@
 pnpm add @eleven-labs/nest-profiler-mongoose
 ```
 
-**Peer dependencies:** `mongoose ^8.0.0`, `@nestjs/mongoose ^11.0.0`
+**Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0`
 
 ## Setup
 

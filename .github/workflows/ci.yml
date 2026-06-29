@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   check:
-    name: Check (format, lint, typecheck, build)
+    name: Check (format, lint, typecheck, build, Node 24)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22, 24]
+        node-version: [22, 24, 26]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -103,12 +103,15 @@ jobs:
           done
 
   e2e:
-    name: E2E (example-api, ${{ matrix.sql-orm }})
+    name: E2E (example-api, ${{ matrix.sql-orm }}, Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
+        # jest's require(esm) — needed by the ESM-only @mikro-orm v7 — relies on the
+        # synchronous vm module APIs introduced in Node 24.9, so Node 22 is excluded.
+        node-version: [24, 26]
         sql-orm: [typeorm, mikro-orm]
     services:
       postgres:
@@ -145,9 +148,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          # jest's require(esm) — needed by the ESM-only @mikro-orm v7 — relies on the
-          # synchronous vm module APIs introduced in Node 24.9.
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
@@ -177,7 +178,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies

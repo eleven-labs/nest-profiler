@@ -47,10 +47,10 @@
     "@eleven-labs/nest-profiler-http": "workspace:*"
   },
   "peerDependencies": {
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
-    "nestjs-cls": "^4.0.0",
+    "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0"
   },
   "peerDependenciesMeta": {
@@ -72,9 +72,9 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^24.13.2",
     "jest": "^30.4.2",
-    "nestjs-cls": "^4.5.0",
+    "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "ts-jest": "^29.3.0",
     "typescript": "^6.0.3"

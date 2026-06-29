@@ -4,5 +4,10 @@ packages:
   - 'examples/*'
   - 'docs'
 
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  '@apollo/protobufjs': true
+  '@parcel/watcher': true
+  '@scarf/scarf': false
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

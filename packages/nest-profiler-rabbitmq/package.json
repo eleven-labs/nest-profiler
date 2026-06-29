@@ -50,9 +50,9 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "peerDependencies": {
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "reflect-metadata": "^0.2.0"
   },
   "peerDependenciesMeta": {
@@ -64,6 +64,7 @@
     }
   },
   "devDependencies": {
+    "@eleven-labs/nest-profiler": "workspace:*",
     "@nestjs/common": "^11.1.24",
     "@nestjs/core": "^11.1.3",
     "@nestjs/testing": "^11.1.3",
@@ -73,9 +74,8 @@
     "@repo/typescript-config": "workspace:*",
     "@types/amqplib": "^0.10.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
-    "@eleven-labs/nest-profiler": "workspace:*",
-    "amqplib": "^0.10.4",
+    "@types/node": "^24.13.2",
+    "amqplib": "^2.0.1",
     "jest": "^30.4.2",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
