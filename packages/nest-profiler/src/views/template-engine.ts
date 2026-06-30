@@ -1,4 +1,6 @@
 import * as path from 'path';
+import { buildCurlCommand } from './copy/build-curl';
+import { interpolateSql } from '../collectors/sql/interpolate-sql';
 
 export const TEMPLATES_DIR = path.join(__dirname, '../templates');
 
@@ -51,8 +53,27 @@ const LOG_LEVEL_CLASSES: Record<string, string> = {
 const SQL_KEYWORDS =
   /\b(SELECT|FROM|WHERE|JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|OUTER\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|ON|AND|OR|NOT|IN|EXISTS|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|ORDER\s+BY|GROUP\s+BY|HAVING|LIMIT|OFFSET|AS|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|UNION|ALL|WITH|CREATE|TABLE|INDEX|DROP|ALTER|ADD|CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|REFERENCES|BEGIN|COMMIT|ROLLBACK|TRANSACTION|RETURNING)\b/gi;
 
+const COPY_ICON =
+  '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+
 export const HELPERS = {
   methodClass: (method: string): string => METHOD_CLASSES[method] ?? 'badge-default',
+  buildCurl: buildCurlCommand,
+  interpolateSql,
+  // Returns safe HTML — use <%- copyBtn(...) %> in templates. The text is
+  // base64-encoded (UTF-8) into `data-copy` so any payload (multi-line, quotes,
+  // unicode) survives without HTML-escaping concerns. The onclick calls the
+  // global `__profilerCopy` defined in _head.ejs directly (and stops propagation
+  // so it never toggles an expandable parent row).
+  copyBtn: (text: string, label = 'Copy'): string => {
+    const encoded = Buffer.from(text ?? '', 'utf8').toString('base64');
+    return (
+      `<button type="button" data-copy="${encoded}" data-copy-label="${escapeHtml(label)}" ` +
+      `class="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs font-medium border border-line ` +
+      `text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" ` +
+      `onclick="event.stopPropagation();__profilerCopy(this)">${COPY_ICON}<span data-copy-text>${escapeHtml(label)}</span></button>`
+    );
+  },
   gqlTypeClass: (operationType: string): string =>
     GQL_TYPE_CLASSES[operationType.toLowerCase()] ?? 'badge-default',
   statusClass: (status: number): string => {

@@ -43,7 +43,10 @@
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= typeColors[q.type] || 'badge-default' %>"><%= q.type %></span>
             </td>
             <td class="py-2 px-4 align-top">
-              <code class="text-xs text-code-text leading-relaxed break-all"><% if (typeof highlightSql === 'function') { %><%- highlightSql(q.sql) %><% } else { %><%= q.sql %><% } %></code>
+              <div class="flex items-start justify-between gap-2">
+                <code class="text-xs text-code-text leading-relaxed break-all"><% if (typeof highlightSql === 'function') { %><%- highlightSql(q.sql) %><% } else { %><%= q.sql %><% } %></code>
+                <span class="shrink-0"><%- copyBtn(interpolateSql(q.sql, q.parameters), 'Copy SQL') %></span>
+              </div>
               <% if (q.parameters && q.parameters.length > 0) { %>
                 <div class="mt-2">
                   <div class="text-2xs text-foreground-muted font-medium mb-0.5">Parameters:</div>

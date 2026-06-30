@@ -57,14 +57,24 @@
               <code class="text-xs text-code-text"><%= q.collection %></code>
             </td>
             <td class="py-2 px-4 align-top">
-              <% if (q.filter && Object.keys(q.filter).length > 0) { %>
-                <div class="text-2xs text-foreground-muted font-medium mb-0.5">Filter:</div>
-                <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.filter) %></code></pre>
-              <% } else if (q.operation === 'aggregate') { %>
-                <span class="text-xs text-foreground-faint italic">pipeline</span>
-              <% } else { %>
-                <span class="text-xs text-foreground-faint">—</span>
-              <% } %>
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <% if (q.filter && Object.keys(q.filter).length > 0) { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-0.5">Filter:</div>
+                    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.filter) %></code></pre>
+                  <% } else if (q.operation === 'aggregate' && q.pipeline && q.pipeline.length > 0) { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-0.5">Pipeline:</div>
+                    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.pipeline) %></code></pre>
+                  <% } else if (q.operation === 'aggregate') { %>
+                    <span class="text-xs text-foreground-faint italic">pipeline</span>
+                  <% } else { %>
+                    <span class="text-xs text-foreground-faint">—</span>
+                  <% } %>
+                </div>
+                <% if (q.command) { %>
+                  <span class="shrink-0"><%- copyBtn(q.command, 'Copy query') %></span>
+                <% } %>
+              </div>
               <% if (q.count !== undefined) { %>
                 <div class="mt-0.5 text-foreground-faint text-2xs"><%= q.count %> result<%= q.count !== 1 ? 's' : '' %></div>
               <% } %>

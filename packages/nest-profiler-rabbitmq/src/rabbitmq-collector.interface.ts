@@ -34,4 +34,6 @@ export interface RabbitMqInfo {
   headers?: Record<string, string>;
   /** Deserialized message payload, when `captureBody` is enabled. */
   payload?: unknown;
+  /** Runnable amqplib `channel.publish(...)` snippet, precomputed for the UI copy button. */
+  publishSnippet?: string;
 }

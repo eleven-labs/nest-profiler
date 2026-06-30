@@ -10,6 +10,7 @@ import {
 } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
 import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.module';
+import { buildAmqpPublish } from './build-amqp-publish';
 
 /**
  * Formats a single AMQP header value as a display string. Buffers are decoded
@@ -134,6 +135,7 @@ export class RabbitMqContextAdapter implements IContextAdapter {
     };
     if (headers) data.headers = headers;
     if (opts.captureBody !== false && payload != null) data.payload = payload;
+    data.publishSnippet = buildAmqpPublish(data);
 
     profile.entrypoint = { type: RABBITMQ_ENTRYPOINT_TYPE, data };
   }
