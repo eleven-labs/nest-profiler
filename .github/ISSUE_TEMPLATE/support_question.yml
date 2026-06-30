@@ -10,7 +10,7 @@ body:
       options:
         - '@eleven-labs/nest-profiler'
         - '@eleven-labs/nest-profiler-typeorm'
-        - '@eleven-labs/nest-profiler-axios'
+        - '@eleven-labs/nest-profiler-http'
         - '@eleven-labs/nest-profiler-cache'
         - '@eleven-labs/nest-profiler-auth'
         - '@eleven-labs/nest-profiler-config'

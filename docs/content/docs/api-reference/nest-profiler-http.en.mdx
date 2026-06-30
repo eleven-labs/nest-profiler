@@ -8,13 +8,6 @@ seo:
 
 This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder`, the `HttpInstrumentation` interface and a bundled **axios adapter** (`AxiosInstrumentation`, enabled by default). Any HTTP client (fetch, undici, got, a custom module…) can feed the same panel through the recorder.
 
-<Callout type="info" title="Renamed from nest-profiler-axios">
-  `@eleven-labs/nest-profiler-axios` is **deprecated** and now re-exports
-  `@eleven-labs/nest-profiler-http`. Migrate your imports to the `-http` name.
-  `AxiosCollectorModule` survives only as a deprecated alias of `HttpCollectorModule`, exported from
-  the shim package.
-</Callout>
-
 ## Module
 
 ### HttpCollectorModule

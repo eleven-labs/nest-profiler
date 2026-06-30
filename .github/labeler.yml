@@ -40,11 +40,6 @@
       - any-glob-to-any-file:
           - 'packages/nest-profiler-auth/**'
 
-'package: nest-profiler-axios':
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'packages/nest-profiler-axios/**'
-
 'package: nest-profiler-cache':
   - changed-files:
       - any-glob-to-any-file:
@@ -64,6 +59,11 @@
   - changed-files:
       - any-glob-to-any-file:
           - 'packages/nest-profiler-graphql/**'
+
+'package: nest-profiler-http':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-http/**'
 
 'package: nest-profiler-mikro-orm':
   - changed-files:

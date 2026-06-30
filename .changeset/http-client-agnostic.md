@@ -1,6 +1,5 @@
 ---
 '@eleven-labs/nest-profiler-http': major
-'@eleven-labs/nest-profiler-axios': major
 ---
 
 Make HTTP-client profiling client-agnostic and rename the axios package.
