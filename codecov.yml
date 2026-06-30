@@ -21,9 +21,6 @@ flag_management:
     - name: nest-profiler-auth
       paths:
         - packages/nest-profiler-auth/
-    - name: nest-profiler-axios
-      paths:
-        - packages/nest-profiler-axios/
     - name: nest-profiler-cache
       paths:
         - packages/nest-profiler-cache/
@@ -36,6 +33,9 @@ flag_management:
     - name: nest-profiler-graphql
       paths:
         - packages/nest-profiler-graphql/
+    - name: nest-profiler-http
+      paths:
+        - packages/nest-profiler-http/
     - name: nest-profiler-mikro-orm
       paths:
         - packages/nest-profiler-mikro-orm/

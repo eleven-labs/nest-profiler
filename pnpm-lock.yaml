@@ -524,58 +524,6 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/nest-profiler-axios:
-    dependencies:
-      '@eleven-labs/nest-profiler-http':
-        specifier: workspace:*
-        version: link:../nest-profiler-http
-    devDependencies:
-      '@eleven-labs/nest-profiler':
-        specifier: workspace:*
-        version: link:../nest-profiler
-      '@nestjs/common':
-        specifier: ^11.1.24
-        version: 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core':
-        specifier: ^11.1.3
-        version: 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@repo/build':
-        specifier: workspace:*
-        version: link:../configs/build
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:../configs/eslint
-      '@repo/jest-config':
-        specifier: workspace:*
-        version: link:../configs/jest
-      '@repo/prettier-config':
-        specifier: workspace:*
-        version: link:../configs/prettier
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../configs/typescript
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
-      jest:
-        specifier: ^30.4.2
-        version: 30.4.2(@types/node@24.13.2)
-      nestjs-cls:
-        specifier: ^6.2.1
-        version: 6.2.1(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-      ts-jest:
-        specifier: ^29.3.0
-        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.4.1)(jest@30.4.2(@types/node@24.13.2))(typescript@6.0.3)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
   packages/nest-profiler-cache:
     devDependencies:
       '@eleven-labs/nest-profiler':
@@ -3605,9 +3553,6 @@ packages:
 
   '@types/node@24.13.2':
     resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
-
-  '@types/node@26.0.1':
-    resolution: {integrity: sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==}
 
   '@types/qs@6.15.1':
     resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
@@ -7831,9 +7776,6 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
-  undici-types@8.3.0:
-    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
-
   unicode-emoji-modifier-base@1.0.0:
     resolution: {integrity: sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==}
     engines: {node: '>=4'}
@@ -9481,7 +9423,7 @@ snapshots:
 
   '@jest/pattern@30.4.0':
     dependencies:
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
       jest-regex-util: 30.4.0
 
   '@jest/reporters@30.4.1':
@@ -9568,7 +9510,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
       '@types/yargs': 17.0.35
       chalk: 4.1.2
 
@@ -10735,10 +10677,6 @@ snapshots:
     dependencies:
       undici-types: 7.18.2
 
-  '@types/node@26.0.1':
-    dependencies:
-      undici-types: 8.3.0
-
   '@types/qs@6.15.1': {}
 
   '@types/range-parser@1.2.7': {}
@@ -10776,7 +10714,7 @@ snapshots:
 
   '@types/through@0.0.33':
     dependencies:
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
 
   '@types/triple-beam@1.3.5': {}
 
@@ -13129,7 +13067,7 @@ snapshots:
   jest-haste-map@30.4.1:
     dependencies:
       '@jest/types': 30.4.1
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
       anymatch: 3.1.3
       fb-watchman: 2.0.2
       graceful-fs: 4.2.11
@@ -13279,7 +13217,7 @@ snapshots:
   jest-util@30.4.1:
     dependencies:
       '@jest/types': 30.4.1
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
@@ -13313,7 +13251,7 @@ snapshots:
 
   jest-worker@30.4.1:
     dependencies:
-      '@types/node': 26.0.1
+      '@types/node': 24.13.2
       '@ungap/structured-clone': 1.3.2
       jest-util: 30.4.1
       merge-stream: 2.0.0
@@ -15514,8 +15452,6 @@ snapshots:
   uint8array-extras@1.5.0: {}
 
   undici-types@7.18.2: {}
-
-  undici-types@8.3.0: {}
 
   unicode-emoji-modifier-base@1.0.0: {}
 

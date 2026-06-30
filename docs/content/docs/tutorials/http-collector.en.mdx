@@ -19,12 +19,6 @@ This tutorial shows how to profile outgoing HTTP requests in a NestJS applicatio
 pnpm add @eleven-labs/nest-profiler-http @nestjs/axios axios
 ```
 
-<Callout type="info" title="Renamed from nest-profiler-axios">
-  `@eleven-labs/nest-profiler-axios` is deprecated and now re-exports
-  `@eleven-labs/nest-profiler-http`. `AxiosCollectorModule` survives only as a deprecated alias of
-  `HttpCollectorModule` - swap the install/import name and use `HttpCollectorModule`.
-</Callout>
-
 ## Step 2 - Register the module
 
 Import `HttpModule` (from `@nestjs/axios`) alongside `HttpCollectorModule.forRoot()` in the feature module that uses `HttpService`. The bundled axios adapter is enabled by default and patches the `HttpService` provided by `HttpModule`:

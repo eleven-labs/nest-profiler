@@ -1,7 +1,6 @@
 ---
 '@eleven-labs/nest-profiler': patch
 '@eleven-labs/nest-profiler-auth': patch
-'@eleven-labs/nest-profiler-axios': patch
 '@eleven-labs/nest-profiler-cache': patch
 '@eleven-labs/nest-profiler-commander': patch
 '@eleven-labs/nest-profiler-graphql': patch

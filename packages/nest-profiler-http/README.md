@@ -24,8 +24,6 @@
 
 `@eleven-labs/nest-profiler-http` captures outgoing HTTP requests and displays them in a dedicated **HTTP Client** panel. It is **client-agnostic**: it owns the `HttpRequestEntry` contract, the collector, the `HttpProfilerRecorder` and an `HttpInstrumentation` interface. An **axios adapter** is bundled and enabled by default; fetch, undici, got or any custom client can feed the same panel.
 
-> Renamed from `@eleven-labs/nest-profiler-axios`, which is now deprecated and re-exports this package (`AxiosCollectorModule` remains as an alias of `HttpCollectorModule`).
-
 ![HTTP Client panel — outgoing requests with method, URL, status and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/http-client.png)
 
 ## Installation
