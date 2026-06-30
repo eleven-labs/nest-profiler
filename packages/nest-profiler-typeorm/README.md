@@ -32,7 +32,7 @@
 pnpm add @eleven-labs/nest-profiler-typeorm
 ```
 
-**Peer dependencies:** `typeorm ^0.3.0`, `@nestjs/typeorm ^11.0.0`
+**Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0`
 
 ## Setup
 

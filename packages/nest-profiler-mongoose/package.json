@@ -49,12 +49,12 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "peerDependencies": {
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/mongoose": "^11.0.0",
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
-    "mongoose": "^8.0.0",
-    "nestjs-cls": "^4.0.0",
+    "mongoose": "^9.0.0",
+    "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0"
   },
   "devDependencies": {
@@ -69,10 +69,10 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.15.32",
+    "@types/node": "^24.13.2",
     "jest": "^30.4.2",
-    "mongoose": "^8.15.0",
-    "nestjs-cls": "^4.5.0",
+    "mongoose": "^9.7.3",
+    "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "ts-jest": "^29.3.0",
     "typescript": "^6.0.3"
