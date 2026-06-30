@@ -27,6 +27,7 @@
     "capture-guard-exceptions",
     "capture-structured-log-context",
     "commander-entrypoint-type",
+    "copy-as-curl-and-queries",
     "extensible-entrypoint-types",
     "extensible-list-filters",
     "fix-graphql-redos",
@@ -43,6 +44,7 @@
     "nest-profiler-validator",
     "nest-profiler",
     "profiler-load-reliability",
-    "self-host-profiler-assets"
+    "self-host-profiler-assets",
+    "update-dependency-ranges"
   ]
 }

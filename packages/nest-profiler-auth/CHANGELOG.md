@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-auth
 
+## 1.0.0-alpha.6
+
+### Patch Changes
+
+- d34fefe: Update supported peer dependency ranges and test dependencies for current NestJS 11-compatible releases, including `nestjs-cls` 6, Mongoose 9, and TypeORM 1.
+
 ## 1.0.0-alpha.5
 
 ### Patch Changes
