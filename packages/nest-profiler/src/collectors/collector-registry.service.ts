@@ -156,7 +156,7 @@ export class CollectorRegistry implements OnModuleInit {
             meta.priority ??
             instance.priority ??
             100,
-          badgeValue: badgeValue ?? null,
+          badgeValue,
           templatePath: GROUPED_PANEL_TEMPLATE,
           isGroup: true,
           subPanels: [subPanel],
