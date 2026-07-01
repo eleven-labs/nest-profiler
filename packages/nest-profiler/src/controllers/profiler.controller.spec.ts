@@ -91,6 +91,37 @@ describe('ProfilerController (unit)', () => {
     expect(rendered[0]?.ctx.entrypointTabs).toEqual([]);
   });
 
+  it('keeps a badgeless entrypoint tab active (undefined, not null) so it is never dimmed', async () => {
+    const { controller, rendered, core } = setup();
+    (core.getEntrypointType as jest.Mock).mockReturnValue({
+      ...TABLESS_TYPE,
+      detailTabs: [
+        // No badge function: the tab always carries content (e.g. Request).
+        { name: 'request', label: 'Request', templatePath: '/tmp/request.ejs' },
+        // A badge that returns null: genuinely "no data", so it may be dimmed.
+        {
+          name: 'response',
+          label: 'Response',
+          templatePath: '/tmp/response.ejs',
+          badge: () => null,
+        },
+        // A badge that returns a count: shown as-is.
+        {
+          name: 'items',
+          label: 'Items',
+          templatePath: '/tmp/items.ejs',
+          badge: () => 3,
+        },
+      ],
+    });
+    await controller.getProfileDetail('tok-123456789');
+    expect(rendered[0]?.ctx.entrypointTabs).toEqual([
+      { name: 'request', label: 'Request', icon: undefined, badge: undefined },
+      { name: 'response', label: 'Response', icon: undefined, badge: null },
+      { name: 'items', label: 'Items', icon: undefined, badge: 3 },
+    ]);
+  });
+
   it('drops empty and array-empty foreign params from reset links', async () => {
     const { controller, rendered } = setup();
     // `''` (empty string) and `[]` (no first element) both fail the keep test,

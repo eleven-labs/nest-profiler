@@ -272,8 +272,8 @@ describe('CollectorRegistry', () => {
     });
 
     it('derives group label/priority from minimal metadata and a deferred badge', () => {
-      // First collector has no badge (group badge starts null); the group label and
-      // priority fall back to the group name and the collector priority respectively.
+      // First collector has no badge (group badge starts undefined); the group label
+      // and priority fall back to the group name and the collector priority respectively.
       registry.register({ name: 'g-first', group: 'mini', priority: 30, collect: () => [] });
       // Second collector supplies the first non-null badge for the group.
       registry.register({
@@ -289,6 +289,17 @@ describe('CollectorRegistry', () => {
       expect(group?.priority).toBe(30);
       expect(group?.badgeValue).toBe('9');
       expect(group?.subPanels).toHaveLength(2);
+    });
+
+    it('keeps a badgeless group active (badgeValue undefined, not null) so it is never dimmed', () => {
+      // No collector in the group exposes a counter, yet the group carries content:
+      // its badgeValue must stay undefined so the sidebar renders it active.
+      registry.register({ name: 'a', group: 'plain', priority: 10, collect: () => [] });
+      registry.register({ name: 'b', group: 'plain', priority: 11, collect: () => [] });
+      const group = registry.buildPanels(makeProfile()).find((p) => p.name === 'plain');
+      expect(group?.isGroup).toBe(true);
+      expect(group?.subPanels).toHaveLength(2);
+      expect(group?.badgeValue).toBeUndefined();
     });
 
     it('skips grouped collectors whose badge value is null', () => {

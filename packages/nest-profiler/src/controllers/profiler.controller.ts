@@ -172,7 +172,7 @@ export class ProfilerController {
       name: t.name,
       label: t.label,
       icon: t.icon,
-      badge: t.badge?.(profile) ?? null,
+      badge: t.badge ? (t.badge(profile) ?? null) : undefined,
     }));
     const entrypointTabNames = entrypointTabs.map((t) => t.name);
     const builtinTabNames = [...entrypointTabNames, ...UNIVERSAL_TAB_NAMES];
