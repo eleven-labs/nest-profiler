@@ -33,6 +33,7 @@
     "fix-graphql-redos",
     "graphql-entrypoint-data",
     "http-client-agnostic",
+    "nav-badgeless-tabs-active",
     "nest-profiler-auth",
     "nest-profiler-cache",
     "nest-profiler-commander",
