@@ -44,7 +44,7 @@ GraphQL-level errors (schema validation failures, resolver errors returned in `r
 
 The **Request** tab details the method, URL, headers, and collected body.
 
-![Request tab showing HTTP request details](/screenshots/profiler/request.png)
+![Request tab showing a POST create with its method, headers and JSON request body](/screenshots/profiler/request.png)
 
 The **Response** tab shows the status, response headers, and body returned by the handler.
 
@@ -56,9 +56,9 @@ The **Performance** tab groups request duration, memory, and timestamps.
 
 The **Logs** tab lists entries captured through `profilerService.createLogger()`. Each row shows the message first - with structured payloads rendered as a JSON block under it - then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
 
-![Logs tab with one log entry captured during the request](/screenshots/profiler/logs.png)
+![Logs tab showing messages with context names and a structured JSON payload](/screenshots/profiler/logs.png)
 
-The **Exceptions** tab highlights the exception thrown by the `/error` endpoint.
+The **Exceptions** tab highlights the exception thrown by the `/api/v1/error` endpoint.
 
 ![Exceptions tab displaying a captured BadRequestException](/screenshots/profiler/exceptions.png)
 
@@ -87,6 +87,12 @@ The **Cache** collector shows `GET_HIT`, `GET_MISS`, `SET` operations and the hi
 The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, command profiles appear in the list with a **CLI** method badge and the command line in place of the URL; the **Command** tab details the command name, arguments, options, and exit code.
 
 ![Command tab showing a profiled nest-commander run with arguments, options and exit code](/screenshots/profiler/command.png)
+
+The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)) profiles messages consumed via `@RabbitSubscribe`. Each delivery becomes its own profile: a dedicated **RabbitMQ** table on the list page, and a **Message** detail tab showing the exchange, routing key, handler, delivery metadata and JSON payload.
+
+![Profiles list showing the RabbitMQ table with a consumed review.created delivery and its filters](/screenshots/profiler/rabbitmq-list.png)
+
+![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 

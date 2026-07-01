@@ -106,7 +106,8 @@ These tutorials show how to integrate each profiler collector in a real NestJS a
 | File-based profile storage     | storageType: 'file' + LRU/TTL eviction       | `@eleven-labs/nest-profiler`           |
 
 <Callout type="info" title="Example application">
-  The `examples/api` directory contains a complete application demonstrating all collectors working
-  together with a real PostgreSQL database, Redis cache, and JWT authentication. See the [Example
-  application](/docs/example-api) page.
+  The `examples/api` directory contains a complete marketplace application demonstrating all
+  collectors working together: an in-memory or SQL catalog (REST + GraphQL), MongoDB-backed reviews
+  publishing RabbitMQ events, an external content API with caching, JWT auth and CLI commands. See
+  the [Example application](/docs/example-api) page.
 </Callout>

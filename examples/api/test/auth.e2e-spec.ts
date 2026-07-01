@@ -15,7 +15,7 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
   });
 
   it('GET /auth/token issues a demo JWT', async () => {
-    const res = await request(server(app)).get('/auth/token').query({ role: 'admin' });
+    const res = await request(server(app)).get('/api/v1/auth/token').query({ role: 'admin' });
 
     expect(res.status).toBe(200);
     const body = res.body as { token: string };
@@ -24,10 +24,12 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
   });
 
   it('GET /auth/me with a Bearer token records an authenticated security context', async () => {
-    const tokenRes = await request(server(app)).get('/auth/token').query({ role: 'admin' });
+    const tokenRes = await request(server(app)).get('/api/v1/auth/token').query({ role: 'admin' });
     const jwt = (tokenRes.body as { token: string }).token;
 
-    const res = await request(server(app)).get('/auth/me').set('Authorization', `Bearer ${jwt}`);
+    const res = await request(server(app))
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${jwt}`);
 
     expect(res.status).toBe(200);
 
@@ -45,7 +47,7 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
   });
 
   it('GET /auth/me without a token is rejected with 401 and an anonymous security context', async () => {
-    const res = await request(server(app)).get('/auth/me');
+    const res = await request(server(app)).get('/api/v1/auth/me');
 
     expect(res.status).toBe(401);
 
@@ -64,7 +66,9 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
   });
 
   it('GET /auth/me with a malformed token is rejected with 401', async () => {
-    const res = await request(server(app)).get('/auth/me').set('Authorization', 'Bearer not-a-jwt');
+    const res = await request(server(app))
+      .get('/api/v1/auth/me')
+      .set('Authorization', 'Bearer not-a-jwt');
 
     expect(res.status).toBe(401);
   });

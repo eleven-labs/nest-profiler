@@ -22,7 +22,7 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('GET /products returns the seeded products and records SELECT queries', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/products');
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/products');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(4); // seeded on bootstrap
@@ -40,10 +40,10 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('GET /products/:id records the lookup query', async () => {
-    const list = await profileOf(app, 'get', '/products');
+    const list = await profileOf(app, 'get', '/api/v1/products');
     const firstId = (list.res.body as Array<{ id: number }>)[0]!.id;
 
-    const { res, profile } = await profileOf(app, 'get', `/products/${firstId}`);
+    const { res, profile } = await profileOf(app, 'get', `/api/v1/products/${firstId}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: firstId });
@@ -51,7 +51,7 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('GET /products/:id with an unknown id captures the NotFoundException', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/products/999999');
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/products/999999');
 
     expect(res.status).toBe(404);
     expect(profile.exceptions).toEqual(
@@ -60,7 +60,7 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('POST /products inserts the product and validates the DTO', async () => {
-    const { res, profile } = await profileOf(app, 'post', '/products', {
+    const { res, profile } = await profileOf(app, 'post', '/api/v1/products', {
       name: 'E2E Keyboard',
       price: 49.99,
       description: 'Created by the e2e suite',
@@ -78,7 +78,7 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('POST /products with a negative price is rejected with captured violations', async () => {
-    const { res, profile } = await profileOf(app, 'post', '/products', {
+    const { res, profile } = await profileOf(app, 'post', '/api/v1/products', {
       name: 'Broken product',
       price: -5,
     });
@@ -91,13 +91,13 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
   });
 
   it('DELETE /products/:id records the DELETE query', async () => {
-    const created = await profileOf(app, 'post', '/products', {
+    const created = await profileOf(app, 'post', '/api/v1/products', {
       name: 'Disposable product',
       price: 1,
     });
     const id = (created.res.body as { id: number }).id;
 
-    const { res, profile } = await profileOf(app, 'delete', `/products/${id}`);
+    const { res, profile } = await profileOf(app, 'delete', `/api/v1/products/${id}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ deleted: true });

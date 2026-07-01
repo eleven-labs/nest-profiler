@@ -10,35 +10,36 @@ import {
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
-import { AppController } from './app.controller.js';
-import { ProductModule } from './products/product.module.js';
-import { MongoModule } from './mongo/mongo.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
+import { ContentModule } from './content/content.module.js';
 import { AuthModule } from './auth/auth.module.js';
-import { PostsModule } from './posts/posts.module.js';
-import { AppGraphQLModule } from './graphql.module.js';
-import { AppRabbitMqModule } from './rabbitmq/rabbitmq.module.js';
+import { HealthModule } from './health/health.module.js';
+import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
 import appConfig, { isProfilerEnabled } from './config/app.config.js';
 import featuresConfig, {
   isMongooseEnabled,
-  isGraphQLEnabled,
   isPinoLoggerEnabled,
-  isRabbitMqEnabled,
-  isSqlOrmEnabled,
 } from './config/features.config.js';
 
+/**
+ * Composition root. Holds only cross-cutting infrastructure (`forRoot`/global registrations) and
+ * imports the feature (bounded-context) modules — no controller and no other module lives at the
+ * root. Contexts that need no infrastructure are always loaded (catalog on its in-memory adapter,
+ * content, auth, health, diagnostics, notifications with a no-op publisher), so the app boots with
+ * zero DB/broker. GraphQL and RabbitMQ are gated inside their own contexts; only Mongoose-backed
+ * reviews and the pino logger are gated here.
+ */
 @Module({
   imports: [
-    // Core — load factories populate ConfigService.internalConfig (required by ConfigCollector)
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig, featuresConfig],
     }),
 
-    // Pino logger — opt-in via FEATURE_PINO_LOGGER=true; wrapped in main.ts with profilerService.createLogger.
     ConditionalModule.registerWhen(
       LoggerModule.forRoot({
         pinoHttp: {
-          // LOG_LEVEL overrides (e.g. `silent` in e2e tests — profiler log capture is unaffected).
           level:
             process.env['LOG_LEVEL'] ??
             (process.env['NODE_ENV'] === 'production' ? 'info' : 'debug'),
@@ -48,24 +49,8 @@ import featuresConfig, {
       isPinoLoggerEnabled,
     ),
 
-    // Product context — owns the controller/service and selects one SQL ORM adapter internally
-    // based on SQL_ORM. Skipped entirely when SQL_ORM=none.
-    ConditionalModule.registerWhen(ProductModule, isSqlOrmEnabled),
-
-    // Mongoose + ReviewsModule — disabled when FEATURE_MONGOOSE=false
-    ConditionalModule.registerWhen(MongoModule, isMongooseEnabled),
-
-    // GraphQL + BooksModule — disabled when FEATURE_GRAPHQL=false
-    ConditionalModule.registerWhen(AppGraphQLModule, isGraphQLEnabled),
-
-    // RabbitMQ consumer/producer + nest-profiler-rabbitmq — opt-in via FEATURE_RABBITMQ=true
-    ConditionalModule.registerWhen(AppRabbitMqModule, isRabbitMqEnabled),
-
-    // Global cache — consumed by PostsModule and any other module that needs caching
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
 
-    // Profiler core — enabled/isGlobal are synchronous top-level flags;
-    // storage options are resolved via ConfigService once the DI container is ready.
     ProfilerModule.forRootAsync({
       enabled: isProfilerEnabled(process.env),
       isGlobal: true,
@@ -87,26 +72,23 @@ import featuresConfig, {
       },
     }),
 
-    // Global profiler collectors (not tied to a single feature module)
     ConfigCollectorModule.forRoot({
       enabled: isProfilerEnabled(process.env),
       maskKeys: ['database.password'],
     }),
-    // ValidatorCollectorModule installs ProfilerValidationPipe as global APP_PIPE.
-    // Validator-agnostic: omitting `pipe` wraps a default class-validator pipe built
-    // from `validationPipeOptions`. To use nestjs-zod instead, pass `pipe: new ZodValidationPipe()`.
     ValidatorCollectorModule.forRoot({
       enabled: isProfilerEnabled(process.env),
       validationPipeOptions: { whitelist: true, transform: true },
     }),
-    // Registers the `command` entrypoint type so command profiles produced by the
-    // CLI process (shared via file storage) render in this HTTP app's profiler.
     CommanderCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
 
-    // Feature modules — no infra dependency
+    // Feature (bounded-context) modules.
+    CatalogModule,
+    ContentModule,
     AuthModule,
-    PostsModule,
+    HealthModule,
+    DiagnosticsModule,
+    ConditionalModule.registerWhen(ReviewsModule, isMongooseEnabled),
   ],
-  controllers: [AppController],
 })
 export class AppModule {}

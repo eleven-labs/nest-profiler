@@ -8,6 +8,12 @@
  * derive the per-screenshot URLs from the stored profiles and capture them with
  * headless Chrome at a fixed, uniform size (drops straight into a carousel).
  *
+ * Two views can't share the main pass and get their own reboots afterwards:
+ * `mikro-orm.png` (the catalog binds one SQL adapter per boot, so MikroORM runs
+ * with SQL_ORM=mikro-orm) and the RabbitMQ shots (`rabbitmq.png` /
+ * `rabbitmq-list.png`, which need the broker on and a consumed message). Each
+ * boots with its own flags + storage and drives a single request.
+ *
  * Run it directly:
  *   pnpm screenshots
  *   tsx scripts/generate-profiler-screenshots.ts
@@ -19,9 +25,9 @@
  *   SKIP_APP     an instance already serves $API_URL (skip boot/teardown)
  *
  * Other env: API_URL, PORT, OUT_DIR, PROFILER_DIR, CHROME_BIN, WIDTH, HEIGHT,
- * VIRTUAL_TIME_BUDGET, SQL_ORM. `mikro-orm.png` is the SQL "database" tab on the
- * MikroORM stack — regenerate it with SQL_ORM=mikro-orm (the default run uses
- * TypeORM, which produces `database.png`).
+ * VIRTUAL_TIME_BUDGET, SQL_ORM. The main pass uses TypeORM (`database.png`); the
+ * MikroORM and RabbitMQ passes run automatically after it whenever this script
+ * manages the app (they need the Postgres/RabbitMQ containers up).
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -59,13 +65,13 @@ interface Profile {
   collectors?: Record<string, unknown>;
 }
 
-/** Load every stored profile, most-recent first (stable, deterministic pick). */
-function loadProfiles(): Profile[] {
-  return readdirSync(PROFILER_DIR)
+/** Load every stored profile in `dir`, most-recent first (stable, deterministic pick). */
+function loadProfilesFrom(dir: string): Profile[] {
+  return readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .map((f): Profile | null => {
       try {
-        return JSON.parse(readFileSync(join(PROFILER_DIR, f), 'utf8')) as Profile;
+        return JSON.parse(readFileSync(join(dir, f), 'utf8')) as Profile;
       } catch {
         return null;
       }
@@ -73,6 +79,9 @@ function loadProfiles(): Profile[] {
     .filter((p): p is Profile => !!p && typeof p.token === 'string')
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
+
+/** The default run reads the shared `.profiler` populated by the e2e suite. */
+const loadProfiles = (): Profile[] => loadProfilesFrom(PROFILER_DIR);
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 const typeOf = (p: Profile): string | undefined => p.entrypoint?.type;
@@ -90,11 +99,18 @@ const hasCollector = (p: Profile, key: string): boolean => {
   return Array.isArray(value) ? value.length > 0 : !!value && Object.keys(value).length > 0;
 };
 
+const isPost = (p: Profile): boolean => isHttp(p) && methodOf(p) === 'POST';
+const bodyOf = (p: Profile): unknown => dataOf(p).body;
+
 type Predicate = (p: Profile) => boolean;
 const httpGet =
   (url: string): Predicate =>
   (p) =>
     isHttp(p) && methodOf(p) === 'GET' && urlOf(p) === url;
+
+// Business routes are served under the app's global prefix; `/health` and the
+// profiler UI are excluded, so they keep their bare paths.
+const api = (path: string): string => `/api/v1${path}`;
 
 interface Target {
   file: string;
@@ -107,9 +123,15 @@ interface Target {
 // list/global views are captured separately as they need no token lookup.
 const TARGETS: Target[] = [
   {
+    // A create with a rich JSON body — the Request tab shows the method, headers
+    // and the full body, far more telling than a bare GET /health.
     file: 'request.png',
     tab: 'request',
-    preds: [(p) => httpGet('/health')(p) && statusOf(p) === 200, httpGet('/health')],
+    preds: [
+      (p) => isPost(p) && urlOf(p) === api('/reviews') && statusOf(p) === 201,
+      (p) => isPost(p) && urlOf(p) === api('/products') && statusOf(p) === 201,
+      (p) => isPost(p) && bodyOf(p) !== undefined && (statusOf(p) ?? 0) < 400,
+    ],
   },
   {
     file: 'response.png',
@@ -117,46 +139,51 @@ const TARGETS: Target[] = [
     preds: [(p) => httpGet('/health')(p) && statusOf(p) === 200, httpGet('/health')],
   },
   {
+    // /slow has a real, colored duration (nested spans + artificial delay);
+    // /health is ~0ms, so its Performance tab is empty of signal.
     file: 'performance.png',
     tab: 'performance',
-    preds: [(p) => httpGet('/health')(p) && statusOf(p) === 200, httpGet('/health')],
+    preds: [httpGet(api('/slow'))],
   },
   {
+    // The cold /articles call logs a structured payload (author/cache counts)
+    // alongside plain messages. The MISS profile made the axios author calls, so
+    // it carries the http-client collector — that distinguishes it from a HIT.
     file: 'logs.png',
     tab: 'logs',
     preds: [
-      httpGet('/reviews/product/1'),
-      (p) => isHttp(p) && urlOf(p).startsWith('/reviews/product/'),
+      (p) => httpGet(api('/articles'))(p) && hasCollector(p, 'http-client'),
+      httpGet(api('/articles')),
     ],
   },
-  { file: 'timeline.png', tab: 'timeline', preds: [httpGet('/slow')] },
+  { file: 'timeline.png', tab: 'timeline', preds: [httpGet(api('/slow'))] },
   {
     file: 'database.png',
     tab: 'database',
-    preds: [(p) => httpGet('/products')(p) && statusOf(p) === 200],
+    preds: [(p) => httpGet(api('/products'))(p) && statusOf(p) === 200],
   },
   {
     file: 'mongodb.png',
     tab: 'database',
     preds: [
-      (p) => isHttp(p) && urlOf(p) === '/reviews' && hasCollector(p, 'mongoose'),
+      (p) => isHttp(p) && urlOf(p) === api('/reviews') && hasCollector(p, 'mongoose'),
       (p) => isHttp(p) && methodOf(p) === 'GET' && hasCollector(p, 'mongoose'),
     ],
   },
   {
     file: 'http-client.png',
-    tab: 'axios',
-    preds: [(p) => isHttp(p) && urlOf(p) === '/posts' && hasCollector(p, 'axios')],
+    tab: 'http-client',
+    preds: [(p) => isHttp(p) && urlOf(p) === api('/articles') && hasCollector(p, 'http-client')],
   },
   {
     file: 'cache.png',
     tab: 'cache',
-    preds: [(p) => isHttp(p) && urlOf(p) === '/posts' && hasCollector(p, 'cache')],
+    preds: [(p) => isHttp(p) && urlOf(p) === api('/articles') && hasCollector(p, 'cache')],
   },
   {
     file: 'security.png',
     tab: 'auth',
-    preds: [(p) => httpGet('/auth/me')(p) && statusOf(p) === 200, httpGet('/auth/me')],
+    preds: [(p) => httpGet(api('/auth/me'))(p) && statusOf(p) === 200, httpGet(api('/auth/me'))],
   },
   {
     file: 'validator.png',
@@ -165,7 +192,7 @@ const TARGETS: Target[] = [
       (p) =>
         isHttp(p) &&
         methodOf(p) === 'POST' &&
-        urlOf(p) === '/posts' &&
+        urlOf(p) === api('/articles') &&
         statusOf(p) === 400 &&
         hasCollector(p, 'validator'),
       (p) =>
@@ -176,16 +203,16 @@ const TARGETS: Target[] = [
     file: 'exceptions.png',
     tab: 'exceptions',
     preds: [
-      (p) => httpGet('/error')(p) && exceptionsOf(p) > 0,
+      (p) => httpGet(api('/error'))(p) && exceptionsOf(p) > 0,
       (p) => isHttp(p) && exceptionsOf(p) > 0,
     ],
   },
-  // CLI command (commander entrypoint) — prefer sync:posts, which also exercises axios + cache.
+  // CLI command (commander entrypoint) — prefer content:sync, which also exercises the HTTP client + cache.
   {
     file: 'command.png',
     tab: 'command',
     preds: [
-      (p) => typeOf(p) === 'command' && commandNameOf(p) === 'sync:posts' && statusOf(p) === 200,
+      (p) => typeOf(p) === 'command' && commandNameOf(p) === 'content:sync' && statusOf(p) === 200,
       (p) => typeOf(p) === 'command' && statusOf(p) === 200,
     ],
   },
@@ -244,16 +271,26 @@ function capture(filename: string, url: string): void {
 }
 
 /**
+ * The profiler serves its CSS/JS from same-origin absolute paths
+ * (`/_profiler/__assets/…`), so a saved `file://` copy would load unstyled. Inject
+ * a `<base href="${API_URL}/">` so every relative asset resolves against the
+ * running app instead. (The app is up throughout capture.)
+ */
+const withBase = (html: string): string =>
+  html.replace('<head>', `<head><base href="${API_URL}/">`);
+
+/**
  * Capture a single list-page section on its own. The list renders every section
  * (and the global panels) as sibling, non-nested `<details>` blocks, so we fetch
  * the page, drop every block except the one whose summary holds `title`, force it
- * open, and shoot the local copy (assets are absolute CDN URLs, so file:// renders
- * identically). Used for the GraphQL and Commands section views.
+ * open, rewrite asset URLs with a `<base>`, and shoot the local copy. Used for the
+ * GraphQL and Commands section views.
  */
 async function captureSection(filename: string, title: string, workDir: string): Promise<void> {
-  const html = (await (await fetch(PROFILER_URL)).text()).replace(
-    /<details\b[\s\S]*?<\/details>/g,
-    (block) => (block.includes(`>${title}<`) ? block.replace('<details', '<details open') : ''),
+  const html = withBase(
+    (await (await fetch(PROFILER_URL)).text()).replace(/<details\b[\s\S]*?<\/details>/g, (block) =>
+      block.includes(`>${title}<`) ? block.replace('<details', '<details open') : '',
+    ),
   );
   const file = join(workDir, filename.replace(/\.png$/, '.html'));
   writeFileSync(file, html);
@@ -278,9 +315,62 @@ async function waitForProfiler(child: ChildProcess, logFile: string): Promise<vo
   throw new Error(`Timed out waiting for ${PROFILER_URL}:\n${readFileSync(logFile, 'utf8')}`);
 }
 
+/**
+ * Boot the compiled example API on $PORT with the profiler on (file storage at
+ * `storagePath`) and wait for the UI to answer. `extraEnv` carries the per-pass
+ * feature flags (SQL_ORM, FEATURE_*). Passes run sequentially on the same port,
+ * so stop the previous app before booting the next.
+ */
+async function bootApp(
+  logFile: string,
+  storagePath: string,
+  extraEnv: Record<string, string>,
+): Promise<ChildProcess> {
+  writeFileSync(logFile, ''); // ensure the file exists before we append to it
+  const app = spawn('node', ['dist/main.js'], {
+    cwd: API_DIR,
+    env: {
+      ...process.env,
+      PORT,
+      PROFILER_ENABLED: 'true',
+      PROFILER_STORAGE_TYPE: 'file',
+      PROFILER_STORAGE_PATH: storagePath,
+      PROFILER_TTL: '86400',
+      LOG_LEVEL: 'silent',
+      ...extraEnv,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const logStream = (chunk: Buffer): void => writeFileSync(logFile, chunk, { flag: 'a' });
+  app.stdout?.on('data', logStream);
+  app.stderr?.on('data', logStream);
+  console.log(`▶ Waiting for ${PROFILER_URL} …`);
+  await waitForProfiler(app, logFile);
+  return app;
+}
+
+function stopApp(app: ChildProcess | undefined): void {
+  if (app?.exitCode === null) app.kill();
+}
+
+/**
+ * Poll `dir` until a stored profile matches `pred`. Profiler persistence is
+ * deferred, so a just-triggered request lands a moment later; the MikroORM and
+ * RabbitMQ passes drive one request into their own storage, then wait for it.
+ */
+async function waitForProfileIn(dir: string, pred: Predicate): Promise<Profile> {
+  for (let i = 0; i < 30; i += 1) {
+    const match = loadProfilesFrom(dir).find(pred);
+    if (match) return match;
+    await sleep(500);
+  }
+  throw new Error(`Timed out waiting for a matching profile in ${dir}`);
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
   const workDir = mkdtempSync(join(tmpdir(), 'profiler-shots-'));
+  const logFile = join(workDir, 'app.log');
   let app: ChildProcess | undefined;
 
   try {
@@ -305,31 +395,12 @@ async function main(): Promise<void> {
       }
 
       console.log(`▶ Starting the example API on port ${PORT}…`);
-      const logFile = join(workDir, 'app.log');
-      writeFileSync(logFile, ''); // ensure the file exists before we append to it
-      app = spawn('node', ['dist/main.js'], {
-        cwd: API_DIR,
-        env: {
-          ...process.env,
-          PORT,
-          PROFILER_ENABLED: 'true',
-          PROFILER_STORAGE_TYPE: 'file',
-          PROFILER_STORAGE_PATH: PROFILER_DIR,
-          PROFILER_TTL: '86400',
-          SQL_ORM: process.env.SQL_ORM ?? 'typeorm',
-          FEATURE_MONGOOSE: 'true',
-          FEATURE_GRAPHQL: 'true',
-          FEATURE_PINO_LOGGER: 'true',
-          LOG_LEVEL: 'silent',
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
+      app = await bootApp(logFile, PROFILER_DIR, {
+        SQL_ORM: process.env.SQL_ORM ?? 'typeorm',
+        FEATURE_MONGOOSE: 'true',
+        FEATURE_GRAPHQL: 'true',
+        FEATURE_PINO_LOGGER: 'true',
       });
-      const logStream = (chunk: Buffer): void => writeFileSync(logFile, chunk, { flag: 'a' });
-      app.stdout?.on('data', logStream);
-      app.stderr?.on('data', logStream);
-
-      console.log(`▶ Waiting for ${PROFILER_URL} …`);
-      await waitForProfiler(app, logFile);
     }
 
     // 4. Detail-tab screenshots — tokens derived from the stored profiles.
@@ -368,16 +439,93 @@ async function main(): Promise<void> {
     await captureSection('command-list.png', 'Commands', workDir);
 
     // 7. Config — a collapsed-by-default global panel. Headless Chrome cannot open a
-    //    <details>, so fetch the rendered page, force every disclosure open, and shoot
-    //    the local copy (all assets are absolute CDN URLs, so file:// renders identically).
+    //    <details>, so fetch the rendered page, force every disclosure open, rewrite
+    //    asset URLs with a <base>, and shoot the local copy.
     console.log('  • config.png');
-    const html = (await (await fetch(PROFILER_URL)).text()).replace(/<details/g, '<details open');
+    const html = withBase(
+      (await (await fetch(PROFILER_URL)).text()).replace(/<details/g, '<details open'),
+    );
     const configHtml = join(workDir, 'config.html');
     writeFileSync(configHtml, html);
     capture('config.png', `file://${configHtml}`);
 
+    // The next two passes reboot the app with different feature flags, so they
+    // only run when this script manages the app (not under SKIP_APP).
+    if (!skip('SKIP_APP')) {
+      // 8. MikroORM Database panel — the catalog binds exactly one SQL adapter
+      //    per boot, so the MikroORM query panel needs its own run
+      //    (SQL_ORM=mikro-orm) against fresh storage. Drive one GET /products
+      //    and shoot the Database tab as `mikro-orm.png` (mirrors database.png,
+      //    which the TypeORM main pass produces).
+      console.log('  • mikro-orm.png (SQL_ORM=mikro-orm pass)');
+      stopApp(app);
+      app = undefined;
+      const mikroDir = mkdtempSync(join(tmpdir(), 'profiler-mikro-'));
+      try {
+        app = await bootApp(logFile, mikroDir, {
+          SQL_ORM: 'mikro-orm',
+          FEATURE_MONGOOSE: 'false',
+          FEATURE_GRAPHQL: 'false',
+          FEATURE_PINO_LOGGER: 'false',
+        });
+        await fetch(`${API_URL}${api('/products')}`);
+        const mikro = await waitForProfileIn(
+          mikroDir,
+          (p) => httpGet(api('/products'))(p) && hasCollector(p, 'mikro-orm'),
+        );
+        capture('mikro-orm.png', `${PROFILER_URL}/${mikro.token}?tab=database`);
+      } catch (error) {
+        console.warn(
+          `  ⚠ SKIPPED mikro-orm.png (${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        stopApp(app);
+        app = undefined;
+        rmSync(mikroDir, { recursive: true, force: true });
+      }
+
+      // 9. RabbitMQ delivery — @RabbitSubscribe messages become their own
+      //    profiles (the `rabbitmq` entrypoint). Boot with the broker on, POST a
+      //    review to publish `review.created`, wait for the consumer's delivery
+      //    profile, then shoot its Message detail tab and the RabbitMQ list
+      //    section (mirrors command.png / command-list.png).
+      console.log('  • rabbitmq.png + rabbitmq-list.png (FEATURE_RABBITMQ pass)');
+      const rmqDir = mkdtempSync(join(tmpdir(), 'profiler-rmq-'));
+      try {
+        app = await bootApp(logFile, rmqDir, {
+          SQL_ORM: 'in-memory',
+          FEATURE_MONGOOSE: 'true',
+          FEATURE_RABBITMQ: 'true',
+          FEATURE_GRAPHQL: 'false',
+          FEATURE_PINO_LOGGER: 'false',
+        });
+        await fetch(`${API_URL}${api('/reviews')}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            productId: '64a1b2c3d4e5f6789abcdef0',
+            rating: 5,
+            comment: 'Great product, highly recommended!',
+            author: 'Jane Doe',
+            status: 'approved',
+          }),
+        });
+        const delivery = await waitForProfileIn(rmqDir, (p) => typeOf(p) === 'rabbitmq');
+        capture('rabbitmq.png', `${PROFILER_URL}/${delivery.token}?tab=message`);
+        await captureSection('rabbitmq-list.png', 'RabbitMQ', workDir);
+      } catch (error) {
+        console.warn(
+          `  ⚠ SKIPPED rabbitmq shots (${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        stopApp(app);
+        app = undefined;
+        rmSync(rmqDir, { recursive: true, force: true });
+      }
+    }
+
     console.log(
-      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config views → ${OUT_DIR}`,
+      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config + MikroORM/RabbitMQ passes → ${OUT_DIR}`,
     );
   } finally {
     if (app?.exitCode === null) {

@@ -1,27 +1,31 @@
 import { registerAs } from '@nestjs/config';
 
-/** SQL ORM backing the products context. Mutually exclusive — they share the same Postgres table. */
-export type SqlOrm = 'typeorm' | 'mikro-orm' | 'none';
+/**
+ * Persistence backing the catalog context. `typeorm`/`mikro-orm` share the same Postgres table;
+ * `in-memory` needs no infrastructure and is the default so the app runs out of the box (and on
+ * serverless deploys like Vercel, where there is no database).
+ */
+export type SqlOrm = 'typeorm' | 'mikro-orm' | 'in-memory';
 
-const SQL_ORMS: SqlOrm[] = ['typeorm', 'mikro-orm', 'none'];
+const SQL_ORMS: SqlOrm[] = ['typeorm', 'mikro-orm', 'in-memory'];
 
 export const getSqlOrm = (env: NodeJS.ProcessEnv): SqlOrm => {
-  const value = (env['SQL_ORM'] ?? 'none') as SqlOrm;
-  return SQL_ORMS.includes(value) ? value : 'typeorm';
+  const value = (env['SQL_ORM'] ?? 'in-memory') as SqlOrm;
+  return SQL_ORMS.includes(value) ? value : 'in-memory';
 };
 
 /** Condition factory for `ConditionalModule.registerWhen` — evaluated after `.env` is loaded. */
 export const isSqlOrm = (orm: SqlOrm) => (env: NodeJS.ProcessEnv) => getSqlOrm(env) === orm;
 
-/** True when a SQL ORM adapter is selected (anything but `none`). */
-export const isSqlOrmEnabled = (env: NodeJS.ProcessEnv) => getSqlOrm(env) !== 'none';
-
-export const isMongooseEnabled = (env: NodeJS.ProcessEnv) => env['FEATURE_MONGOOSE'] !== 'false';
+// All infrastructure-dependent features are opt-in (=== 'true') so a bare deploy with no
+// database/broker (Vercel) still boots on the minimal set: catalog (in-memory), content (HTTP),
+// auth, health, diagnostics and GraphQL. Local dev / e2e turn the flags on explicitly.
+export const isMongooseEnabled = (env: NodeJS.ProcessEnv) => env['FEATURE_MONGOOSE'] === 'true';
+// GraphQL needs no infrastructure (served over the in-memory catalog), so it is on by default.
 export const isGraphQLEnabled = (env: NodeJS.ProcessEnv) => env['FEATURE_GRAPHQL'] !== 'false';
-// Opt-in (=== 'true') — off by default unlike FEATURE_TYPEORM/FEATURE_MONGOOSE.
 export const isPinoLoggerEnabled = (env: NodeJS.ProcessEnv) =>
   env['FEATURE_PINO_LOGGER'] === 'true';
-// Opt-in (=== 'true') — off by default; needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
+// Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
 export const isRabbitMqEnabled = (env: NodeJS.ProcessEnv) => env['FEATURE_RABBITMQ'] === 'true';
 
 export default registerAs('features', () => ({

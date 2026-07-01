@@ -72,14 +72,14 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
     );
   });
 
-  it('profiles sync:posts with the axios and cache collectors', async () => {
+  it('profiles content:sync with the axios and cache collectors', async () => {
     mockJsonPlaceholder();
     lockNetwork();
     try {
-      const profile = await runCommand(['sync:posts', '-l', '3']);
+      const profile = await runCommand(['content:sync', '-l', '3']);
 
       expect(profile.entrypoint.data).toMatchObject({
-        name: 'sync:posts',
+        name: 'content:sync',
         success: true,
       });
 
@@ -96,10 +96,12 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
 
       const cache = profile.collectors['cache'] as CacheOperationEntry[];
       expect(cache).toEqual(
-        expect.arrayContaining([expect.objectContaining({ operation: 'SET', key: 'cli:posts' })]),
+        expect.arrayContaining([
+          expect.objectContaining({ operation: 'SET', key: 'cli:articles' }),
+        ]),
       );
 
-      expect((profile.spans ?? []).map((s) => s.phase)).toContain('cli.sync-posts.fetch');
+      expect((profile.spans ?? []).map((s) => s.phase)).toContain('cli.content-sync.fetch');
     } finally {
       unlockNetwork();
     }

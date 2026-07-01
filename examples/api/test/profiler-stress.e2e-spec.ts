@@ -15,15 +15,15 @@ const SEQUENTIAL_CHAIN = 10;
 
 const short = (token: string): string => token.slice(0, 8);
 
-const createBook = (app: INestApplication, title: string) =>
+const createProduct = (app: INestApplication, name: string) =>
   request(server(app))
     .post('/graphql')
     .send({
-      query: `mutation CreateBook($input: CreateBookInput!) {
-        createBook(input: $input) { id title }
+      query: `mutation CreateProduct($input: CreateProductInput!) {
+        createProduct(input: $input) { id name }
       }`,
-      variables: { input: { title, author: 'Stress Bot', publishedYear: 2024 } },
-      operationName: 'CreateBook',
+      variables: { input: { name, price: 20 } },
+      operationName: 'CreateProduct',
     });
 
 describe('Profiler stress (e2e) — concurrent bursts and list integrity', () => {
@@ -42,8 +42,12 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
 
   it('lists every profile from a concurrent burst of GraphQL mutations and REST calls', async () => {
     const responses = await Promise.all([
-      ...Array.from({ length: CONCURRENT_BURST }, (_, i) => createBook(app, `Burst Book ${i}`)),
-      ...Array.from({ length: CONCURRENT_BURST }, () => request(server(app)).get('/products')),
+      ...Array.from({ length: CONCURRENT_BURST }, (_, i) =>
+        createProduct(app, `Burst Product ${i}`),
+      ),
+      ...Array.from({ length: CONCURRENT_BURST }, () =>
+        request(server(app)).get('/api/v1/products'),
+      ),
     ]);
 
     const tokens = responses.map(tokenOf);
@@ -65,7 +69,7 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
   it('lists every profile from a rapid sequential chain of mutations', async () => {
     const tokens: string[] = [];
     for (let i = 0; i < SEQUENTIAL_CHAIN; i++) {
-      tokens.push(tokenOf(await createBook(app, `Chain Book ${i}`)));
+      tokens.push(tokenOf(await createProduct(app, `Chain Product ${i}`)));
     }
 
     await app.get(ProfilerService).flush();

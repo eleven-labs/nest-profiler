@@ -1,19 +1,24 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import appConfig, { isProfilerEnabled } from './config/app.config.js';
 import featuresConfig from './config/features.config.js';
-import { CommandsModule } from './commands/commands.module.js';
+import { ContentModule } from './content/content.module.js';
+import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
 
 /**
- * Lightweight module bootstrapped by the CLI (`cli.ts`). It deliberately avoids the web-only
- * infrastructure (GraphQL, TypeORM, Mongoose) and uses **file** storage so the command
- * profiles it writes show up in the HTTP app's web profiler at `/_profiler`.
+ * Composition root for the CLI (`cli.ts`). It reuses the feature contexts that expose commands —
+ * `ContentModule` (`content:sync`) and `DiagnosticsModule` (`demo:greet`) — while avoiding web-only
+ * infrastructure (GraphQL, TypeORM, Mongoose). Uses **file** storage so the command profiles it
+ * writes show up in the HTTP app's web profiler at `/_profiler`.
  */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [appConfig, featuresConfig] }),
+
+    CacheModule.register({ isGlobal: true, ttl: 60000 }),
 
     ProfilerModule.forRootAsync({
       enabled: isProfilerEnabled(process.env),
@@ -34,7 +39,8 @@ import { CommandsModule } from './commands/commands.module.js';
 
     CommanderCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
 
-    CommandsModule,
+    ContentModule,
+    DiagnosticsModule,
   ],
 })
 export class CliModule {}

@@ -88,7 +88,7 @@ export class ArticlesController {
 **Valid request:**
 
 ```bash
-curl -i -X POST http://localhost:3000/articles \
+curl -i -X POST http://localhost:3000/api/v1/articles \
   -H "Content-Type: application/json" \
   -d '{"title": "My first article", "body": "This is the body of the article with enough content."}'
 ```
@@ -96,7 +96,7 @@ curl -i -X POST http://localhost:3000/articles \
 **Invalid request:**
 
 ```bash
-curl -i -X POST http://localhost:3000/articles \
+curl -i -X POST http://localhost:3000/api/v1/articles \
   -H "Content-Type: application/json" \
   -d '{"title": "Hi", "body": "Too short"}'
 ```

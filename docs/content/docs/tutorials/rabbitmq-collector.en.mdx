@@ -74,19 +74,19 @@ A handler that throws is captured too: its profile is marked failed (status `500
 
 ## Try it in the example app
 
-The example API wires this end to end behind a feature flag (off by default). Start a broker and run it with the flag on:
+The example API wires this end to end behind feature flags (off by default): creating a review publishes a `review.created` event that a `@RabbitSubscribe` consumer reacts to. Start the infrastructure and run it with the flags on:
 
 ```bash
-docker compose up -d rabbitmq
-FEATURE_RABBITMQ=true pnpm example:dev
+docker compose up -d mongodb rabbitmq
+FEATURE_MONGOOSE=true FEATURE_RABBITMQ=true pnpm example:dev
 ```
 
-Then publish a message and open `/_profiler` to see it profiled:
+Then create a review and open `/_profiler` to see the consumed message profiled:
 
 ```bash
-curl -X POST http://localhost:3000/notifications \
+curl -X POST http://localhost:3000/api/v1/reviews \
   -H 'content-type: application/json' \
-  -d '{ "subject": "Deploy done", "body": "v1.2.3 shipped" }'
+  -d '{ "productId": "1", "rating": 5, "comment": "Great product!", "author": "Alice" }'
 ```
 
 ## Configuration

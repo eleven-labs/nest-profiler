@@ -108,7 +108,7 @@ import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 export class ProductsModule {}
 ```
 
-```ts title="posts/posts.module.ts"
+```ts title="content/content.module.ts"
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
@@ -120,7 +120,7 @@ import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
     CacheCollectorModule.forRoot(),
   ],
 })
-export class PostsModule {}
+export class ContentModule {}
 ```
 
 ```ts title="auth/auth.module.ts"
@@ -153,7 +153,7 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
     }),
     // feature modules:
     ProductsModule,
-    PostsModule,
+    ContentModule,
     AuthModule,
   ],
 })
@@ -224,41 +224,41 @@ pnpm example:dev
 Make requests to exercise each collector:
 
 ```bash
-curl http://localhost:3000/products       # TypeORM SELECT (auto-seeded at startup)
-curl http://localhost:3000/posts          # Axios GET + cache SET
-curl http://localhost:3000/posts          # cache HIT
-curl http://localhost:3000/auth/token     # get demo JWT
-curl -H "Authorization: Bearer <token>" http://localhost:3000/auth/me  # Auth
-curl -X POST http://localhost:3000/posts \
+curl http://localhost:3000/api/v1/products       # Catalog (in-memory by default, or SQL SELECT with SQL_ORM=typeorm)
+curl http://localhost:3000/api/v1/articles       # Axios GET + cache SET
+curl http://localhost:3000/api/v1/articles       # cache HIT
+curl http://localhost:3000/api/v1/auth/token     # get demo JWT
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/v1/auth/me  # Auth
+curl -X POST http://localhost:3000/api/v1/articles \
   -H "Content-Type: application/json" \
   -d '{"title":"Hi","body":"too short"}'  # Validator violations
-curl http://localhost:3000/slow            # Timeline spans
+curl http://localhost:3000/api/v1/slow            # Timeline spans
 
-# GraphQL - requires FEATURE_GRAPHQL=true (default)
+# GraphQL - requires FEATURE_GRAPHQL=true (default), served over the catalog
 # Query with operation name
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
-    "operationName": "GetBooks",
-    "query": "query GetBooks { books { id title author publishedYear } }"
+    "operationName": "GetProducts",
+    "query": "query GetProducts { products { id name price inStock } }"
   }'
 
 # Query with variable
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
-    "operationName": "GetBook",
-    "query": "query GetBook($id: ID!) { book(id: $id) { id title author } }",
-    "variables": { "id": "1" }
+    "operationName": "GetProduct",
+    "query": "query GetProduct($id: Int!) { product(id: $id) { id name price } }",
+    "variables": { "id": 1 }
   }'
 
 # Mutation with operation name and variables
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
-    "operationName": "CreateBook",
-    "query": "mutation CreateBook($title: String!, $author: String!, $publishedYear: Int) { createBook(input: { title: $title, author: $author, publishedYear: $publishedYear }) { id title author } }",
-    "variables": { "title": "NestJS in Action", "author": "John Doe", "publishedYear": 2024 }
+    "operationName": "CreateProduct",
+    "query": "mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name price } }",
+    "variables": { "input": { "name": "NestJS in Action", "price": 29.99 } }
   }'
 ```
 

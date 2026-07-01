@@ -8,6 +8,7 @@ import type { Response } from 'supertest';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { AppModule } from '../../src/app.module.js';
+import { applyGlobalPrefix } from '../../src/config/global-prefix.js';
 import { isPinoLoggerEnabled } from '../../src/config/features.config.js';
 
 export type SqlOrm = 'typeorm' | 'mikro-orm';
@@ -29,6 +30,8 @@ export async function createE2EApp(): Promise<INestApplication> {
     ? app.get(PinoLogger)
     : new ConsoleLogger('e2e');
   app.useLogger(profilerService.createLogger(baseLogger));
+
+  applyGlobalPrefix(app);
 
   await app.init();
   return app;

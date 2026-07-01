@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import { AppModule } from './app.module.js';
+import { applyGlobalPrefix } from './config/global-prefix.js';
 import { isPinoLoggerEnabled } from './config/features.config.js';
 
 async function bootstrap() {
@@ -18,6 +19,8 @@ async function bootstrap() {
     ? app.get(PinoLogger)
     : new ConsoleLogger('ExampleApi');
   app.useLogger(profilerService.createLogger(baseLogger));
+
+  applyGlobalPrefix(app);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('nest-profiler — example API')

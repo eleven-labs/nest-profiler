@@ -18,14 +18,14 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
 
     // Generate one profile per shape the filters discriminate on.
     healthToken = tokenOf(await request(server(app)).get('/health'));
-    slowToken = tokenOf(await request(server(app)).get('/slow'));
-    errorToken = tokenOf(await request(server(app)).get('/error'));
-    productsToken = tokenOf(await request(server(app)).get('/products'));
+    slowToken = tokenOf(await request(server(app)).get('/api/v1/slow'));
+    errorToken = tokenOf(await request(server(app)).get('/api/v1/error'));
+    productsToken = tokenOf(await request(server(app)).get('/api/v1/products'));
     createToken = tokenOf(
-      await request(server(app)).post('/products').send({ name: 'UI fixture', price: 10 }),
+      await request(server(app)).post('/api/v1/products').send({ name: 'UI fixture', price: 10 }),
     );
     graphqlToken = tokenOf(
-      await request(server(app)).post('/graphql').send({ query: '{ books { id } }' }),
+      await request(server(app)).post('/graphql').send({ query: '{ products { id } }' }),
     );
   });
 
