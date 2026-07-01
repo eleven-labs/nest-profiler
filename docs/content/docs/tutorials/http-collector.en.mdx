@@ -128,7 +128,7 @@ export class WeatherService {
 }
 ```
 
-`capture()` honours the configured `captureRequestHeaders` / `captureRequestBody` / `captureResponseHeaders` / `captureResponseBody` flags and the `maskHeaders` list, normalising any header bag (a `fetch` `Headers`, an axios `AxiosHeaders`, a `Map`, or a plain record) and redacting sensitive values with `[REDACTED]`. It is a no-op outside a request context, so it is safe to call unconditionally. If you have already built a final `HttpRequestEntry` and want to bypass the options, call `recorder.record(entry)` instead. A runnable version ships in the example API at `GET /posts/via-fetch`.
+`capture()` honours the configured `captureRequestHeaders` / `captureRequestBody` / `captureResponseHeaders` / `captureResponseBody` flags and the `maskHeaders` list, normalising any header bag (a `fetch` `Headers`, an axios `AxiosHeaders`, a `Map`, or a plain record) and redacting sensitive values with `[REDACTED]`. It is a no-op outside a request context, so it is safe to call unconditionally. If you have already built a final `HttpRequestEntry` and want to bypass the options, call `recorder.record(entry)` instead. A runnable version ships in the example API at `GET /api/v1/articles/via-fetch`.
 
 For a **reusable adapter**, implement the `HttpInstrumentation` interface instead of recording inline, then register it once via `HttpCollectorModule.forRoot({ instrumentations: [WeatherInstrumentation] })`:
 

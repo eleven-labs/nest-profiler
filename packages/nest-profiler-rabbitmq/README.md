@@ -24,6 +24,10 @@
 
 `@eleven-labs/nest-profiler-rabbitmq` captures RabbitMQ messages consumed via `@RabbitSubscribe` (`@golevelup/nestjs-rabbitmq`) and surfaces each one as its own profile — a dedicated **RabbitMQ** table on the list page and a built-in **Message** detail tab.
 
+![RabbitMQ list section — consumed messages with delivery, exchange, routing-key and handler filters](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq-list.png)
+
+![Message detail tab — a consumed review.created delivery with exchange, routing key, handler, delivery metadata and JSON payload](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq.png)
+
 ## Installation
 
 ```bash

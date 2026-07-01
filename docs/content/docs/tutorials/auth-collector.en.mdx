@@ -79,7 +79,7 @@ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 curl http://localhost:3000/profile
 
 # With a JWT - Security tab shows user info and claims
-TOKEN=$(curl -s "http://localhost:3000/auth/token" | jq -r .token)
+TOKEN=$(curl -s "http://localhost:3000/api/v1/auth/token" | jq -r .token)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/profile
 ```
 

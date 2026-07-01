@@ -63,6 +63,8 @@ Full guides and API reference live on the documentation site (`pnpm docs:dev`, t
 | **Database** (TypeORM)                                           | **HTTP Client** (Axios)                                                | **Cache**                                                        |
 | ![Security panel](docs/public/screenshots/profiler/security.png) | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Timeline panel](docs/public/screenshots/profiler/timeline.png) |
 | **Security** (JWT/Auth)                                          | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
+| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png) | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
+| **RabbitMQ** (@RabbitSubscribe)                                  | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
 
 ## Quickstart
 

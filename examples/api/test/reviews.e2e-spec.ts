@@ -20,7 +20,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('GET /reviews returns the seeded reviews and records the find query', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/reviews');
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/reviews');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(5); // seeded on bootstrap
@@ -31,7 +31,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('GET /reviews/stats records an aggregate query', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/reviews/stats');
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/reviews/stats');
 
     expect(res.status).toBe(200);
     const stats = res.body as Array<{ productId: string; avgRating: number; count: number }>;
@@ -47,7 +47,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('GET /reviews/product/:productId records the find with its filter', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/reviews/product/1');
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/reviews/product/1');
 
     expect(res.status).toBe(200);
     expect((res.body as unknown[]).length).toBeGreaterThanOrEqual(1);
@@ -57,7 +57,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('POST /reviews with a valid body creates the review and validates the DTO', async () => {
-    const { res, profile } = await profileOf(app, 'post', '/reviews', {
+    const { res, profile } = await profileOf(app, 'post', '/api/v1/reviews', {
       productId: '9',
       rating: 5,
       comment: 'E2E review',
@@ -76,7 +76,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('POST /reviews with an invalid rating is rejected with captured violations', async () => {
-    const { res, profile } = await profileOf(app, 'post', '/reviews', {
+    const { res, profile } = await profileOf(app, 'post', '/api/v1/reviews', {
       productId: '9',
       rating: 42, // above Max(5)
       comment: 'bad rating',
@@ -91,15 +91,15 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('DELETE /reviews/:id records the findOne and delete queries', async () => {
-    const created = await profileOf(app, 'post', '/reviews', {
+    const created = await profileOf(app, 'post', '/api/v1/reviews', {
       productId: '9',
       rating: 1,
       comment: 'to be deleted',
       author: 'e2e-bot',
     });
-    const id = (created.res.body as { _id: string })._id;
+    const id = (created.res.body as { id: string }).id;
 
-    const { res, profile } = await profileOf(app, 'delete', `/reviews/${id}`);
+    const { res, profile } = await profileOf(app, 'delete', `/api/v1/reviews/${id}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ deleted: true });
@@ -110,7 +110,11 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
   });
 
   it('GET /reviews/:id with an unknown id captures the NotFoundException', async () => {
-    const { res, profile } = await profileOf(app, 'get', '/reviews/64a1b2c3d4e5f6789abcdef0');
+    const { res, profile } = await profileOf(
+      app,
+      'get',
+      '/api/v1/reviews/64a1b2c3d4e5f6789abcdef0',
+    );
 
     expect(res.status).toBe(404);
     expect(profile.exceptions).toEqual(
