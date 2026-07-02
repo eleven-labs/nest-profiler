@@ -4,13 +4,14 @@ import { defineConfig, defineDocs, frontmatterSchema, remarkInclude } from 'fuma
 import lastModified from 'fumadocs-mdx/plugins/last-modified';
 import { z } from 'zod';
 
-import { DOCS_CONTENT_DIR } from './lib/constants';
+import { DOCS_CONTENT_DIR, SITE_URL } from './lib/constants';
 
 interface MdastNode {
   children?: MdastNode[];
   depth?: number;
   type?: string;
   url?: string;
+  value?: string;
 }
 
 /**
@@ -102,6 +103,66 @@ function remarkReadmeLinks() {
   };
 }
 
+/**
+ * READMEs and guides link to sibling docs pages by their full absolute URL
+ * (e.g. `https://nest-profiler.eleven-labs.com/docs/example-api`) so the link
+ * resolves on npm/GitHub where relative paths have no base. Inside the docs
+ * site, fumadocs treats any `scheme:` URL as external and opens it in a new tab
+ * (`target="_blank"`), even when it points at our own domain. Strip our own
+ * origin so those links become root-relative (`/docs/...`) and navigate in-site
+ * in the same tab. A bare origin (no path) collapses to `/`.
+ *
+ * We match against both the configured `SITE_URL` and the canonical host, so
+ * links stay in-site even when `NEXT_PUBLIC_SITE_URL` is overridden at build
+ * time while the content hardcodes the canonical domain. Every other `http(s)`
+ * link (github.com, eleven-labs.com, codecov, shields.io, ...) is left external.
+ */
+const OWN_ORIGINS = Array.from(new Set(['https://nest-profiler.eleven-labs.com', SITE_URL]));
+function remarkInternalLinks() {
+  return (tree: MdastNode): void => {
+    const visit = (node: MdastNode): void => {
+      if (node.type === 'link' && typeof node.url === 'string') {
+        const url = node.url;
+        const origin = OWN_ORIGINS.find((own) => url.startsWith(own));
+        if (origin) node.url = url.slice(origin.length) || '/';
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
+/**
+ * Each package README ends with an npm-only footer — a `---` rule followed by a
+ * paragraph `Part of the [nest-profiler](...) toolkit · Powered & maintained by
+ * [Eleven Labs](...)`. It exists so the README renders correctly on npmjs, but
+ * inside the docs it duplicates the site chrome. The HTML header logo/tagline is
+ * already dropped by `remarkStripRawHtml`; this removes the plain-markdown
+ * footer paragraph (and its preceding `---`) so it does not render in-site.
+ */
+function remarkStripReadmeFooter() {
+  const textOf = (node: MdastNode): string =>
+    (node.value ?? '') + (node.children?.map(textOf).join('') ?? '');
+  const isFooter = (node: MdastNode): boolean => {
+    if (node.type !== 'paragraph') return false;
+    const text = textOf(node);
+    return text.includes('Part of the') && text.includes('toolkit');
+  };
+  return (tree: MdastNode): void => {
+    const visit = (node: MdastNode): void => {
+      const children = node.children;
+      if (!children) return;
+      const idx = children.findIndex(isFooter);
+      if (idx !== -1) {
+        const removeFrom = children[idx - 1]?.type === 'thematicBreak' ? idx - 1 : idx;
+        children.splice(removeFrom, idx - removeFrom + 1);
+      }
+      children.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
 const ejsLanguage: LanguageRegistration = {
   name: 'ejs',
   scopeName: 'text.html.ejs',
@@ -172,9 +233,11 @@ export default defineConfig({
         includeIndex === -1 ? 0 : includeIndex + 1,
         0,
         remarkStripRawHtml as (typeof plugins)[number],
+        remarkStripReadmeFooter as (typeof plugins)[number],
         remarkDemoteBodyH1 as (typeof plugins)[number],
         remarkLocalScreenshots as (typeof plugins)[number],
         remarkReadmeLinks as (typeof plugins)[number],
+        remarkInternalLinks as (typeof plugins)[number],
       );
       return next;
     },
