@@ -118,6 +118,10 @@ For each outgoing request: `method`, `url`, `statusCode`, `duration`, `startedAt
 
 Request count (e.g. `3`). When errors are present: `3 (1 err)`.
 
+## Panel behaviour
+
+The HTTP Client panel lets you expand each row to inspect request/response headers and bodies. That behaviour ships as a compiled, same-origin browser bundle (`http.js`) that the module registers with the profiler automatically — there is nothing to configure, and the templates carry no inline JavaScript. It is a reference implementation of the [Extending the UI with JavaScript](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/extending-the-ui) pattern, reusing the core `window.NestProfiler` runtime.
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

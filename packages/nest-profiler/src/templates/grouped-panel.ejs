@@ -37,30 +37,4 @@
       </div>
     <% } %>
   </div>
-
-  <script>
-    (function () {
-      const groupId = '<%= groupId %>';
-      const tabs = document.querySelectorAll('[data-group-tab="' + groupId + '"]');
-      const panels = document.querySelectorAll('[data-group-panel="' + groupId + '"]');
-
-      tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-          const target = tab.dataset.panel;
-
-          tabs.forEach(function (t) {
-            const active = t.dataset.panel === target;
-            t.classList.toggle('border-nest', active);
-            t.classList.toggle('text-nest', active);
-            t.classList.toggle('border-transparent', !active);
-            t.classList.toggle('text-foreground-muted', !active);
-          });
-
-          panels.forEach(function (p) {
-            p.classList.toggle('hidden', p.dataset.panel !== target);
-          });
-        });
-      });
-    })();
-  </script>
 <% } %>

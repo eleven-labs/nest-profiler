@@ -72,4 +72,16 @@ export default (dirname) =>
         ],
       },
     },
+    {
+      // Browser client bundles: authored as ES modules and type-checked against the
+      // DOM lib via each package's src/client/tsconfig.json (the ESLint projectService
+      // picks it up). No Node/Jest globals, no server-side rules here.
+      files: ['**/src/client/**/*.ts'],
+      languageOptions: {
+        sourceType: 'module',
+        globals: {
+          ...globals.browser,
+        },
+      },
+    },
   );

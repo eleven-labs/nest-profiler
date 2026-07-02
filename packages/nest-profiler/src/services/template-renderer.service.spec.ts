@@ -7,6 +7,7 @@ import { TEMPLATES_DIR } from '../views/template-engine';
 const MINIMAL_LIST_DATA = {
   title: 'Profiles',
   profilerPath: '/_profiler',
+  clientScripts: ['profiler.js', 'http.js'],
   profiles: [],
   globalPanels: [],
   heapSeries: [],
@@ -16,6 +17,7 @@ const MINIMAL_LIST_DATA = {
 const MINIMAL_DETAIL_DATA = {
   title: 'Profile abc12345',
   profilerPath: '/_profiler',
+  clientScripts: ['profiler.js', 'http.js'],
   token: 'abc12345678',
   activeTab: 'request',
   summary: { badge: 'GET', badgeClass: 'badge-default', text: '/hello' },
@@ -114,6 +116,21 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('/_profiler/__assets/styles/github-dark.min.css');
     expect(html).toContain('/_profiler/__assets/scripts/highlight.min.js');
     expect(html).toContain('/_profiler/__assets/scripts/graphql.min.js');
+    // The compiled client bundles (core first, then registered extensions) are emitted.
+    expect(html).toContain('/_profiler/__assets/scripts/profiler.js');
+    expect(html).toContain('/_profiler/__assets/scripts/http.js');
+  });
+
+  it('carries no inline JavaScript — all behaviour lives in compiled bundles', async () => {
+    const list = await service.render('list', MINIMAL_LIST_DATA);
+    const detail = await service.render('detail', MINIMAL_DETAIL_DATA);
+
+    for (const html of [list, detail]) {
+      // No inline event handlers…
+      expect(html).not.toMatch(/\son\w+=/);
+      // …and every <script> is an external reference (has a src=), never an inline block.
+      expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
+    }
   });
 
   it('throws when template name does not exist', async () => {

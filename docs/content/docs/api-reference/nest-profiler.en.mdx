@@ -229,6 +229,17 @@ Builds a runnable, multi-line `curl` command from captured HTTP request data. Re
 
 `interpolateSql(sql, parameters)` inlines bound parameters into a SQL string, returning a runnable query. Supports both `$N` (Postgres/TypeORM) and `?` (MySQL/MikroORM) placeholders.
 
+## Client assets
+
+### ClientAssetRegistry
+
+Registry of client-side script bundles the profiler serves same-origin and injects into the page `<head>`. A package shipping browser behaviour calls `register()` at startup. See [Extending the UI with JavaScript](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/extending-the-ui).
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/services/client-asset-registry.service.ts"
+  name="ClientAssetRegistration"
+/>
+
 ## Public exports
 
 ```ts
@@ -248,6 +259,8 @@ import {
   DEFAULT_LOG_METHODS,
   buildCurlCommand,
   interpolateSql,
+  ClientAssetRegistry,
+  CORE_CLIENT_SCRIPT,
 } from '@eleven-labs/nest-profiler';
 
 import type {
@@ -276,5 +289,6 @@ import type {
   EventEntry,
   SecurityContext,
   CurlInput,
+  ClientAssetRegistration,
 } from '@eleven-labs/nest-profiler';
 ```

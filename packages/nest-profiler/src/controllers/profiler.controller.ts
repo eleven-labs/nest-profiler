@@ -14,6 +14,7 @@ import { join } from 'path';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { TemplateRendererService } from '../services/template-renderer.service';
+import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
@@ -30,14 +31,15 @@ import { bucketProfilesBySection } from '../list-sections/list-section.utils';
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
 
 /**
- * Files the profiler serves same-origin from its `public` directory, grouped by
- * sub-directory. The allowlist doubles as path-traversal protection: any name not
- * listed here is rejected with a 404.
+ * Stylesheets the profiler serves same-origin from `public/styles`. The allowlist
+ * doubles as path-traversal protection: any name not listed here is rejected with
+ * a 404. Authored/extension scripts are served via {@link ClientAssetRegistry}
+ * instead; the vendored third-party scripts below round out the script allowlist.
  */
-const ASSET_ALLOWLIST = {
-  styles: ['profiler.css', 'github.min.css', 'github-dark.min.css'],
-  scripts: ['highlight.min.js', 'graphql.min.js'],
-} as const;
+const STYLE_ALLOWLIST = ['profiler.css', 'github.min.css', 'github-dark.min.css'];
+
+/** Vendored third-party scripts served from `public/scripts` (not authored bundles). */
+const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
 
 @UseGuards(ProfilerGuard)
 @Controller()
@@ -48,6 +50,7 @@ export class ProfilerController {
   constructor(
     private readonly core: ProfilerCoreService,
     private readonly templateRenderer: TemplateRendererService,
+    private readonly clientAssets: ClientAssetRegistry,
     @Optional() @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions = {},
   ) {
     this.profilerPath = options.path ?? '/_profiler';
@@ -57,25 +60,29 @@ export class ProfilerController {
   @Header('Content-Type', 'text/css; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getStyle(@Param('file') file: string): string {
-    return this.readAsset('styles', file);
+    if (!STYLE_ALLOWLIST.includes(file)) throw new NotFoundException(`Asset "${file}" not found.`);
+    return this.readAsset(join(PUBLIC_DIR, 'styles', file), `styles/${file}`);
   }
 
   @Get('/_profiler/__assets/scripts/:file')
   @Header('Content-Type', 'text/javascript; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getScript(@Param('file') file: string): string {
-    return this.readAsset('scripts', file);
+    // Registered bundles (core + extensions) resolve to their on-disk path;
+    // vendored third-party scripts live in `public/scripts`. Anything else 404s.
+    const absPath =
+      this.clientAssets.resolve(file) ??
+      (VENDORED_SCRIPTS.includes(file) ? join(PUBLIC_DIR, 'scripts', file) : undefined);
+    if (absPath === undefined) throw new NotFoundException(`Asset "${file}" not found.`);
+    return this.readAsset(absPath, `scripts/${file}`);
   }
 
-  /** Reads an allowlisted static asset from `public/`, caching its contents in memory. */
-  private readAsset(dir: keyof typeof ASSET_ALLOWLIST, file: string): string {
-    const allowed = ASSET_ALLOWLIST[dir] as readonly string[];
-    if (!allowed.includes(file)) throw new NotFoundException(`Asset "${file}" not found.`);
-    const key = `${dir}/${file}`;
-    let content = ProfilerController.assetCache.get(key);
+  /** Reads a static asset from an absolute path, caching its contents in memory by key. */
+  private readAsset(absPath: string, cacheKey: string): string {
+    let content = ProfilerController.assetCache.get(cacheKey);
     if (content === undefined) {
-      content = readFileSync(join(PUBLIC_DIR, dir, file), 'utf-8');
-      ProfilerController.assetCache.set(key, content);
+      content = readFileSync(absPath, 'utf-8');
+      ProfilerController.assetCache.set(cacheKey, content);
     }
     return content;
   }
@@ -124,6 +131,7 @@ export class ProfilerController {
     return this.templateRenderer.render('list', {
       title: 'Profiles',
       profilerPath: this.profilerPath,
+      clientScripts: this.clientAssets.list(),
       sections,
       globalPanels,
       heapSeries,
@@ -205,6 +213,7 @@ export class ProfilerController {
     return this.templateRenderer.render('detail', {
       title: `Profile ${profile.token.slice(0, 8)}`,
       profilerPath: this.profilerPath,
+      clientScripts: this.clientAssets.list(),
       token: profile.token,
       profile,
       activeTab,

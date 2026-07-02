@@ -25,6 +25,7 @@ import { ProfilerGuard } from './guards/profiler.guard';
 import { CollectorRegistry } from './collectors/collector-registry.service';
 import { RouteCollector } from './collectors/route.collector';
 import { TemplateRendererService } from './services/template-renderer.service';
+import { ClientAssetRegistry } from './services/client-asset-registry.service';
 import { ProfilerCoreService } from './services/profiler-core.service';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { TimelineCollector } from './collectors/timeline/timeline.collector';
@@ -72,6 +73,7 @@ const activeProviders = [
   CollectorRegistry,
   RouteCollector,
   TemplateRendererService,
+  ClientAssetRegistry,
   ProfilerCoreService,
   TimelineCollector,
   ProfilerInterceptor,
@@ -91,6 +93,7 @@ const activeExports = [
   ProfilerStorageService,
   CollectorRegistry,
   TemplateRendererService,
+  ClientAssetRegistry,
   ProfilerCoreService,
 ];
 
