@@ -2,17 +2,14 @@ import {
   Controller,
   Get,
   Header,
-  Inject,
   NotFoundException,
-  Optional,
   Param,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
+import { PROFILER_BASE_PATH } from '../constants';
 import { TemplateRendererService } from '../services/template-renderer.service';
 import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
@@ -45,18 +42,15 @@ const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
 @Controller()
 export class ProfilerController {
   private static readonly assetCache = new Map<string, string>();
-  private readonly profilerPath: string;
+  private readonly profilerPath = PROFILER_BASE_PATH;
 
   constructor(
     private readonly core: ProfilerCoreService,
     private readonly templateRenderer: TemplateRendererService,
     private readonly clientAssets: ClientAssetRegistry,
-    @Optional() @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions = {},
-  ) {
-    this.profilerPath = options.path ?? '/_profiler';
-  }
+  ) {}
 
-  @Get('/_profiler/__assets/styles/:file')
+  @Get(`${PROFILER_BASE_PATH}/__assets/styles/:file`)
   @Header('Content-Type', 'text/css; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getStyle(@Param('file') file: string): string {
@@ -64,7 +58,7 @@ export class ProfilerController {
     return this.readAsset(join(PUBLIC_DIR, 'styles', file), `styles/${file}`);
   }
 
-  @Get('/_profiler/__assets/scripts/:file')
+  @Get(`${PROFILER_BASE_PATH}/__assets/scripts/:file`)
   @Header('Content-Type', 'text/javascript; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getScript(@Param('file') file: string): string {
@@ -87,7 +81,7 @@ export class ProfilerController {
     return content;
   }
 
-  @Get('/_profiler')
+  @Get(PROFILER_BASE_PATH)
   @Header('Content-Type', 'text/html; charset=utf-8')
   async listProfiles(
     @Query() query: Record<string, string | string[] | undefined>,
@@ -153,14 +147,14 @@ export class ProfilerController {
     return qs ? `${this.profilerPath}?${qs}` : this.profilerPath;
   }
 
-  @Get('/_profiler/:token/data')
+  @Get(`${PROFILER_BASE_PATH}/:token/data`)
   async getProfileData(@Param('token') token: string): Promise<Profile> {
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
     return profile;
   }
 
-  @Get('/_profiler/:token')
+  @Get(`${PROFILER_BASE_PATH}/:token`)
   @Header('Content-Type', 'text/html; charset=utf-8')
   async getProfileDetail(
     @Param('token') token: string,

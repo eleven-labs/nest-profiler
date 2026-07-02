@@ -28,7 +28,7 @@ const TABLESS_TYPE: ProfilerEntrypointType = {
 
 type RenderArgs = { template: string; ctx: Record<string, unknown> };
 
-function setup(options?: { path?: string }): {
+function setup(): {
   controller: ProfilerController;
   rendered: RenderArgs[];
   core: jest.Mocked<Pick<ProfilerCoreService, never>> & Record<string, unknown>;
@@ -69,25 +69,16 @@ function setup(options?: { path?: string }): {
     resolve: jest.fn(),
   } as unknown as ClientAssetRegistry;
 
-  const controller =
-    options === undefined
-      ? new ProfilerController(core, renderer, clientAssets)
-      : new ProfilerController(core, renderer, clientAssets, options);
+  const controller = new ProfilerController(core, renderer, clientAssets);
 
   return { controller, rendered, core: core as never };
 }
 
 describe('ProfilerController (unit)', () => {
-  it('defaults the profiler path to /_profiler when no options are injected', async () => {
+  it('renders with the profiler path /_profiler', async () => {
     const { controller, rendered } = setup();
     await controller.listProfiles({});
     expect(rendered[0]?.ctx.profilerPath).toBe('/_profiler');
-  });
-
-  it('honours an explicit configured path', async () => {
-    const { controller, rendered } = setup({ path: '/debug' });
-    await controller.listProfiles({});
-    expect(rendered[0]?.ctx.profilerPath).toBe('/debug');
   });
 
   it('falls back to the performance tab when the entrypoint type has no detail tabs', async () => {

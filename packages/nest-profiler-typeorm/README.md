@@ -37,17 +37,23 @@ pnpm add @eleven-labs/nest-profiler-typeorm
 ## Setup
 
 ```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 import { DataSource } from 'typeorm';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
   imports: [
     TypeOrmModule.forRoot({ ... }),
-    TypeOrmCollectorModule.forRoot({
-      dataSource,            // your DataSource instance
-      slowQueryThreshold: 100, // ms — queries above this are highlighted (default: 100)
-    }),
+    ConditionalModule.registerWhen(
+      TypeOrmCollectorModule.forRoot({
+        dataSource, // your DataSource instance
+        slowQueryThreshold: 100, // ms — queries above this are highlighted (default: 100)
+      }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}
@@ -56,11 +62,16 @@ export class AppModule {}
 Since `DataSource` is not available at module declaration time, use `forRootAsync`:
 
 ```ts
-TypeOrmCollectorModule.forRootAsync({
-  inject: [DataSource],
-  useFactory: (dataSource: DataSource) => ({ dataSource, slowQueryThreshold: 50 }),
-}),
+ConditionalModule.registerWhen(
+  TypeOrmCollectorModule.forRootAsync({
+    inject: [DataSource],
+    useFactory: (dataSource: DataSource) => ({ dataSource, slowQueryThreshold: 50 }),
+  }),
+  isProfilerEnabled,
+),
 ```
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## What it collects
 

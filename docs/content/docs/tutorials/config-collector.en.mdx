@@ -56,11 +56,13 @@ export const appConfig = registerAs('app', () => ({
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConfigModule, ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
@@ -68,10 +70,15 @@ import { databaseConfig } from './config/database.config';
       isGlobal: true,
       load: [appConfig, databaseConfig],
     }),
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ConfigCollectorModule.forRoot({
-      maskKeys: ['database.password'],
-    }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(
+      ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}

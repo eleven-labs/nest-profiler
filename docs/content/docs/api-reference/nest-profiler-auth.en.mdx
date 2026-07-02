@@ -47,13 +47,17 @@ import type { AuthCollectorModuleOptions } from '@eleven-labs/nest-profiler-auth
 
 ```ts
 // In AuthModule (or any module that sets request.user):
+import { ConditionalModule } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    AuthCollectorModule.forRoot({
-      maskUserFields: ['password', 'refreshToken'],
-    }),
+    ConditionalModule.registerWhen(
+      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AuthModule {}

@@ -6,8 +6,7 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { DiscoveryModule } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import {
   ConfigurableModuleClass,
@@ -17,6 +16,7 @@ import {
 import type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
 import { ProfilerStorageService } from './services/profiler-storage.service';
 import { ProfilerService } from './services/nest-profiler.service';
+import { NoopProfilerService } from './services/noop-profiler.service';
 import { ProfilerMiddleware } from './middleware/profiler.middleware';
 import { ProfilerInterceptor } from './interceptors/profiler.interceptor';
 import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
@@ -29,73 +29,7 @@ import { ClientAssetRegistry } from './services/client-asset-registry.service';
 import { ProfilerCoreService } from './services/profiler-core.service';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { TimelineCollector } from './collectors/timeline/timeline.collector';
-
-// Minimal CLS setup shared by both layers: the profiler manages its own
-// lifecycle, so nestjs-cls auto-mounting is disabled.
-const clsImport = ClsModule.forRoot({
-  global: true,
-  middleware: { mount: false },
-  guard: { mount: false },
-  interceptor: { mount: false },
-});
-
-// Providers/imports/controllers that make up the ACTIVE layer. They are kept
-// out of the @Module decorator on purpose: NestJS merges decorator metadata
-// with the DynamicModule returned by forRoot, so anything declared there would
-// leak into the inert layer (controller routes, global interceptor, …).
-const activeImports = [clsImport, DiscoveryModule];
-
-const activeControllers = [ProfilerController];
-
-const activeProviders = [
-  {
-    provide: PROFILER_STORAGE_ADAPTER,
-    inject: [NEST_PROFILER_MODULE_OPTIONS],
-    useFactory: (opts: ProfilerModuleOptions) => {
-      // Explicit custom adapter takes full precedence
-      if (opts.storage) return opts.storage;
-      // Convenience: storageType: 'file'
-      if (opts.storageType === 'file') {
-        return new FileStorageAdapter({
-          storagePath: opts.storagePath,
-          maxProfiles: opts.maxProfiles,
-          ttl: opts.ttl,
-        });
-      }
-      // Default: undefined → ProfilerStorageService falls back to MemoryStorageAdapter
-      return undefined;
-    },
-  },
-  ProfilerStorageService,
-  ProfilerService,
-  ProfilerMiddleware,
-  ProfilerGuard,
-  CollectorRegistry,
-  RouteCollector,
-  TemplateRendererService,
-  ClientAssetRegistry,
-  ProfilerCoreService,
-  TimelineCollector,
-  ProfilerInterceptor,
-  {
-    provide: APP_INTERCEPTOR,
-    useExisting: ProfilerInterceptor,
-  },
-  ProfilerExceptionFilter,
-  {
-    provide: APP_FILTER,
-    useExisting: ProfilerExceptionFilter,
-  },
-];
-
-const activeExports = [
-  ProfilerService,
-  ProfilerStorageService,
-  CollectorRegistry,
-  TemplateRendererService,
-  ClientAssetRegistry,
-  ProfilerCoreService,
-];
+import { PROFILER_BASE_PATH } from './constants';
 
 @Module({})
 export class ProfilerModule extends ConfigurableModuleClass implements NestModule {
@@ -112,10 +46,8 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
   }
 
   /**
-   * Composes the final module from the ConfigurableModuleBuilder `base`
-   * (which already provides the resolved options token) and the synchronous
-   * `enabled` decision. When disabled, only the inert layer is registered so
-   * {@link ProfilerService} stays injectable everywhere while staying a no-op.
+   * Registers the active layer, or an inert no-op layer when `enabled` is false.
+   * Either way {@link ProfilerService} stays injectable.
    */
   private static build(
     base: DynamicModule,
@@ -123,34 +55,83 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
   ): DynamicModule {
     const enabled = options.enabled !== false;
     const global = options.isGlobal ?? false;
-    const baseProviders = base.providers ?? [];
 
     if (!enabled) {
+      // Inert layer: a no-op ProfilerService with no dependencies — no ClsModule,
+      // and the async options factory never runs, so the disabled path costs nothing.
       return {
         module: ProfilerModule,
         global,
-        imports: [clsImport],
         providers: [
           { provide: PROFILER_ENABLED, useValue: false },
-          ...baseProviders,
-          ProfilerService,
+          { provide: ProfilerService, useClass: NoopProfilerService },
         ],
         exports: [ProfilerService],
       };
     }
 
+    // Active layer. Declared here, not on the @Module() decorator: NestJS merges
+    // decorator metadata into every DynamicModule the class returns, so it would
+    // otherwise leak into the inert layer above and defeat the zero-cost path.
     return {
       ...base,
       module: ProfilerModule,
       global,
-      imports: [...(base.imports ?? []), ...activeImports],
-      controllers: activeControllers,
+      imports: [
+        ...(base.imports ?? []),
+        // The profiler manages its own lifecycle, so disable nestjs-cls auto-mounting.
+        ClsModule.forRoot({
+          global: true,
+          middleware: { mount: false },
+          guard: { mount: false },
+          interceptor: { mount: false },
+        }),
+        DiscoveryModule,
+      ],
+      controllers: [ProfilerController],
       providers: [
         { provide: PROFILER_ENABLED, useValue: true },
-        ...baseProviders,
-        ...activeProviders,
+        ...(base.providers ?? []),
+        {
+          provide: PROFILER_STORAGE_ADAPTER,
+          inject: [NEST_PROFILER_MODULE_OPTIONS],
+          useFactory: (opts: ProfilerModuleOptions) => {
+            // A custom adapter wins; otherwise `storageType: 'file'` builds a file adapter.
+            if (opts.storage) return opts.storage;
+            if (opts.storageType === 'file') {
+              return new FileStorageAdapter({
+                storagePath: opts.storagePath,
+                maxProfiles: opts.maxProfiles,
+                ttl: opts.ttl,
+              });
+            }
+            // undefined → ProfilerStorageService falls back to the in-memory adapter.
+            return undefined;
+          },
+        },
+        ProfilerStorageService,
+        ProfilerService,
+        ProfilerMiddleware,
+        ProfilerGuard,
+        CollectorRegistry,
+        RouteCollector,
+        TemplateRendererService,
+        ClientAssetRegistry,
+        ProfilerCoreService,
+        TimelineCollector,
+        ProfilerInterceptor,
+        { provide: APP_INTERCEPTOR, useExisting: ProfilerInterceptor },
+        ProfilerExceptionFilter,
+        { provide: APP_FILTER, useExisting: ProfilerExceptionFilter },
       ],
-      exports: activeExports,
+      exports: [
+        ProfilerService,
+        ProfilerStorageService,
+        CollectorRegistry,
+        TemplateRendererService,
+        ClientAssetRegistry,
+        ProfilerCoreService,
+      ],
     };
   }
 
@@ -159,8 +140,8 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
     consumer
       .apply(ProfilerMiddleware)
       .exclude(
-        { path: '_profiler', method: RequestMethod.ALL },
-        { path: '_profiler/*path', method: RequestMethod.ALL },
+        { path: PROFILER_BASE_PATH, method: RequestMethod.ALL },
+        { path: `${PROFILER_BASE_PATH}/*path`, method: RequestMethod.ALL },
       )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
   }

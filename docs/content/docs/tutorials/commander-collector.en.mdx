@@ -67,22 +67,32 @@ Create a dedicated module for the CLI. Use **file** storage with the same `stora
 
 ```ts title="cli.module.ts"
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 import { SyncPostsCommand } from './sync-posts.command';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
-    CommanderCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(
+      ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
+      isProfilerEnabled,
+    ),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
     HttpModule, // provides HttpService for the bundled axios adapter
-    HttpCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
     CacheModule.register({ isGlobal: true }),
-    CacheCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [SyncPostsCommand],
 })

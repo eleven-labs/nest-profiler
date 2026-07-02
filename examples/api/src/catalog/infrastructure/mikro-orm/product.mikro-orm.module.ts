@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
@@ -33,10 +33,10 @@ import { MikroOrmSchemaInitializer } from './product.mikro-orm.schema-initialize
       }),
     }),
     MikroOrmModule.forFeature([ProductEntity]),
-    MikroOrmCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      slowQueryThreshold: 50,
-    }),
+    ConditionalModule.registerWhen(
+      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
   providers: [
     MikroOrmSchemaInitializer,

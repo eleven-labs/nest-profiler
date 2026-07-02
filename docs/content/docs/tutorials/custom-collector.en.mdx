@@ -193,9 +193,15 @@ export class EventsProfilerModule {}
 ```
 
 ```ts title="app.module.ts"
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
     EventsProfilerModule,
     // ...
   ],

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilingModule } from './profiling/profiling.module.js';
 import appConfig, { isProfilerEnabled } from './config/app.config.js';
 import featuresConfig from './config/features.config.js';
 import { ContentModule } from './content/content.module.js';
@@ -20,24 +20,12 @@ import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
 
     CacheModule.register({ isGlobal: true, ttl: 60000 }),
 
-    ProfilerModule.forRootAsync({
-      enabled: isProfilerEnabled(process.env),
-      isGlobal: true,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const storageType = config.get<'memory' | 'file'>('app.profilerStorageType') ?? 'file';
-        return {
-          storageType,
-          ...(storageType === 'file' && {
-            storagePath: config.get<string>('app.profilerStoragePath'),
-            ttl: config.get<number>('app.profilerTtl'),
-          }),
-          maxProfiles: config.get<number>('app.profilerMaxProfiles'),
-        };
-      },
-    }),
-
-    CommanderCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
+    // Profiler: active bundle (core + commander collector) or the no-op fallback.
+    ConditionalModule.registerWhen(ProfilingModule.forCli(), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
 
     ContentModule,
     DiagnosticsModule,

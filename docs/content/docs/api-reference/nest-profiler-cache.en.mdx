@@ -39,10 +39,13 @@ import type { CacheOperationEntry, CacheOperation } from '@eleven-labs/nest-prof
 
 ```ts
 // In the module that uses CACHE_MANAGER:
+import { ConditionalModule } from '@nestjs/config';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
-  imports: [CacheCollectorModule.forRoot()],
+  imports: [ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled)],
 })
 export class PostsModule {}
 ```

@@ -55,18 +55,23 @@ pnpm add nestjs-zod zod
 When `pipe` is omitted, a class-validator `ValidationPipe` is built from `validationPipeOptions`:
 
 ```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ValidatorCollectorModule.forRoot({
-      validationPipeOptions: {
-        whitelist: true, // remove extra properties
-        transform: true, // transform payload to DTO class
-        // any other ValidationPipe options
-      },
-    }),
+    ConditionalModule.registerWhen(
+      ValidatorCollectorModule.forRoot({
+        validationPipeOptions: {
+          whitelist: true, // remove extra properties
+          transform: true, // transform payload to DTO class
+          // any other ValidationPipe options
+        },
+      }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}
@@ -77,16 +82,12 @@ export class AppModule {}
 Pass your own pipe via `pipe`; class-validator is never loaded:
 
 ```ts title="app.module.ts"
-import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { ZodValidationPipe } from 'nestjs-zod';
 
-@Module({
-  imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
-  ],
-})
-export class AppModule {}
+ConditionalModule.registerWhen(
+  ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
+  isProfilerEnabled,
+),
 ```
 
 > A NestJS app uses a single global validation strategy, so use **one** validator at a time.
@@ -95,10 +96,11 @@ export class AppModule {}
 
 | Option                  | Type                             | Description                                                                                  |
 | ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
-| `enabled`               | `boolean`                        | Default `true`. When `false`, no pipe is installed.                                          |
 | `pipe`                  | `PipeTransform`                  | The validation pipe to wrap. Defaults to a class-validator pipe built from the option below. |
 | `validationPipeOptions` | `ValidationPipeOptions`          | Forwarded to the default class-validator pipe when `pipe` is omitted.                        |
 | `extractors`            | `ValidationViolationExtractor[]` | Override the extractor chain. Defaults to `[classValidator, zod, generic]`.                  |
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## Prerequisite: value import for DTO types
 

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 import { isProfilerEnabled } from '../../../config/app.config.js';
@@ -21,10 +21,10 @@ import { MongooseReviewRepository } from './review.mongoose.repository.js';
       useFactory: (config: ConfigService) => ({ uri: config.get<string>('mongodb.uri') }),
     }),
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-    MongooseCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      slowQueryThreshold: 50,
-    }),
+    ConditionalModule.registerWhen(
+      MongooseCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
   providers: [{ provide: ReviewRepository, useClass: MongooseReviewRepository }],
   exports: [ReviewRepository],

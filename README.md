@@ -144,16 +144,21 @@ profiler costs almost nothing**.
 
 ### Two layers: active and inert
 
-`ProfilerModule.forRoot()` resolves `enabled` synchronously and registers one of
-two layers:
+The profiler has two layers:
 
-- **Active** (default) — mounts the middleware, the global interceptor, the
-  `/_profiler` controller, the collector registry and storage.
-- **Inert** (`enabled: false`) — registers _only_ `ProfilerService`, as a no-op.
-  It stays injectable everywhere, so application code that calls
-  `profiler.startSpan(...)` or `profiler.createLogger(...)` keeps working with
-  zero overhead and no conditional wiring on your side. Turn the profiler on in
-  development and off in production with a single flag.
+- **Active** — mounts the middleware, the global interceptor, the `/_profiler`
+  controller, the collector registry and storage.
+- **Inert** — registers _only_ `ProfilerService`, backed by the zero-dependency
+  `NoopProfilerService`. It stays injectable everywhere, so application code that
+  calls `profiler.startSpan(...)` or `profiler.createLogger(...)` keeps working with
+  zero overhead and no conditional wiring on your side.
+
+The **recommended** way to toggle between them is `ConditionalModule.registerWhen`
+with `ProfilerNoopModule` as the fallback — the active module is never loaded when
+profiling is off, and `ProfilerNoopModule` supplies the no-op `ProfilerService` in
+its place. Turn the profiler on in development and off in production. A top-level
+`enabled` flag is also supported as an alternative, documented once in the
+[Configuration guide](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ### Request lifecycle (HTTP)
 

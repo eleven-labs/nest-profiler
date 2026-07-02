@@ -16,16 +16,17 @@ Registers the HTTP Client panel and the `HttpProfilerRecorder`, then installs an
 
 ### HttpCollectorModuleOptions
 
-Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `enabled` flag, an `axios` toggle and an `instrumentations` array.
+Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `axios` toggle and an `instrumentations` array.
 
 <AutoTypeTable
   path="packages/nest-profiler-http/src/http-collector.module.ts"
   name="HttpCollectorModuleOptions"
 />
 
-- `enabled` (default `true`) - register the collector and instrumentations.
 - `axios` (default `true`) - enable the bundled axios adapter. It is a no-op when `@nestjs/axios` is absent, so it is safe to leave on for non-axios apps.
 - `instrumentations` (default `[]`) - additional `HttpInstrumentation` providers to install (e.g. a custom fetch/got/undici adapter).
+
+Gate the module with `ConditionalModule.registerWhen(HttpCollectorModule.forRoot({ … }), isProfilerEnabled)` so it loads only when the profiler is on — the same pattern used for every profiler module.
 
 ## Recorder
 
@@ -152,13 +153,16 @@ pnpm add @nestjs/axios axios
 Import `HttpModule` (from `@nestjs/axios`) and `HttpCollectorModule.forRoot()`. The axios adapter is on by default and patches the `HttpService` provided by `HttpModule`:
 
 ```ts
+import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     HttpModule, // provides HttpService - required for the axios adapter
-    HttpCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
 export class PostsModule {}

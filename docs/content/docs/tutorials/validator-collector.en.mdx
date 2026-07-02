@@ -30,11 +30,21 @@ pnpm add class-validator class-transformer
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
-  imports: [ProfilerModule.forRoot({ isGlobal: true }), ValidatorCollectorModule.forRoot()],
+  imports: [
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled),
+  ],
 })
 export class AppModule {}
 ```
@@ -137,12 +147,23 @@ The collector records every validation that passes through the pipe - both succe
 The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, pass its pipe via the `pipe` option - `class-validator` is never loaded:
 
 ```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ZodValidationPipe } from 'nestjs-zod';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(
+      ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}

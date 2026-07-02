@@ -1,15 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { LoggerModule } from 'nestjs-pino';
-import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
-import {
-  ignoreGraphQLPlayground,
-  ignoreGraphQLIntrospection,
-} from '@eleven-labs/nest-profiler-graphql';
-import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
-import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
-import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilingModule } from './profiling/profiling.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { ContentModule } from './content/content.module.js';
@@ -29,6 +23,11 @@ import featuresConfig, {
  * content, auth, health, diagnostics, notifications with a no-op publisher), so the app boots with
  * zero DB/broker. GraphQL and RabbitMQ are gated inside their own contexts; only Mongoose-backed
  * reviews and the pino logger are gated here.
+ *
+ * The profiler is toggled the recommended way: `ConditionalModule.registerWhen` loads the active
+ * `ProfilerModule` when `PROFILER_ENABLED` is on, and `ProfilerNoopModule` otherwise — so
+ * `ProfilerService` stays injectable everywhere even when profiling is off. The `enabled` option
+ * (still supported by every profiler module) is the alternative.
  */
 @Module({
   imports: [
@@ -51,36 +50,13 @@ import featuresConfig, {
 
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
 
-    ProfilerModule.forRootAsync({
-      enabled: isProfilerEnabled(process.env),
-      isGlobal: true,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const storageType = config.get<'memory' | 'file'>('app.profilerStorageType');
-        return {
-          storageType,
-          ...(storageType === 'file' && {
-            storagePath: config.get<string>('app.profilerStoragePath'),
-            ttl: config.get<number>('app.profilerTtl'),
-          }),
-          maxProfiles: config.get<number>('app.profilerMaxProfiles'),
-          collectBody: true,
-          sampleRate: 1.0,
-          ignorePaths: ['/favicon.ico'],
-          ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
-        };
-      },
-    }),
-
-    ConfigCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      maskKeys: ['database.password'],
-    }),
-    ValidatorCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      validationPipeOptions: { whitelist: true, transform: true },
-    }),
-    CommanderCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
+    // Profiler: one gate loads the whole active bundle (core + global collectors), the other the
+    // zero-cost no-op fallback so ProfilerService stays injectable when profiling is off.
+    ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
 
     // Feature (bounded-context) modules.
     CatalogModule,

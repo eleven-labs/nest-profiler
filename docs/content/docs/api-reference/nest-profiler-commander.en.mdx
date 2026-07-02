@@ -28,16 +28,17 @@ import type { CommanderCollectorModuleOptions } from '@eleven-labs/nest-profiler
 import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
 ```
 
-## CommanderCollectorModuleOptions
+## Enabling and disabling
+
+`CommanderCollectorModule.forRoot()` takes no required options. Gate it per environment with Nest's `ConditionalModule` so it loads only when the profiler is on — the same pattern used for every profiler module:
 
 ```ts
-interface CommanderCollectorModuleOptions {
-  /** Enable the collector. Default: `true`. */
-  enabled?: boolean;
-}
-```
+import { ConditionalModule } from '@nestjs/config';
 
-When `enabled` is `false`, `forRoot()` registers no providers - the host application decides per environment.
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
+```
 
 ## Setup
 
@@ -46,19 +47,20 @@ Register the module in the module you bootstrap with `CommandFactory`:
 ```ts title="cli.module.ts"
 import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { AppCommand } from './app.command';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
-  imports: [
-    // File storage lets the CLI process and the HTTP server share profiles.
-    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
-    CommanderCollectorModule.forRoot(),
-  ],
+  imports: [ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled)],
   providers: [AppCommand],
 })
 export class CliModule {}
 ```
+
+Wire the core `ProfilerModule` (with `storageType: 'file'` so the CLI and HTTP server share profiles) and its `ProfilerNoopModule` fallback once at the CLI root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ```ts title="cli.ts"
 import { CommandFactory } from 'nest-commander';

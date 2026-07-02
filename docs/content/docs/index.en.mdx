@@ -64,6 +64,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 - **CLI command profiling** - profiles `nest-commander` commands with a **CLI** badge in a dedicated **Command** panel via `@eleven-labs/nest-profiler-commander`; with file storage the command profiles show up next to HTTP requests at `/_profiler`
 
 <Callout type="warn" title="Development only">
-  The profiler is designed for development environments. Disable it in production with `enabled:
-  false` or an environment-based condition to avoid exposing internal request data.
+  The profiler is designed for development environments. Disable it in production to avoid exposing
+  internal request data — gate it with `ConditionalModule.registerWhen` and `ProfilerNoopModule` as
+  the fallback. See [Getting started](/docs/getting-started#turn-the-profiler-on-and-off).
 </Callout>

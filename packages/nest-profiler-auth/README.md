@@ -36,19 +36,24 @@ No additional peer dependencies beyond `nestjs-cls` (already required by `@eleve
 
 ## Setup
 
-```ts title="app.module.ts"
+```ts title="auth.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    AuthCollectorModule.forRoot({
-      maskUserFields: ['password', 'refreshToken'], // additional fields to mask
-    }),
+    ConditionalModule.registerWhen(
+      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}
 ```
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## What it collects
 

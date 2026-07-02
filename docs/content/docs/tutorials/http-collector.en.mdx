@@ -25,13 +25,19 @@ Import `HttpModule` (from `@nestjs/axios`) alongside `HttpCollectorModule.forRoo
 
 ```ts title="posts.module.ts"
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
-  imports: [HttpModule, HttpCollectorModule.forRoot()],
+  imports: [
+    HttpModule,
+    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+  ],
   controllers: [PostsController],
   providers: [PostsService],
 })

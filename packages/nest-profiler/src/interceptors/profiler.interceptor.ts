@@ -12,6 +12,7 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import { PROFILER_BASE_PATH } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { Profile } from '../interfaces/profile.interface';
@@ -27,7 +28,7 @@ function normalizeHeaders(
 
 @Injectable()
 export class ProfilerInterceptor implements NestInterceptor {
-  private readonly profilerPath: string;
+  private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
 
   constructor(
@@ -37,7 +38,6 @@ export class ProfilerInterceptor implements NestInterceptor {
     @Inject(NEST_PROFILER_MODULE_OPTIONS)
     options: ProfilerModuleOptions = {},
   ) {
-    this.profilerPath = options.path ?? '/_profiler';
     this.collectBody = options.collectBody ?? false;
   }
 

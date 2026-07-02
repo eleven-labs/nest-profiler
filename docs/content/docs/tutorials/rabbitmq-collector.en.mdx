@@ -29,12 +29,20 @@ Add `RabbitMqCollectorModule` to the application that consumes your messages (th
 import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { RabbitMQModule } from './rabbitmq.module';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    RabbitMqCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
     RabbitMQModule,
   ],
 })
@@ -93,12 +101,13 @@ curl -X POST http://localhost:3000/api/v1/reviews \
 
 ```ts
 RabbitMqCollectorModule.forRoot({
-  enabled: true, // set false to disable per environment
   captureHeaders: true, // AMQP headers (sensitive ones masked)
   captureBody: true, // deserialized payload - disable if payloads are large
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
 });
 ```
+
+Gate it per environment with `ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot({ … }), isProfilerEnabled)` — the same pattern used for every profiler module.
 
 ## How it works
 

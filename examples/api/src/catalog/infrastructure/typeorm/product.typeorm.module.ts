@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 import databaseConfig from '../../../config/database.config.js';
@@ -34,10 +34,10 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
       }),
     }),
     TypeOrmModule.forFeature([ProductEntity]),
-    TypeOrmCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      slowQueryThreshold: 50,
-    }),
+    ConditionalModule.registerWhen(
+      TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
   providers: [{ provide: ProductRepository, useClass: TypeOrmProductRepository }],
   exports: [ProductRepository],
