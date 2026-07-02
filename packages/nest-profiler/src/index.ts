@@ -16,6 +16,8 @@ export type {
 export { ProfilerStorageService } from './services/profiler-storage.service';
 export { ProfilerCoreService } from './services/profiler-core.service';
 export { TemplateRendererService } from './services/template-renderer.service';
+export { ClientAssetRegistry, CORE_CLIENT_SCRIPT } from './services/client-asset-registry.service';
+export type { ClientAssetRegistration } from './services/client-asset-registry.service';
 export { CollectorRegistry } from './collectors/collector-registry.service';
 export type { CollectorPanelInfo, GlobalPanelInfo } from './collectors/collector-registry.service';
 export { ProfilerCollector } from './collectors/collector.decorator';

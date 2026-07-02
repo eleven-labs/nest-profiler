@@ -6,6 +6,7 @@
     "logs",
     "browsing-profiles",
     "collectors",
+    "extending-the-ui",
     "context-adapters",
     "storage",
     "performance"

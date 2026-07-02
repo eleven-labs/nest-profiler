@@ -38,12 +38,11 @@
           <tr
             class="<%= hasDetails ? 'cursor-pointer hover:bg-surface-muted' : 'hover:bg-surface-muted' %> transition-colors align-top"
             <% if (hasDetails) { %>
-              onclick="(function(row){var detailsId=row.getAttribute('data-details-id');var details=document.getElementById(detailsId);if(!details)return;var open=row.getAttribute('aria-expanded')==='true';details.classList.toggle('hidden',open);row.setAttribute('aria-expanded',open?'false':'true');var icon=row.querySelector('[data-http-indicator]');if(icon){icon.textContent=open?'▸':'▾';}})(this)"
+              data-toggle-details
               data-details-id="<%= detailsRowId %>"
               aria-expanded="false"
               role="button"
               tabindex="0"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
             <% } %>
           >
             <td class="py-2 px-4 whitespace-nowrap">

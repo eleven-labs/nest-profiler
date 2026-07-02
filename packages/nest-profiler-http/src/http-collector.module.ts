@@ -4,6 +4,7 @@ import type { HttpInstrumentation } from './http-instrumentation.interface';
 import { HttpClientCollector } from './http-client.collector';
 import { HttpProfilerRecorder } from './http-profiler-recorder.service';
 import { HttpInstrumentationRunner } from './http-instrumentation.runner';
+import { HttpClientAssetRegistrar } from './http-client-asset.registrar';
 import { AxiosInstrumentation } from './adapters/axios.instrumentation';
 import { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants';
 
@@ -47,6 +48,7 @@ export class HttpCollectorModule {
         { provide: HTTP_COLLECTOR_OPTIONS, useValue: options },
         HttpProfilerRecorder,
         HttpClientCollector,
+        HttpClientAssetRegistrar,
         ...instrumentations,
         {
           provide: HTTP_INSTRUMENTATIONS,

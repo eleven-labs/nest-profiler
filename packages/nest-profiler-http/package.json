@@ -39,14 +39,14 @@
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
-    "build": "repo-build",
+    "build": "repo-build && tsx ./scripts/build-assets.ts",
     "clean": "repo-clean dist coverage",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "lint": "eslint src",
     "test": "jest",
     "test:cov": "jest --coverage",
-    "typecheck": "tsc --noEmit --incremental false"
+    "typecheck": "tsc --noEmit --incremental false && tsc --noEmit -p src/client/tsconfig.json"
   },
   "peerDependencies": {
     "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
@@ -80,7 +80,9 @@
     "jest": "^30.4.2",
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
+    "jest-environment-jsdom": "^30.4.1",
     "ts-jest": "^29.3.0",
+    "tsx": "^4.20.0",
     "typescript": "^6.0.3"
   },
   "jest": {
@@ -88,7 +90,8 @@
     "rootDir": ".",
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",
-      "!src/index.ts"
+      "!src/index.ts",
+      "!src/client/**"
     ],
     "coverageDirectory": "coverage"
   },

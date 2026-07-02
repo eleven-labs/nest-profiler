@@ -62,16 +62,16 @@ export const HELPERS = {
   interpolateSql,
   // Returns safe HTML — use <%- copyBtn(...) %> in templates. The text is
   // base64-encoded (UTF-8) into `data-copy` so any payload (multi-line, quotes,
-  // unicode) survives without HTML-escaping concerns. The onclick calls the
-  // global `__profilerCopy` defined in _head.ejs directly (and stops propagation
-  // so it never toggles an expandable parent row).
+  // unicode) survives without HTML-escaping concerns. The client bundle's copy
+  // behaviour (src/client/behaviors/copy.ts) binds `[data-copy]` via delegation
+  // and stops propagation so a nested button never toggles an expandable row.
   copyBtn: (text: string, label = 'Copy'): string => {
     const encoded = Buffer.from(text ?? '', 'utf8').toString('base64');
     return (
       `<button type="button" data-copy="${encoded}" data-copy-label="${escapeHtml(label)}" ` +
       `class="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs font-medium border border-line ` +
-      `text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" ` +
-      `onclick="event.stopPropagation();__profilerCopy(this)">${COPY_ICON}<span data-copy-text>${escapeHtml(label)}</span></button>`
+      `text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors">` +
+      `${COPY_ICON}<span data-copy-text>${escapeHtml(label)}</span></button>`
     );
   },
   gqlTypeClass: (operationType: string): string =>

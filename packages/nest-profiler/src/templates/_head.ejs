@@ -7,59 +7,12 @@
   <!-- highlight.js themes — syntax highlighting for JSON (and other languages) -->
   <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css">
   <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css">
-  <script>
-    // Runs synchronously before first paint to avoid flash
-    (function () {
-      var isDark = localStorage.getItem('profiler-theme') === 'dark';
-      if (isDark) document.documentElement.classList.add('dark');
-      document.getElementById(isDark ? 'hljs-light' : 'hljs-dark').disabled = true;
-    })();
-    function toggleTheme() {
-      var isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('profiler-theme', isDark ? 'dark' : 'light');
-      document.getElementById('hljs-light').disabled = isDark;
-      document.getElementById('hljs-dark').disabled = !isDark;
-    }
-  </script>
+  <!-- highlight.js runtime, then the profiler client bundles (core first, then any
+       registered extension). All authored behaviour lives in these compiled scripts —
+       templates carry no inline JavaScript. -->
   <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js"></script>
   <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js"></script>
-  <script>document.addEventListener('DOMContentLoaded', function () { hljs.highlightAll(); });</script>
-  <script>
-    // Copy-to-clipboard for [data-copy] buttons. The text is base64-encoded
-    // (UTF-8) in the attribute; decode, write, flash "Copied!". Called directly
-    // from each button's onclick (see copyBtn helper) rather than via event
-    // delegation, because the buttons call stopPropagation() to avoid toggling
-    // an expandable parent row — which would also stop a document-level listener.
-    function __profilerCopy(btn) {
-      var b64 = btn.getAttribute('data-copy') || '';
-      var bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
-      var text = new TextDecoder().decode(bytes);
-      var label = btn.querySelector('[data-copy-text]');
-      var original = btn.getAttribute('data-copy-label') || 'Copy';
-      function flash() {
-        if (label) {
-          label.textContent = 'Copied!';
-          setTimeout(function () { label.textContent = original; }, 1500);
-        }
-      }
-      // navigator.clipboard needs a secure context (https or localhost); fall
-      // back to a hidden textarea + execCommand when it is unavailable.
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(flash, fallback);
-      } else {
-        fallback();
-      }
-      function fallback() {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        try { document.execCommand('copy'); flash(); } catch (e) { /* ignore */ }
-        document.body.removeChild(ta);
-      }
-    }
-  </script>
+  <% (typeof clientScripts !== 'undefined' ? clientScripts : []).forEach(function (file) { %>
+    <script src="<%= profilerPath %>/__assets/scripts/<%= file %>"></script>
+  <% }) %>
 </head>

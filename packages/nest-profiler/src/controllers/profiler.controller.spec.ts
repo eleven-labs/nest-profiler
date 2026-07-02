@@ -1,6 +1,7 @@
 import { ProfilerController } from './profiler.controller';
 import type { ProfilerCoreService } from '../services/profiler-core.service';
 import type { TemplateRendererService } from '../services/template-renderer.service';
+import type { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import type { Profile } from '../interfaces/profile.interface';
 
@@ -62,10 +63,16 @@ function setup(options?: { path?: string }): {
     getEntrypointType: jest.fn().mockReturnValue(TABLESS_TYPE),
   } as unknown as ProfilerCoreService;
 
+  const clientAssets = {
+    register: jest.fn(),
+    list: jest.fn().mockReturnValue(['profiler.js']),
+    resolve: jest.fn(),
+  } as unknown as ClientAssetRegistry;
+
   const controller =
     options === undefined
-      ? new ProfilerController(core, renderer)
-      : new ProfilerController(core, renderer, options);
+      ? new ProfilerController(core, renderer, clientAssets)
+      : new ProfilerController(core, renderer, clientAssets, options);
 
   return { controller, rendered, core: core as never };
 }
