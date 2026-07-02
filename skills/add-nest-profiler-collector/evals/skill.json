@@ -1,0 +1,22 @@
+[
+  {
+    "query": "app.module.ts already registers the profiler with Approach A:\n  ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),\n  ConditionalModule.registerWhen(ProfilerNoopModule.forRoot({ isGlobal: true }), (env) => !isProfilerEnabled(env)),\nThe app just added @nestjs/cache-manager and CacheModule.register().\n\nUser: Add cache profiling.",
+    "expected_behavior": "Confirm the base profiler is already set up and note the existing enable strategy is Approach A. Install @eleven-labs/nest-profiler-cache. Register CacheCollectorModule.forRoot() AFTER CacheModule, gated with the SAME ConditionalModule.registerWhen(..., isProfilerEnabled) pattern — do not introduce a different enable pattern."
+  },
+  {
+    "query": "app.module.ts registers the profiler with the enabled flag (Approach B):\n  ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }),\nThe app uses mongoose + @nestjs/mongoose with MongooseModule.forRoot(...).\n\nUser: Add MongoDB query profiling.",
+    "expected_behavior": "Confirm the base setup and note the existing strategy is the enabled flag (Approach B). Install @eleven-labs/nest-profiler-mongoose and register MongooseCollectorModule.forRoot({ slowQueryThreshold: 100 }). Must MATCH Approach B — do NOT introduce ConditionalModule.registerWhen (that would be a second, inconsistent pattern)."
+  },
+  {
+    "query": "package.json has @nestjs/common, @nestjs/core, typeorm, @nestjs/typeorm but NO @eleven-labs/nest-profiler dependency, and no ProfilerModule anywhere in the codebase.\n\nUser: Add the TypeORM profiler collector.",
+    "expected_behavior": "Detect that the core profiler is NOT installed/configured yet. Should NOT install and wire the collector in isolation. Redirect the user to the setup-nest-profiler skill (which installs the core and can add collectors in the same pass). A collector alone will not work without the core ProfilerModule."
+  },
+  {
+    "query": "The profiler is set up with Approach A. The app added @golevelup/nestjs-rabbitmq and amqplib and consumes messages via @RabbitSubscribe.\n\nUser: Add RabbitMQ message profiling.",
+    "expected_behavior": "Confirm base setup (Approach A). Install @eleven-labs/nest-profiler-rabbitmq and register RabbitMqCollectorModule.forRoot() in the process that CONSUMES messages (and hosts the profiler), gated with the same isProfilerEnabled pattern. Verify by publishing/consuming a message and checking the RabbitMQ panel."
+  },
+  {
+    "query": "The profiler is set up with Approach A. The app uses ioredis directly for a custom pub/sub channel (no @nestjs/cache-manager, no @golevelup/nestjs-rabbitmq).\n\nUser: Add a collector to profile my Redis pub/sub messages.",
+    "expected_behavior": "Recognize there is NO dedicated @eleven-labs/nest-profiler-* collector for raw ioredis pub/sub — do not invent a package. Clarify honestly. May suggest alternatives: the cache collector if the app used @nestjs/cache-manager with a Redis store, otherwise building a custom collector / context adapter (out of scope for this skill)."
+  }
+]

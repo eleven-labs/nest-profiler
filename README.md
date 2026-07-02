@@ -121,6 +121,16 @@ import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 export class ProductsModule {}
 ```
 
+## Agent skills
+
+Prefer to have your coding agent do the wiring? Installable [agent skills](skills/README.md) teach Claude Code, Cursor, Codex and others how to set up the profiler in your own app — introspecting the project, choosing an enable strategy, and adding the collectors that match your stack:
+
+```bash
+npx skills add eleven-labs/nest-profiler
+```
+
+Then ask your agent to _"set up nest-profiler in this app"_. See [`skills/`](skills/README.md) for the full list.
+
 ## Repository Layout
 
 A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything else supports them.
@@ -133,6 +143,7 @@ packages/
 examples/
   api/                      NestJS demo app with all collectors enabled
 docs/                       Fumadocs documentation site
+skills/                     installable agent skills for consumers (npx skills)
 scripts/                    repository automation and release helpers
 ```
 
