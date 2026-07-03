@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import mongodbConfig from '../../../config/mongodb.config.js';
 import { ReviewRepository } from '../../domain/review.repository.js';
 import { Review, ReviewSchema } from './review.schema.js';

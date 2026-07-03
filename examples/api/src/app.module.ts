@@ -10,11 +10,13 @@ import { ContentModule } from './content/content.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
-import appConfig, { isProfilerEnabled } from './config/app.config.js';
+import appConfig from './config/app.config.js';
+import profilerConfig, { isProfilerEnabled } from './config/profiler.config.js';
 import featuresConfig, {
   isMongooseEnabled,
   isPinoLoggerEnabled,
 } from './config/features.config.js';
+import { not } from './config/env-condition.js';
 
 /**
  * Composition root. Holds only cross-cutting infrastructure (`forRoot`/global registrations) and
@@ -33,7 +35,7 @@ import featuresConfig, {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, featuresConfig],
+      load: [appConfig, profilerConfig, featuresConfig],
     }),
 
     ConditionalModule.registerWhen(
@@ -55,7 +57,7 @@ import featuresConfig, {
     ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
     ConditionalModule.registerWhen(
       ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
+      not(isProfilerEnabled),
     ),
 
     // Feature (bounded-context) modules.

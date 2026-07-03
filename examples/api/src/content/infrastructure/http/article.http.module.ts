@@ -3,7 +3,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import { ArticleGateway } from '../../domain/article-gateway.js';
 import { AxiosArticleGateway } from './article.axios.gateway.js';
 

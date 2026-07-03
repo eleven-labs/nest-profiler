@@ -6,7 +6,7 @@ import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import type { Request } from 'express';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
-import { isProfilerEnabled } from '../../config/app.config.js';
+import { isProfilerEnabled } from '../../config/profiler.config.js';
 
 /**
  * GraphQL transport for the catalog context. Sets up the Apollo driver and the profiler GraphQL

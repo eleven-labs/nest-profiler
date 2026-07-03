@@ -4,7 +4,7 @@ import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 import databaseConfig from '../../../config/database.config.js';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import { ProductRepository } from '../../domain/product.repository.js';
 import { ProductEntity } from './product.mikro-orm.entity.js';
 import { MikroOrmProductRepository } from './product.mikro-orm.repository.js';

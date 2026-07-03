@@ -3,7 +3,7 @@ import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 import databaseConfig from '../../../config/database.config.js';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import { ProductRepository } from '../../domain/product.repository.js';
 import { ProductEntity } from './product.typeorm.entity.js';
 import { TypeOrmProductRepository } from './product.typeorm.repository.js';

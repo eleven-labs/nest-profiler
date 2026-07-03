@@ -31,14 +31,14 @@ export class ProfilingModule {
           isGlobal: true,
           inject: [ConfigService],
           useFactory: (config: ConfigService) => {
-            const storageType = config.get<'memory' | 'file'>('app.profilerStorageType');
+            const storageType = config.get<'memory' | 'file'>('profiler.storageType');
             return {
               storageType,
               ...(storageType === 'file' && {
-                storagePath: config.get<string>('app.profilerStoragePath'),
-                ttl: config.get<number>('app.profilerTtl'),
+                storagePath: config.get<string>('profiler.storagePath'),
+                ttl: config.get<number>('profiler.ttl'),
               }),
-              maxProfiles: config.get<number>('app.profilerMaxProfiles'),
+              maxProfiles: config.get<number>('profiler.maxProfiles'),
               collectBody: true,
               sampleRate: 1.0,
               ignorePaths: ['/favicon.ico'],
@@ -64,14 +64,14 @@ export class ProfilingModule {
           isGlobal: true,
           inject: [ConfigService],
           useFactory: (config: ConfigService) => {
-            const storageType = config.get<'memory' | 'file'>('app.profilerStorageType') ?? 'file';
+            const storageType = config.get<'memory' | 'file'>('profiler.storageType') ?? 'file';
             return {
               storageType,
               ...(storageType === 'file' && {
-                storagePath: config.get<string>('app.profilerStoragePath'),
-                ttl: config.get<number>('app.profilerTtl'),
+                storagePath: config.get<string>('profiler.storagePath'),
+                ttl: config.get<number>('profiler.ttl'),
               }),
-              maxProfiles: config.get<number>('app.profilerMaxProfiles'),
+              maxProfiles: config.get<number>('profiler.maxProfiles'),
             };
           },
         }),

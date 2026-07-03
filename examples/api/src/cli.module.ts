@@ -3,8 +3,10 @@ import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ProfilingModule } from './profiling/profiling.module.js';
-import appConfig, { isProfilerEnabled } from './config/app.config.js';
+import appConfig from './config/app.config.js';
+import profilerConfig, { isProfilerEnabled } from './config/profiler.config.js';
 import featuresConfig from './config/features.config.js';
+import { not } from './config/env-condition.js';
 import { ContentModule } from './content/content.module.js';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
 
@@ -16,7 +18,7 @@ import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [appConfig, featuresConfig] }),
+    ConfigModule.forRoot({ isGlobal: true, load: [appConfig, profilerConfig, featuresConfig] }),
 
     CacheModule.register({ isGlobal: true, ttl: 60000 }),
 
@@ -24,7 +26,7 @@ import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
     ConditionalModule.registerWhen(ProfilingModule.forCli(), isProfilerEnabled),
     ConditionalModule.registerWhen(
       ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
+      not(isProfilerEnabled),
     ),
 
     ContentModule,
