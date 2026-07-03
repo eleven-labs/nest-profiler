@@ -15,9 +15,9 @@ export interface SqliteStorageAdapterOptions {
    * connection database. Default: `.profiler/profiler.db`.
    */
   path?: string;
-  /** Maximum number of profiles kept (LRU eviction by `createdAt`). Default: 100 */
+  /** Maximum profiles kept (LRU eviction by `createdAt`). Default: 100. Set to `0` (or negative) for no cap. */
   maxProfiles?: number;
-  /** Profile TTL in seconds. Default: 3600 (1h) */
+  /** Profile TTL in seconds. Default: 3600 (1h). Set to `0` (or negative) to never expire. */
   ttl?: number;
 }
 
@@ -158,20 +158,27 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
+  /** Earliest `created_at` a read may return. A non-positive TTL disables expiry (returns 0). */
   private minCreatedAt(): number {
-    return Date.now() - this.ttlMs;
+    return this.ttlMs > 0 ? Date.now() - this.ttlMs : 0;
   }
 
   /** Deletes expired rows, then trims the oldest rows beyond `maxProfiles`. */
   private evict(): void {
-    this.db.prepare('DELETE FROM profiles WHERE created_at < ?').run(this.minCreatedAt());
-    this.db
-      .prepare(
-        `DELETE FROM profiles WHERE token IN (
-           SELECT token FROM profiles ORDER BY created_at DESC LIMIT -1 OFFSET ?
-         )`,
-      )
-      .run(this.maxProfiles);
+    // A non-positive TTL disables expiry; a non-positive cap disables overflow trimming
+    // (guarding the LIMIT -1 OFFSET 0 that would otherwise delete every row).
+    if (this.ttlMs > 0) {
+      this.db.prepare('DELETE FROM profiles WHERE created_at < ?').run(Date.now() - this.ttlMs);
+    }
+    if (this.maxProfiles > 0) {
+      this.db
+        .prepare(
+          `DELETE FROM profiles WHERE token IN (
+             SELECT token FROM profiles ORDER BY created_at DESC LIMIT -1 OFFSET ?
+           )`,
+        )
+        .run(this.maxProfiles);
+    }
   }
 
   /** The SQL expression for a criterion field: a base column or a JSON attribute path. */

@@ -93,6 +93,22 @@ describe('SqliteStorageAdapter', () => {
     small.close();
   });
 
+  it('never caps the store when maxProfiles is 0', () => {
+    const uncapped = new SqliteStorageAdapter({ path: ':memory:', maxProfiles: 0, ttl: 3600 });
+    const base = Date.now();
+    for (let i = 0; i < 150; i++) uncapped.save(makeProfile(`u-${i}`, { createdAt: base + i }));
+    expect(uncapped.query({ filters: [], page: 1, pageSize: 1 }).total).toBe(150);
+    uncapped.close();
+  });
+
+  it('never expires when ttl is 0', () => {
+    const noTtl = new SqliteStorageAdapter({ path: ':memory:', ttl: 0 });
+    noTtl.save(makeProfile('ancient', { createdAt: Date.now() - 10 * 365 * 24 * 3600 * 1000 }));
+    expect(noTtl.findOne('ancient')?.token).toBe('ancient');
+    expect(noTtl.query({ filters: [], page: 1, pageSize: 10 }).total).toBe(1);
+    noTtl.close();
+  });
+
   it('crossProcess is true for a file database and false for :memory:', () => {
     expect(adapter.crossProcess).toBe(false);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-cp-'));

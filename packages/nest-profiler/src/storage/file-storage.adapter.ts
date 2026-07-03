@@ -12,13 +12,14 @@ export interface FileStorageAdapterOptions {
   /** Directory where profile files are stored. Defaults to '.profiler' in cwd. */
   storagePath?: string;
   /**
-   * Maximum number of profiles kept on disk (LRU eviction). Default: 100
+   * Maximum number of profiles kept on disk (LRU eviction). Default: 100. Set to `0` (or negative)
+   * for no cap.
    *
    * Also bounds the in-memory summary index and parsed-profile cache, so steady-state
    * memory grows with `maxProfiles × average summary/profile size`.
    */
   maxProfiles?: number;
-  /** Profile TTL in seconds. Default: 3600 (1h) */
+  /** Profile TTL in seconds. Default: 3600 (1h). Set to `0` (or negative) to never expire. */
   ttl?: number;
 }
 
@@ -143,7 +144,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     });
 
     if (!summary) return undefined;
-    if (Date.now() - summary.createdAt >= this.ttlMs) return undefined;
+    if (this.isExpired(summary.createdAt)) return undefined;
 
     return (await this.readProfile(token)) ?? undefined;
   }
@@ -191,10 +192,14 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     return summarizeProfile(profile, this.getAttributes);
   }
 
+  /** Whether a profile has outlived the TTL. A non-positive TTL disables expiry. */
+  private isExpired(createdAt: number): boolean {
+    return this.ttlMs > 0 && Date.now() - createdAt >= this.ttlMs;
+  }
+
   /** TTL-valid summaries from the in-memory index. */
   private validSummaries(): ProfileSummary[] {
-    const now = Date.now();
-    return [...this.index.values()].filter((s) => now - s.createdAt < this.ttlMs);
+    return [...this.index.values()].filter((s) => !this.isExpired(s.createdAt));
   }
 
   private indexPath(): string {
@@ -268,8 +273,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     }
 
     // Clean up expired profiles found on disk.
-    const now = Date.now();
-    const expired = [...this.index.values()].filter((s) => now - s.createdAt >= this.ttlMs);
+    const expired = [...this.index.values()].filter((s) => this.isExpired(s.createdAt));
     if (expired.length > 0) {
       changed = true;
       for (const s of expired) {
@@ -359,14 +363,13 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
    * case where nothing is expired or over the limit.
    */
   private async evictExpiredAndOverflow(): Promise<void> {
-    const now = Date.now();
-
     const victims = [...this.index.values()]
-      .filter((s) => now - s.createdAt >= this.ttlMs)
+      .filter((s) => this.isExpired(s.createdAt))
       .map((s) => s.token);
 
+    // A non-positive cap disables overflow eviction (unbounded).
     const liveCount = this.index.size - victims.length;
-    if (liveCount > this.maxProfiles) {
+    if (this.maxProfiles > 0 && liveCount > this.maxProfiles) {
       const expired = new Set(victims);
       const live = [...this.index.values()]
         .filter((s) => !expired.has(s.token))

@@ -22,7 +22,7 @@ export interface ProfilerModuleOptions {
    */
   token?: string;
 
-  /** Maximum number of profiles kept (LRU eviction). Default: 100 */
+  /** Maximum number of profiles kept (LRU eviction). Default: 100. Set to `0` (or negative) for no cap. */
   maxProfiles?: number;
 
   /**
@@ -32,7 +32,7 @@ export interface ProfilerModuleOptions {
    */
   listPageSize?: number;
 
-  /** Profile TTL in seconds. Default: 3600 (1h) */
+  /** Profile TTL in seconds. Default: 3600 (1h). Set to `0` (or negative) to never expire. */
   ttl?: number;
 
   /** Register the module as a global NestJS module. Default: false */

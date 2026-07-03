@@ -3,7 +3,9 @@ import type { IProfilerStorageAdapter, StorageFindOptions } from './storage-adap
 import { applyProfileFilters } from './storage-filters';
 
 export interface MemoryStorageAdapterOptions {
+  /** Maximum profiles kept (LRU eviction). Default: 100. Set to `0` (or negative) for no cap. */
   maxProfiles?: number;
+  /** Profile TTL in seconds. Default: 3600. Set to `0` (or negative) to never expire. */
   ttl?: number;
 }
 
@@ -11,16 +13,22 @@ export class MemoryStorageAdapter implements IProfilerStorageAdapter {
   /** In-memory store — profiles live only in this process's heap. */
   readonly crossProcess = false;
   private readonly maxProfiles: number;
-  private readonly ttl: number;
+  private readonly ttlMs: number;
   private readonly profiles = new Map<string, Profile>();
 
   constructor(options: MemoryStorageAdapterOptions = {}) {
     this.maxProfiles = options.maxProfiles ?? 100;
-    this.ttl = (options.ttl ?? 3600) * 1000;
+    this.ttlMs = (options.ttl ?? 3600) * 1000;
+  }
+
+  /** Whether a profile has outlived the TTL. A non-positive TTL disables expiry. */
+  private isExpired(createdAt: number): boolean {
+    return this.ttlMs > 0 && Date.now() - createdAt >= this.ttlMs;
   }
 
   save(profile: Profile): void {
-    if (this.profiles.size >= this.maxProfiles) {
+    // A non-positive cap disables eviction (unbounded).
+    if (this.maxProfiles > 0 && this.profiles.size >= this.maxProfiles) {
       const oldest = this.profiles.keys().next().value;
       if (oldest !== undefined) {
         this.profiles.delete(oldest);
@@ -30,15 +38,14 @@ export class MemoryStorageAdapter implements IProfilerStorageAdapter {
   }
 
   findAll(options?: StorageFindOptions): Profile[] {
-    const now = Date.now();
-    const valid = [...this.profiles.values()].filter((p) => now - p.createdAt < this.ttl);
+    const valid = [...this.profiles.values()].filter((p) => !this.isExpired(p.createdAt));
     return applyProfileFilters(valid, options).reverse();
   }
 
   findOne(token: string): Profile | undefined {
     const profile = this.profiles.get(token);
     if (!profile) return undefined;
-    if (Date.now() - profile.createdAt >= this.ttl) {
+    if (this.isExpired(profile.createdAt)) {
       this.profiles.delete(token);
       return undefined;
     }

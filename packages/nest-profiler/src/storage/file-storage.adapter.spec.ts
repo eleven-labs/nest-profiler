@@ -88,6 +88,20 @@ describe('FileStorageAdapter', () => {
     expect(all.find((p) => p.token === 'expired')).toBeUndefined();
   });
 
+  it('never caps the store when maxProfiles is 0', async () => {
+    const uncapped = new FileStorageAdapter({ storagePath: dir, maxProfiles: 0, ttl: 3600 });
+    const base = Date.now();
+    for (let i = 0; i < 20; i++) await uncapped.save(makeProfile(`u-${i}`, base + i));
+    expect(await uncapped.findAll()).toHaveLength(20);
+  });
+
+  it('never expires when ttl is 0', async () => {
+    const noTtl = new FileStorageAdapter({ storagePath: dir, ttl: 0 });
+    await noTtl.save(makeProfile('ancient', Date.now() - 10 * 365 * 24 * 3600 * 1000));
+    expect(await noTtl.findOne('ancient')).toBeDefined();
+    expect((await noTtl.findAll()).map((p) => p.token)).toEqual(['ancient']);
+  });
+
   it('clear removes all profile files', async () => {
     await adapter.save(makeProfile('x'));
     await adapter.save(makeProfile('y'));
