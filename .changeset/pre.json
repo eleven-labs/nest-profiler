@@ -27,12 +27,14 @@
     "capture-guard-exceptions",
     "capture-structured-log-context",
     "commander-entrypoint-type",
+    "compile-ui-scripts",
     "copy-as-curl-and-queries",
     "extensible-entrypoint-types",
     "extensible-list-filters",
     "fix-graphql-redos",
     "graphql-entrypoint-data",
     "http-client-agnostic",
+    "nav-badgeless-tabs-active",
     "nest-profiler-auth",
     "nest-profiler-cache",
     "nest-profiler-commander",
@@ -44,7 +46,9 @@
     "nest-profiler-validator",
     "nest-profiler",
     "profiler-load-reliability",
+    "profiler-noop-module",
     "self-host-profiler-assets",
+    "storage-query-pushdown",
     "update-dependency-ranges"
   ]
 }
