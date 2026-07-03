@@ -41,18 +41,22 @@ pnpm add @nestjs/axios axios
 Import `HttpCollectorModule` to register the panel. The axios adapter is on by default and patches the `HttpService` provided by `@nestjs/axios`'s `HttpModule` in the same module:
 
 ```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     HttpModule, // provides HttpService — required for the axios adapter
-    HttpCollectorModule.forRoot(),
-    ProfilerModule.forRoot({ isGlobal: true }),
+    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
 export class AppModule {}
 ```
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 Inject `HttpService` in your services as usual — requests are captured automatically.
 
@@ -101,7 +105,6 @@ For a reusable integration, implement `HttpInstrumentation` (`install(recorder)`
 
 | Option                   | Default | Description                                              |
 | ------------------------ | ------- | -------------------------------------------------------- |
-| `enabled`                | `true`  | Register the collector and instrumentations.             |
 | `axios`                  | `true`  | Enable the bundled axios adapter (no-op without axios).  |
 | `instrumentations`       | `[]`    | Custom `HttpInstrumentation` providers to install.       |
 | `captureRequestHeaders`  | `true`  | Capture (and mask) outgoing request headers.             |

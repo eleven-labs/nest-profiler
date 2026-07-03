@@ -25,15 +25,24 @@ Add `TypeOrmCollectorModule` **after** `TypeOrmModule` in your root module:
 
 ```ts title="app.module.ts"
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({ ... }),
-    ProfilerModule.forRoot({ isGlobal: true }),
-    TypeOrmCollectorModule.forRoot({
-      slowQueryThreshold: 100, // queries > 100ms are highlighted (default)
-    }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(
+      TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 100 }), // queries > 100ms highlighted
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}

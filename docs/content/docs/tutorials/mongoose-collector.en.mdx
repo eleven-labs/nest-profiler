@@ -24,15 +24,19 @@ pnpm add @eleven-labs/nest-profiler-mongoose
 Add `MongooseCollectorModule` in the feature module that performs MongoDB operations:
 
 ```ts title="reviews/reviews.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-    MongooseCollectorModule.forRoot({
-      slowQueryThreshold: 50, // queries > 50ms highlighted (default: 100)
-    }),
+    ConditionalModule.registerWhen(
+      MongooseCollectorModule.forRoot({ slowQueryThreshold: 50 }), // queries > 50ms highlighted
+      isProfilerEnabled,
+    ),
   ],
 })
 export class ReviewsModule {}

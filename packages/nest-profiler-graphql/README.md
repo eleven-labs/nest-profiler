@@ -41,13 +41,14 @@ Import `ProfilerGraphQLModule` alongside `ProfilerModule` in your application mo
 ### Apollo Server (Express or Fastify)
 
 ```ts
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ProfilerGraphQLModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -83,13 +84,9 @@ export class AppModule {}
   }));
 ```
 
-## Options
+## Enabling and disabling
 
-```ts
-ProfilerGraphQLModule.forRoot({
-  enabled?: boolean; // Default: true. Set to false to disable GraphQL profiling.
-})
-```
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## Ignoring playground and introspection requests
 

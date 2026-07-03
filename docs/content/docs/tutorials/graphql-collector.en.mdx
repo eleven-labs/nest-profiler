@@ -25,16 +25,23 @@ Import `ProfilerGraphQLModule` alongside `ProfilerModule` in your application mo
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
 
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ProfilerGraphQLModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -148,16 +155,14 @@ This means you can inspect them even when Apollo returns an HTTP 200 with an `er
 
 ## Disabling GraphQL profiling
 
-```ts
-ProfilerGraphQLModule.forRoot({ enabled: false });
-```
-
-You can also tie it to an environment variable:
+Gate the collector with `ConditionalModule` so it loads only when the profiler is on — the same pattern used for every profiler module:
 
 ```ts
-ProfilerGraphQLModule.forRoot({
-  enabled: process.env.NODE_ENV !== 'production',
-});
+import { ConditionalModule } from '@nestjs/config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
 ```
 
 ## How it works

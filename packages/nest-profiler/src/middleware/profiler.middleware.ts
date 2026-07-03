@@ -6,7 +6,7 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { PROFILER_REQ_KEY } from '../constants';
+import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 
@@ -50,7 +50,7 @@ const MAX_BUFFERED_BODY_BYTES = 1024 * 1024;
 
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
-  private readonly profilerPath: string;
+  private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
@@ -65,7 +65,6 @@ export class ProfilerMiddleware implements NestMiddleware {
     // @Optional() — only available in the active (enabled) layer; null in the inert layer.
     @Optional() private readonly core: ProfilerCoreService,
   ) {
-    this.profilerPath = options.path ?? '/_profiler';
     this.collectBody = options.collectBody ?? false;
     this.sampleRate = options.sampleRate ?? 1.0;
     this.ignorePaths = [

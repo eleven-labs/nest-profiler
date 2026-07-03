@@ -278,9 +278,18 @@ export class WebSocketProfilerModule implements OnModuleInit {
 ```
 
 ```ts title="app.module.ts"
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true, collectBody: true }),
+    ConditionalModule.registerWhen(
+      ProfilerModule.forRoot({ isGlobal: true, collectBody: true }),
+      isProfilerEnabled,
+    ),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
     WebSocketProfilerModule,
     // ...your gateways
   ],

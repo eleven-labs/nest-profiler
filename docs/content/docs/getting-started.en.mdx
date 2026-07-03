@@ -19,16 +19,25 @@ The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `refle
 
 ## Configure the core module
 
+The profiler is a development tool — keep it off in production. The **recommended** way to wire it is to gate the active `ProfilerModule` with `ConditionalModule.registerWhen` and register `ProfilerNoopModule` as the fallback. When profiling is off, the active module is never loaded and `ProfilerNoopModule` supplies a **zero-dependency** no-op `ProfilerService` in its place — so `app.get(ProfilerService)` and every injected `ProfilerService` keep working, at no runtime cost.
+
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({
-      isGlobal: true,
-      enabled: process.env.NODE_ENV !== 'production',
-    }),
+    ConditionalModule.registerWhen(
+      ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 }),
+      isProfilerEnabled,
+    ),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
   ],
 })
 export class AppModule {}
@@ -36,18 +45,26 @@ export class AppModule {}
 
 ## Async configuration
 
-Use `forRootAsync` when your options depend on injected providers such as `ConfigService`. One field is different: `enabled` stays at the top level, **outside** `useFactory`. It decides whether the profiler's providers are registered at all, so it must be known synchronously at bootstrap - it cannot be resolved from the async factory.
+Use `forRootAsync` when your options depend on injected providers such as `ConfigService` — gate it the same way:
 
 ```ts title="app.module.ts"
-ProfilerModule.forRootAsync({
-  // Static bootstrap flag - evaluated before the factory runs.
-  enabled: process.env.NODE_ENV !== 'production',
-  useFactory: (config: ConfigService) => ({
-    storageType: config.get('PROFILER_STORAGE_TYPE', 'memory'),
+ConditionalModule.registerWhen(
+  ProfilerModule.forRootAsync({
+    isGlobal: true,
+    useFactory: (config: ConfigService) => ({
+      storageType: config.get('PROFILER_STORAGE_TYPE', 'memory'),
+    }),
+    inject: [ConfigService],
   }),
-  inject: [ConfigService],
-});
+  isProfilerEnabled,
+),
 ```
+
+## Turn the profiler on and off
+
+The wiring shown above is the recommended toggle: the `isProfilerEnabled` predicate (here reading `PROFILER_ENABLED`) decides whether the active `ProfilerModule` or the no-op `ProfilerNoopModule` is loaded, so the profiler is off in production while `ProfilerService` stays injectable everywhere.
+
+Gate each optional collector package the same way. When several profiler modules sit at the root, group them into a single module (the [example app](/docs/example-api) bundles the core plus its global collectors into one `ProfilingModule`) so the composition root keeps just two gates — the active bundle and the no-op fallback. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Enable log capture
 
@@ -82,33 +99,42 @@ Each collector is a separate package installed alongside the core. Import each o
 
 ### Module-per-collector pattern
 
-Each optional collector is registered in the feature module it instruments:
+Each optional collector is registered in the feature module it instruments, gated with `ConditionalModule.registerWhen` using the same `isProfilerEnabled` predicate as above:
 
 ```ts title="products/products.module.ts - with TypeORM"
+import { ConditionalModule } from '@nestjs/config';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product]),
-    TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+    ConditionalModule.registerWhen(
+      TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class ProductsModule {}
 ```
 
 ```ts title="products/products.module.ts - with MikroORM"
+import { ConditionalModule } from '@nestjs/config';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
 @Module({
   imports: [
     MikroOrmModule.forFeature([Product]),
-    MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+    ConditionalModule.registerWhen(
+      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class ProductsModule {}
 ```
 
 ```ts title="content/content.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
@@ -116,18 +142,24 @@ import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 @Module({
   imports: [
     HttpModule, // provides HttpService for the bundled axios adapter
-    HttpCollectorModule.forRoot(),
-    CacheCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
 export class ContentModule {}
 ```
 
 ```ts title="auth/auth.module.ts"
+import { ConditionalModule } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
 @Module({
-  imports: [AuthCollectorModule.forRoot({ maskUserFields: ['password'] })],
+  imports: [
+    ConditionalModule.registerWhen(
+      AuthCollectorModule.forRoot({ maskUserFields: ['password'] }),
+      isProfilerEnabled,
+    ),
+  ],
 })
 export class AuthModule {}
 ```
@@ -135,22 +167,36 @@ export class AuthModule {}
 Collectors that install a global `APP_PIPE` or read global providers should remain in the root module:
 
 ```ts title="app.module.ts"
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
+import { ConditionalModule } from '@nestjs/config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [appConfig, dbConfig] }),
     CacheModule.register({ isGlobal: true }),
-    ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }),
-    ConfigCollectorModule.forRoot({
-      enabled: process.env.NODE_ENV !== 'production',
-      maskKeys: ['database.password'],
-    }),
-    ValidatorCollectorModule.forRoot({
-      enabled: process.env.NODE_ENV !== 'production',
-      validationPipeOptions: { whitelist: true, transform: true },
-    }),
+
+    // Profiler + root-level collectors, gated with ConditionalModule; ProfilerNoopModule keeps
+    // ProfilerService injectable when profiling is off.
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(
+      ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+      isProfilerEnabled,
+    ),
+    ConditionalModule.registerWhen(
+      ValidatorCollectorModule.forRoot({
+        validationPipeOptions: { whitelist: true, transform: true },
+      }),
+      isProfilerEnabled,
+    ),
+
     // feature modules:
     ProductsModule,
     ContentModule,
@@ -171,12 +217,20 @@ pnpm add @eleven-labs/nest-profiler-graphql
 Import `ProfilerGraphQLModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
 
 ```ts title="app.module.ts - Apollo (Express / Fastify) or graphql-yoga"
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    ProfilerGraphQLModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,

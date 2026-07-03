@@ -176,9 +176,11 @@ AppModule (no controller — only global forRoot + feature modules)
           ├── NotificationsRabbitMqModule [FEATURE_RABBITMQ] → RabbitMqCollectorModule + consumer
           └── NotificationsNoopModule     [default]          → no broker
 
-Global (forRoot): ProfilerModule, ConfigCollectorModule, ValidatorCollectorModule,
-                  CommanderCollectorModule, CacheModule, LoggerModule (pino, opt-in)
+Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
+        / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, opt-in)
 ```
+
+The profiler is toggled with `ConditionalModule.registerWhen` — the recommended pattern (see below). The root-level profiler modules are bundled into one `ProfilingModule`, so `AppModule` keeps just two gates. Infra-scoped collectors stay co-located in their bounded context.
 
 ### The port + adapter pattern
 
@@ -203,7 +205,10 @@ export class CatalogModule {}
   imports: [
     MikroOrmModule.forRootAsync({/* Postgres */}),
     MikroOrmModule.forFeature([ProductEntity]),
-    MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+    ConditionalModule.registerWhen(
+      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      isProfilerEnabled,
+    ),
   ],
   providers: [{ provide: ProductRepository, useClass: MikroOrmProductRepository }],
   exports: [ProductRepository],
@@ -212,6 +217,39 @@ export class ProductMikroOrmModule {}
 ```
 
 The `in-memory` adapter is identical in shape but binds `InMemoryProductRepository` and wires no connection or collector — that is the path that keeps the catalog (REST + GraphQL) running with no infrastructure.
+
+### Toggling the profiler: one bundle + `ProfilerNoopModule`
+
+`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `ProfilerService` (injected in `main.ts`, `ProductService`, the CLI commands, the axios gateway…) therefore stays resolvable even when profiling is off, at no runtime cost.
+
+```ts title="app.module.ts"
+ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
+ConditionalModule.registerWhen(
+  ProfilerNoopModule.forRoot({ isGlobal: true }),
+  (env) => !isProfilerEnabled(env),
+),
+```
+
+```ts title="profiling/profiling.module.ts"
+@Module({})
+export class ProfilingModule {
+  static forWeb(): DynamicModule {
+    return {
+      module: ProfilingModule,
+      imports: [
+        ProfilerModule.forRootAsync({ isGlobal: true /* storage, filters… */ }),
+        ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+        ValidatorCollectorModule.forRoot({
+          validationPipeOptions: { whitelist: true, transform: true },
+        }),
+        CommanderCollectorModule.forRoot(),
+      ],
+    };
+  }
+}
+```
+
+The bundle carries no `ConditionalModule` itself — the single outer gate covers the whole group, and none of the collectors needs a no-op counterpart (they self-register through discovery). Infra-scoped collectors (`HttpCollectorModule`, `MikroOrmCollectorModule`…) stay co-located in their bounded-context modules, gated there by their own feature flags on top of `isProfilerEnabled`.
 
 ### Reviews → notifications: an event-driven flow
 

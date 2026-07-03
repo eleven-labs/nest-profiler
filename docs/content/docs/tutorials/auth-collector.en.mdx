@@ -22,14 +22,23 @@ pnpm add @eleven-labs/nest-profiler-auth
 ## Step 2 - Register the module
 
 ```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    AuthCollectorModule.forRoot({
-      maskUserFields: ['password', 'refreshToken'], // extra fields to mask
-    }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(
+      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}

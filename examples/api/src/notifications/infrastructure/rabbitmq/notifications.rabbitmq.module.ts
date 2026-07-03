@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import rabbitmqConfig from '../../../config/rabbitmq.config.js';
 import { EventPublisher } from '../../domain/event-publisher.js';
 import { NotificationService } from '../../application/notification.service.js';
@@ -28,7 +28,7 @@ import { NotificationConsumer } from './notification.consumer.js';
       }),
     }),
     // Profiles each consumed message as a `rabbitmq` entrypoint.
-    RabbitMqCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
+    ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [
     NotificationService,

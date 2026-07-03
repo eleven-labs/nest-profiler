@@ -225,11 +225,11 @@ describe('ProfilerInterceptor', () => {
   });
 
   describe('toolbar injection', () => {
-    it('injects the toolbar into HTML responses with a </body>, honoring a custom path', async () => {
+    it('injects the toolbar into HTML responses with a </body>', async () => {
       const profile = makeProfile();
       const core = makeCore();
       const res = makeRes({ 'content-type': 'text/html; charset=utf-8' });
-      const interceptor = makeInterceptor(profile, core, { path: '/__debug' });
+      const interceptor = makeInterceptor(profile, core);
 
       const result = (await lastValueFrom(
         interceptor.intercept(
@@ -239,7 +239,7 @@ describe('ProfilerInterceptor', () => {
       )) as string;
 
       expect(result).toContain('id="profiler-toolbar"');
-      expect(result).toContain('/__debug/');
+      expect(result).toContain('/_profiler/');
       expect(result.indexOf('id="profiler-toolbar"')).toBeLessThan(result.indexOf('</body>'));
     });
 

@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
-import { isProfilerEnabled } from '../../../config/app.config.js';
+import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import { ArticleGateway } from '../../domain/article-gateway.js';
 import { AxiosArticleGateway } from './article.axios.gateway.js';
 
@@ -14,11 +15,11 @@ import { AxiosArticleGateway } from './article.axios.gateway.js';
 @Module({
   imports: [
     HttpModule,
-    HttpCollectorModule.forRoot({
-      enabled: isProfilerEnabled(process.env),
-      captureResponseBody: true,
-    }),
-    CacheCollectorModule.forRoot({ enabled: isProfilerEnabled(process.env) }),
+    ConditionalModule.registerWhen(
+      HttpCollectorModule.forRoot({ captureResponseBody: true }),
+      isProfilerEnabled,
+    ),
+    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [{ provide: ArticleGateway, useClass: AxiosArticleGateway }],
   exports: [ArticleGateway],

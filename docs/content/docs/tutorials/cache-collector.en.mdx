@@ -23,13 +23,21 @@ pnpm add @eleven-labs/nest-profiler-cache @nestjs/cache-manager cache-manager
 
 ```ts title="app.module.ts"
 import { CacheModule } from '@nestjs/cache-manager';
+import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
     CacheModule.register({ isGlobal: true, ttl: 30000 }), // 30s TTL
-    ProfilerModule.forRoot({ isGlobal: true }),
-    CacheCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
+    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
 export class AppModule {}

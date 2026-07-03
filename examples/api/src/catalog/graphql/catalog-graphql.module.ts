@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import type { Request } from 'express';
 import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { isProfilerEnabled } from '../../config/profiler.config.js';
 
 /**
  * GraphQL transport for the catalog context. Sets up the Apollo driver and the profiler GraphQL
@@ -14,7 +16,7 @@ import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
  */
 @Module({
   imports: [
-    ProfilerGraphQLModule.forRoot(),
+    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,

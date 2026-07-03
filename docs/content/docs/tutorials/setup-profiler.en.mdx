@@ -18,18 +18,22 @@ pnpm add @eleven-labs/nest-profiler nestjs-cls
 
 ## Step 2 - Register the module
 
-Import `ProfilerModule` in your root module:
+Import `ProfilerModule` in your root module. The recommended way is to gate it with `ConditionalModule.registerWhen` and pair it with `ProfilerNoopModule`, so the profiler loads only when you want it — and `ProfilerService` stays injectable either way:
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({
-      isGlobal: true,
-      enabled: process.env.NODE_ENV !== 'production',
-    }),
+    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      ProfilerNoopModule.forRoot({ isGlobal: true }),
+      (env) => !isProfilerEnabled(env),
+    ),
   ],
 })
 export class AppModule {}
@@ -99,12 +103,30 @@ curl -H "Authorization: Bearer my-dev-secret" http://localhost:3000/_profiler
 
 <Callout type="warn" title="Production warning">
   Never enable the profiler in production. It exposes internal request data including headers, query
-  parameters, and logs. Use `enabled: false` or an environment-based condition (e.g.
-  `process.env.NODE_ENV !== 'production'`) to disable it in non-development environments.
+  parameters, and logs. Disable it in non-development environments.
 
-When disabled, the core registers only an inert layer: `ProfilerService` stays injectable - so
-`app.useLogger(...)` and any service that injects it keep working - but all its methods are no-ops,
-and no controller, interceptor, middleware, storage or collector is registered. Collector modules
-register nothing at all.
+The **recommended** way is to gate `ProfilerModule` with `ConditionalModule.registerWhen` and
+register `ProfilerNoopModule` as the fallback, so the active module is never loaded when profiling is
+off:
+
+```ts title="app.module.ts"
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(
+  ProfilerModule.forRootAsync({ isGlobal: true, useFactory: () => ({ maxProfiles: 100 }) }),
+  isProfilerEnabled,
+),
+ConditionalModule.registerWhen(
+  ProfilerNoopModule.forRoot({ isGlobal: true }),
+  (env) => !isProfilerEnabled(env),
+),
+```
+
+`ProfilerNoopModule` supplies a zero-dependency no-op `ProfilerService`, so `app.useLogger(...)` and
+any service that injects it keep working — but every method is a no-op, and no controller,
+interceptor, middleware, storage or collector is registered.
 
 </Callout>

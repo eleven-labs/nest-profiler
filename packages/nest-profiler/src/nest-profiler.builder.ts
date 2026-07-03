@@ -14,9 +14,6 @@ export interface ProfilerModuleOptions {
    */
   enabled?: boolean;
 
-  /** Base path for the profiler UI. Default: '/_profiler' */
-  path?: string;
-
   /**
    * Bearer token required to access the profiler UI. When set, requests must
    * send `Authorization: Bearer <token>`. When omitted, the guard falls back to

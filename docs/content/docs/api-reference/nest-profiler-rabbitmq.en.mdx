@@ -36,8 +36,6 @@ import type { RabbitMqInfo } from '@eleven-labs/nest-profiler-rabbitmq';
 
 ```ts
 interface RabbitMqCollectorModuleOptions {
-  /** Enable the collector. Default: `true`. */
-  enabled?: boolean;
   /** Capture incoming AMQP message headers (masked). Default: `true`. */
   captureHeaders?: boolean;
   /** Capture the deserialized message payload. Default: `true`. */
@@ -47,7 +45,7 @@ interface RabbitMqCollectorModuleOptions {
 }
 ```
 
-When `enabled` is `false`, `forRoot()` registers no providers - the host application decides per environment.
+Gate the module per environment with `ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot({ … }), isProfilerEnabled)` — the same pattern used for every profiler module.
 
 ## Setup
 
@@ -55,18 +53,21 @@ Register the module in the application that consumes your messages (the same pro
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    RabbitMqCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
     // your RabbitMQModule with @RabbitSubscribe handlers
   ],
 })
 export class AppModule {}
 ```
+
+Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback once at the root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 `@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies - the ones you already
 install to consume messages. The module needs no changes to your `@RabbitSubscribe` handlers.

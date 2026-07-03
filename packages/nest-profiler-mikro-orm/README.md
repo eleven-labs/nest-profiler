@@ -41,9 +41,12 @@ configuration is required — the collector wraps the ORM logger automatically:
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
@@ -51,13 +54,16 @@ import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
       driver: PostgreSqlDriver,
       // ...your connection options
     }),
-    MikroOrmCollectorModule.forRoot({
-      slowQueryThreshold: 100, // ms — queries above this are highlighted (default: 100)
-    }),
+    ConditionalModule.registerWhen(
+      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 100 }), // ms — above this is highlighted
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}
 ```
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## What it collects
 

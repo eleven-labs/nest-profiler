@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { isRabbitMqEnabled } from '../config/features.config.js';
+import { not } from '../config/env-condition.js';
 import { ReviewController } from './http/review.controller.js';
 import { ReviewService } from './application/review.service.js';
 import { ReviewMongooseModule } from './infrastructure/mongoose/review.mongoose.module.js';
@@ -18,7 +19,7 @@ import { NotificationsNoopModule } from '../notifications/infrastructure/noop/no
   imports: [
     ReviewMongooseModule,
     ConditionalModule.registerWhen(NotificationsRabbitMqModule, isRabbitMqEnabled),
-    ConditionalModule.registerWhen(NotificationsNoopModule, (env) => !isRabbitMqEnabled(env)),
+    ConditionalModule.registerWhen(NotificationsNoopModule, not(isRabbitMqEnabled)),
   ],
   controllers: [ReviewController],
   providers: [ReviewService],

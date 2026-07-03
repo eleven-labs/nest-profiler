@@ -2,20 +2,24 @@ import 'reflect-metadata';
 
 import { ConsoleLogger } from '@nestjs/common';
 import type { LoggerService } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import { AppModule } from './app.module.js';
 import { applyGlobalPrefix } from './config/global-prefix.js';
-import { isPinoLoggerEnabled } from './config/features.config.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
+  const configService = app.get(ConfigService);
+  const port = configService.getOrThrow<number>('app.port');
+  const isPinoLoggerEnabled = configService.getOrThrow<boolean>('features.pinoLogger');
+
   // Wrap the chosen logger so all log calls are captured into the active profile.
   const profilerService = app.get(ProfilerService);
-  const baseLogger: LoggerService = isPinoLoggerEnabled(process.env)
+  const baseLogger: LoggerService = isPinoLoggerEnabled
     ? app.get(PinoLogger)
     : new ConsoleLogger('ExampleApi');
   app.useLogger(profilerService.createLogger(baseLogger));
@@ -44,7 +48,6 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  const port = Number(process.env['PORT'] ?? 3000);
   await app.listen(port);
 }
 

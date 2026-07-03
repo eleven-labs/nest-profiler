@@ -41,13 +41,14 @@ pnpm add @eleven-labs/nest-profiler-rabbitmq
 Register the module in the application that consumes your messages (the same process that hosts the profiler), alongside your RabbitMQ module:
 
 ```ts title="app.module.ts"
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConditionalModule } from '@nestjs/config';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ProfilerModule.forRoot({ isGlobal: true }),
-    RabbitMqCollectorModule.forRoot(),
+    ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
     // your RabbitMQModule.forRoot(...) with @RabbitSubscribe handlers
   ],
 })
@@ -67,12 +68,13 @@ async createGeneration(message: ArticleEvent, raw: ConsumeMessage): Promise<void
 
 ```ts
 RabbitMqCollectorModule.forRoot({
-  enabled: true, // default — set false to disable per environment
   captureHeaders: true, // default — AMQP headers (sensitive ones masked)
   captureBody: true, // default — deserialized payload (can be large)
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
 });
 ```
+
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## What it collects
 

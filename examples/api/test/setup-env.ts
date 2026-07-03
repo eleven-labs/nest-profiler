@@ -1,7 +1,7 @@
 /**
  * Runs before each spec file's imports (jest `setupFiles`). This is the only safe place to set
- * feature env vars: `ProfilerModule.forRootAsync({ enabled })` and the `ConditionalModule`
- * predicates read `process.env` when `app.module.ts` / `cli.module.ts` are imported or compiled.
+ * feature env vars: the `ConditionalModule.registerWhen` predicates (profiler included) read
+ * `process.env` when `app.module.ts` / `cli.module.ts` are imported or compiled.
  */
 import * as path from 'node:path';
 

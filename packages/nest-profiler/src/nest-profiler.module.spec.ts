@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule } from './nest-profiler.module';
 import { ProfilerService } from './services/nest-profiler.service';
+import { NoopProfilerService } from './services/noop-profiler.service';
 import { ProfilerStorageService } from './services/profiler-storage.service';
 import { CollectorRegistry } from './collectors/collector-registry.service';
 import type { IProfilerStorageAdapter } from './storage';
@@ -33,12 +34,13 @@ describe('ProfilerModule', () => {
     await module.close();
   });
 
-  it('forRoot({ enabled: false }) registers only the inert ProfilerService', async () => {
+  it('forRoot({ enabled: false }) registers only the no-op ProfilerService', async () => {
     const module = await Test.createTestingModule({
       imports: [ProfilerModule.forRoot({ enabled: false })],
     }).compile();
-    // ProfilerService stays injectable everywhere (main.ts, consumer services)…
-    expect(module.get(ProfilerService)).toBeInstanceOf(ProfilerService);
+    // ProfilerService stays injectable everywhere (main.ts, consumer services),
+    // backed by the zero-dependency no-op service…
+    expect(module.get(ProfilerService)).toBeInstanceOf(NoopProfilerService);
     // …but the active layer is absent.
     expect(() => module.get(CollectorRegistry)).toThrow();
     expect(() => module.get(ProfilerStorageService)).toThrow();
