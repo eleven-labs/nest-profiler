@@ -48,7 +48,7 @@ export interface ProfilerPage {
 }
 
 /** Resolves a criterion field on a summary, supporting `attributes.<key>` paths. */
-function resolveField(summary: ProfileSummary, field: string): SummaryPrimitive | undefined {
+export function resolveField(summary: ProfileSummary, field: string): SummaryPrimitive | undefined {
   if (field.startsWith('attributes.')) return summary.attributes[field.slice('attributes.'.length)];
   return (summary as unknown as Record<string, SummaryPrimitive | undefined>)[field];
 }
@@ -87,6 +87,49 @@ export function matchesQuery(summary: ProfileSummary, query: ProfilerQuery): boo
 }
 
 /**
+ * Filters, sorts (by `createdAt`) and slices the requested page over pre-computed
+ * summaries, each paired with an arbitrary `value` returned for the matching page
+ * (a full profile for the in-memory path, a token for a store that reads the page
+ * lazily). Returns the page of values plus the full match `total`.
+ */
+export function selectPage<T>(
+  entries: { summary: ProfileSummary; value: T }[],
+  query: ProfilerQuery,
+): { items: T[]; total: number } {
+  const direction = query.sort?.direction ?? 'desc';
+  const matched = entries.filter((e) => matchesQuery(e.summary, query));
+  matched.sort((a, b) =>
+    direction === 'desc'
+      ? b.summary.createdAt - a.summary.createdAt
+      : a.summary.createdAt - b.summary.createdAt,
+  );
+  const start = Math.max(0, (query.page - 1) * query.pageSize);
+  return {
+    items: matched.slice(start, start + query.pageSize).map((e) => e.value),
+    total: matched.length,
+  };
+}
+
+/**
+ * The distinct, non-empty values of a summary `field` (optionally restricted to
+ * `typeIn`) — the values a dynamic `select` filter offers. Operates on summaries so
+ * a store can serve it straight from its index.
+ */
+export function distinctFromSummaries(
+  summaries: ProfileSummary[],
+  field: string,
+  typeIn?: string[],
+): SummaryPrimitive[] {
+  const values = new Set<SummaryPrimitive>();
+  for (const summary of summaries) {
+    if (typeIn && !typeIn.includes(summary.type)) continue;
+    const value = resolveField(summary, field);
+    if (value !== undefined && value !== '') values.add(value);
+  }
+  return [...values];
+}
+
+/**
  * The shared in-memory fallback for {@link IProfilerStorageAdapter.query}: adapters
  * that don't implement a native `query` (e.g. the in-memory adapter) route through
  * this. Summarizes, filters, sorts by `createdAt` and slices the requested page,
@@ -97,20 +140,11 @@ export function applyQueryInMemory(
   query: ProfilerQuery,
   getAttributes?: IndexAttributesProvider,
 ): ProfilerPage {
-  const direction = query.sort?.direction ?? 'desc';
-  const matched = profiles
-    .map((profile) => ({ profile, summary: summarizeProfile(profile, getAttributes) }))
-    .filter(({ summary }) => matchesQuery(summary, query));
-
-  matched.sort((a, b) =>
-    direction === 'desc'
-      ? b.summary.createdAt - a.summary.createdAt
-      : a.summary.createdAt - b.summary.createdAt,
-  );
-
-  const start = Math.max(0, (query.page - 1) * query.pageSize);
-  const items = matched.slice(start, start + query.pageSize).map((m) => m.profile);
-  return { items, total: matched.length };
+  const entries = profiles.map((profile) => ({
+    summary: summarizeProfile(profile, getAttributes),
+    value: profile,
+  }));
+  return selectPage(entries, query);
 }
 
 /**
@@ -124,12 +158,9 @@ export function distinctInMemory(
   getAttributes?: IndexAttributesProvider,
   typeIn?: string[],
 ): SummaryPrimitive[] {
-  const values = new Set<SummaryPrimitive>();
-  for (const profile of profiles) {
-    const summary = summarizeProfile(profile, getAttributes);
-    if (typeIn && !typeIn.includes(summary.type)) continue;
-    const value = resolveField(summary, field);
-    if (value !== undefined && value !== '') values.add(value);
-  }
-  return [...values];
+  return distinctFromSummaries(
+    profiles.map((profile) => summarizeProfile(profile, getAttributes)),
+    field,
+    typeIn,
+  );
 }

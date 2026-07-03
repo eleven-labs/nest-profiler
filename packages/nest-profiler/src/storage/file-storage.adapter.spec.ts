@@ -184,6 +184,133 @@ describe('FileStorageAdapter', () => {
     expect(files).not.toContain('crashed.json.tmp');
   });
 
+  describe('native query + distinct + sidecar index', () => {
+    const withMethod = (token: string, method: string, createdAt: number): Profile => {
+      const p = makeProfile(token, createdAt);
+      p.entrypoint.data.method = method;
+      return p;
+    };
+
+    it('query() filters, sorts newest-first and paginates with a total', async () => {
+      const big = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const base = Date.now();
+      for (let i = 0; i < 5; i++) await big.save(makeProfile(`q-${i}`, base + i));
+
+      const page1 = await big.query({ filters: [], page: 1, pageSize: 2 });
+      expect(page1.total).toBe(5);
+      expect(page1.items.map((p) => p.token)).toEqual(['q-4', 'q-3']);
+
+      const page2 = await big.query({ filters: [], page: 2, pageSize: 2 });
+      expect(page2.items.map((p) => p.token)).toEqual(['q-2', 'q-1']);
+    });
+
+    it('query() applies filter criteria over the index', async () => {
+      const big = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const base = Date.now();
+      await big.save(withMethod('get1', 'GET', base));
+      await big.save(withMethod('post1', 'POST', base + 1));
+      await big.save(withMethod('get2', 'GET', base + 2));
+
+      const page = await big.query({
+        filters: [{ field: 'method', op: 'eq', value: 'POST' }],
+        page: 1,
+        pageSize: 10,
+      });
+      expect(page.total).toBe(1);
+      expect(page.items.map((p) => p.token)).toEqual(['post1']);
+    });
+
+    it('query() reads only the requested page of profile files', async () => {
+      const big = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const base = Date.now();
+      for (let i = 0; i < 5; i++) await big.save(makeProfile(`page-${i}`, base + i));
+
+      // A cold adapter loads summaries from the sidecar, so a query parses only the page.
+      const cold = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const readSpy = jest.spyOn(fs.promises, 'readFile');
+      const page = await cold.query({ filters: [], page: 1, pageSize: 2 });
+      const profileReads = readSpy.mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.json'),
+      ).length;
+      readSpy.mockRestore();
+
+      expect(page.items).toHaveLength(2);
+      expect(page.total).toBe(5);
+      expect(profileReads).toBe(2);
+    });
+
+    it('distinct() returns the distinct values of a field from the index', async () => {
+      const big = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const base = Date.now();
+      await big.save(withMethod('a', 'GET', base));
+      await big.save(withMethod('b', 'POST', base + 1));
+      await big.save(withMethod('c', 'POST', base + 2));
+
+      expect((await big.distinct('method')).sort()).toEqual(['GET', 'POST']);
+    });
+
+    it('persists a sidecar index and reloads it without re-parsing every profile', async () => {
+      await adapter.save(makeProfile('s1'));
+      await adapter.save(makeProfile('s2'));
+      expect(await fs.promises.readdir(dir)).toContain('_index.meta');
+
+      const cold = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const readSpy = jest.spyOn(fs.promises, 'readFile');
+      // distinct() serves straight from the index — loading must not read any profile file.
+      await cold.distinct('method');
+      const profileReads = readSpy.mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.json'),
+      ).length;
+      readSpy.mockRestore();
+      expect(profileReads).toBe(0);
+    });
+
+    it('rebuilds the index from profile files when the sidecar is missing', async () => {
+      await adapter.save(makeProfile('r1'));
+      await adapter.save(makeProfile('r2'));
+      await fs.promises.unlink(path.join(dir, '_index.meta'));
+
+      const rebuilt = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      const page = await rebuilt.query({ filters: [], page: 1, pageSize: 10 });
+      expect(page.items.map((p) => p.token).sort()).toEqual(['r1', 'r2']);
+      // …and re-writes the sidecar for next time.
+      expect(await fs.promises.readdir(dir)).toContain('_index.meta');
+    });
+
+    it('indexes kind-specific attributes from the provider and queries on them', async () => {
+      const big = new FileStorageAdapter({ storagePath: dir, maxProfiles: 100, ttl: 3600 });
+      big.setIndexAttributesProvider((p) => ({
+        operationType: (p.entrypoint.data as { op?: string }).op ?? '',
+      }));
+      const base = Date.now();
+      const q = makeProfile('gq', base);
+      (q.entrypoint.data as { op?: string }).op = 'mutation';
+      await big.save(q);
+      await big.save(makeProfile('plain', base + 1));
+
+      const page = await big.query({
+        filters: [{ field: 'attributes.operationType', op: 'eq', value: 'mutation' }],
+        page: 1,
+        pageSize: 10,
+      });
+      expect(page.items.map((p) => p.token)).toEqual(['gq']);
+      expect((await big.distinct('attributes.operationType')).sort()).toEqual(['mutation']);
+    });
+
+    it('drops an evicted profile from the sidecar index', async () => {
+      await adapter.save(makeProfile('e-old')); // maxProfiles = 3
+      await adapter.save(makeProfile('e-1'));
+      await adapter.save(makeProfile('e-2'));
+      await adapter.save(makeProfile('e-3')); // evicts e-old
+
+      const sidecar = JSON.parse(
+        await fs.promises.readFile(path.join(dir, '_index.meta'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(Object.keys(sidecar)).not.toContain('e-old');
+      expect(Object.keys(sidecar)).toContain('e-3');
+    });
+  });
+
   describe('concurrency', () => {
     let bigAdapter: FileStorageAdapter;
 

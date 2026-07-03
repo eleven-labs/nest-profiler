@@ -27,9 +27,9 @@ ProfilerModule.forRoot({
 
 Each profile is written to `{storagePath}/{token}.json`. The directory is created automatically. Add `.profiler/` to `.gitignore`.
 
-The in-memory index is reconstructed from disk on startup — expired profiles are cleaned up automatically.
+The file adapter keeps an in-memory index of each profile's queryable summary (type, method, status, duration, exceptions, a search haystack and kind-specific attributes), persisted alongside the profiles in a `{storagePath}/_index.meta` sidecar. A list render filters, sorts and paginates over this index and then reads **only the current page's** `{token}.json` files — never the whole store. The index is rebuilt from the profile files if the sidecar is missing, and reconciled with the directory on every read, so profiles written by another process (e.g. a CLI command) appear without a restart and externally removed files drop out.
 
-For fast list rendering, parsed profiles are also cached in memory and validated against each file's mtime, so steady-state memory grows with `maxProfiles × average profile size` — keep `maxProfiles` reasonable when `collectBody` is enabled. Profiles returned by the storage are shared with this cache: treat them as read-only.
+For fast repeated reads, parsed profiles are also cached in memory and validated against each file's mtime, so steady-state memory grows with `maxProfiles × average profile size` — keep `maxProfiles` reasonable when `collectBody` is enabled. Profiles returned by the storage are shared with this cache: treat them as read-only.
 
 ## Custom adapter
 
@@ -61,5 +61,7 @@ ProfilerModule.forRoot({
   storage: new RedisStorageAdapter(redisClient), // takes precedence over storageType
 });
 ```
+
+The four methods above are all an adapter must implement — the profiler filters and paginates in memory by fetching everything through `findAll`. For a large backing store you can **push that work down** by additionally implementing the optional `query(query: ProfilerQuery): ProfilerPage` (filters + sort + pagination, returning a page plus the total count) and `distinct(field, typeIn?)` (values for a dynamic filter's `select`). Implement `setIndexAttributesProvider(provider)` too if you index kind-specific attributes (a GraphQL `operationType`, a RabbitMQ `exchange`…) so those filters push down as well. The helpers `selectPage`, `distinctFromSummaries` and `summarizeProfile` are exported to build a `ProfileSummary`-backed index; when these methods are absent the profiler transparently falls back to the in-memory path.
 
 > **Step-by-step tutorial** — [File-based profile storage](https://nest-profiler.eleven-labs.com/docs/tutorials/file-storage) shows persistent profiles in action, including CLI command profiles that survive the process that created them.

@@ -1,6 +1,6 @@
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerPage, ProfilerQuery } from './profiler-query';
-import type { SummaryPrimitive } from './profile-summary';
+import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary';
 
 export const PROFILER_STORAGE_ADAPTER = Symbol('PROFILER_STORAGE_ADAPTER');
 
@@ -48,4 +48,14 @@ export interface IProfilerStorageAdapter {
    * Falls back to deriving them from {@link findAll} when omitted.
    */
   distinct?(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> | SummaryPrimitive[];
+
+  /**
+   * Optional: receive the projection that computes a profile's kind-specific index
+   * attributes (a GraphQL `operationType`, a RabbitMQ `exchange`…). Adapters that
+   * index/persist a {@link ProfileSummary} for native `query`/`distinct` need it to
+   * populate `summary.attributes`. The profiler calls this once at startup, before
+   * the first save. Adapters without a native query can ignore it (the service keeps
+   * the provider for its in-memory fallback).
+   */
+  setIndexAttributesProvider?(provider: IndexAttributesProvider): void;
 }

@@ -177,4 +177,27 @@ describe('ProfilerStorageService', () => {
     expect(query).toHaveBeenCalledWith(q);
     expect(distinct).toHaveBeenCalledWith('attributes.x', ['http']);
   });
+
+  it('forwards the index-attributes provider to an adapter that accepts it', async () => {
+    const setIndexAttributesProvider = jest.fn();
+    const custom = {
+      save: jest.fn(),
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      clear: jest.fn(),
+      setIndexAttributesProvider,
+    } as unknown as IProfilerStorageAdapter;
+    const svc = (
+      await Test.createTestingModule({
+        providers: [
+          ProfilerStorageService,
+          { provide: PROFILER_STORAGE_ADAPTER, useValue: custom },
+        ],
+      }).compile()
+    ).get(ProfilerStorageService);
+
+    const provider = (): Record<string, string> => ({ kind: 'x' });
+    svc.setIndexAttributesProvider(provider);
+    expect(setIndexAttributesProvider).toHaveBeenCalledWith(provider);
+  });
 });

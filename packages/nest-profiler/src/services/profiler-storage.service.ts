@@ -35,9 +35,15 @@ export class ProfilerStorageService {
       adapter ?? new MemoryStorageAdapter({ maxProfiles: options.maxProfiles, ttl: options.ttl });
   }
 
-  /** Registers the projection used to compute summaries for the in-memory fallback. */
+  /**
+   * Registers the projection used to compute summaries. Kept for the in-memory
+   * `query`/`distinct` fallback and forwarded to the adapter when it maintains its
+   * own summary index (a file or database adapter) so its native queries can filter
+   * on kind-specific attributes.
+   */
   setIndexAttributesProvider(provider: IndexAttributesProvider): void {
     this.indexAttributes = provider;
+    this.adapter.setIndexAttributesProvider?.(provider);
   }
 
   /**

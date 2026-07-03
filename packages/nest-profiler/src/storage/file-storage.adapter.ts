@@ -3,6 +3,10 @@ import * as path from 'node:path';
 import type { Profile } from '../interfaces/profile.interface';
 import type { IProfilerStorageAdapter, StorageFindOptions } from './storage-adapter.interface';
 import { applyProfileFilters } from './storage-filters';
+import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from './profile-summary';
+import { summarizeProfile } from './profile-summary';
+import type { ProfilerPage, ProfilerQuery } from './profiler-query';
+import { distinctFromSummaries, selectPage } from './profiler-query';
 
 export interface FileStorageAdapterOptions {
   /** Directory where profile files are stored. Defaults to '.profiler' in cwd. */
@@ -10,18 +14,21 @@ export interface FileStorageAdapterOptions {
   /**
    * Maximum number of profiles kept on disk (LRU eviction). Default: 100
    *
-   * Also bounds the in-memory cache of parsed profiles, so steady-state memory grows
-   * with `maxProfiles × average profile size` (larger when `collectBody` is enabled).
+   * Also bounds the in-memory summary index and parsed-profile cache, so steady-state
+   * memory grows with `maxProfiles × average summary/profile size`.
    */
   maxProfiles?: number;
   /** Profile TTL in seconds. Default: 3600 (1h) */
   ttl?: number;
 }
 
-interface ProfileIndex {
-  token: string;
-  createdAt: number;
-}
+/**
+ * Sidecar file holding the queryable {@link ProfileSummary} of every stored profile,
+ * so a fresh process can rebuild its index (and serve `query`/`distinct`) without
+ * reading and parsing every profile. Not a `.json` file so it is never mistaken for a
+ * profile (whose filename is `<token>.json`); the directory listing stays authoritative.
+ */
+const INDEX_FILE = '_index.meta';
 
 export class FileStorageAdapter implements IProfilerStorageAdapter {
   /** Profiles are persisted as files on a shared filesystem — visible across processes. */
@@ -29,16 +36,20 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
   private readonly dir: string;
   private readonly maxProfiles: number;
   private readonly ttlMs: number;
-  /** In-memory index of stored profiles keyed by token — a Map cannot hold duplicates. */
-  private readonly index = new Map<string, ProfileIndex>();
+  /**
+   * In-memory index of stored profiles keyed by token, holding each profile's queryable
+   * {@link ProfileSummary}. Filtering/sorting/pagination run over these summaries, so a
+   * list render reads only the profile files of the requested page.
+   */
+  private readonly index = new Map<string, ProfileSummary>();
   /**
    * Parsed profiles keyed by token, validated against the file's mtime on every read, so a
-   * list render costs one stat per profile instead of reading and parsing every file again.
-   * Bounded by construction: entries are pruned exactly where index entries are pruned, so
-   * the cache never exceeds `maxProfiles` profiles (worst-case memory: maxProfiles × profile
-   * size). Cached profiles are returned by reference — treat them as read-only.
+   * read costs one stat instead of re-reading and parsing the file. Bounded by construction:
+   * pruned wherever index entries are pruned, so it never exceeds `maxProfiles`.
    */
   private readonly cache = new Map<string, { mtimeMs: number; profile: Profile }>();
+  /** Projection for kind-specific summary attributes; set by the profiler at startup. */
+  private getAttributes?: IndexAttributesProvider;
   private ready: Promise<void> | null = null;
   /**
    * Serializes every index/disk mutation. Concurrent saves, directory syncs and evictions
@@ -55,6 +66,10 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     this.ttlMs = (options.ttl ?? 3600) * 1000;
   }
 
+  setIndexAttributesProvider(provider: IndexAttributesProvider): void {
+    this.getAttributes = provider;
+  }
+
   async save(profile: Profile): Promise<void> {
     await this.init();
 
@@ -66,44 +81,69 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
       await fs.promises.writeFile(tmpPath, JSON.stringify(profile), 'utf-8');
       await fs.promises.rename(tmpPath, filePath);
 
-      this.index.set(profile.token, { token: profile.token, createdAt: profile.createdAt });
+      this.index.set(profile.token, this.summarize(profile));
 
-      // Prime the cache with the live object so the next list render is a pure cache hit.
+      // Prime the cache with the live object so the next read is a pure cache hit.
       const stat = await fs.promises.stat(filePath).catch(() => null);
       if (stat) this.cache.set(profile.token, { mtimeMs: stat.mtimeMs, profile });
 
       await this.evictExpiredAndOverflow();
+      await this.persistIndex();
     });
   }
 
   async findAll(options?: StorageFindOptions): Promise<Profile[]> {
     await this.init();
-    const entries = await this.withLock(async () => {
+    const tokens = await this.withLock(async () => {
       await this.syncIndex();
-      return this.sortedEntries();
+      // Newest first, matching the in-memory adapter and the list's default order.
+      return this.validSummaries()
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map((s) => s.token);
     });
-
-    const now = Date.now();
-    const validEntries = entries.filter((e) => now - e.createdAt < this.ttlMs).reverse(); // newest first
 
     // File reads happen outside the lock so list rendering never serializes behind a
     // burst of saves; an entry evicted meanwhile simply reads as null and is dropped.
-    const profiles = (await Promise.all(validEntries.map((e) => this.readProfile(e.token)))).filter(
+    const profiles = (await Promise.all(tokens.map((t) => this.readProfile(t)))).filter(
       (p): p is Profile => p !== null,
     );
 
     return applyProfileFilters(profiles, options);
   }
 
+  async query(query: ProfilerQuery): Promise<ProfilerPage> {
+    await this.init();
+    // Filter/sort/paginate over the in-memory summaries under the lock, then read only
+    // the page's profile files — the whole point of the sidecar index.
+    const page = await this.withLock(async () => {
+      await this.syncIndex();
+      const entries = this.validSummaries().map((summary) => ({ summary, value: summary.token }));
+      return selectPage(entries, query);
+    });
+
+    const items = (await Promise.all(page.items.map((t) => this.readProfile(t)))).filter(
+      (p): p is Profile => p !== null,
+    );
+    return { items, total: page.total };
+  }
+
+  async distinct(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> {
+    await this.init();
+    return this.withLock(async () => {
+      await this.syncIndex();
+      return distinctFromSummaries(this.validSummaries(), field, typeIn);
+    });
+  }
+
   async findOne(token: string): Promise<Profile | undefined> {
     await this.init();
-    const entry = await this.withLock(async () => {
+    const summary = await this.withLock(async () => {
       await this.syncIndex();
       return this.index.get(token);
     });
 
-    if (!entry) return undefined;
-    if (Date.now() - entry.createdAt >= this.ttlMs) return undefined;
+    if (!summary) return undefined;
+    if (Date.now() - summary.createdAt >= this.ttlMs) return undefined;
 
     return (await this.readProfile(token)) ?? undefined;
   }
@@ -119,6 +159,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
       );
       this.index.clear();
       this.cache.clear();
+      await fs.promises.unlink(this.indexPath()).catch(() => undefined);
     });
   }
 
@@ -146,8 +187,47 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     return this.ready;
   }
 
+  private summarize(profile: Profile): ProfileSummary {
+    return summarizeProfile(profile, this.getAttributes);
+  }
+
+  /** TTL-valid summaries from the in-memory index. */
+  private validSummaries(): ProfileSummary[] {
+    const now = Date.now();
+    return [...this.index.values()].filter((s) => now - s.createdAt < this.ttlMs);
+  }
+
+  private indexPath(): string {
+    return path.join(this.dir, INDEX_FILE);
+  }
+
+  /** Seeds the in-memory index from the sidecar file, if present and parseable. */
+  private async loadIndexFile(): Promise<void> {
+    try {
+      const raw = await fs.promises.readFile(this.indexPath(), 'utf-8');
+      const parsed = JSON.parse(raw) as Record<string, ProfileSummary>;
+      for (const [token, summary] of Object.entries(parsed)) this.index.set(token, summary);
+    } catch {
+      // Missing or corrupt sidecar — the index is rebuilt from the profile files below.
+    }
+  }
+
+  /** Atomically writes the current index to the sidecar file (write-then-rename). */
+  private async persistIndex(): Promise<void> {
+    const obj = Object.fromEntries(this.index);
+    const tmpPath = `${this.indexPath()}.tmp`;
+    try {
+      await fs.promises.writeFile(tmpPath, JSON.stringify(obj), 'utf-8');
+      await fs.promises.rename(tmpPath, this.indexPath());
+    } catch {
+      // Best-effort cache: a failed sidecar write is recovered by readdir reconciliation.
+    }
+  }
+
   private async loadFromDisk(): Promise<void> {
     await fs.promises.mkdir(this.dir, { recursive: true });
+
+    await this.loadIndexFile();
 
     const files = await fs.promises.readdir(this.dir).catch(() => null);
     if (files === null) return;
@@ -159,31 +239,49 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
         .map((f) => fs.promises.unlink(path.join(this.dir, f)).catch(() => undefined)),
     );
 
-    const jsonFiles = files.filter((f) => f.endsWith('.json'));
+    const tokensOnDisk = new Set(
+      files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)),
+    );
 
-    const entries = (
-      await Promise.all(
-        jsonFiles.map(async (f) => {
-          const token = f.slice(0, -5); // strip .json
-          const profile = await this.readProfile(token);
-          return profile ? { token, createdAt: profile.createdAt } : null;
-        }),
-      )
-    ).filter((e): e is ProfileIndex => e !== null);
-
-    entries.sort((a, b) => a.createdAt - b.createdAt);
-
-    // Index valid entries; clean up expired files silently.
-    const now = Date.now();
-    const unlinks: Promise<unknown>[] = [];
-    for (const e of entries) {
-      if (now - e.createdAt >= this.ttlMs) {
-        unlinks.push(fs.promises.unlink(this.tokenPath(e.token)).catch(() => undefined));
-      } else {
-        this.index.set(e.token, e);
+    // Drop index entries whose files are gone, then summarize any files not yet indexed
+    // (a stale/missing sidecar, or profiles written by another process).
+    let changed = false;
+    for (const token of this.index.keys()) {
+      if (!tokensOnDisk.has(token)) {
+        this.index.delete(token);
+        this.cache.delete(token);
+        changed = true;
       }
     }
-    await Promise.all(unlinks);
+    const missing = [...tokensOnDisk].filter((t) => !this.index.has(t));
+    const summarized = await Promise.all(
+      missing.map(async (token) => {
+        const profile = await this.readProfile(token);
+        return profile ? this.summarize(profile) : null;
+      }),
+    );
+    for (const summary of summarized) {
+      if (summary) {
+        this.index.set(summary.token, summary);
+        changed = true;
+      }
+    }
+
+    // Clean up expired profiles found on disk.
+    const now = Date.now();
+    const expired = [...this.index.values()].filter((s) => now - s.createdAt >= this.ttlMs);
+    if (expired.length > 0) {
+      changed = true;
+      for (const s of expired) {
+        this.index.delete(s.token);
+        this.cache.delete(s.token);
+      }
+      await Promise.all(
+        expired.map((s) => fs.promises.unlink(this.tokenPath(s.token)).catch(() => undefined)),
+      );
+    }
+
+    if (changed) await this.persistIndex();
   }
 
   /**
@@ -202,28 +300,35 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
       files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)),
     );
 
+    let changed = false;
+
     // Drop entries whose files were removed externally.
     for (const token of this.index.keys()) {
       if (!tokensOnDisk.has(token)) {
         this.index.delete(token);
         this.cache.delete(token);
+        changed = true;
       }
     }
 
     // Add entries for files created by other processes.
     const newTokens = [...tokensOnDisk].filter((t) => !this.index.has(t));
-    if (newTokens.length === 0) return;
-
-    const added = (
-      await Promise.all(
+    if (newTokens.length > 0) {
+      const added = await Promise.all(
         newTokens.map(async (token) => {
           const profile = await this.readProfile(token);
-          return profile ? { token, createdAt: profile.createdAt } : null;
+          return profile ? this.summarize(profile) : null;
         }),
-      )
-    ).filter((e): e is ProfileIndex => e !== null);
+      );
+      for (const summary of added) {
+        if (summary) {
+          this.index.set(summary.token, summary);
+          changed = true;
+        }
+      }
+    }
 
-    for (const e of added) this.index.set(e.token, e);
+    if (changed) await this.persistIndex();
   }
 
   private async readProfile(token: string): Promise<Profile | null> {
@@ -247,11 +352,6 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     return path.join(this.dir, `${token}.json`);
   }
 
-  /** Index entries sorted oldest-first (LRU order). */
-  private sortedEntries(): ProfileIndex[] {
-    return [...this.index.values()].sort((a, b) => a.createdAt - b.createdAt);
-  }
-
   /**
    * Drops expired entries and enforces the `maxProfiles` cap. Runs inside save()'s critical
    * section; victims are removed from the index first, then unlinked in parallel, so the
@@ -261,23 +361,27 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
   private async evictExpiredAndOverflow(): Promise<void> {
     const now = Date.now();
 
-    const victims = [...this.index.values()].filter((e) => now - e.createdAt >= this.ttlMs);
+    const victims = [...this.index.values()]
+      .filter((s) => now - s.createdAt >= this.ttlMs)
+      .map((s) => s.token);
 
     const liveCount = this.index.size - victims.length;
     if (liveCount > this.maxProfiles) {
-      const expired = new Set(victims.map((e) => e.token));
-      const live = this.sortedEntries().filter((e) => !expired.has(e.token));
-      victims.push(...live.slice(0, liveCount - this.maxProfiles));
+      const expired = new Set(victims);
+      const live = [...this.index.values()]
+        .filter((s) => !expired.has(s.token))
+        .sort((a, b) => a.createdAt - b.createdAt); // oldest first
+      victims.push(...live.slice(0, liveCount - this.maxProfiles).map((s) => s.token));
     }
 
     if (victims.length === 0) return;
 
-    for (const e of victims) {
-      this.index.delete(e.token);
-      this.cache.delete(e.token);
+    for (const token of victims) {
+      this.index.delete(token);
+      this.cache.delete(token);
     }
     await Promise.all(
-      victims.map((e) => fs.promises.unlink(this.tokenPath(e.token)).catch(() => undefined)),
+      victims.map((token) => fs.promises.unlink(this.tokenPath(token)).catch(() => undefined)),
     );
   }
 }

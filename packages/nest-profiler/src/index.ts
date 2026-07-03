@@ -89,9 +89,12 @@ export {
 export type { SectionTypeConstraint } from './list-sections/list-section.utils';
 export {
   applyQueryInMemory,
+  distinctFromSummaries,
   distinctInMemory,
   matchesCriterion,
   matchesQuery,
+  resolveField,
+  selectPage,
 } from './storage/profiler-query';
 export type {
   FilterCriterion,
