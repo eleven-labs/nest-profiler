@@ -4,6 +4,7 @@ import type {
   Profile,
   ProfilerEntrypointType,
   ProfilerListFilter,
+  SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
@@ -25,8 +26,8 @@ const commandStatusFilter: ProfilerListFilter<string> = {
     { value: 'failed', label: 'Failed' },
   ],
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<CommandInfo>, value) =>
-    value === 'success' ? profile.entrypoint.data.success : !profile.entrypoint.data.success,
+  // The `success` attribute is stored as a strict boolean, so 'failed' matches `false`.
+  toCriterion: (value) => ({ field: 'attributes.success', op: 'eq', value: value === 'success' }),
 };
 
 /**
@@ -53,6 +54,9 @@ export const COMMAND_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
     },
   ],
   listFilters: [commandStatusFilter],
+  indexAttributes: (profile: Profile<CommandInfo>): Record<string, SummaryPrimitive> => ({
+    success: profile.entrypoint.data.success === true,
+  }),
   summary(profile: Profile<CommandInfo>): EntrypointSummary {
     const cmd = profile.entrypoint.data;
     const args = cmd.arguments.length ? ` ${cmd.arguments.join(' ')}` : '';

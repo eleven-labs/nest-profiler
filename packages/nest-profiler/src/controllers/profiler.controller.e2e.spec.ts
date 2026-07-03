@@ -252,6 +252,53 @@ describe('ProfilerController (e2e)', () => {
     });
   });
 
+  describe('GET /_profiler (pagination)', () => {
+    /** Persists `count` synthetic HTTP profiles, newest last (so newest-first in the list). */
+    async function saveHttpProfiles(count: number): Promise<string[]> {
+      const storage = app.get(ProfilerStorageService);
+      const tokens: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const token = `pg-e2e-${i}`;
+        tokens.push(token);
+        await storage.save({
+          token,
+          createdAt: Date.now() + i,
+          entrypoint: {
+            type: 'http',
+            data: { method: 'GET', url: `/pg/${i}`, headers: {}, query: {} },
+          },
+          response: { statusCode: 200, headers: {} },
+          performance: { startTime: Date.now(), heapUsed: 1024, duration: 1 },
+          logs: [],
+          exceptions: [],
+          collectors: {},
+        });
+      }
+      return tokens;
+    }
+
+    it('renders a pager and paginates the HTTP list (page size 25)', async () => {
+      const tokens = await saveHttpProfiles(30); // the 30 newest profiles
+      const newest = tokens[tokens.length - 1]!; // pg-e2e-29 — first on page 1
+      const oldest = tokens[0]!; // pg-e2e-0 — falls onto page 2
+
+      // Page 1: pager present with a next link; the newest token is shown, the oldest is not.
+      const page1 = await request(server()).get('/_profiler');
+      expect(page1.status).toBe(200);
+      expect(page1.text).toContain('Page 1 /');
+      expect(page1.text).toContain('http_page=2');
+      expect(page1.text).toContain(`/_profiler/${newest}`);
+      expect(page1.text).not.toContain(`/_profiler/${oldest}`);
+
+      // Page 2: the slice flips — the oldest token is now shown, the newest is not.
+      const page2 = await request(server()).get('/_profiler').query({ http_page: '2' });
+      expect(page2.status).toBe(200);
+      expect(page2.text).toContain('Page 2 /');
+      expect(page2.text).toContain(`/_profiler/${oldest}`);
+      expect(page2.text).not.toContain(`/_profiler/${newest}`);
+    });
+  });
+
   describe('GET /_profiler/:token/data', () => {
     it('returns the stored profile as JSON', async () => {
       const token = await createProfile('/hello');

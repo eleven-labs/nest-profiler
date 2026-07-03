@@ -81,5 +81,32 @@ export type {
 } from './list-filters/profiler-list-filter.interface';
 export { PROFILER_LIST_SECTIONS } from './list-sections/profiler-list-section.interface';
 export type { ProfilerListSection } from './list-sections/profiler-list-section.interface';
-export { bucketProfilesBySection, DEFAULT_SECTION_ORDER } from './list-sections/list-section.utils';
-export type { ProfilerListSectionBucket } from './list-sections/list-section.utils';
+export {
+  DEFAULT_SECTION_ORDER,
+  sectionTypeConstraint,
+  sortSections,
+} from './list-sections/list-section.utils';
+export type { SectionTypeConstraint } from './list-sections/list-section.utils';
+export {
+  applyQueryInMemory,
+  distinctInMemory,
+  matchesCriterion,
+  matchesQuery,
+} from './storage/profiler-query';
+export type {
+  FilterCriterion,
+  FilterOp,
+  ProfilerPage,
+  ProfilerQuery,
+} from './storage/profiler-query';
+export { summarizeProfile } from './storage/profile-summary';
+export type {
+  IndexAttributesProvider,
+  ProfileSummary,
+  SummaryPrimitive,
+} from './storage/profile-summary';
+export { buildPageHref, paginateProfiles } from './list-pagination/list-pagination.utils';
+export type {
+  PaginatedProfiles,
+  ProfilerListPagination,
+} from './list-pagination/list-pagination.utils';

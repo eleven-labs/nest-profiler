@@ -1,5 +1,7 @@
 import { BUILTIN_LIST_FILTERS } from './builtin-filters';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
+import { summarizeProfile } from '../storage/profile-summary';
+import { matchesCriterion } from '../storage/profiler-query';
 import type {
   GraphQLInfo,
   ExceptionEntry,
@@ -83,12 +85,15 @@ function filter(key: string): ProfilerListFilter {
   return found;
 }
 
-/** Parses then matches in one step, mirroring how the controller applies a filter. */
+/**
+ * Parses, translates to a criterion, then evaluates it against the profile's
+ * summary — mirroring the full declarative path the controller/storage take.
+ */
 function applies(key: string, raw: string | undefined, profile: Profile): boolean | 'inactive' {
   const def = filter(key);
   const value = def.parse(raw);
   if (value === undefined) return 'inactive';
-  return def.matches(profile, value);
+  return matchesCriterion(summarizeProfile(profile), def.toCriterion(value));
 }
 
 describe('built-in list filters', () => {

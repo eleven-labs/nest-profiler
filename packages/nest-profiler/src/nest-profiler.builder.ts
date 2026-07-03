@@ -25,6 +25,13 @@ export interface ProfilerModuleOptions {
   /** Maximum number of profiles kept (LRU eviction). Default: 100 */
   maxProfiles?: number;
 
+  /**
+   * Number of profiles shown per page in each dashboard list section (HTTP,
+   * GraphQL, RabbitMQ, Commands…). Each section paginates independently via a
+   * `<sectionKey>_page` query param. Default: 25
+   */
+  listPageSize?: number;
+
   /** Profile TTL in seconds. Default: 3600 (1h) */
   ttl?: number;
 

@@ -1,6 +1,16 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { matchesCriterion, summarizeProfile } from '@eleven-labs/nest-profiler';
 import { GRAPHQL_ENTRYPOINT_TYPE, GRAPHQL_ENTRYPOINT_TYPE_DEF } from './graphql-entrypoint';
 import type { GraphQLEntrypointData } from './graphql-entrypoint';
+
+const attrs = (p: Profile): Record<string, string | number | boolean> =>
+  GRAPHQL_ENTRYPOINT_TYPE_DEF.indexAttributes?.(p) ?? {};
+
+/** Applies a filter through the declarative path: parse → criterion → evaluate on the summary. */
+function applies(key: string, value: string, profile: Profile): boolean {
+  const filter = GRAPHQL_ENTRYPOINT_TYPE_DEF.listFilters?.find((f) => f.key === key);
+  return matchesCriterion(summarizeProfile(profile, attrs), filter!.toCriterion(value));
+}
 
 function makeProfile(
   data: Partial<GraphQLEntrypointData['graphql']> = {},
@@ -51,9 +61,19 @@ describe('GRAPHQL_ENTRYPOINT_TYPE_DEF', () => {
   describe('operationType filter', () => {
     const filter = GRAPHQL_ENTRYPOINT_TYPE_DEF.listFilters?.find((f) => f.key === 'operationType');
 
-    it('matches profiles by their operation type', () => {
-      expect(filter?.matches(makeProfile({ operationType: 'mutation' }), 'mutation')).toBe(true);
-      expect(filter?.matches(makeProfile({ operationType: 'query' }), 'mutation')).toBe(false);
+    it('matches profiles by their operation type (via the indexed attribute)', () => {
+      expect(applies('operationType', 'mutation', makeProfile({ operationType: 'mutation' }))).toBe(
+        true,
+      );
+      expect(applies('operationType', 'mutation', makeProfile({ operationType: 'query' }))).toBe(
+        false,
+      );
+    });
+
+    it('indexes operationType as a queryable attribute', () => {
+      expect(
+        GRAPHQL_ENTRYPOINT_TYPE_DEF.indexAttributes?.(makeProfile({ operationType: 'query' })),
+      ).toEqual({ operationType: 'query' });
     });
 
     it('is inactive for an empty value', () => {

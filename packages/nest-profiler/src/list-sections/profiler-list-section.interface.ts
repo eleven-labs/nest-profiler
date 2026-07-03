@@ -1,5 +1,3 @@
-import type { Profile } from '../interfaces/profile.interface';
-
 /**
  * DI multi-token under which {@link ProfilerListSection} implementations are
  * provided. Register a section with `{ provide: PROFILER_LIST_SECTIONS,
@@ -19,10 +17,10 @@ export const PROFILER_LIST_SECTIONS = 'PROFILER_LIST_SECTIONS';
  * `@eleven-labs/nest-profiler-commander` a "Commands" table — without touching
  * the core.
  *
- * Each profile is assigned to exactly one section: the first non-default
- * section (by ascending {@link order}) whose {@link matches} returns `true`,
- * otherwise the single {@link isDefault} section. Empty non-default sections are
- * hidden; the default section is always shown.
+ * Each profile is assigned to exactly one section by its entrypoint type: to the
+ * non-default section (by ascending {@link order}) that owns its type (see
+ * {@link types}), otherwise to the single {@link isDefault} catch-all section.
+ * Empty non-default sections are hidden; the default section is always shown.
  *
  * A section renders its rows through its own EJS partial ({@link templatePath}),
  * which receives `{ profiles, profilerPath }` plus the shared template helpers
@@ -45,11 +43,17 @@ export interface ProfilerListSection {
    */
   readonly order?: number;
   /**
-   * The catch-all section: it receives every profile not claimed by a
-   * non-default section, and is always rendered (even when empty). Exactly one
-   * registered section should set this — the core's "HTTP" section.
+   * The catch-all section: it receives every profile whose entrypoint type is not
+   * claimed by a non-default section, and is always rendered (even when empty).
+   * Exactly one registered section should set this — the core's "HTTP" section.
    */
   readonly isDefault?: boolean;
+  /**
+   * Entrypoint type(s) this section owns. Defaults to `[key]` — the common case,
+   * since an entrypoint-derived section's `key` is its type. Ignored for the
+   * {@link isDefault} section, which claims every otherwise-unclaimed type.
+   */
+  readonly types?: readonly string[];
   /**
    * Singular noun for the count badge (e.g. `'profile'`, `'command'`,
    * `'message'`). Defaults to `'profile'`.
@@ -64,9 +68,4 @@ export interface ProfilerListSection {
   readonly defaultCollapsed?: boolean;
   /** Absolute path to the EJS partial that renders this section's table. */
   readonly templatePath: string;
-  /**
-   * Whether `profile` belongs to this section. Not called for the
-   * {@link isDefault} section, which is the fallback bucket.
-   */
-  matches(profile: Profile): boolean;
 }

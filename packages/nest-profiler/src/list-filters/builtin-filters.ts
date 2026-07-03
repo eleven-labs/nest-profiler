@@ -1,28 +1,5 @@
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
 import { parseLenientInt } from './list-filter.utils';
-
-/**
- * Lowercased haystack of everything the global search scans for a profile.
- *
- * Entrypoint-agnostic by design: it flattens the string (and string-array)
- * fields of `entrypoint.data`, so a new entrypoint kind's primary fields (a
- * command name/arguments, an exchange/routing key…) become searchable without
- * touching the core. GraphQL operation/field names are nested, so they are
- * pulled in explicitly.
- */
-function searchHaystack(profile: Profile): string {
-  const data = profile.entrypoint.data as Record<string, unknown>;
-  const terms: string[] = [];
-  for (const value of Object.values(data ?? {})) {
-    if (typeof value === 'string') terms.push(value);
-    else if (Array.isArray(value))
-      terms.push(...value.filter((v): v is string => typeof v === 'string'));
-  }
-  const gql = (data as Partial<HttpRequestData>)?.graphql;
-  if (gql) terms.push(gql.operationName ?? '', gql.fieldName);
-  return terms.filter(Boolean).join(' ').toLowerCase();
-}
 
 /** Free-text search across URL, GraphQL operation/field name and command name. */
 const searchFilter: ProfilerListFilter<string> = {
@@ -32,7 +9,7 @@ const searchFilter: ProfilerListFilter<string> = {
   order: 30,
   placeholder: '/api/…, operation, command',
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw.toLowerCase() : undefined),
-  matches: (profile, value) => searchHaystack(profile).includes(value),
+  toCriterion: (value) => ({ field: 'search', op: 'contains', value }),
 };
 
 /**
@@ -51,7 +28,7 @@ const statusFilter: ProfilerListFilter<number> = {
   forType: HTTP_RESPONSE_TYPES,
   placeholder: '200',
   parse: parseLenientInt,
-  matches: (profile, value) => profile.response?.statusCode === value,
+  toCriterion: (value) => ({ field: 'statusCode', op: 'eq', value }),
 };
 
 const statusClassFilter: ProfilerListFilter<number> = {
@@ -71,8 +48,12 @@ const statusClassFilter: ProfilerListFilter<number> = {
     const parsed = parseLenientInt(raw);
     return parsed !== undefined && parsed >= 1 && parsed <= 5 ? parsed : undefined;
   },
-  matches: (profile, value) =>
-    profile.response !== undefined && Math.floor(profile.response.statusCode / 100) === value,
+  // e.g. class 4 → statusCode in [400, 499].
+  toCriterion: (value) => ({
+    field: 'statusCode',
+    op: 'range',
+    value: [value * 100, value * 100 + 99],
+  }),
 };
 
 const minDurationFilter: ProfilerListFilter<number> = {
@@ -82,7 +63,7 @@ const minDurationFilter: ProfilerListFilter<number> = {
   order: 60,
   placeholder: '0',
   parse: parseLenientInt,
-  matches: (profile, value) => (profile.performance.duration ?? 0) >= value,
+  toCriterion: (value) => ({ field: 'duration', op: 'gte', value }),
 };
 
 const maxDurationFilter: ProfilerListFilter<number> = {
@@ -92,7 +73,7 @@ const maxDurationFilter: ProfilerListFilter<number> = {
   order: 70,
   placeholder: '—',
   parse: parseLenientInt,
-  matches: (profile, value) => (profile.performance.duration ?? 0) <= value,
+  toCriterion: (value) => ({ field: 'duration', op: 'lte', value }),
 };
 
 const hasExceptionsFilter: ProfilerListFilter<boolean> = {
@@ -102,7 +83,7 @@ const hasExceptionsFilter: ProfilerListFilter<boolean> = {
   order: 80,
   // Checked boxes submit '1'; unchecked submit nothing — undefined keeps the filter inactive.
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? true : undefined),
-  matches: (profile) => profile.exceptions.length > 0,
+  toCriterion: () => ({ field: 'hasExceptions', op: 'truthy' }),
 };
 
 /**

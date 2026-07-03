@@ -134,4 +134,47 @@ describe('ProfilerStorageService', () => {
     expect(findOne).toHaveBeenCalledWith('y');
     expect(clear).toHaveBeenCalled();
   });
+
+  it('query() falls back to in-memory filtering + pagination for a plain adapter', async () => {
+    const base = Date.now();
+    await service.save(makeProfile('a', base + 1));
+    await service.save(makeProfile('b', base + 2));
+    await service.save(makeProfile('c', base + 3));
+    const page = await service.query({ filters: [], page: 1, pageSize: 2 });
+    expect(page.total).toBe(3);
+    expect(page.items.map((p) => p.token)).toEqual(['c', 'b']); // newest first
+  });
+
+  it('distinct() falls back to deriving values from findAll', async () => {
+    await service.save(makeProfile('a'));
+    expect(await service.distinct('method')).toEqual(['GET']);
+  });
+
+  it('delegates query()/distinct() to a native adapter when it implements them', async () => {
+    const query = jest.fn().mockResolvedValue({ items: [], total: 0 });
+    const distinct = jest.fn().mockResolvedValue(['x']);
+    const custom = {
+      save: jest.fn(),
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      clear: jest.fn(),
+      query,
+      distinct,
+    } as unknown as IProfilerStorageAdapter;
+    const svc = (
+      await Test.createTestingModule({
+        providers: [
+          ProfilerStorageService,
+          { provide: PROFILER_STORAGE_ADAPTER, useValue: custom },
+        ],
+      }).compile()
+    ).get(ProfilerStorageService);
+
+    const q = { filters: [], page: 1, pageSize: 10 };
+    await svc.query(q);
+    await svc.distinct('attributes.x', ['http']);
+
+    expect(query).toHaveBeenCalledWith(q);
+    expect(distinct).toHaveBeenCalledWith('attributes.x', ['http']);
+  });
 });

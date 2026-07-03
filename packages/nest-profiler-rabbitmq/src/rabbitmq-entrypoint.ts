@@ -3,8 +3,8 @@ import type {
   EntrypointSummary,
   Profile,
   ProfilerEntrypointType,
-  ProfilerFilterOption,
   ProfilerListFilter,
+  SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
 import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
@@ -20,22 +20,6 @@ const DEFAULT_EXCHANGE_LABEL = '(default)';
 const exchangeLabel = (data: RabbitMqInfo): string =>
   data.exchange && data.exchange.length > 0 ? data.exchange : DEFAULT_EXCHANGE_LABEL;
 
-/** Builds an ascending "All" + distinct-values option list from the section's profiles. */
-const distinctOptions = (
-  profiles: Profile<RabbitMqInfo>[],
-  pick: (data: RabbitMqInfo) => string | undefined,
-): ProfilerFilterOption[] => {
-  const values = new Set<string>();
-  for (const profile of profiles) {
-    const value = pick(profile.entrypoint.data);
-    if (value && value.length > 0) values.add(value);
-  }
-  return [
-    { value: '', label: 'All' },
-    ...[...values].sort().map((value) => ({ value, label: value })),
-  ];
-};
-
 /** RabbitMQ-only filter: narrows the Messages list to first deliveries or redeliveries. */
 const redeliveredFilter: ProfilerListFilter<string> = {
   key: 'redelivered',
@@ -48,10 +32,12 @@ const redeliveredFilter: ProfilerListFilter<string> = {
     { value: 'first', label: 'First delivery' },
   ],
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<RabbitMqInfo>, value) =>
-    value === 'redelivered'
-      ? profile.entrypoint.data.redelivered === true
-      : profile.entrypoint.data.redelivered !== true,
+  // The `redelivered` attribute is stored as a strict boolean, so 'first' matches `false`.
+  toCriterion: (value) => ({
+    field: 'attributes.redelivered',
+    op: 'eq',
+    value: value === 'redelivered',
+  }),
 };
 
 /** RabbitMQ-only filter: narrows the list to one exchange (options are the exchanges seen). */
@@ -60,11 +46,9 @@ const exchangeFilter: ProfilerListFilter<string> = {
   label: 'Exchange',
   control: 'select',
   order: 21,
-  optionsFor: (profiles: Profile<RabbitMqInfo>[]) =>
-    distinctOptions(profiles, (data) => exchangeLabel(data)),
+  distinctField: 'attributes.exchange',
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<RabbitMqInfo>, value) =>
-    exchangeLabel(profile.entrypoint.data) === value,
+  toCriterion: (value) => ({ field: 'attributes.exchange', op: 'eq', value }),
 };
 
 /** RabbitMQ-only filter: narrows the list to one consumer handler (options are the handlers seen). */
@@ -73,10 +57,9 @@ const handlerFilter: ProfilerListFilter<string> = {
   label: 'Handler',
   control: 'select',
   order: 22,
-  optionsFor: (profiles: Profile<RabbitMqInfo>[]) =>
-    distinctOptions(profiles, (data) => data.handler),
+  distinctField: 'attributes.handler',
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<RabbitMqInfo>, value) => profile.entrypoint.data.handler === value,
+  toCriterion: (value) => ({ field: 'attributes.handler', op: 'eq', value }),
 };
 
 /** RabbitMQ-only filter: case-insensitive substring match on the routing key. */
@@ -87,8 +70,8 @@ const routingKeyFilter: ProfilerListFilter<string> = {
   order: 23,
   placeholder: 'published.*, tts.…',
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw.toLowerCase() : undefined),
-  matches: (profile: Profile<RabbitMqInfo>, value) =>
-    profile.entrypoint.data.routingKey.toLowerCase().includes(value),
+  // The `routingKey` attribute is stored lowercased so `contains` matches case-insensitively.
+  toCriterion: (value) => ({ field: 'attributes.routingKey', op: 'contains', value }),
 };
 
 /**
@@ -115,6 +98,15 @@ export const RABBITMQ_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
     },
   ],
   listFilters: [redeliveredFilter, exchangeFilter, handlerFilter, routingKeyFilter],
+  indexAttributes: (profile: Profile<RabbitMqInfo>): Record<string, SummaryPrimitive> => {
+    const data = profile.entrypoint.data;
+    return {
+      redelivered: data.redelivered === true,
+      exchange: exchangeLabel(data),
+      handler: data.handler ?? '',
+      routingKey: data.routingKey.toLowerCase(),
+    };
+  },
   summary(profile: Profile<RabbitMqInfo>): EntrypointSummary {
     const rmq = profile.entrypoint.data;
     return {

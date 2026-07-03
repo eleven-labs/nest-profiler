@@ -4,11 +4,13 @@ import type { TemplateRendererService } from '../services/template-renderer.serv
 import type { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import type { Profile } from '../interfaces/profile.interface';
+import type { ProfilerQuery } from '../storage/profiler-query';
+import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
 
-function makeProfile(): Profile {
+function makeProfile(token = 'tok-123456789', createdAt = Date.now()): Profile {
   return {
-    token: 'tok-123456789',
-    createdAt: Date.now(),
+    token,
+    createdAt,
     entrypoint: { type: 'tabless', data: {} },
     performance: { startTime: 0, heapUsed: 0 },
     logs: [],
@@ -28,7 +30,22 @@ const TABLESS_TYPE: ProfilerEntrypointType = {
 
 type RenderArgs = { template: string; ctx: Record<string, unknown> };
 
-function setup(): {
+/**
+ * A realistic in-memory fake of `ProfilerStorageService` backed by an array, so the
+ * controller exercises the true query/pagination path (via {@link applyQueryInMemory}).
+ */
+function fakeStorage(profiles: Profile[]) {
+  return {
+    findAll: jest.fn().mockResolvedValue(profiles),
+    findOne: jest.fn().mockResolvedValue(profiles[0] ?? makeProfile()),
+    query: jest.fn((query: ProfilerQuery) => applyQueryInMemory(profiles, query)),
+    distinct: jest.fn((field: string, typeIn?: string[]) =>
+      distinctInMemory(profiles, field, undefined, typeIn),
+    ),
+  };
+}
+
+function setup(options: { listPageSize?: number; profiles?: Profile[] } = {}): {
   controller: ProfilerController;
   rendered: RenderArgs[];
   core: jest.Mocked<Pick<ProfilerCoreService, never>> & Record<string, unknown>;
@@ -42,24 +59,17 @@ function setup(): {
   } as unknown as TemplateRendererService;
 
   const core = {
-    storage: {
-      findAll: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(makeProfile()),
-    },
+    storage: fakeStorage(options.profiles ?? []),
     collectorRegistry: {
       buildGlobalPanels: jest.fn().mockResolvedValue([]),
       buildPanels: jest.fn().mockReturnValue([]),
     },
     getListFilters: jest.fn().mockReturnValue([]),
-    getListSections: jest.fn().mockReturnValue([
-      {
-        key: 'http',
-        title: 'HTTP',
-        isDefault: true,
-        templatePath: '/tmp/http.ejs',
-        matches: () => true,
-      },
-    ]),
+    getListSections: jest
+      .fn()
+      .mockReturnValue([
+        { key: 'http', title: 'HTTP', isDefault: true, templatePath: '/tmp/http.ejs' },
+      ]),
     getEntrypointType: jest.fn().mockReturnValue(TABLESS_TYPE),
   } as unknown as ProfilerCoreService;
 
@@ -69,10 +79,26 @@ function setup(): {
     resolve: jest.fn(),
   } as unknown as ClientAssetRegistry;
 
-  const controller = new ProfilerController(core, renderer, clientAssets);
+  const controller = new ProfilerController(core, renderer, clientAssets, options);
 
   return { controller, rendered, core: core as never };
 }
+
+/** First (and only) rendered section from a `listProfiles` call. */
+type RenderedSection = {
+  profiles: Profile[];
+  total: number;
+  pagination: {
+    page: number;
+    pageCount: number;
+    pageSize: number;
+    filteredTotal: number;
+    rangeStart: number;
+    rangeEnd: number;
+    prevHref: string | null;
+    nextHref: string | null;
+  };
+};
 
 describe('ProfilerController (unit)', () => {
   it('renders with the profiler path /_profiler', async () => {
@@ -127,5 +153,68 @@ describe('ProfilerController (unit)', () => {
     await controller.listProfiles({ other_a: '', other_b: [] });
     const sections = rendered[0]?.ctx.sections as { resetHref: string }[];
     expect(sections[0]?.resetHref).toBe('/_profiler');
+  });
+
+  describe('pagination', () => {
+    // Constant createdAt so the newest-first sort is stable and preserves tok-0…tok-N order.
+    const manyProfiles = (n: number): Profile[] =>
+      Array.from({ length: n }, (_, i) => makeProfile(`tok-${i}`, 1000));
+
+    it('slices a section to one page and reports the total + range', async () => {
+      const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
+      await controller.listProfiles({});
+      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      expect(section.profiles).toHaveLength(25);
+      expect(section.profiles[0]?.token).toBe('tok-0');
+      expect(section.total).toBe(60);
+      expect(section.pagination).toMatchObject({
+        page: 1,
+        pageCount: 3,
+        pageSize: 25,
+        filteredTotal: 60,
+        rangeStart: 1,
+        rangeEnd: 25,
+        prevHref: null,
+        nextHref: '/_profiler?http_page=2',
+      });
+    });
+
+    it('serves the requested page and builds prev/next links preserving other params', async () => {
+      const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
+      await controller.listProfiles({ http_page: '2', other_x: 'keep' });
+      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      expect(section.profiles[0]?.token).toBe('tok-25');
+      expect(section.pagination).toMatchObject({
+        page: 2,
+        rangeStart: 26,
+        rangeEnd: 50,
+        // page 1 omits the `_page` param; both links carry the foreign `other_x`.
+        // The refreshed `_page` is appended last, after the preserved params.
+        prevHref: '/_profiler?other_x=keep',
+        nextHref: '/_profiler?other_x=keep&http_page=3',
+      });
+    });
+
+    it('clamps an out-of-range page to the last page', async () => {
+      const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
+      await controller.listProfiles({ http_page: '999' });
+      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      expect(section.pagination).toMatchObject({
+        page: 3,
+        pageCount: 3,
+        rangeStart: 51,
+        rangeEnd: 60,
+        nextHref: null,
+      });
+      expect(section.profiles).toHaveLength(10);
+    });
+
+    it('defaults the page size to 25 when no listPageSize option is given', async () => {
+      const { controller, rendered } = setup({ profiles: manyProfiles(30) });
+      await controller.listProfiles({});
+      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      expect(section.pagination.pageSize).toBe(25);
+      expect(section.profiles).toHaveLength(25);
+    });
   });
 });

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Header,
+  Inject,
   NotFoundException,
   Param,
   Query,
@@ -9,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { PROFILER_BASE_PATH } from '../constants';
+import { DEFAULT_LIST_PAGE_SIZE, PROFILER_BASE_PATH } from '../constants';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { TemplateRendererService } from '../services/template-renderer.service';
 import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
@@ -17,12 +20,16 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import type { Profile } from '../interfaces/profile.interface';
 import {
-  applyListFilters,
+  buildCriteria,
   filterAppliesToSection,
   parseFilterValues,
-  resolveFilterForSection,
+  parseLenientInt,
 } from '../list-filters/list-filter.utils';
-import { bucketProfilesBySection } from '../list-sections/list-section.utils';
+import { sectionTypeConstraint } from '../list-sections/list-section.utils';
+import { buildPageHref } from '../list-pagination/list-pagination.utils';
+import type { ProfilerQuery } from '../storage/profiler-query';
+import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
@@ -43,12 +50,17 @@ const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
 export class ProfilerController {
   private static readonly assetCache = new Map<string, string>();
   private readonly profilerPath = PROFILER_BASE_PATH;
+  /** Profiles shown per page in each list section (see `listPageSize`). */
+  private readonly pageSize: number;
 
   constructor(
     private readonly core: ProfilerCoreService,
     private readonly templateRenderer: TemplateRendererService,
     private readonly clientAssets: ClientAssetRegistry,
-  ) {}
+    @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions,
+  ) {
+    this.pageSize = options.listPageSize ?? DEFAULT_LIST_PAGE_SIZE;
+  }
 
   @Get(`${PROFILER_BASE_PATH}/__assets/styles/:file`)
   @Header('Content-Type', 'text/css; charset=utf-8')
@@ -86,41 +98,26 @@ export class ProfilerController {
   async listProfiles(
     @Query() query: Record<string, string | string[] | undefined>,
   ): Promise<string> {
-    const [all, globalPanels] = await Promise.all([
+    const allSections = this.core.getListSections();
+
+    const [recent, globalPanels] = await Promise.all([
       this.core.storage.findAll(),
       this.core.collectorRegistry.buildGlobalPanels(),
     ]);
 
     // The heap trend reflects the real process history, so it ignores filters.
-    const heapSeries = all
+    const heapSeries = recent
       .slice(-30)
       .map((p) => p.performance.heapUsed)
       .filter((v) => v !== undefined);
 
-    // Each list has its own filter bar: the universal filters (no `forType`) plus
-    // the filters scoped to that section's entrypoint kind. Filters apply only to
-    // their own section, so query params are namespaced by section key.
-    const allFilters = this.core.getListFilters();
-    const buckets = bucketProfilesBySection(this.core.getListSections(), all);
-
-    const sections = buckets.map((bucket) => {
-      const filterDefs = allFilters
-        .filter((f) => filterAppliesToSection(f, bucket.key))
-        .map((f) => resolveFilterForSection(f, bucket.profiles));
-      const namespaced: Record<string, string | string[] | undefined> = {};
-      for (const def of filterDefs) namespaced[def.key] = query[`${bucket.key}_${def.key}`];
-
-      const { active, raw } = parseFilterValues(filterDefs, namespaced);
-      return {
-        ...bucket,
-        total: bucket.profiles.length,
-        profiles: applyListFilters(active, bucket.profiles),
-        filterDefs,
-        filterValues: raw,
-        filterPrefix: bucket.key,
-        resetHref: this.buildResetHref(query, bucket.key),
-      };
-    });
+    // Each section is an independent list: it queries the store for its own page,
+    // scoped to its entrypoint type(s), with its own namespaced filter/page params
+    // (`<sectionKey>_<key>`). Filtering and pagination are pushed to the storage
+    // adapter (native when supported, in-memory fallback otherwise).
+    const sections = await Promise.all(
+      allSections.map((section) => this.buildSection(section, allSections, query)),
+    );
 
     return this.templateRenderer.render('list', {
       title: 'Profiles',
@@ -130,6 +127,110 @@ export class ProfilerController {
       globalPanels,
       heapSeries,
     });
+  }
+
+  /** Resolves one list section: its filter bar, the current page of profiles and the pager. */
+  private async buildSection(
+    section: ProfilerListSection,
+    allSections: ProfilerListSection[],
+    query: Record<string, string | string[] | undefined>,
+  ): Promise<Record<string, unknown>> {
+    const constraint = sectionTypeConstraint(section, allSections);
+
+    // Resolve the section's filter bar, filling dynamic `select` options from the
+    // store's distinct values for filters that declare a `distinctField`.
+    const filterDefs = await Promise.all(
+      this.core
+        .getListFilters()
+        .filter((f) => filterAppliesToSection(f, section.key))
+        .map((f) => this.resolveFilterOptions(f, constraint.typeIn)),
+    );
+
+    const namespaced: Record<string, string | string[] | undefined> = {};
+    for (const def of filterDefs) namespaced[def.key] = query[`${section.key}_${def.key}`];
+    const { active, raw } = parseFilterValues(filterDefs, namespaced);
+    const criteria = buildCriteria(active);
+
+    const pageParam = query[`${section.key}_page`];
+    const rawPage = parseLenientInt(Array.isArray(pageParam) ? pageParam[0] : pageParam) ?? 1;
+
+    // The pager links carry every query param forward, so they preserve the active
+    // filters and the pages of other sections. Submitting the filter form drops the
+    // `_page` params (they are anchor-only), so changing a filter resets to page 1.
+    const baseQuery: ProfilerQuery = {
+      ...constraint,
+      filters: criteria,
+      page: rawPage,
+      pageSize: this.pageSize,
+    };
+    const { items, total, page, pageCount } = await this.querySection(baseQuery);
+
+    // The badge/visibility use the section's unfiltered total; it equals the page
+    // total when no filter is active, else it takes one extra count query.
+    const unfilteredTotal =
+      criteria.length === 0
+        ? total
+        : (await this.core.storage.query({ ...constraint, filters: [], page: 1, pageSize: 1 }))
+            .total;
+
+    const offset = (page - 1) * this.pageSize;
+    return {
+      key: section.key,
+      title: section.title,
+      description: section.description,
+      itemLabel: section.itemLabel ?? 'profile',
+      isDefault: section.isDefault === true,
+      defaultCollapsed: section.defaultCollapsed === true,
+      templatePath: section.templatePath,
+      total: unfilteredTotal,
+      profiles: items,
+      filterDefs,
+      filterValues: raw,
+      filterPrefix: section.key,
+      resetHref: this.buildResetHref(query, section.key),
+      pagination: {
+        page,
+        pageCount,
+        pageSize: this.pageSize,
+        filteredTotal: total,
+        rangeStart: items.length === 0 ? 0 : offset + 1,
+        rangeEnd: offset + items.length,
+        prevHref: page > 1 ? buildPageHref(this.profilerPath, query, section.key, page - 1) : null,
+        nextHref:
+          page < pageCount ? buildPageHref(this.profilerPath, query, section.key, page + 1) : null,
+      },
+    };
+  }
+
+  /** Fills a filter's dynamic `select` options from the store's distinct values, if it declares one. */
+  private async resolveFilterOptions(
+    filter: ProfilerListFilter,
+    typeIn?: string[],
+  ): Promise<ProfilerListFilter> {
+    if (!filter.distinctField) return filter;
+    const values = await this.core.storage.distinct(filter.distinctField, typeIn);
+    const options = [
+      { value: '', label: 'All' },
+      ...values.map((v) => ({ value: String(v), label: String(v) })),
+    ];
+    return { ...filter, options };
+  }
+
+  /**
+   * Runs a section's query, clamping an out-of-range page to the last page (one
+   * extra query only when the requested page overflows the available range).
+   */
+  private async querySection(
+    baseQuery: ProfilerQuery,
+  ): Promise<{ items: Profile[]; total: number; page: number; pageCount: number }> {
+    const page = Math.max(1, baseQuery.page);
+    const first = await this.core.storage.query({ ...baseQuery, page });
+    const pageCount = Math.max(1, Math.ceil(first.total / baseQuery.pageSize));
+    if (page > pageCount) {
+      const last = await this.core.storage.query({ ...baseQuery, page: pageCount });
+      return { items: last.items, total: last.total, page: pageCount, pageCount };
+    }
+    return { items: first.items, total: first.total, page, pageCount };
   }
 
   /** Link that clears one section's filters while preserving every other section's. */

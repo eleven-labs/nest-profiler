@@ -1,4 +1,4 @@
-import type { Profile } from '../interfaces/profile.interface';
+import type { FilterCriterion } from '../storage/profiler-query';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
 
 /**
@@ -24,22 +24,8 @@ export function filterAppliesToSection(filter: ProfilerListFilter, sectionKey: s
     : filter.forType === sectionKey;
 }
 
-/**
- * Resolves a filter's `'select'` options for a section: {@link ProfilerListFilter.optionsFor}
- * (computed from the section's profiles) when present, otherwise its static
- * {@link ProfilerListFilter.options}. Returns a def whose `options` are concrete so
- * the template can render the control without knowing which source was used.
- */
-export function resolveFilterForSection(
-  filter: ProfilerListFilter,
-  profiles: Profile[],
-): ProfilerListFilter {
-  if (!filter.optionsFor) return filter;
-  return { ...filter, options: filter.optionsFor(profiles) };
-}
-
 /** A parsed, active filter value paired with the definition that produced it. */
-interface ActiveFilter {
+export interface ActiveFilter {
   filter: ProfilerListFilter;
   value: unknown;
 }
@@ -69,13 +55,10 @@ export function parseFilterValues(
 }
 
 /**
- * Applies the active filters to the profiles with AND semantics: a profile is
- * kept only when it matches every active filter. With no active filters the
- * input is returned unchanged.
+ * Translates the active filters into declarative {@link FilterCriterion}s (AND-combined
+ * by the query), so the storage layer applies them natively or in the shared in-memory
+ * fallback. Each active filter contributes exactly one criterion via its `toCriterion`.
  */
-export function applyListFilters(active: ActiveFilter[], profiles: Profile[]): Profile[] {
-  if (active.length === 0) return profiles;
-  return profiles.filter((profile) =>
-    active.every(({ filter, value }) => filter.matches(profile, value)),
-  );
+export function buildCriteria(active: ActiveFilter[]): FilterCriterion[] {
+  return active.map(({ filter, value }) => filter.toCriterion(value));
 }

@@ -21,8 +21,8 @@ export const methodFilter: ProfilerListFilter<string> = {
   order: 20,
   options: [{ value: '', label: 'All' }, ...HTTP_METHODS.map((m) => ({ value: m, label: m }))],
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<HttpRequestData>, value) =>
-    profile.entrypoint.data.method?.toUpperCase() === value.toUpperCase(),
+  // `method` is a base summary field (stored uppercased); `eq` matches case-insensitively.
+  toCriterion: (value) => ({ field: 'method', op: 'eq', value }),
 };
 
 const REQUEST_ICON =

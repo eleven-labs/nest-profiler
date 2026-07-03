@@ -1,4 +1,4 @@
-import type { Profile } from '../interfaces/profile.interface';
+import type { FilterCriterion } from '../storage/profiler-query';
 
 /**
  * DI multi-token under which {@link ProfilerListFilter} implementations are
@@ -44,18 +44,18 @@ export interface ProfilerListFilter<T = unknown> {
   /**
    * Static options for a `'select'` control. The first option is the "any"
    * choice. For options that depend on the captured data (the exchanges or
-   * handlers actually seen, say) provide {@link optionsFor} instead — it is
-   * evaluated per section and takes precedence over this.
+   * handlers actually seen, say) set {@link distinctField} instead — the profiler
+   * derives the option values from the store's distinct values for that field.
    */
   readonly options?: ProfilerFilterOption[];
   /**
-   * Builds the `'select'` options from the section's profiles, so a filter can
-   * offer only the values actually present (e.g. the distinct RabbitMQ exchanges
-   * or `@RabbitSubscribe` handlers). Called once per section with that section's
-   * unfiltered profiles; when set, its result is used in place of {@link options}.
-   * Include the leading "any" option yourself.
+   * Summary field whose distinct values populate a dynamic `'select'` control, so a
+   * filter can offer only the values actually present (e.g. the distinct RabbitMQ
+   * exchanges or `@RabbitSubscribe` handlers) — typically an `attributes.<key>`.
+   * When set, the profiler queries {@link ProfilerStorageService.distinct} and
+   * prepends the "any" option; takes precedence over {@link options}.
    */
-  optionsFor?(profiles: Profile[]): ProfilerFilterOption[];
+  readonly distinctField?: string;
   /** Placeholder for `'text'`/`'number'` controls. */
   readonly placeholder?: string;
   /**
@@ -78,6 +78,10 @@ export interface ProfilerListFilter<T = unknown> {
    * so it never hides profiles.
    */
   parse(raw: string | undefined): T | undefined;
-  /** Whether `profile` passes this filter for the given (already-parsed) `value`. */
-  matches(profile: Profile, value: T): boolean;
+  /**
+   * Translates the parsed `value` into a declarative {@link FilterCriterion} the
+   * storage layer can evaluate or push down. Replaces the former JS `matches`
+   * predicate so any adapter (database, Redis…) can apply the filter natively.
+   */
+  toCriterion(value: T): FilterCriterion;
 }

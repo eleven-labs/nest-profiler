@@ -1,4 +1,5 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { matchesCriterion, summarizeProfile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
@@ -13,6 +14,15 @@ function makeProfile(data: CommandInfo): Profile<CommandInfo> {
     exceptions: [],
     collectors: {},
   };
+}
+
+const attrs = (p: Profile): Record<string, string | number | boolean> =>
+  COMMAND_ENTRYPOINT_TYPE_DEF.indexAttributes?.(p) ?? {};
+
+/** Applies a filter through the declarative path: parse → criterion → evaluate on the summary. */
+function applies(key: string, value: string, profile: Profile): boolean {
+  const filter = COMMAND_ENTRYPOINT_TYPE_DEF.listFilters?.find((f) => f.key === key);
+  return matchesCriterion(summarizeProfile(profile, attrs), filter!.toCriterion(value));
 }
 
 describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
@@ -35,10 +45,15 @@ describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
     });
 
     it('matches successful runs for "success" and failed runs for "failed"', () => {
-      expect(filter?.matches(ok, 'success')).toBe(true);
-      expect(filter?.matches(ko, 'success')).toBe(false);
-      expect(filter?.matches(ko, 'failed')).toBe(true);
-      expect(filter?.matches(ok, 'failed')).toBe(false);
+      expect(applies('commandStatus', 'success', ok)).toBe(true);
+      expect(applies('commandStatus', 'success', ko)).toBe(false);
+      expect(applies('commandStatus', 'failed', ko)).toBe(true);
+      expect(applies('commandStatus', 'failed', ok)).toBe(false);
+    });
+
+    it('indexes the success flag as a queryable attribute', () => {
+      expect(COMMAND_ENTRYPOINT_TYPE_DEF.indexAttributes?.(ok)).toEqual({ success: true });
+      expect(COMMAND_ENTRYPOINT_TYPE_DEF.indexAttributes?.(ko)).toEqual({ success: false });
     });
 
     it('is inactive for an empty value', () => {
