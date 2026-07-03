@@ -1,6 +1,8 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
+import type { ProfilerModuleOptions } from '@eleven-labs/nest-profiler';
+import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
 import {
   ignoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
@@ -8,6 +10,36 @@ import {
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+
+/**
+ * Resolves the storage-related profiler options from config. `sqlite` is opted into via
+ * the `storage` adapter instance (the core module never imports `better-sqlite3`); `file`
+ * and `memory` go through the built-in `storageType`.
+ */
+function resolveStorageOptions(config: ConfigService): Partial<ProfilerModuleOptions> {
+  const storageType = config.get<'memory' | 'file' | 'sqlite'>('profiler.storageType');
+  const maxProfiles = config.get<number>('profiler.maxProfiles');
+
+  if (storageType === 'sqlite') {
+    return {
+      storage: new SqliteStorageAdapter({
+        path: config.get<string>('profiler.storagePath'),
+        maxProfiles,
+        ttl: config.get<number>('profiler.ttl'),
+      }),
+      maxProfiles,
+    };
+  }
+
+  return {
+    storageType,
+    ...(storageType === 'file' && {
+      storagePath: config.get<string>('profiler.storagePath'),
+      ttl: config.get<number>('profiler.ttl'),
+    }),
+    maxProfiles,
+  };
+}
 
 /**
  * Bundles the profiler modules that belong at the composition root — the core `ProfilerModule` plus
@@ -30,21 +62,13 @@ export class ProfilingModule {
         ProfilerModule.forRootAsync({
           isGlobal: true,
           inject: [ConfigService],
-          useFactory: (config: ConfigService) => {
-            const storageType = config.get<'memory' | 'file'>('profiler.storageType');
-            return {
-              storageType,
-              ...(storageType === 'file' && {
-                storagePath: config.get<string>('profiler.storagePath'),
-                ttl: config.get<number>('profiler.ttl'),
-              }),
-              maxProfiles: config.get<number>('profiler.maxProfiles'),
-              collectBody: true,
-              sampleRate: 1.0,
-              ignorePaths: ['/favicon.ico'],
-              ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
-            };
-          },
+          useFactory: (config: ConfigService) => ({
+            ...resolveStorageOptions(config),
+            collectBody: true,
+            sampleRate: 1.0,
+            ignorePaths: ['/favicon.ico'],
+            ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
+          }),
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
         ValidatorCollectorModule.forRoot({
@@ -63,17 +87,7 @@ export class ProfilingModule {
         ProfilerModule.forRootAsync({
           isGlobal: true,
           inject: [ConfigService],
-          useFactory: (config: ConfigService) => {
-            const storageType = config.get<'memory' | 'file'>('profiler.storageType') ?? 'file';
-            return {
-              storageType,
-              ...(storageType === 'file' && {
-                storagePath: config.get<string>('profiler.storagePath'),
-                ttl: config.get<number>('profiler.ttl'),
-              }),
-              maxProfiles: config.get<number>('profiler.maxProfiles'),
-            };
-          },
+          useFactory: (config: ConfigService) => resolveStorageOptions(config),
         }),
         CommanderCollectorModule.forRoot(),
       ],

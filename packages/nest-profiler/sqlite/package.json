@@ -1,0 +1,5 @@
+{
+  "main": "../dist/storage/sqlite/index.js",
+  "types": "../dist/storage/sqlite/index.d.ts",
+  "sideEffects": false
+}

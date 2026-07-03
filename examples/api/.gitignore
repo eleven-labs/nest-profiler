@@ -1,1 +1,6 @@
 .profiler/
+
+# SQLite profiler database (PROFILER_STORAGE_TYPE=sqlite)
+*.db
+*.db-shm
+*.db-wal

@@ -48,6 +48,10 @@ Profile files contain request data including headers and response bodies. Add th
 ```text title=".gitignore"
 # Profiler storage
 .profiler/
+# SQLite database (when using the SQLite adapter)
+*.db
+*.db-wal
+*.db-shm
 ```
 
 ## What gets stored
@@ -76,55 +80,89 @@ ProfilerModule.forRoot({
   storageType: 'file',
   storagePath: '.profiler',
   maxProfiles: 100, // default: 100
-  ttl: 3600000, // default: 1 hour (in ms)
+  ttl: 3600, // default: 3600 (seconds — 1 hour)
 });
 ```
 
-`maxProfiles` also bounds the in-memory cache the file storage keeps for fast list rendering, so memory usage grows with `maxProfiles × average profile size` - keep it reasonable when `collectBody` is enabled.
+`maxProfiles` also bounds the in-memory summary index and parsed-profile cache the file storage keeps, so memory usage grows with `maxProfiles × average profile size` - keep it reasonable when `collectBody` is enabled.
+
+## SQLite storage
+
+When you keep many profiles, filtering and paginating them in memory adds up. The package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath that pushes filtering, sorting and pagination down to the database (`WHERE … ORDER BY … LIMIT/OFFSET` with a `COUNT(*)` total), so a list render never loads the whole store. Like file storage it survives restarts and is cross-process (WAL), so CLI command profiles show up in the web profiler.
+
+It is opt-in: `better-sqlite3` is an optional peer dependency, so memory/file users pull no native module.
+
+```bash
+pnpm add better-sqlite3
+```
+
+Pass it through the `storage` option (not `storageType`) so the core module never imports the driver:
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({
+      isGlobal: true,
+      storage: new SqliteStorageAdapter({
+        path: '.profiler/profiler.db', // relative to cwd; ':memory:' for an ephemeral DB
+        maxProfiles: 500,
+        ttl: 3600, // seconds
+      }),
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+Each profile becomes a row with indexed summary columns (type, method, status, duration, exceptions, a search column and kind-specific attributes as JSON) plus the full profile document. A file database is cross-process; `:memory:` is single-connection. Add the database file to `.gitignore` (`*.db`, `*.db-wal`, `*.db-shm`) — it holds captured request data.
 
 ## Custom storage adapter
 
-If neither memory nor file storage fits your needs (for example, you want to store profiles in Redis or a database), implement `IProfilerStorageAdapter`:
+If none of the built-in backends fits your needs (for example, you want to store profiles in Redis), implement `IProfilerStorageAdapter` — `save`, `findAll`, `findOne` and `clear`:
 
 ```ts title="redis-profiler-storage.adapter.ts"
-import { Injectable } from '@nestjs/common';
 import type { IProfilerStorageAdapter, Profile } from '@eleven-labs/nest-profiler';
 
-@Injectable()
 export class RedisProfilerStorageAdapter implements IProfilerStorageAdapter {
-  async save(token: string, profile: Profile): Promise<void> {
-    // store JSON in Redis with an expiry
-    await this.redis.set(`profiler:${token}`, JSON.stringify(profile), 'EX', 3600);
+  async save(profile: Profile): Promise<void> {
+    await this.redis.set(`profiler:${profile.token}`, JSON.stringify(profile), 'EX', 3600);
   }
 
-  async get(token: string): Promise<Profile | null> {
+  async findOne(token: string): Promise<Profile | undefined> {
     const raw = await this.redis.get(`profiler:${token}`);
-    return raw ? (JSON.parse(raw) as Profile) : null;
+    return raw ? (JSON.parse(raw) as Profile) : undefined;
   }
 
-  async list(): Promise<Profile[]> {
+  async findAll(): Promise<Profile[]> {
     const keys = await this.redis.keys('profiler:*');
     const results = await Promise.all(keys.map((k) => this.redis.get(k)));
     return results
-      .filter(Boolean)
-      .map((r) => JSON.parse(r!) as Profile)
-      .sort((a, b) => b.startTime - a.startTime);
+      .filter((r): r is string => Boolean(r))
+      .map((r) => JSON.parse(r) as Profile)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  async delete(token: string): Promise<void> {
-    await this.redis.del(`profiler:${token}`);
+  async clear(): Promise<void> {
+    const keys = await this.redis.keys('profiler:*');
+    if (keys.length > 0) await this.redis.del(...keys);
   }
 }
 ```
 
-Register the adapter in `ProfilerModule.forRoot()`:
+Register the adapter through the `storage` option (it takes precedence over `storageType`):
 
 ```ts
 ProfilerModule.forRoot({
   isGlobal: true,
-  storageAdapter: new RedisProfilerStorageAdapter(redisClient),
+  storage: new RedisProfilerStorageAdapter(redisClient),
 });
 ```
+
+For a large backing store, additionally implement the optional `query()`, `distinct()` and `setIndexAttributesProvider()` methods to push filtering and pagination down to your store — see the [Storage backends](/docs/packages/nest-profiler/storage) reference. When they are absent the profiler falls back to filtering in memory over `findAll()`.
 
 <Callout type="warn" title="Production warning">
   Profile files contain sensitive request data. Never enable the profiler - regardless of storage
