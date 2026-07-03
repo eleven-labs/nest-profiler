@@ -1,6 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ProfilerModule, ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import {
+  ProfilerModule,
+  ProfilerCoreService,
+  sectionTypeConstraint,
+} from '@eleven-labs/nest-profiler';
 import { RabbitMqCollectorModule } from './rabbitmq-collector.module';
 import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
 
@@ -51,23 +55,12 @@ describe('RabbitMqCollectorModule', () => {
       const entrypointType = core.getEntrypointType('rabbitmq');
       expect(entrypointType.type).toBe('rabbitmq');
 
-      const section = core.getListSections().find((s) => s.key === 'rabbitmq');
+      const sections = core.getListSections();
+      const section = sections.find((s) => s.key === 'rabbitmq');
       expect(section).toBeDefined();
       expect(section?.templatePath).toMatch(/rabbitmq-section\.ejs$/);
-      expect(
-        section?.matches({
-          entrypoint: {
-            type: 'rabbitmq',
-            data: { exchange: 'x', routingKey: 'y' },
-          },
-          token: 't',
-          createdAt: 0,
-          performance: { startTime: 0, heapUsed: 0 },
-          logs: [],
-          exceptions: [],
-          collectors: {},
-        }),
-      ).toBe(true);
+      // The section claims the `rabbitmq` entrypoint type for its list query.
+      expect(sectionTypeConstraint(section!, sections)).toEqual({ typeIn: ['rabbitmq'] });
 
       await app.close();
     });

@@ -76,6 +76,24 @@ or declaratively via the `PROFILER_LIST_FILTERS` multi-token:
 { provide: PROFILER_LIST_FILTERS, useValue: slowFilter, multi: true }
 ```
 
+## Pagination
+
+Each list paginates independently to keep the page light when many profiles are
+captured. A section shows `listPageSize` profiles per page (default **25**,
+configurable via `ProfilerModule.forRoot({ listPageSize })`) with a
+Previous/Next pager; the pager is hidden when a section fits on one page.
+
+The current page is carried as a **section-namespaced** query parameter,
+`<section>_page`, so sections page independently — and pager links preserve the
+active filters and the other sections' pages:
+
+```
+GET /_profiler?http_page=2&graphql_page=3&http_status=200
+```
+
+Page numbers are 1-based and clamped to the available range. Submitting a filter
+bar resets every section back to page 1, since the result set changed.
+
 ## Export a profile
 
 Every profile detail page has an **Export JSON** button. You can also download the raw profile directly:

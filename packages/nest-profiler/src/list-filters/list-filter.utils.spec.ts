@@ -1,32 +1,17 @@
 import {
-  applyListFilters,
+  buildCriteria,
   filterAppliesToSection,
   parseFilterValues,
   parseLenientInt,
-  resolveFilterForSection,
 } from './list-filter.utils';
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
-
-function makeProfile(method: string, statusCode?: number): Profile {
-  return {
-    token: Math.random().toString(36).slice(2),
-    createdAt: Date.now(),
-    entrypoint: { type: 'http', data: { method, url: '/', headers: {}, query: {} } },
-    response: statusCode !== undefined ? { statusCode, headers: {} } : undefined,
-    performance: { startTime: 0, heapUsed: 0 },
-    logs: [],
-    exceptions: [],
-    collectors: {},
-  };
-}
 
 const methodFilter: ProfilerListFilter<string> = {
   key: 'method',
   label: 'Method',
   control: 'select',
   parse: (raw) => (raw && raw.length > 0 ? raw : undefined),
-  matches: (p, v) => (p.entrypoint.data as HttpRequestData).method === v,
+  toCriterion: (value) => ({ field: 'method', op: 'eq', value }),
 };
 
 const statusFilter: ProfilerListFilter<number> = {
@@ -34,7 +19,7 @@ const statusFilter: ProfilerListFilter<number> = {
   label: 'Status',
   control: 'number',
   parse: parseLenientInt,
-  matches: (p, v) => p.response?.statusCode === v,
+  toCriterion: (value) => ({ field: 'statusCode', op: 'eq', value }),
 };
 
 const filters = [methodFilter, statusFilter];
@@ -70,23 +55,18 @@ describe('parseFilterValues', () => {
   });
 });
 
-describe('applyListFilters', () => {
-  const profiles = [makeProfile('GET', 200), makeProfile('POST', 500), makeProfile('GET', 404)];
-
-  it('returns the input unchanged when nothing is active', () => {
-    expect(applyListFilters([], profiles)).toBe(profiles);
-  });
-
-  it('keeps profiles matching every active filter (AND semantics)', () => {
+describe('buildCriteria', () => {
+  it('translates each active filter into its declarative criterion', () => {
     const { active } = parseFilterValues(filters, { method: 'GET', status: '404' });
-    const result = applyListFilters(active, profiles);
-    expect(result).toHaveLength(1);
-    expect(result[0]?.response?.statusCode).toBe(404);
+    expect(buildCriteria(active)).toEqual([
+      { field: 'method', op: 'eq', value: 'GET' },
+      { field: 'statusCode', op: 'eq', value: 404 },
+    ]);
   });
 
-  it('applies a single active filter', () => {
-    const { active } = parseFilterValues(filters, { method: 'GET' });
-    expect(applyListFilters(active, profiles)).toHaveLength(2);
+  it('returns an empty list when nothing is active', () => {
+    const { active } = parseFilterValues(filters, {});
+    expect(buildCriteria(active)).toEqual([]);
   });
 });
 
@@ -109,35 +89,5 @@ describe('filterAppliesToSection', () => {
     expect(filterAppliesToSection(many, 'http')).toBe(true);
     expect(filterAppliesToSection(many, 'graphql')).toBe(true);
     expect(filterAppliesToSection(many, 'command')).toBe(false);
-  });
-});
-
-describe('resolveFilterForSection', () => {
-  const profiles = [makeProfile('GET'), makeProfile('POST'), makeProfile('GET')];
-
-  it('returns the filter unchanged when it has no optionsFor', () => {
-    expect(resolveFilterForSection(methodFilter, profiles)).toBe(methodFilter);
-  });
-
-  it('computes select options from the section profiles', () => {
-    const dynamic: ProfilerListFilter<string> = {
-      key: 'method',
-      label: 'Method',
-      control: 'select',
-      optionsFor: (ps) => {
-        const values = [...new Set(ps.map((p) => (p.entrypoint.data as HttpRequestData).method))];
-        return [{ value: '', label: 'All' }, ...values.map((v) => ({ value: v, label: v }))];
-      },
-      parse: (raw) => (raw && raw.length > 0 ? raw : undefined),
-      matches: (p, v) => (p.entrypoint.data as HttpRequestData).method === v,
-    };
-    const resolved = resolveFilterForSection(dynamic, profiles);
-    expect(resolved.options).toEqual([
-      { value: '', label: 'All' },
-      { value: 'GET', label: 'GET' },
-      { value: 'POST', label: 'POST' },
-    ]);
-    // The matcher/parser survive the spread so the filter still works.
-    expect(resolved.matches(profiles[0]!, 'GET')).toBe(true);
   });
 });

@@ -15,6 +15,7 @@ import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import { HTTP_ENTRYPOINT_TYPE_DEF } from '../entrypoints/builtin-http-entrypoint';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
+import type { SummaryPrimitive } from '../storage/profile-summary';
 
 /** Default display order for contributed filters with no explicit `order`. */
 const DEFAULT_FILTER_ORDER = 100;
@@ -37,8 +38,22 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     readonly collectorRegistry: CollectorRegistry,
     readonly routeCollector: RouteCollector,
   ) {
+    // Teach the storage in-memory fallback how to project kind-specific index
+    // attributes. The closure reads the registry at call time, so entrypoint types
+    // registered later (in packages' onModuleInit) are picked up.
+    this.storage.setIndexAttributesProvider((profile) => this.getIndexAttributes(profile));
     // Seed the built-in HTTP entrypoint — the catch-all for REST requests.
     this.registerEntrypointType(HTTP_ENTRYPOINT_TYPE_DEF);
+  }
+
+  /**
+   * The kind-specific index attributes for a profile — its entrypoint type's
+   * {@link ProfilerEntrypointType.indexAttributes} projection, or `{}` when the type
+   * is unregistered or contributes none. Exposed to storage adapters so they can
+   * index and query facets like a GraphQL `operationType` or a RabbitMQ `exchange`.
+   */
+  getIndexAttributes(profile: Profile): Record<string, SummaryPrimitive> {
+    return this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
   }
 
   /**
@@ -231,7 +246,6 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.registerListSection({
       key: entrypointType.type,
       isDefault: entrypointType.isDefault,
-      matches: (profile) => profile.entrypoint.type === entrypointType.type,
       ...entrypointType.listSection,
     });
 

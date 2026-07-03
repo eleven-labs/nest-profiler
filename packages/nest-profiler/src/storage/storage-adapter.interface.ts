@@ -1,7 +1,14 @@
 import type { Profile } from '../interfaces/profile.interface';
+import type { ProfilerPage, ProfilerQuery } from './profiler-query';
+import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary';
 
 export const PROFILER_STORAGE_ADAPTER = Symbol('PROFILER_STORAGE_ADAPTER');
 
+/**
+ * @deprecated Superseded by {@link ProfilerQuery} / {@link IProfilerStorageAdapter.query}.
+ * The dashboard no longer passes these HTTP-centric options; kept only for
+ * backwards compatibility with custom adapters.
+ */
 export interface StorageFindOptions {
   method?: string;
   statusCode?: number;
@@ -24,4 +31,31 @@ export interface IProfilerStorageAdapter {
   findAll(options?: StorageFindOptions): Promise<Profile[]> | Profile[];
   findOne(token: string): Promise<Profile | undefined> | Profile | undefined;
   clear(): Promise<void> | void;
+
+  /**
+   * Optional: run a structured list query (section + filters + sort + pagination)
+   * natively, returning the page of profiles and the total match count. Implement
+   * this for stores that can filter/paginate efficiently (a database, Redis…) so a
+   * list render never loads every profile. When omitted, {@link ProfilerStorageService}
+   * falls back to fetching all profiles and applying the query in memory — correct
+   * but not scalable, fine for the in-memory adapter.
+   */
+  query?(query: ProfilerQuery): Promise<ProfilerPage> | ProfilerPage;
+
+  /**
+   * Optional: return the distinct, non-empty values of a summary `field` (optionally
+   * restricted to `typeIn`), used to populate a filter's dynamic `select` options.
+   * Falls back to deriving them from {@link findAll} when omitted.
+   */
+  distinct?(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> | SummaryPrimitive[];
+
+  /**
+   * Optional: receive the projection that computes a profile's kind-specific index
+   * attributes (a GraphQL `operationType`, a RabbitMQ `exchange`…). Adapters that
+   * index/persist a {@link ProfileSummary} for native `query`/`distinct` need it to
+   * populate `summary.attributes`. The profiler calls this once at startup, before
+   * the first save. Adapters without a native query can ignore it (the service keeps
+   * the provider for its in-memory fallback).
+   */
+  setIndexAttributesProvider?(provider: IndexAttributesProvider): void;
 }

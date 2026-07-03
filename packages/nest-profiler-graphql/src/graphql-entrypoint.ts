@@ -35,8 +35,7 @@ const operationTypeFilter: ProfilerListFilter<string> = {
     { value: 'subscription', label: 'Subscription' },
   ],
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
-  matches: (profile: Profile<GraphQLEntrypointData>, value) =>
-    profile.entrypoint.data.graphql.operationType === value,
+  toCriterion: (value) => ({ field: 'attributes.operationType', op: 'eq', value }),
 };
 
 const GRAPHQL_ICON =
@@ -69,6 +68,9 @@ export const GRAPHQL_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
     },
   ],
   listFilters: [operationTypeFilter],
+  indexAttributes: (profile: Profile<GraphQLEntrypointData>) => ({
+    operationType: profile.entrypoint.data.graphql.operationType,
+  }),
   summary(profile: Profile<GraphQLEntrypointData>): EntrypointSummary {
     const gql = profile.entrypoint.data.graphql;
     return {

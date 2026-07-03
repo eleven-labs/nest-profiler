@@ -1,6 +1,7 @@
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
+import type { SummaryPrimitive } from '../storage/profile-summary';
 
 /**
  * DI multi-token under which {@link ProfilerEntrypointType} implementations are
@@ -77,4 +78,12 @@ export interface ProfilerEntrypointType {
   readonly listFilters?: ProfilerListFilter[];
   /** Builds the detail-page breadcrumb summary for a profile of this kind. */
   summary(profile: Profile): EntrypointSummary;
+  /**
+   * Kind-specific queryable facets to index for a profile of this type, exposed as
+   * `attributes.<key>` in its {@link ProfileSummary} — e.g. a GraphQL `operationType`
+   * or a RabbitMQ `exchange`/`routingKey`. These back the scoped `select`/filter
+   * criteria a {@link listFilters} entry targets, so a storage adapter can filter on
+   * them natively. Return only primitive values.
+   */
+  indexAttributes?(profile: Profile): Record<string, SummaryPrimitive>;
 }

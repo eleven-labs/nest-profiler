@@ -26,11 +26,18 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
-    }
+    },
+    "./sqlite": {
+      "types": "./dist/storage/sqlite/index.d.ts",
+      "require": "./dist/storage/sqlite/index.js",
+      "default": "./dist/storage/sqlite/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "docs",
+    "sqlite",
     "CHANGELOG.md"
   ],
   "engines": {
@@ -53,9 +60,15 @@
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "better-sqlite3": ">=11.0.0",
     "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@highlightjs/cdn-assets": "11.11.1",
@@ -69,11 +82,13 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/cli": "^4.3.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.2",
     "@types/supertest": "^7.2.0",
+    "better-sqlite3": "^12.11.1",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "nest-winston": "^1.10.2",

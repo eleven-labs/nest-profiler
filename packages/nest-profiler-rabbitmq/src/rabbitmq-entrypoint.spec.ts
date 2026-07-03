@@ -1,7 +1,11 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { distinctInMemory, matchesCriterion, summarizeProfile } from '@eleven-labs/nest-profiler';
 import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
 import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+
+const attrs = (p: Profile): Record<string, string | number | boolean> =>
+  RABBITMQ_ENTRYPOINT_TYPE_DEF.indexAttributes?.(p) ?? {};
 
 function makeProfile(data: RabbitMqInfo): Profile {
   return {
@@ -13,6 +17,17 @@ function makeProfile(data: RabbitMqInfo): Profile {
     exceptions: [],
     collectors: {},
   };
+}
+
+/** Applies a filter through the declarative path: parse → criterion → evaluate on the summary. */
+function applies(key: string, value: string, profile: Profile): boolean {
+  const filter = RABBITMQ_ENTRYPOINT_TYPE_DEF.listFilters?.find((f) => f.key === key);
+  return matchesCriterion(summarizeProfile(profile, attrs), filter!.toCriterion(value));
+}
+
+/** The distinct option values a dynamic filter would offer for the given profiles. */
+function distinctFor(field: string, profiles: Profile[]): (string | number | boolean)[] {
+  return distinctInMemory(profiles, field, attrs).sort();
 }
 
 describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
@@ -35,16 +50,16 @@ describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
     });
 
     it('matches redeliveries for "redelivered" and first deliveries for "first"', () => {
-      expect(filter?.matches(again, 'redelivered')).toBe(true);
-      expect(filter?.matches(first, 'redelivered')).toBe(false);
-      expect(filter?.matches(first, 'first')).toBe(true);
-      expect(filter?.matches(again, 'first')).toBe(false);
+      expect(applies('redelivered', 'redelivered', again)).toBe(true);
+      expect(applies('redelivered', 'redelivered', first)).toBe(false);
+      expect(applies('redelivered', 'first', first)).toBe(true);
+      expect(applies('redelivered', 'first', again)).toBe(false);
     });
 
     it('treats a missing redelivered flag as a first delivery', () => {
       const unknown = makeProfile({ exchange: 'e', routingKey: 'k' });
-      expect(filter?.matches(unknown, 'first')).toBe(true);
-      expect(filter?.matches(unknown, 'redelivered')).toBe(false);
+      expect(applies('redelivered', 'first', unknown)).toBe(true);
+      expect(applies('redelivered', 'redelivered', unknown)).toBe(false);
     });
 
     it('is inactive for an empty value', () => {
@@ -60,18 +75,18 @@ describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
       makeProfile({ exchange: 'articles.events', routingKey: 'c' }),
     ];
 
-    it('builds sorted, de-duplicated options from the seen exchanges', () => {
-      expect(filter?.optionsFor?.(profiles)).toEqual([
-        { value: '', label: 'All' },
-        { value: '(default)', label: '(default)' },
-        { value: 'articles.events', label: 'articles.events' },
+    it('offers the seen exchanges as distinct options (empty exchange → "(default)")', () => {
+      expect(filter?.distinctField).toBe('attributes.exchange');
+      expect(distinctFor('attributes.exchange', profiles)).toEqual([
+        '(default)',
+        'articles.events',
       ]);
     });
 
     it('matches by exchange, mapping the empty exchange to "(default)"', () => {
-      expect(filter?.matches(profiles[0]!, 'articles.events')).toBe(true);
-      expect(filter?.matches(profiles[0]!, '(default)')).toBe(false);
-      expect(filter?.matches(profiles[1]!, '(default)')).toBe(true);
+      expect(applies('exchange', 'articles.events', profiles[0]!)).toBe(true);
+      expect(applies('exchange', '(default)', profiles[0]!)).toBe(false);
+      expect(applies('exchange', '(default)', profiles[1]!)).toBe(true);
     });
 
     it('parses a non-empty value and is inactive otherwise', () => {
@@ -91,15 +106,15 @@ describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
     const withoutHandler = makeProfile({ exchange: 'e', routingKey: 'k' });
 
     it('lists only the handlers actually present', () => {
-      expect(filter?.optionsFor?.([withHandler, withoutHandler])).toEqual([
-        { value: '', label: 'All' },
-        { value: 'NarrationService.createGeneration', label: 'NarrationService.createGeneration' },
+      expect(filter?.distinctField).toBe('attributes.handler');
+      expect(distinctFor('attributes.handler', [withHandler, withoutHandler])).toEqual([
+        'NarrationService.createGeneration',
       ]);
     });
 
     it('matches the exact handler', () => {
-      expect(filter?.matches(withHandler, 'NarrationService.createGeneration')).toBe(true);
-      expect(filter?.matches(withoutHandler, 'NarrationService.createGeneration')).toBe(false);
+      expect(applies('handler', 'NarrationService.createGeneration', withHandler)).toBe(true);
+      expect(applies('handler', 'NarrationService.createGeneration', withoutHandler)).toBe(false);
     });
 
     it('parses a non-empty value and is inactive otherwise', () => {
@@ -117,8 +132,8 @@ describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
 
     it('lower-cases the query and matches a substring of the routing key', () => {
       expect(filter?.parse('PUBLISHED')).toBe('published');
-      expect(filter?.matches(profile, 'published')).toBe(true);
-      expect(filter?.matches(profile, 'tts')).toBe(false);
+      expect(applies('routingKey', 'published', profile)).toBe(true);
+      expect(applies('routingKey', 'tts', profile)).toBe(false);
     });
 
     it('is inactive for an empty value', () => {

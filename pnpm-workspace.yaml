@@ -8,6 +8,7 @@ allowBuilds:
   '@apollo/protobufjs': true
   '@parcel/watcher': true
   '@scarf/scarf': false
+  better-sqlite3: true
   esbuild: true
   sharp: true
   unrs-resolver: true

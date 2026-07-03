@@ -37,6 +37,13 @@ describe('MemoryStorageAdapter', () => {
       expect(adapter.findOne('b')).toBeDefined();
       expect(adapter.findOne('c')).toBeDefined();
     });
+
+    it('never evicts when maxProfiles is 0 (no cap)', () => {
+      const adapter = new MemoryStorageAdapter({ maxProfiles: 0 });
+      for (let i = 0; i < 250; i++) adapter.save(makeProfile(`p-${i}`));
+      expect(adapter.findAll()).toHaveLength(250);
+      expect(adapter.findOne('p-0')).toBeDefined();
+    });
   });
 
   describe('TTL expiration', () => {
@@ -54,6 +61,13 @@ describe('MemoryStorageAdapter', () => {
       adapter.save(makeProfile('expired', { createdAt: Date.now() - 5000 }));
       adapter.save(makeProfile('valid'));
       expect(adapter.findAll().map((p) => p.token)).toEqual(['valid']);
+    });
+
+    it('never expires when ttl is 0', () => {
+      const adapter = new MemoryStorageAdapter({ ttl: 0 });
+      adapter.save(makeProfile('ancient', { createdAt: Date.now() - 10 * 365 * 24 * 3600 * 1000 }));
+      expect(adapter.findOne('ancient')).toBeDefined();
+      expect(adapter.findAll().map((p) => p.token)).toEqual(['ancient']);
     });
   });
 

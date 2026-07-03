@@ -8,10 +8,20 @@ import type {
   StorageFindOptions,
 } from '../storage/storage-adapter.interface';
 import { MemoryStorageAdapter } from '../storage/memory-storage.adapter';
+import type { IndexAttributesProvider, SummaryPrimitive } from '../storage/profile-summary';
+import type { ProfilerPage, ProfilerQuery } from '../storage/profiler-query';
+import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
 
 @Injectable()
 export class ProfilerStorageService {
   private readonly adapter: IProfilerStorageAdapter;
+  /**
+   * Supplies kind-specific index attributes for the in-memory `query`/`distinct`
+   * fallback. Set by {@link ProfilerCoreService} so late-registered entrypoint
+   * types (contributed in `onModuleInit`) are visible — the closure reads the
+   * registry at call time.
+   */
+  private indexAttributes?: IndexAttributesProvider;
 
   constructor(
     @Optional()
@@ -23,6 +33,17 @@ export class ProfilerStorageService {
   ) {
     this.adapter =
       adapter ?? new MemoryStorageAdapter({ maxProfiles: options.maxProfiles, ttl: options.ttl });
+  }
+
+  /**
+   * Registers the projection used to compute summaries. Kept for the in-memory
+   * `query`/`distinct` fallback and forwarded to the adapter when it maintains its
+   * own summary index (a file or database adapter) so its native queries can filter
+   * on kind-specific attributes.
+   */
+  setIndexAttributesProvider(provider: IndexAttributesProvider): void {
+    this.indexAttributes = provider;
+    this.adapter.setIndexAttributesProvider?.(provider);
   }
 
   /**
@@ -48,5 +69,21 @@ export class ProfilerStorageService {
 
   clear(): void | Promise<void> {
     return this.adapter.clear();
+  }
+
+  /**
+   * Runs a structured list query. Delegates to the adapter's native {@link
+   * IProfilerStorageAdapter.query} when present, otherwise fetches all profiles and
+   * applies the query in memory.
+   */
+  async query(query: ProfilerQuery): Promise<ProfilerPage> {
+    if (this.adapter.query) return this.adapter.query(query);
+    return applyQueryInMemory(await this.adapter.findAll(), query, this.indexAttributes);
+  }
+
+  /** Distinct values of a summary field — native when the adapter supports it, else in-memory. */
+  async distinct(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> {
+    if (this.adapter.distinct) return this.adapter.distinct(field, typeIn);
+    return distinctInMemory(await this.adapter.findAll(), field, this.indexAttributes, typeIn);
   }
 }

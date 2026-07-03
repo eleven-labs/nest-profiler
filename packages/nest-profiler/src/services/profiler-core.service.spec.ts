@@ -4,7 +4,7 @@ import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
 import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
 import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
@@ -24,7 +24,10 @@ function makeProfile(): Profile {
 
 describe('ProfilerCoreService', () => {
   it('exposes the injected storage, collector registry and route collector', async () => {
-    const storage = { findAll: jest.fn() } as unknown as ProfilerStorageService;
+    const storage = {
+      findAll: jest.fn(),
+      setIndexAttributesProvider: jest.fn(),
+    } as unknown as ProfilerStorageService;
     const collectorRegistry = { buildPanels: jest.fn() } as unknown as CollectorRegistry;
     const routeCollector = { match: jest.fn() } as unknown as RouteCollector;
 
@@ -50,7 +53,10 @@ describe('ProfilerCoreService', () => {
       const moduleRef = await Test.createTestingModule({
         providers: [
           ProfilerCoreService,
-          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          {
+            provide: ProfilerStorageService,
+            useValue: { findAll: jest.fn(), setIndexAttributesProvider: jest.fn() },
+          },
           { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
@@ -137,7 +143,10 @@ describe('ProfilerCoreService', () => {
       const moduleRef = await Test.createTestingModule({
         providers: [
           ProfilerCoreService,
-          { provide: ProfilerStorageService, useValue: { save } },
+          {
+            provide: ProfilerStorageService,
+            useValue: { save, setIndexAttributesProvider: jest.fn() },
+          },
           { provide: CollectorRegistry, useValue: { collectAll } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
@@ -214,7 +223,10 @@ describe('ProfilerCoreService', () => {
       const moduleRef = await Test.createTestingModule({
         providers: [
           ProfilerCoreService,
-          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          {
+            provide: ProfilerStorageService,
+            useValue: { findAll: jest.fn(), setIndexAttributesProvider: jest.fn() },
+          },
           { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
@@ -228,7 +240,7 @@ describe('ProfilerCoreService', () => {
       control: 'checkbox',
       order: 5,
       parse: (raw) => (raw ? true : undefined),
-      matches: () => true,
+      toCriterion: () => ({ field: 'hasExceptions', op: 'truthy' }),
     };
 
     it('seeds the built-in filters', () => {
@@ -278,7 +290,10 @@ describe('ProfilerCoreService', () => {
       const moduleRef = await Test.createTestingModule({
         providers: [
           ProfilerCoreService,
-          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          {
+            provide: ProfilerStorageService,
+            useValue: { findAll: jest.fn(), setIndexAttributesProvider: jest.fn() },
+          },
           { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
@@ -291,7 +306,6 @@ describe('ProfilerCoreService', () => {
       title: 'Messages',
       order: 5,
       templatePath: '/tmp/messages.ejs',
-      matches: (p) => (p.entrypoint.data as HttpRequestData).method === 'MSG',
     };
 
     it('seeds the built-in HTTP section as the default', () => {
@@ -329,7 +343,10 @@ describe('ProfilerCoreService', () => {
       const moduleRef = await Test.createTestingModule({
         providers: [
           ProfilerCoreService,
-          { provide: ProfilerStorageService, useValue: { findAll: jest.fn() } },
+          {
+            provide: ProfilerStorageService,
+            useValue: { findAll: jest.fn(), setIndexAttributesProvider: jest.fn() },
+          },
           { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
@@ -353,7 +370,7 @@ describe('ProfilerCoreService', () => {
           label: 'Demo',
           control: 'text',
           parse: (raw) => (raw && raw.length > 0 ? raw : undefined),
-          matches: () => true,
+          toCriterion: (value) => ({ field: 'search', op: 'contains', value }),
         },
       ],
       summary: () => ({ badge: 'D', text: 'x' }),
