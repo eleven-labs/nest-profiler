@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "getting-started",
+    "agent-skills",
     "packages",
     "api-reference",
     "example-api",

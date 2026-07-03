@@ -1,0 +1,50 @@
+---
+title: Agent skills
+description: Install and configure @eleven-labs/nest-profiler with your coding agent — npx skills teaches Claude Code, Cursor, Codex and others to wire the profiler and the collectors that match your stack.
+---
+
+Rather than wiring the profiler by hand, you can let your coding agent do it. This project ships installable [agent skills](https://github.com/vercel-labs/skills) — reusable instructions that teach Claude Code, Cursor, Codex and other agents how to add `@eleven-labs/nest-profiler` to a NestJS app: they introspect the project, choose an enable strategy, and add the collectors that match your dependencies.
+
+## Install a skill
+
+`npx skills` clones the skill from GitHub, auto-detects your installed agents, and drops it into the right config directory — project scope by default, or global with `-g`.
+
+```bash
+# All skills from this project
+npx skills add eleven-labs/nest-profiler
+
+# Just the setup skill
+npx skills add https://github.com/eleven-labs/nest-profiler/tree/main/skills/setup-nest-profiler
+```
+
+## Use it
+
+Open your agent in the target NestJS project and describe what you want, for example:
+
+> Set up nest-profiler in this app.
+
+The `setup-nest-profiler` skill then drives the agent to:
+
+- Detect your package manager and read `package.json`.
+- Pick an enable strategy — `ConditionalModule` + `ProfilerNoopModule` when `@nestjs/config` is present, otherwise the `enabled` flag.
+- Install `@eleven-labs/nest-profiler` + `nestjs-cls` and register the module in your composition root.
+- Wrap your logger in `main.ts` so logs land in the profiler.
+- Detect and offer the collectors matching your dependencies (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ), then wire the chosen ones with their correct placement and caveats.
+- Verify by making a request and opening `/_profiler`.
+
+It defaults to keeping the profiler off in production, but respects an informed choice to run it there (for an internal or VPN-only API) and helps you harden it.
+
+## Available skills
+
+| Skill                         | What it does                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `setup-nest-profiler`         | Install and configure the core profiler end-to-end and wire the collectors that match your stack. |
+| `add-nest-profiler-collector` | Add one collector to an app that already has the core profiler configured.                        |
+
+## Prefer to wire it by hand?
+
+The skills automate exactly the steps in this documentation — follow them directly if you'd rather do it yourself:
+
+- [Getting started](/docs/getting-started) — install, configure the core module, enable collectors.
+- [Set up the profiler](/docs/tutorials/setup-profiler) — the step-by-step tutorial.
+- [Configuration](/docs/packages/nest-profiler/configuration) — every option and the enable/disable strategies.
