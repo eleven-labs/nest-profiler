@@ -27,7 +27,7 @@ import type { Server } from 'node:http';
 import type { FastifyRequest } from 'fastify';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import type { HttpRequestData, Profile } from '@eleven-labs/nest-profiler';
-import { ProfilerGraphQLModule } from './profiler-graphql.module';
+import { GraphQLCollectorModule } from './graphql-collector.module';
 
 function gqlOf(profile: Profile<HttpRequestData>): HttpRequestData['graphql'] {
   return profile.entrypoint.data.graphql;
@@ -296,7 +296,7 @@ describe('ProfilerModule + Apollo Server (Express) — e2e', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ProfilerModule.forRoot({ isGlobal: true, collectBody: true }),
-        ProfilerGraphQLModule.forRoot(),
+        GraphQLCollectorModule.forRoot(),
         GraphQLModule.forRoot<ApolloDriverConfig>({
           driver: ApolloDriver,
           autoSchemaFile: true,
@@ -322,14 +322,14 @@ describe('ProfilerModule + Apollo Server (Express) — e2e', () => {
     expect(res.headers['x-debug-token']).toBeDefined();
   });
 
-  describe('without ProfilerGraphQLModule — profiler silently passes through', () => {
+  describe('without GraphQLCollectorModule — profiler silently passes through', () => {
     let appNoCtx: INestApplication;
 
     beforeAll(async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           ProfilerModule.forRoot({ isGlobal: true }),
-          // ProfilerGraphQLModule intentionally omitted — no GraphQL profiling
+          // GraphQLCollectorModule intentionally omitted — no GraphQL profiling
           GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
             autoSchemaFile: true,
@@ -367,7 +367,7 @@ describe('ProfilerModule + Mercurius (Fastify) — e2e', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ProfilerModule.forRoot({ isGlobal: true, collectBody: true }),
-        ProfilerGraphQLModule.forRoot(),
+        GraphQLCollectorModule.forRoot(),
         GraphQLModule.forRoot<MercuriusDriverConfig>({
           driver: MercuriusDriver,
           autoSchemaFile: true,
@@ -396,14 +396,14 @@ describe('ProfilerModule + Mercurius (Fastify) — e2e', () => {
     expect(res.headers['x-debug-token']).toBeDefined();
   });
 
-  describe('without ProfilerGraphQLModule — profiler silently passes through', () => {
+  describe('without GraphQLCollectorModule — profiler silently passes through', () => {
     let appNoCtx: INestApplication;
 
     beforeAll(async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           ProfilerModule.forRoot({ isGlobal: true }),
-          // ProfilerGraphQLModule intentionally omitted — no GraphQL profiling
+          // GraphQLCollectorModule intentionally omitted — no GraphQL profiling
           GraphQLModule.forRoot<MercuriusDriverConfig>({
             driver: MercuriusDriver,
             autoSchemaFile: true,

@@ -1,9 +1,10 @@
-import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
+import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { getDataSourceToken } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import type { DataSource, QueryRunner } from 'typeorm';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { QueryEntry } from './typeorm-collector.interface';
 import { detectQueryType } from './typeorm-collector.interface';
 import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.module';
@@ -23,19 +24,49 @@ interface PatchableDataSource {
   createQueryRunner: PatchedCreateQueryRunner;
 }
 
+/**
+ * `cls` and the (optionally named) DataSource are resolved lazily via ModuleRef in
+ * `onModuleInit` (a plain `@Optional()` constructor dependency does not traverse to the core's
+ * global ClsModule from a dynamic feature module, and the DataSource may be a named connection).
+ * When the profiler core is disabled or the configured connection is absent, the patch no-ops.
+ */
 @Injectable()
 export class TypeOrmDriverPatch implements OnModuleInit {
+  private readonly logger = new Logger(TypeOrmDriverPatch.name);
+  private cls: ClsService | undefined;
+
   constructor(
-    private readonly cls: ClsService,
-    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly moduleRef: ModuleRef,
     @Optional()
     @Inject(TYPEORM_COLLECTOR_OPTIONS)
     private readonly options: TypeOrmCollectorModuleOptions = {},
   ) {}
 
   onModuleInit(): void {
-    if (!this.dataSource?.isInitialized) return;
-    this.patchCreateQueryRunner(this.dataSource, this.options.slowQueryThreshold ?? 100);
+    this.cls = tryResolve<ClsService>(this.moduleRef, ClsService);
+    if (!this.cls) return;
+
+    const dataSource = tryResolve<DataSource>(
+      this.moduleRef,
+      getDataSourceToken(this.options.connectionName),
+    );
+    if (!dataSource) {
+      if (this.options.connectionName) {
+        this.logger.warn(
+          `TypeORM DataSource "${this.options.connectionName}" not found — queries will not be profiled.`,
+        );
+      }
+      return;
+    }
+    // With manualInitialization the DataSource may not be initialized yet at onModuleInit;
+    // warn rather than silently do nothing (MIN-20).
+    if (!dataSource.isInitialized) {
+      this.logger.warn(
+        'TypeORM DataSource is not initialized at bootstrap — queries will not be profiled.',
+      );
+      return;
+    }
+    this.patchCreateQueryRunner(dataSource, this.options.slowQueryThreshold ?? 100);
   }
 
   private patchCreateQueryRunner(dataSource: DataSource, threshold: number): void {
@@ -64,11 +95,13 @@ export class TypeOrmDriverPatch implements OnModuleInit {
         } finally {
           const duration = Date.now() - startedAt;
           try {
-            const profile = cls.get<Profile | undefined>('profiler.profile');
+            const profile = cls?.get<Profile | undefined>('profiler.profile');
             if (profile) {
               const entry: QueryEntry = {
                 sql: query,
-                parameters: parameters ?? [],
+                // Redact credentials embedded in bound parameters (DSNs, JWTs, keys) before
+                // they are persisted/displayed. Non-sensitive values pass through unchanged.
+                parameters: redact(parameters ?? []),
                 duration,
                 type: detectQueryType(query),
                 isSlow: duration >= threshold,

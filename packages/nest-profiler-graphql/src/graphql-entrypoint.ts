@@ -44,7 +44,7 @@ const GRAPHQL_ICON =
 /**
  * The `graphql` entrypoint: GraphQL operations render in their own list table
  * and on a dedicated "GraphQL" detail tab (operation, query, variables and the
- * response envelope). Registered by {@link ProfilerGraphQLModule}, which also
+ * response envelope). Registered by {@link GraphQLCollectorModule}, which also
  * installs the context adapter that flips an HTTP profile's `entrypoint.type` to
  * `graphql` once it carries an operation.
  */

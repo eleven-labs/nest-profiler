@@ -1,5 +1,5 @@
 import { APP_PIPE } from '@nestjs/core';
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Logger, Module } from '@nestjs/common';
 import type { PipeTransform, ValidationPipeOptions } from '@nestjs/common';
 import { ValidatorCollector } from './validator.collector';
 import { ProfilerValidationPipe } from './profiler-validation.pipe';
@@ -10,8 +10,10 @@ import { createClassValidatorPipe } from './class-validator.adapter';
 
 export interface ValidatorCollectorModuleOptions {
   /**
-   * Enable the collector. Default: `true`. Set to `false` to disable entirely
-   * (no global pipe is installed — the host application decides per environment).
+   * Enable the collector. Default: `true`. Set to `false` to disable *profiling* only: the
+   * global validation pipe (your `pipe`, or the default class-validator one) is still
+   * installed — just without the profiler wrapper — so disabling the profiler never removes
+   * input validation.
    */
   enabled?: boolean;
   /**
@@ -41,7 +43,19 @@ export class ValidatorCollectorModule {
    * @param options - validator-agnostic collector options
    */
   static forRoot(options: ValidatorCollectorModuleOptions = {}): DynamicModule {
-    if (options.enabled === false) return { module: ValidatorCollectorModule };
+    // Disabling turns off *profiling*, not validation. Because this module is the host's
+    // installation vector for the global validation pipe, `enabled: false` still installs the
+    // bare inner pipe (no profiler wrapper, no collector) so toggling the profiler off — e.g.
+    // in production — never silently removes input validation (a mass-assignment footgun).
+    if (options.enabled === false) {
+      const pipe = ValidatorCollectorModule.resolveInnerPipe(options);
+      if (!pipe) return { module: ValidatorCollectorModule };
+      return {
+        module: ValidatorCollectorModule,
+        providers: [{ provide: APP_PIPE, useValue: pipe }],
+      };
+    }
+
     return {
       module: ValidatorCollectorModule,
       providers: [
@@ -55,5 +69,26 @@ export class ValidatorCollectorModule {
         { provide: APP_PIPE, useExisting: ProfilerValidationPipe },
       ],
     };
+  }
+
+  /**
+   * The bare validation pipe to keep installed when the collector is disabled: the caller's
+   * `pipe`, else a default class-validator pipe. Returns `undefined` (with a warning) when
+   * neither is available, so a missing `class-validator` peer degrades to "no validation
+   * installed" rather than crashing the bootstrap.
+   */
+  private static resolveInnerPipe(
+    options: ValidatorCollectorModuleOptions,
+  ): PipeTransform | undefined {
+    if (options.pipe) return options.pipe;
+    try {
+      return createClassValidatorPipe(options.validationPipeOptions);
+    } catch {
+      new Logger(ValidatorCollectorModule.name).warn(
+        'Profiler validator disabled and no validation pipe is available (provide `pipe` or ' +
+          'install class-validator/class-transformer) — global validation is NOT installed.',
+      );
+      return undefined;
+    }
   }
 }
