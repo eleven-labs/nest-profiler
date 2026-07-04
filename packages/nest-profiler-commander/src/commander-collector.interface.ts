@@ -1,6 +1,3 @@
-/** DI token for `CommanderCollectorModuleOptions`. */
-export const COMMANDER_COLLECTOR_OPTIONS = Symbol('COMMANDER_COLLECTOR_OPTIONS');
-
 /** `Profile.entrypoint.type` value marking a profile as a CLI command. */
 export const COMMAND_ENTRYPOINT_TYPE = 'command';
 

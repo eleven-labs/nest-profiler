@@ -1,17 +1,17 @@
 import { Module, Optional } from '@nestjs/common';
-import type { DynamicModule, OnModuleInit, Provider } from '@nestjs/common';
+import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { ProfilerCoreService, PROFILER_CONTEXT_ADAPTERS } from '@eleven-labs/nest-profiler';
+import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
 import { GRAPHQL_ENTRYPOINT_TYPE_DEF } from './graphql-entrypoint';
 
-export interface ProfilerGraphQLModuleOptions {
+export interface GraphQLCollectorModuleOptions {
   /** Enable GraphQL profiling. Default: `true`. */
   enabled?: boolean;
 }
 
 @Module({})
-export class ProfilerGraphQLModule implements OnModuleInit {
+export class GraphQLCollectorModule implements OnModuleInit {
   constructor(
     private readonly moduleRef: ModuleRef,
     // @Optional() so the module does not throw when forRoot({ enabled: false }) omits providers
@@ -33,19 +33,13 @@ export class ProfilerGraphQLModule implements OnModuleInit {
     }
   }
 
-  static forRoot(options: ProfilerGraphQLModuleOptions = {}): DynamicModule {
-    if (options.enabled === false) return { module: ProfilerGraphQLModule };
+  static forRoot(options: GraphQLCollectorModuleOptions = {}): DynamicModule {
+    if (options.enabled === false) return { module: GraphQLCollectorModule };
     return {
-      module: ProfilerGraphQLModule,
-      providers: [
-        GraphQLContextAdapter,
-        // Also expose via the DI multi-token for consumers using direct injection
-        {
-          provide: PROFILER_CONTEXT_ADAPTERS,
-          useExisting: GraphQLContextAdapter,
-          multi: true,
-        } as Provider,
-      ],
+      module: GraphQLCollectorModule,
+      // The adapter registers itself with the core in onModuleInit via
+      // registerContextAdapter() — that is the single, supported registration mechanism.
+      providers: [GraphQLContextAdapter],
     };
   }
 }

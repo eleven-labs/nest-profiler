@@ -1,5 +1,6 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
+import { CommandRunner } from 'nest-commander';
 import { CommandProfiler } from './command-profiler.service';
 
 /** Minimal shape of a nest-commander `CommandRunner` instance we interact with. */
@@ -15,8 +16,9 @@ type CommandRunnerClass = abstract new (...args: never[]) => CommandRunnerLike;
  * execution is profiled — the CLI equivalent of installing a global interceptor. No user
  * code change is required (Symfony-style automatic command profiling).
  *
- * nest-commander is an optional peer dependency: when it is not installed the explorer is a
- * no-op. Detection is `instanceof CommandRunner` (the publicly exported abstract class).
+ * `nest-commander` is a **required** peer of this package (you only use the commander collector
+ * when you build a nest-commander CLI), so its `CommandRunner` class is imported statically and
+ * used directly as the `instanceof` discriminant — no lazy/optional loading.
  */
 @Injectable()
 export class CommandProfilerExplorer implements OnApplicationBootstrap {
@@ -28,31 +30,23 @@ export class CommandProfilerExplorer implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap(): void {
-    const CommandRunner = this.getCommandRunnerClass();
-    if (!CommandRunner) return;
+    const RunnerClass = this.getCommandRunnerClass();
 
     for (const wrapper of this.discovery.getProviders()) {
       const instance = wrapper.instance as unknown;
-      if (!this.isCommand(instance, CommandRunner)) continue;
+      if (!this.isCommand(instance, RunnerClass)) continue;
       if (this.wrapped.has(instance)) continue;
       this.wrapCommand(instance);
       this.wrapped.add(instance);
     }
   }
 
-  /** Resolves nest-commander's `CommandRunner`; returns `undefined` when not installed. */
-  protected getCommandRunnerClass(): CommandRunnerClass | undefined {
-    try {
-      return this.loadNestCommander().CommandRunner;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /** Loads the optional `nest-commander` peer. Isolated as a seam so tests can simulate its absence. */
-  protected loadNestCommander(): { CommandRunner: CommandRunnerClass } {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('nest-commander') as { CommandRunner: CommandRunnerClass };
+  /**
+   * nest-commander's `CommandRunner` abstract class (the `instanceof` discriminant). Exposed as
+   * a protected seam so tests can substitute a stand-in without instantiating the real class.
+   */
+  protected getCommandRunnerClass(): CommandRunnerClass {
+    return CommandRunner as unknown as CommandRunnerClass;
   }
 
   private isCommand(

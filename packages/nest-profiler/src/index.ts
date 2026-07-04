@@ -88,7 +88,6 @@ export type {
   EntrypointListSection,
 } from './entrypoints/profiler-entrypoint-type.interface';
 export { HTTP_ENTRYPOINT_TYPE_DEF } from './entrypoints/builtin-http-entrypoint';
-export { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
 export type { IContextAdapter } from './adapters/context-adapter.interface';
 export { PROFILER_REQ_KEY, PROFILER_CLS_KEYS } from './constants';
 export { combineFilters } from './filters';
