@@ -17,12 +17,13 @@ The core ships the built-in `http` type for REST requests, whose `data` is an `H
 
 ## 1. Producing the profile — `IContextAdapter`
 
-Implement the interface, register it with the `PROFILER_CONTEXT_ADAPTERS` multi-token, and `ProfilerInterceptor` delegates that execution-context type to your adapter automatically. Adapters must be idempotent — the interceptor may call `enrichProfile` more than once per profile.
+Implement the interface and register it from your module's `onModuleInit` via `ProfilerCoreService.registerContextAdapter()` (resolve the core leniently with `moduleRef.get(ProfilerCoreService, { strict: false })` so it degrades gracefully when the profiler is disabled). `ProfilerInterceptor` then delegates that execution-context type to your adapter automatically. Adapters must be idempotent — the interceptor may call `enrichProfile` more than once per profile.
 
 ```ts
-import { Injectable } from '@nestjs/common';
-import type { ExecutionContext } from '@nestjs/common';
-import { PROFILER_CONTEXT_ADAPTERS, PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
+import { Injectable, Module, Optional } from '@nestjs/common';
+import type { ExecutionContext, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { ProfilerCoreService, PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 
 interface GrpcInfo {
@@ -48,14 +49,25 @@ export class GrpcContextAdapter implements IContextAdapter {
   }
 }
 
-// Register in a dedicated module:
-@Module({
-  providers: [
-    GrpcContextAdapter,
-    { provide: PROFILER_CONTEXT_ADAPTERS, useExisting: GrpcContextAdapter, multi: true },
-  ],
-})
-export class GrpcProfilerModule {}
+// Register the adapter with the core from onModuleInit:
+@Module({ providers: [GrpcContextAdapter] })
+export class GrpcProfilerModule implements OnModuleInit {
+  constructor(
+    private readonly moduleRef: ModuleRef,
+    @Optional() private readonly adapter?: GrpcContextAdapter,
+  ) {}
+
+  onModuleInit(): void {
+    if (!this.adapter) return;
+    try {
+      this.moduleRef
+        .get(ProfilerCoreService, { strict: false })
+        .registerContextAdapter(this.adapter);
+    } catch {
+      // Profiler core not available (disabled) — no-op.
+    }
+  }
+}
 ```
 
 ## 2. Rendering the profile — `registerEntrypointType`

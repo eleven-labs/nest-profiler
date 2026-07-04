@@ -8,6 +8,8 @@ seo:
 
 Open `/_profiler` to browse the list of captured profiles, then click any row to open its detail view. The detail view is organized into **built-in tabs** (request, response, performance, logs, exceptions) plus **one tab per active collector**. The screenshots below come from the [example application](/docs/example-api) with every collector enabled.
 
+This page is a **visual tour** of the panels and tabs. For the reference side — the UI endpoints, the debug response headers, the filter query parameters and how to export a profile — see [Browsing profiles](/docs/packages/nest-profiler/browsing-profiles).
+
 ## Profiles list
 
 The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it - the universal filters (search, duration, exceptions), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) - so each list is filtered independently. Global panels such as **Config** apply across the whole page.

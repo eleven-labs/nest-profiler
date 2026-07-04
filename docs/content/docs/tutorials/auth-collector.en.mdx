@@ -120,4 +120,4 @@ AuthCollectorModule.forRoot({
 
 ## How it works
 
-The collector's `collect()` method reads the Express `Request` object from the CLS context (stored by the profiler middleware under `profiler.request`). It extracts `request.user` and the `Authorization` header, decodes the JWT payload using `Buffer.from(parts[1], 'base64url')`, and applies the masking rules before returning the security context.
+The collector reads `request.user` and the `Authorization` header from the current CLS context and decodes the JWT payload (no signature verification) before applying the masking rules. See [How it works](/docs/packages/nest-profiler-auth#how-it-works) on the package page.

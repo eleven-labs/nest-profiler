@@ -122,8 +122,4 @@ The cache collector works transparently with any store since it patches the `CAC
 
 ## How it works
 
-At `onModuleInit`, the collector wraps the `get`, `set`, and `del` methods of the `CACHE_MANAGER` instance using a JavaScript proxy function. Each wrapped call records an entry into the CLS profile for the current request.
-
-- `get` → `GET_HIT` if the value is found, `GET_MISS` if not
-- `set` → `SET`
-- `del` → `DEL`
+At `onModuleInit` the collector wraps the `CACHE_MANAGER`'s `get`, `set`, and `del` methods to record each operation (type, key, duration) into the active request profile. See [How it works](/docs/packages/nest-profiler-cache#how-it-works) on the package page.

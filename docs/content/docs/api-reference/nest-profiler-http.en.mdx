@@ -67,7 +67,7 @@ Interface to implement when teaching the profiler how to capture requests from a
 
 ### AxiosInstrumentation
 
-The bundled axios adapter, implementing `HttpInstrumentation`. It patches the `HttpService` provided by `@nestjs/axios` and records each request via the recorder. It is installed automatically unless `axios: false` is passed to `forRoot`; you rarely reference it directly.
+The bundled axios adapter, implementing `HttpInstrumentation`. It patches the `axiosRef` supplied through the options (see `forRootAsync`) and records each request via the recorder — it never imports `@nestjs/axios`. It is installed automatically unless `axios: false` is passed; with no `axiosRef` it is a no-op. You rarely reference it directly.
 
 ## Types
 

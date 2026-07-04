@@ -36,19 +36,19 @@ pnpm add @eleven-labs/nest-profiler-graphql
 
 ## Setup
 
-Import `ProfilerGraphQLModule` alongside `ProfilerModule` in your application module.
+Import `GraphQLCollectorModule` alongside `ProfilerModule` in your application module.
 
 ### Apollo Server (Express or Fastify)
 
 ```ts
 import { ConditionalModule } from '@nestjs/config';
-import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -64,7 +64,7 @@ export class AppModule {}
 ### Mercurius (Fastify)
 
 ```ts
-(ProfilerGraphQLModule.forRoot(),
+(GraphQLCollectorModule.forRoot(),
   GraphQLModule.forRoot<MercuriusDriverConfig>({
     driver: MercuriusDriver,
     autoSchemaFile: true,
@@ -76,7 +76,7 @@ export class AppModule {}
 ### graphql-yoga (Express or Fastify)
 
 ```ts
-(ProfilerGraphQLModule.forRoot(),
+(GraphQLCollectorModule.forRoot(),
   GraphQLModule.forRoot<YogaDriverConfig>({
     driver: YogaDriver,
     autoSchemaFile: true,
@@ -97,7 +97,7 @@ from this package to exclude them:
 ```ts
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
 import {
-  ProfilerGraphQLModule,
+  GraphQLCollectorModule,
   ignoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
 } from '@eleven-labs/nest-profiler-graphql';
@@ -106,7 +106,7 @@ ProfilerModule.forRoot({
   isGlobal: true,
   ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
 }),
-ProfilerGraphQLModule.forRoot(),
+GraphQLCollectorModule.forRoot(),
 ```
 
 | Filter                       | Skips                                                                                          |
@@ -134,7 +134,7 @@ GraphQL-level errors (schema validation failures, resolver errors) appear in the
 
 ## How it works
 
-`ProfilerGraphQLModule` registers `GraphQLContextAdapter` with `ProfilerCoreService` on module init. The adapter supports all NestJS GraphQL drivers that expose the HTTP request in the execution context:
+`GraphQLCollectorModule` registers `GraphQLContextAdapter` with `ProfilerCoreService` on module init. The adapter supports all NestJS GraphQL drivers that expose the HTTP request in the execution context:
 
 - **Apollo** (Express / Fastify): looks for `gqlCtx.req`
 - **Mercurius** (Fastify): looks for `gqlCtx.request`

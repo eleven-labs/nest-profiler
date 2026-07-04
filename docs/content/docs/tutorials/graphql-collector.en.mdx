@@ -167,8 +167,6 @@ ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabl
 
 ## How it works
 
-`GraphQLCollectorModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` - which is what routes it to the dedicated **GraphQL** list table and detail tab.
-
-A middleware `finish` hook also captures GraphQL errors for requests that Apollo handles without calling any resolver (e.g. schema validation failures), ensuring those profiles still appear in `/_profiler`.
+`GraphQLCollectorModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type: for each GraphQL request it recovers the profile the HTTP middleware already created, captures the operation metadata, and flips `entrypoint.type` from `http` to `graphql` so it routes to the dedicated **GraphQL** list table and detail tab. See [How it works](/docs/packages/nest-profiler-graphql#how-it-works) on the package page.
 
 `@eleven-labs/nest-profiler-graphql` is the reference implementation of the `IContextAdapter` pattern from `@eleven-labs/nest-profiler`. You can use the same pattern to profile gRPC, Kafka, WebSockets, or any other NestJS execution context - see the [custom protocol adapters](/docs/getting-started#custom-protocol-adapters) section.

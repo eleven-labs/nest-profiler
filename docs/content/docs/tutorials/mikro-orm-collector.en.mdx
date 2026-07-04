@@ -97,15 +97,7 @@ The **Timeline** panel shows the `db.products.findAll` span alongside other phas
 
 ## How it works
 
-At module initialization the collector wraps MikroORM's `Logger.logQuery`. MikroORM's SQL
-connection always measures execution time and calls `logQuery` with the query, its parameters and
-the elapsed `took`; the collector records an entry into the CLS profile for the current request and
-delegates to the original logger only if you had query logging enabled. `MikroOrmCollector.collect()`
-then reads and returns those entries.
-
-This captures all queries issued through the `EntityManager`, repositories and the QueryBuilder.
-Queries executed outside a request context (e.g., during module initialization) are silently
-ignored since there is no active CLS profile.
+At module initialization the collector wraps MikroORM's `Logger.logQuery` to record every executed query into the active request profile. See [How it works](/docs/packages/nest-profiler-mikro-orm#how-it-works) on the package page for the full mechanism.
 
 <Callout type="info" title="Sharing the SQL panel">
   The TypeORM and MikroORM collectors share the same **Database** panel rendering and `QueryEntry`

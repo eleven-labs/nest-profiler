@@ -51,20 +51,24 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 - [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
+- [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
 - [`@eleven-labs/nest-profiler-commander`](packages/nest-profiler-commander/README.md) — Command panel (CLI / nest-commander)
+- [`@eleven-labs/nest-profiler-rabbitmq`](packages/nest-profiler-rabbitmq/README.md) — RabbitMQ panel (messages consumed via `@RabbitSubscribe`)
 
 Full guides and API reference live on the documentation site (`pnpm docs:dev`, then http://localhost:3002).
 
 ### Panels at a glance
 
-|                                                                  |                                                                        |                                                                  |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| ![Database panel](docs/public/screenshots/profiler/database.png) | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)       |
-| **Database** (TypeORM)                                           | **HTTP Client** (Axios)                                                | **Cache**                                                        |
-| ![Security panel](docs/public/screenshots/profiler/security.png) | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Timeline panel](docs/public/screenshots/profiler/timeline.png) |
-| **Security** (JWT/Auth)                                          | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
-| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png) | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
-| **RabbitMQ** (@RabbitSubscribe)                                  | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
+|                                                                        |                                                                        |                                                                  |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)       |
+| **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                        |
+| ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Timeline panel](docs/public/screenshots/profiler/timeline.png) |
+| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
+| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
+| **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
+| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           |                                                                  |
+| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             |                                                                  |
 
 ## Quickstart
 
@@ -80,7 +84,7 @@ pnpm docs:dev       # serve the documentation site at http://localhost:3002
 To try the profiler against a real app, start the databases and the demo API, then open `http://localhost:3000/_profiler`:
 
 ```bash
-pnpm docker:up      # Postgres + MongoDB (runs in the background)
+pnpm docker:up      # Postgres + MongoDB + RabbitMQ (runs in the background)
 pnpm example:dev
 ```
 
@@ -138,7 +142,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander)
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander, rabbitmq)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled
@@ -187,7 +191,7 @@ ProfilerInterceptor ── finalizes timing, runs CollectorRegistry.collectAll()
    │                   lets context adapters enrich the Profile, persists it,
    │                   and injects the toolbar into HTML responses
    ▼
-ProfilerStorageService → storage adapter (memory or file)
+ProfilerStorageService → storage adapter (memory, file, or SQLite)
    │
    ▼
 ProfilerController ─── serves the UI at /_profiler (list / detail / data),
@@ -219,8 +223,8 @@ This is the extension seam: a custom collector is just a provider implementing
 
 Protocols other than HTTP (GraphQL, gRPC, WebSockets…) are supported through
 `IContextAdapter`: an adapter recovers and enriches the profile for its context
-type, and the interceptor delegates to it automatically once it is registered via
-the `PROFILER_CONTEXT_ADAPTERS` multi-token. See
+type, and the interceptor delegates to it automatically once it is registered from
+your module's `onModuleInit` via `ProfilerCoreService.registerContextAdapter()`. See
 [Custom protocol adapters](packages/nest-profiler/docs/context-adapters.md).
 
 ## Common Commands
@@ -234,7 +238,7 @@ pnpm test           # run unit tests
 pnpm test:cov       # run tests with coverage (enforces the 90% threshold)
 pnpm build          # build all packages
 pnpm docs:dev       # serve the docs site
-pnpm docker:up      # start Postgres + MongoDB for the example (docker:down to stop)
+pnpm docker:up      # start Postgres + MongoDB + RabbitMQ for the example (docker:down to stop)
 pnpm attw           # check published type resolution (Are the Types Wrong?)
 pnpm changeset      # record a version bump
 ```

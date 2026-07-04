@@ -125,6 +125,4 @@ Values matching `/password|secret|key|token|credential/i` are also masked automa
 
 ## How it works
 
-The collector injects `ConfigService` and reads its `internalConfig` map, which is a `Map<string, unknown>` keyed by the namespace token registered with `registerAs`. It flattens nested objects into dot-notation keys (e.g., `database.host`) and applies masking rules before returning the config snapshot.
-
-Since the config is read once per request (at collection time), it reflects the state of the config at request completion.
+The collector reads `ConfigService`'s internal config **once at application bootstrap**, flattens it into dot-notation keys (e.g. `database.host`) and applies the masking rules; every profile then shows that same snapshot. See [How it works](/docs/packages/nest-profiler-config#how-it-works) on the package page.
