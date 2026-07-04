@@ -126,7 +126,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
 
-      expect(reqData(profile)?.cookies?.['auth_token']).toBe('***');
+      expect(reqData(profile)?.cookies?.['auth_token']).toBe('[REDACTED]');
       expect(reqData(profile)?.cookies?.['user_id']).toBe('42');
     });
 
@@ -261,6 +261,63 @@ describe('ProfilerMiddleware', () => {
       expect(res.getHeader('X-Debug-Token')).toBeDefined();
     });
 
+    it('does not emit debug headers when emitDebugHeaders is false', async () => {
+      ({ middleware, cls } = await createMiddleware({ emitDebugHeaders: false }));
+      const res = makeRes();
+      await new Promise<void>((resolve) => {
+        middleware.use(
+          { method: 'GET', url: '/ping', headers: {}, query: {} } as PlatformRequest,
+          res,
+          () => resolve(),
+        );
+      });
+
+      expect(res.getHeader('X-Debug-Token')).toBeUndefined();
+    });
+
+    it('redacts sensitive request headers by default (authorization, cookie, x-api-key)', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/p',
+          headers: {
+            authorization: 'Bearer supersecret',
+            cookie: 'session=abc',
+            'x-api-key': 'k-123',
+            'x-custom': 'keep-me',
+          },
+          query: {},
+        },
+        cls,
+      );
+
+      const headers = reqData(profile)?.headers ?? {};
+      expect(headers['authorization']).toBe('[REDACTED]');
+      expect(headers['cookie']).toBe('[REDACTED]');
+      expect(headers['x-api-key']).toBe('[REDACTED]');
+      expect(headers['x-custom']).toBe('keep-me');
+    });
+
+    it('honours a custom maskHeaders list', async () => {
+      ({ middleware, cls } = await createMiddleware({ maskHeaders: ['x-trace'] }));
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/p',
+          headers: { authorization: 'Bearer s', 'x-trace': 't-1' },
+          query: {},
+        },
+        cls,
+      );
+
+      const headers = reqData(profile)?.headers ?? {};
+      // Custom list replaces the default → authorization is no longer masked, x-trace is.
+      expect(headers['x-trace']).toBe('[REDACTED]');
+      expect(headers['authorization']).toBe('Bearer s');
+    });
+
     it('skips profiling when sampleRate is 0', async () => {
       ({ middleware, cls } = await createMiddleware({ sampleRate: 0 }));
 
@@ -319,22 +376,27 @@ describe('ProfilerMiddleware', () => {
       expect(reqData(profile)?.body).toBeUndefined();
     });
 
-    it('uses the x-request-id header as the token when present', async () => {
+    it('always uses an internal UUID token, never the client x-request-id (no traversal/collision)', async () => {
       const profile = await runMiddleware(
         middleware,
-        { method: 'GET', url: '/p', headers: { 'x-request-id': 'req-123' }, query: {} },
+        { method: 'GET', url: '/p', headers: { 'x-request-id': '../../evil' }, query: {} },
         cls,
       );
-      expect(profile?.token).toBe('req-123');
+      // The hostile header value is never used as the storage token.
+      expect(profile?.token).not.toBe('../../evil');
+      expect(profile?.token).toMatch(/^[0-9a-f-]{36}$/);
+      // It is preserved as a display-only correlation attribute instead.
+      expect(reqData(profile)?.requestId).toBe('../../evil');
     });
 
-    it('uses the first value when x-request-id is an array', async () => {
+    it('records the first value when x-request-id is an array, as a correlation attribute', async () => {
       const profile = await runMiddleware(
         middleware,
         { method: 'GET', url: '/p', headers: { 'x-request-id': ['req-a', 'req-b'] }, query: {} },
         cls,
       );
-      expect(profile?.token).toBe('req-a');
+      expect(profile?.token).toMatch(/^[0-9a-f-]{36}$/);
+      expect(reqData(profile)?.requestId).toBe('req-a');
     });
 
     it('excludes function values from captured session data', async () => {

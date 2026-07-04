@@ -156,9 +156,10 @@ describe('ProfilerController (unit)', () => {
   });
 
   describe('pagination', () => {
-    // Constant createdAt so the newest-first sort is stable and preserves tok-0…tok-N order.
+    // Distinct, descending createdAt so newest-first ordering yields tok-0…tok-N deterministically
+    // (independent of the token tie-breaker used only for equal timestamps).
     const manyProfiles = (n: number): Profile[] =>
-      Array.from({ length: n }, (_, i) => makeProfile(`tok-${i}`, 1000));
+      Array.from({ length: n }, (_, i) => makeProfile(`tok-${i}`, 1_000_000 - i));
 
     it('slices a section to one page and reports the total + range', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
