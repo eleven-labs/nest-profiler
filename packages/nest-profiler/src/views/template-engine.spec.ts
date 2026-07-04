@@ -63,6 +63,14 @@ describe('template-engine HELPERS', () => {
     it('pretty-prints the value', () => {
       expect(HELPERS.toJson({ a: 1 })).toBe('{\n  "a": 1\n}');
     });
+
+    it('never throws on circular references or BigInt (MAJ-12)', () => {
+      const circular: Record<string, unknown> = { a: 1 };
+      circular['self'] = circular;
+      expect(() => HELPERS.toJson(circular)).not.toThrow();
+      expect(HELPERS.toJson(circular)).toContain('[Circular]');
+      expect(() => HELPERS.toJson({ big: BigInt(5) })).not.toThrow();
+    });
   });
 
   describe('highlightSql', () => {
