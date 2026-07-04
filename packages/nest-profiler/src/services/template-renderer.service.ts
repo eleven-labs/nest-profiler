@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import * as ejs from 'ejs';
 import { HELPERS, TEMPLATES_DIR } from '../views/template-engine';
+import { ASSET_VERSION_QUERY } from '../version';
 
 @Injectable()
 export class TemplateRendererService {
@@ -16,7 +17,13 @@ export class TemplateRendererService {
 
   async render(name: string, data: Record<string, unknown>): Promise<string> {
     const templatePath = this.resolve(name);
-    return ejs.renderFile(templatePath, { ...HELPERS, ...data } as ejs.Data, { views: this.dirs });
+    // `assetVersion` is a global so every template (and its includes, e.g. _head) can
+    // cache-bust asset URLs; an explicit value in `data` still wins.
+    return ejs.renderFile(
+      templatePath,
+      { ...HELPERS, assetVersion: ASSET_VERSION_QUERY, ...data } as ejs.Data,
+      { views: this.dirs },
+    );
   }
 
   private resolve(name: string): string {

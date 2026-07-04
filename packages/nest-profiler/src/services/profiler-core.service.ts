@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
 import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
@@ -32,6 +32,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly filterOptions = new Map<string, ProfilerFilterOption[]>();
   /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
   private readonly pending = new Set<Promise<unknown>>();
+  private readonly logger = new Logger(ProfilerCoreService.name);
 
   constructor(
     readonly storage: ProfilerStorageService,
@@ -80,21 +81,44 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   /**
    * Awaits every deferred collect/save still in flight. Mostly useful in tests that
    * assert on stored profiles right after a request completes.
+   *
+   * @param timeoutMs - Optional bound so a hung custom adapter `save()` cannot block a
+   *   graceful shutdown forever. When omitted, waits indefinitely (test usage).
    */
-  async flushPendingProfiles(): Promise<void> {
-    while (this.pending.size > 0) {
-      await Promise.all([...this.pending]);
-    }
+  async flushPendingProfiles(timeoutMs?: number): Promise<void> {
+    const drain = (async () => {
+      while (this.pending.size > 0) {
+        await Promise.all([...this.pending]);
+      }
+    })();
+    if (timeoutMs === undefined || timeoutMs <= 0) return drain;
+    await Promise.race([
+      drain,
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs).unref?.()),
+    ]);
   }
 
-  /** Drains deferred saves so a short-lived process does not lose its last profiles. */
+  /** Drains deferred saves (bounded) then releases storage resources at shutdown. */
   async onApplicationShutdown(): Promise<void> {
-    await this.flushPendingProfiles();
+    await this.flushPendingProfiles(5000);
+    try {
+      await this.storage.close();
+    } catch (err) {
+      this.logger.warn(
+        `Failed to close storage: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   private track(work: Promise<unknown>): void {
     const tracked: Promise<unknown> = work
-      .catch(() => undefined)
+      // Never reject (persistence must not affect the profiled request), but do surface the
+      // failure — a silently dropped profile (disk full, SQLITE_BUSY, non-serialisable body)
+      // is otherwise impossible to diagnose from an empty dashboard.
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to persist profile: ${message}`);
+      })
       .finally(() => this.pending.delete(tracked));
     this.pending.add(tracked);
   }
@@ -191,8 +215,11 @@ export class ProfilerCoreService implements OnApplicationShutdown {
       .sort((a, b) => (a.order ?? DEFAULT_FILTER_ORDER) - (b.order ?? DEFAULT_FILTER_ORDER))
       .map((filter) => {
         const extra = this.filterOptions.get(filter.key);
-        if (!extra || !filter.options) return filter;
-        return { ...filter, options: [...filter.options, ...extra] };
+        if (!extra) return filter;
+        // Merge contributed options even onto a filter with no static `options` (e.g. a select
+        // whose options are otherwise filled from a `distinctField`) — dropping them silently
+        // lost any `registerFilterOption` on such filters.
+        return { ...filter, options: [...(filter.options ?? []), ...extra] };
       });
   }
 
