@@ -329,6 +329,36 @@ describe('ProfilerController (e2e)', () => {
       expect(res.status).toBe(404);
     });
 
+    it('HTML-escapes hostile captured values (no XSS in the detail page)', async () => {
+      const storage = app.get(ProfilerStorageService);
+      const token = 'xss-e2e-token-12345678';
+      const payload = '<script>alert(1)</script>';
+      await storage.save({
+        token,
+        createdAt: Date.now(),
+        entrypoint: {
+          type: 'http',
+          data: {
+            method: 'GET',
+            url: `/x?q=${payload}`,
+            headers: { 'x-evil': payload },
+            query: { q: payload },
+          },
+        },
+        response: { statusCode: 200, headers: {}, body: { note: payload } },
+        performance: { startTime: Date.now(), heapUsed: 1024, duration: 5 },
+        logs: [],
+        exceptions: [],
+        collectors: {},
+      });
+
+      const res = await request(server()).get(`/_profiler/${token}`);
+      expect(res.status).toBe(200);
+      // The raw <script> must never reach the HTML unescaped; the escaped form is present.
+      expect(res.text).not.toContain('<script>alert(1)</script>');
+      expect(res.text).toContain('&lt;script&gt;');
+    });
+
     it('renders a single-collector tab', async () => {
       const token = await createProfile('/hello');
       const res = await request(server()).get(`/_profiler/${token}`).query({ tab: 'custom' });
@@ -459,8 +489,10 @@ describe('ProfilerController (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.text).toContain('id="profiler-toolbar"');
       expect(res.text.indexOf('id="profiler-toolbar"')).toBeLessThan(res.text.indexOf('</body>'));
-      // The toolbar pulls the profiler's local stylesheet so it is styled on host pages.
-      expect(res.text).toContain('/_profiler/__assets/styles/profiler.css');
+      // The toolbar pulls its dedicated, preflight-free stylesheet (BLO-2) — NOT the full
+      // profiler.css, whose Tailwind preflight would reset the host page's layout.
+      expect(res.text).toContain('/_profiler/__assets/styles/toolbar.css');
+      expect(res.text).not.toContain('/_profiler/__assets/styles/profiler.css');
     });
   });
 
@@ -485,6 +517,23 @@ describe('ProfilerController (e2e)', () => {
         .get('/_profiler')
         .set('Authorization', `Bearer ${SECRET}`);
       expect(res.status).toBe(200);
+    });
+
+    it('allows browser navigation via the ?token= query parameter', async () => {
+      const res = await request(server()).get('/_profiler').query({ token: SECRET });
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects a wrong ?token= query parameter', async () => {
+      const res = await request(server()).get('/_profiler').query({ token: 'nope' });
+      expect(res.status).toBe(401);
+    });
+
+    it('serves static assets without a token so the UI can load (asset exemption)', async () => {
+      // A browser cannot set Authorization on <link>/<script>; assets must stay reachable.
+      const res = await request(server()).get('/_profiler/__assets/styles/secret.css');
+      // 404 (allowlist), NOT 401 — the guard did not block the asset route.
+      expect(res.status).toBe(404);
     });
   });
 });

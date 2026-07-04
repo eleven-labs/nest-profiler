@@ -10,15 +10,19 @@ export interface ProfilerModuleOptions {
    * This is a synchronous bootstrap decision: when `false`, only the inert
    * {@link ProfilerService} is registered (no middleware, interceptor,
    * controller, storage or collectors). The host application decides per
-   * environment — packages never read `process.env` themselves.
+   * environment. (Two small, documented exceptions read `process.env` directly:
+   * the guard falls back to `PROFILER_TOKEN`, and the config collector reads
+   * `NODE_ENV` for display.)
    */
   enabled?: boolean;
 
   /**
-   * Bearer token required to access the profiler UI. When set, requests must
-   * send `Authorization: Bearer <token>`. When omitted, the guard falls back to
-   * the `PROFILER_TOKEN` environment variable; if neither is set, the profiler
-   * is open (intended for local development only).
+   * Token required to access the profiler UI. When set, requests must present it either as
+   * `Authorization: Bearer <token>` (API clients) or as a `?token=<token>` query parameter
+   * (browser navigation — a browser cannot set an `Authorization` header when following a
+   * link). Static assets under `__assets/*` are exempt so the UI can load its CSS/JS. When
+   * omitted, the guard falls back to the `PROFILER_TOKEN` environment variable; if neither is
+   * set, the profiler is open (intended for local development only).
    */
   token?: string;
 
@@ -40,6 +44,14 @@ export interface ProfilerModuleOptions {
 
   /** Capture request and response bodies. Default: false */
   collectBody?: boolean;
+
+  /**
+   * Max serialized size (in characters) of a captured request/response body before it is
+   * truncated to a small placeholder (with a preview and a pointer to the raw JSON export).
+   * Keeps large payloads from bloating storage and freezing the detail page. Default: 65536.
+   * Set to `0` (or negative) to disable truncation.
+   */
+  maxBodySize?: number;
 
   /**
    * Maximum time in milliseconds a single collector may spend in `collect()`
@@ -85,6 +97,21 @@ export interface ProfilerModuleOptions {
 
   /** Cookie names whose value should be replaced with '***'. */
   maskCookies?: string[];
+
+  /**
+   * Request header names (case-insensitive) whose value is replaced with `[REDACTED]` at
+   * capture, before anything is persisted or shown. Defaults to a sensible sensitive-header
+   * list (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`,
+   * `proxy-authorization`). Pass your own list to override.
+   */
+  maskHeaders?: string[];
+
+  /**
+   * Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses.
+   * They reveal the dashboard location and a direct link to the captured data, so you may
+   * want them off in shared/staging environments. Default: `true`.
+   */
+  emitDebugHeaders?: boolean;
 
   /** Custom predicate called after `ignorePaths`; return `true` to skip profiling. Compose with `combineFilters` for multiple conditions. */
   ignoreRequest?: ProfilerRequestFilter;
