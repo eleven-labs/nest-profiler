@@ -545,5 +545,25 @@ describe('ProfilerInterceptor', () => {
       expect(profile.exceptions[0]?.name).toBe('Error');
       expect(profile.exceptions[0]?.message).toBe('boom');
     });
+
+    it('records a 500 for a non-HttpException error (MAJ-5)', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeRes(); // res.statusCode stays 200 (exception filter runs later)
+      const interceptor = makeInterceptor(profile, core);
+      const error = new TypeError('kaboom');
+
+      await expect(
+        lastValueFrom(
+          interceptor.intercept(
+            makeCtx({ method: 'GET', url: '/hello' }, res),
+            errorHandler(error),
+          ),
+        ),
+      ).rejects.toBe(error);
+
+      // Aligned with processNonHttp: a generic error is recorded as 500, not the stale 200.
+      expect(profile.response?.statusCode).toBe(500);
+    });
   });
 });

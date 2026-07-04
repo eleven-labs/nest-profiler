@@ -2,6 +2,7 @@ import * as ejs from 'ejs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TEMPLATES_DIR } from './template-engine';
+import { ASSET_VERSION_QUERY } from '../version';
 import type { CollectorPanelInfo } from '../collectors/collector-registry.service';
 
 let _toolbarSource: string | undefined;
@@ -15,5 +16,10 @@ export function toolbarSnippet(
   profilerPath: string,
   panels: CollectorPanelInfo[] = [],
 ): string {
-  return ejs.render(getToolbarSource(), { token, profilerPath, panels });
+  return ejs.render(getToolbarSource(), {
+    token,
+    profilerPath,
+    panels,
+    assetVersion: ASSET_VERSION_QUERY,
+  });
 }
