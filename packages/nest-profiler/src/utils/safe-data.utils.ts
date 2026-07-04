@@ -128,3 +128,52 @@ export function toSafeData(value: unknown, options: SafeDataOptions = {}): unkno
     maxStringLength: options.maxStringLength ?? DEFAULT_OPTIONS.maxStringLength,
   });
 }
+
+/** Default cap (in characters of serialized JSON) for a captured request/response body. */
+export const DEFAULT_MAX_BODY_SIZE = 64 * 1024;
+
+/**
+ * Normalises a captured body for safe storage and rendering: it is made JSON-safe via
+ * {@link toSafeData} (so circular refs / `BigInt` can't crash persistence or the detail page)
+ * and, if its serialized form exceeds `maxSize` characters, replaced by a truncation marker
+ * carrying a short preview. Pass `maxSize <= 0` to disable the size cap.
+ *
+ * @param value - The raw captured body.
+ * @param maxSize - Max serialized length before truncation. Default {@link DEFAULT_MAX_BODY_SIZE}.
+ */
+export function normalizeBody(value: unknown, maxSize: number = DEFAULT_MAX_BODY_SIZE): unknown {
+  if (value === undefined || value === null) return value;
+  const safe = toSafeData(value);
+  if (maxSize <= 0) return safe;
+
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(safe) ?? '';
+  } catch {
+    return safe;
+  }
+  if (serialized.length <= maxSize) return safe;
+
+  return {
+    _truncated: true,
+    _bytes: serialized.length,
+    _preview: `${serialized.slice(0, 1024)}…`,
+    _note: 'Body truncated — use the raw JSON export (/:token/data) to inspect it in full.',
+  };
+}
+
+/**
+ * `JSON.stringify` that never throws: the value is first passed through {@link toSafeData}
+ * so circular references and `BigInt` (which crash `JSON.stringify`) can't break rendering
+ * or persistence. Falls back to a diagnostic string if serialization still fails.
+ *
+ * @param value - Any value, including cyclic graphs or `BigInt`.
+ * @param space - Indentation passed to `JSON.stringify` (default `2`).
+ */
+export function safeStringify(value: unknown, space: string | number = 2): string {
+  try {
+    return JSON.stringify(toSafeData(value), null, space) ?? String(value);
+  } catch {
+    return '[Unserializable value]';
+  }
+}

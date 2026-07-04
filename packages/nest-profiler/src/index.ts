@@ -40,6 +40,27 @@ export type {
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
+export { tryResolve } from './utils/resolve.utils';
+export {
+  toSafeData,
+  safeStringify,
+  normalizeBody,
+  DEFAULT_MAX_BODY_SIZE,
+} from './utils/safe-data.utils';
+export type { SafeDataOptions } from './utils/safe-data.utils';
+export {
+  redact,
+  redactString,
+  isSecretKey,
+  REDACTED,
+  DEFAULT_SECRET_KEY_RE,
+} from './utils/redact.utils';
+export type { RedactOptions } from './utils/redact.utils';
+export {
+  DEFAULT_MASK_HEADERS,
+  extractHeaders,
+  formatHeaderValue,
+} from './utils/redact-headers.util';
 export type { MemoryStorageAdapterOptions } from './storage/memory-storage.adapter';
 export { FileStorageAdapter } from './storage/file-storage.adapter';
 export type { FileStorageAdapterOptions } from './storage/file-storage.adapter';
@@ -67,9 +88,8 @@ export type {
   EntrypointListSection,
 } from './entrypoints/profiler-entrypoint-type.interface';
 export { HTTP_ENTRYPOINT_TYPE_DEF } from './entrypoints/builtin-http-entrypoint';
-export { PROFILER_CONTEXT_ADAPTERS } from './adapters/context-adapter.interface';
 export type { IContextAdapter } from './adapters/context-adapter.interface';
-export { PROFILER_REQ_KEY } from './constants';
+export { PROFILER_REQ_KEY, PROFILER_CLS_KEYS } from './constants';
 export { combineFilters } from './filters';
 export type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';
 export { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
