@@ -1,4 +1,4 @@
-import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
 
 /**
  * GraphQL representation of the domain {@link Product}. Kept separate from the domain model and the
@@ -21,6 +21,6 @@ export class ProductType {
   @Field(() => Boolean)
   inStock!: boolean;
 
-  @Field(() => Int)
+  @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 }
