@@ -1,0 +1,70 @@
+/* Toolbar stylesheet — injected into *host* application pages (before </body>).
+ *
+ * Unlike profiler.css, this sheet deliberately OMITS Tailwind's preflight: importing the
+ * theme + utilities layers only. A full preflight would apply a universal `*` reset
+ * (margin/padding/border:0, heading resets, global scrollbars/selection) to the host page
+ * and break its layout. The only reset here is scoped under `#profiler-toolbar`.
+ */
+@layer theme, base, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Only the toolbar template contributes class names to this bundle. */
+@source "../templates/_toolbar.ejs";
+
+@theme {
+  --text-2xs: 0.625rem;
+  --z-toolbar: 9999;
+
+  --color-nest: #e0234e;
+
+  --color-surface: var(--profiler-surface);
+  --color-surface-muted: var(--profiler-surface-muted);
+  --color-foreground: var(--profiler-foreground);
+  --color-foreground-muted: var(--profiler-foreground-muted);
+  --color-foreground-faint: var(--profiler-foreground-faint);
+  --color-line: var(--profiler-line);
+}
+
+@layer base {
+  /* Design tokens live on :root — custom properties never affect host layout unless
+     consumed, and only the toolbar consumes `--profiler-*`. */
+  :root {
+    --profiler-surface: #ffffff;
+    --profiler-surface-muted: #f8fafc;
+    --profiler-foreground: #0f172a;
+    --profiler-foreground-muted: #64748b;
+    --profiler-foreground-faint: #94a3b8;
+    --profiler-line: #e2e8f0;
+  }
+  .dark {
+    --profiler-surface: #0f172a;
+    --profiler-surface-muted: rgba(15, 23, 42, 0.6);
+    --profiler-foreground: #f1f5f9;
+    --profiler-foreground-muted: #64748b;
+    --profiler-foreground-faint: #475569;
+    --profiler-line: #1e293b;
+  }
+
+  /* Scoped reset — applies ONLY inside the toolbar, so the host page is untouched. */
+  #profiler-toolbar,
+  #profiler-toolbar *,
+  #profiler-toolbar *::before,
+  #profiler-toolbar *::after {
+    box-sizing: border-box;
+  }
+  #profiler-toolbar a {
+    text-decoration: none;
+    color: inherit;
+  }
+  #profiler-toolbar code {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  .z-toolbar {
+    z-index: var(--z-toolbar);
+  }
+}
