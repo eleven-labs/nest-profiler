@@ -142,27 +142,34 @@ import type {
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-http
-# for the bundled axios adapter (optional):
+# to instrument axios, your app already provides HttpService from @nestjs/axios:
 pnpm add @nestjs/axios axios
 ```
 
-**Optional peer dependencies:** `axios ^1.0.0`, `@nestjs/axios ^4.0.0` - only needed for the bundled axios adapter.
+**Optional peer dependency:** `axios ^1.0.0` (type-only — the shape of the `axiosRef` you pass). This package never imports `@nestjs/axios`; you supply your `HttpService.axiosRef` via `HttpCollectorModule.forRootAsync()`, so `@nestjs/axios` is your application's dependency, not the profiler's.
 
 ## Setup
 
-Import `HttpModule` (from `@nestjs/axios`) and `HttpCollectorModule.forRoot()`. The axios adapter is on by default and patches the `HttpService` provided by `HttpModule`:
+Hand the collector your `HttpService.axiosRef` through `forRootAsync()` — the package never imports `@nestjs/axios` itself:
 
 ```ts
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
 @Module({
   imports: [
-    HttpModule, // provides HttpService - required for the axios adapter
-    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+    HttpModule, // provides HttpService
+    ConditionalModule.registerWhen(
+      HttpCollectorModule.forRootAsync({
+        imports: [HttpModule],
+        inject: [HttpService],
+        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+      }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class PostsModule {}

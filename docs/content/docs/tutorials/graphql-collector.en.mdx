@@ -19,15 +19,15 @@ This tutorial shows how to add GraphQL profiling to a NestJS application that us
 pnpm add @eleven-labs/nest-profiler-graphql
 ```
 
-## Step 2 - Register ProfilerGraphQLModule
+## Step 2 - Register GraphQLCollectorModule
 
-Import `ProfilerGraphQLModule` alongside `ProfilerModule` in your application module. The module must be registered **before** `GraphQLModule` in the imports array so the adapter is ready when the GraphQL context is created.
+Import `GraphQLCollectorModule` alongside `ProfilerModule` in your application module. The module must be registered **before** `GraphQLModule` in the imports array so the adapter is ready when the GraphQL context is created.
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
@@ -41,7 +41,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !=
       ProfilerNoopModule.forRoot({ isGlobal: true }),
       (env) => !isProfilerEnabled(env),
     ),
-    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -130,7 +130,7 @@ By default, Apollo Sandbox (`GET /graphql`) and introspection queries are profil
 ```ts title="app.module.ts"
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
 import {
-  ProfilerGraphQLModule,
+  GraphQLCollectorModule,
   ignoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
 } from '@eleven-labs/nest-profiler-graphql';
@@ -139,7 +139,7 @@ ProfilerModule.forRoot({
   isGlobal: true,
   ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
 }),
-ProfilerGraphQLModule.forRoot(),
+GraphQLCollectorModule.forRoot(),
 ```
 
 | Filter                       | What it skips                                                                                  |
@@ -162,12 +162,12 @@ import { ConditionalModule } from '@nestjs/config';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
-ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
+ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
 ```
 
 ## How it works
 
-`ProfilerGraphQLModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` - which is what routes it to the dedicated **GraphQL** list table and detail tab.
+`GraphQLCollectorModule` registers a `GraphQLContextAdapter` and a `graphql` entrypoint type with `ProfilerCoreService` on module init. For each incoming GraphQL request, the adapter reads the HTTP request from the execution context (`gqlCtx.req` for Apollo/yoga, `gqlCtx.request` for Mercurius), retrieves the profile that the HTTP middleware already created, captures the operation metadata, and flips the profile's `entrypoint.type` from `http` to `graphql` - which is what routes it to the dedicated **GraphQL** list table and detail tab.
 
 A middleware `finish` hook also captures GraphQL errors for requests that Apollo handles without calling any resolver (e.g. schema validation failures), ensuring those profiles still appear in `/_profiler`.
 

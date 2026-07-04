@@ -220,12 +220,12 @@ GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphq
 pnpm add @eleven-labs/nest-profiler-graphql
 ```
 
-Import `ProfilerGraphQLModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
+Import `GraphQLCollectorModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
 
 ```ts title="app.module.ts - Apollo (Express / Fastify) or graphql-yoga"
 import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
 
@@ -236,7 +236,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !=
       ProfilerNoopModule.forRoot({ isGlobal: true }),
       (env) => !isProfilerEnabled(env),
     ),
-    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -261,7 +261,7 @@ Each captured GraphQL request appears in `/_profiler` with a **GQL** badge and t
 
 ## Custom protocol adapters
 
-`ProfilerModule` exports an `IContextAdapter` interface and a `PROFILER_CONTEXT_ADAPTERS` multi-token that let you profile any NestJS execution context beyond HTTP - gRPC, Kafka, WebSockets, and more. `@eleven-labs/nest-profiler-graphql` is the reference implementation. See the [Custom protocol adapters](/docs/packages/nest-profiler/context-adapters) page for a full adapter example.
+`ProfilerModule` exports an `IContextAdapter` interface and `ProfilerCoreService.registerContextAdapter()` that let you profile any NestJS execution context beyond HTTP - gRPC, Kafka, WebSockets, and more. `@eleven-labs/nest-profiler-graphql` is the reference implementation. See the [Custom protocol adapters](/docs/packages/nest-profiler/context-adapters) page for a full adapter example.
 
 ## Storage backends
 

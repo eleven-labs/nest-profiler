@@ -253,26 +253,35 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
 
 ## Step 4 - Wire up the module
 
-Expose the adapter through the `PROFILER_CONTEXT_ADAPTERS` multi-token, and register the entrypoint type in `onModuleInit` (so it runs after the profiler core is available):
+Register both the context adapter and the entrypoint type in `onModuleInit` (so they run after the profiler core is available), resolving the core leniently so the module degrades gracefully when the profiler is disabled:
 
 ```ts title="websocket-profiler.module.ts"
-import { Module } from '@nestjs/common';
+import { Module, Optional } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
-import { PROFILER_CONTEXT_ADAPTERS, ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import { ModuleRef } from '@nestjs/core';
+import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import { WebSocketContextAdapter } from './websocket-context.adapter';
 import { registerWebSocketEntrypoint } from './websocket-entrypoint';
 
 @Module({
-  providers: [
-    WebSocketContextAdapter,
-    { provide: PROFILER_CONTEXT_ADAPTERS, useExisting: WebSocketContextAdapter, multi: true },
-  ],
+  providers: [WebSocketContextAdapter],
 })
 export class WebSocketProfilerModule implements OnModuleInit {
-  constructor(private readonly core: ProfilerCoreService) {}
+  constructor(
+    private readonly moduleRef: ModuleRef,
+    @Optional() private readonly adapter?: WebSocketContextAdapter,
+  ) {}
 
   onModuleInit(): void {
-    registerWebSocketEntrypoint(this.core);
+    if (!this.adapter) return;
+    try {
+      // strict: false so the core is found even when this module is a sibling of ProfilerModule.
+      const core = this.moduleRef.get(ProfilerCoreService, { strict: false });
+      core.registerContextAdapter(this.adapter);
+      registerWebSocketEntrypoint(core);
+    } catch {
+      // Profiler core not available (disabled) — no-op.
+    }
   }
 }
 ```

@@ -6,13 +6,13 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-graphql: the types and options of the GraphQL collector for Apollo, Mercurius and graphql-yoga, capturing operation type, name and timing.'
 ---
 
-## ProfilerGraphQLModuleOptions
+## GraphQLCollectorModuleOptions
 
-Options passed to `ProfilerGraphQLModule.forRoot()`.
+Options passed to `GraphQLCollectorModule.forRoot()`.
 
 <AutoTypeTable
-  path="packages/nest-profiler-graphql/src/profiler-graphql.module.ts"
-  name="ProfilerGraphQLModuleOptions"
+  path="packages/nest-profiler-graphql/src/graphql-collector.module.ts"
+  name="GraphQLCollectorModuleOptions"
 />
 
 ## GraphQLInfo
@@ -26,7 +26,7 @@ GraphQL metadata attached to `profile.entrypoint.data.graphql` for every profile
 
 ## GraphQLEntrypointData
 
-Payload of the `graphql` entrypoint (`profile.entrypoint.data`). GraphQL runs over HTTP but is its own entrypoint kind, so this extends `HttpRequestData` with a guaranteed `graphql`. Registering `ProfilerGraphQLModule` installs the `graphql` type (`GRAPHQL_ENTRYPOINT_TYPE`) via `GRAPHQL_ENTRYPOINT_TYPE_DEF`, giving operations their own list table, detail tab and an **Operation** filter above the GraphQL list.
+Payload of the `graphql` entrypoint (`profile.entrypoint.data`). GraphQL runs over HTTP but is its own entrypoint kind, so this extends `HttpRequestData` with a guaranteed `graphql`. Registering `GraphQLCollectorModule` installs the `graphql` type (`GRAPHQL_ENTRYPOINT_TYPE`) via `GRAPHQL_ENTRYPOINT_TYPE_DEF`, giving operations their own list table, detail tab and an **Operation** filter above the GraphQL list.
 
 <AutoTypeTable
   path="packages/nest-profiler-graphql/src/graphql-entrypoint.ts"
@@ -41,7 +41,7 @@ Request context passed to `ignoreRequest` predicates and pre-built filter functi
 
 ## IContextAdapter
 
-Interface to implement when profiling a non-HTTP protocol (gRPC, Kafka, WebSockets…). Register the implementation with the `PROFILER_CONTEXT_ADAPTERS` multi-token so `ProfilerInterceptor` picks it up automatically.
+Interface to implement when profiling a non-HTTP protocol (gRPC, Kafka, WebSockets…). Register the implementation from your module`s `onModuleInit`via`ProfilerCoreService.registerContextAdapter()`so`ProfilerInterceptor` picks it up.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/adapters/context-adapter.interface.ts"
@@ -94,14 +94,14 @@ ProfilerModule.forRoot({
 ## Public exports
 
 ```ts
-import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 import { GraphQLContextAdapter } from '@eleven-labs/nest-profiler-graphql';
 import {
   ignoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
 } from '@eleven-labs/nest-profiler-graphql';
 
-import type { ProfilerGraphQLModuleOptions } from '@eleven-labs/nest-profiler-graphql';
+import type { GraphQLCollectorModuleOptions } from '@eleven-labs/nest-profiler-graphql';
 ```
 
-Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_CONTEXT_ADAPTERS`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.
+Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.
