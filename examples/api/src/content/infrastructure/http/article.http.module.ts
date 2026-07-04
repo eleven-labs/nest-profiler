@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 import { isProfilerEnabled } from '../../../config/profiler.config.js';
@@ -16,7 +16,18 @@ import { AxiosArticleGateway } from './article.axios.gateway.js';
   imports: [
     HttpModule,
     ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({ captureResponseBody: true }),
+      // The profiler package never imports @nestjs/axios: we hand it our HttpService.axiosRef
+      // via forRootAsync. `HttpModule` is a static singleton, so the axiosRef instrumented here
+      // is the same one the gateway uses. Demo captures both bodies for the HTTP Client panel.
+      HttpCollectorModule.forRootAsync({
+        imports: [HttpModule],
+        inject: [HttpService],
+        useFactory: (http: HttpService) => ({
+          axiosRef: http.axiosRef,
+          captureRequestBody: true,
+          captureResponseBody: true,
+        }),
+      }),
       isProfilerEnabled,
     ),
     ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),

@@ -8,6 +8,7 @@ import { EventPublisher } from '../../domain/event-publisher.js';
 import { NotificationService } from '../../application/notification.service.js';
 import { RabbitMqEventPublisher } from './rabbitmq.publisher.js';
 import { NotificationConsumer } from './notification.consumer.js';
+import { NOTIFICATIONS_EXCHANGE } from './rabbitmq.constants.js';
 
 /**
  * RabbitMQ adapter for the notifications context. Selected when `FEATURE_RABBITMQ=true`. Wires the
@@ -21,7 +22,9 @@ import { NotificationConsumer } from './notification.consumer.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         uri: config.get<string>('rabbitmq.uri')!,
-        exchanges: [{ name: config.get<string>('rabbitmq.exchange')!, type: 'topic' }],
+        // Single source of truth for the exchange name, shared with the publisher and the
+        // consumer's @RabbitSubscribe decorator (which cannot read config at decoration time).
+        exchanges: [{ name: NOTIFICATIONS_EXCHANGE, type: 'topic' }],
         // Don't block bootstrap when the broker is unreachable — the demo app
         // still starts and the consumer connects once RabbitMQ is up.
         connectionInitOptions: { wait: false },
