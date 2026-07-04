@@ -1,10 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import type {
   HttpCaptureInput,
   HttpCaptureOptions,
   HttpRequestEntry,
 } from './http-request.interface';
+import { redact, tryResolve } from '@eleven-labs/nest-profiler';
 import { appendHttpRequestEntry } from './append-http-request-entry.util';
 import { DEFAULT_MASK_HEADERS, extractHeaders } from './http-redaction.util';
 import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
@@ -17,15 +20,26 @@ import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
  * header masking for you. The bundled axios adapter uses it too.
  */
 @Injectable()
-export class HttpProfilerRecorder {
+export class HttpProfilerRecorder implements OnModuleInit {
   /** Built-in mask list merged with the configured `maskHeaders`. */
   readonly maskHeaders: string[];
+  /** Resolved lazily so a disabled core (no ClsModule) degrades to a no-op recorder. */
+  private cls: ClsService | undefined;
 
   constructor(
-    private readonly cls: ClsService,
+    private readonly moduleRef: ModuleRef,
     @Inject(HTTP_COLLECTOR_OPTIONS) readonly options: HttpCaptureOptions,
   ) {
     this.maskHeaders = [...DEFAULT_MASK_HEADERS, ...(options.maskHeaders ?? [])];
+  }
+
+  onModuleInit(): void {
+    this.resolveCls();
+  }
+
+  /** Lazily resolves ClsService via ModuleRef (undefined when the core is disabled). */
+  private resolveCls(): ClsService | undefined {
+    return (this.cls ??= tryResolve<ClsService>(this.moduleRef, ClsService));
   }
 
   /**
@@ -52,18 +66,18 @@ export class HttpProfilerRecorder {
       entry.requestHeaders = extractHeaders(input.requestHeaders, this.maskHeaders);
     }
     if (
-      opts.captureRequestBody !== false &&
+      opts.captureRequestBody === true &&
       method !== 'GET' &&
       method !== 'HEAD' &&
       input.requestBody != null
     ) {
-      entry.requestBody = input.requestBody;
+      entry.requestBody = redact(input.requestBody);
     }
     if (opts.captureResponseHeaders !== false && input.responseHeaders != null) {
       entry.responseHeaders = extractHeaders(input.responseHeaders, this.maskHeaders);
     }
     if (opts.captureResponseBody === true && input.responseBody != null) {
-      entry.responseBody = input.responseBody;
+      entry.responseBody = redact(input.responseBody);
     }
 
     this.record(entry);
@@ -75,6 +89,6 @@ export class HttpProfilerRecorder {
    * bypass the options. No-op outside a CLS context or when no profile is active.
    */
   record(entry: HttpRequestEntry): void {
-    appendHttpRequestEntry(this.cls, entry);
+    appendHttpRequestEntry(this.resolveCls(), entry);
   }
 }

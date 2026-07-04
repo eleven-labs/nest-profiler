@@ -26,19 +26,19 @@ const cliPkg = require('@tailwindcss/cli/package.json') as { bin: string | Recor
 const bin = typeof cliPkg.bin === 'string' ? cliPkg.bin : cliPkg.bin.tailwindcss;
 const cliBin = join(dirname(require.resolve('@tailwindcss/cli/package.json')), bin);
 
-const tw = spawnSync(
-  process.execPath,
-  [
-    cliBin,
-    '-i',
-    join(src, 'public', 'profiler.css'),
-    '-o',
-    join(stylesDir, 'profiler.css'),
-    '--minify',
-  ],
-  { stdio: 'inherit' },
-);
-if (tw.status !== 0) process.exit(tw.status ?? 1);
+const compileCss = (input: string, output: string): void => {
+  const result = spawnSync(
+    process.execPath,
+    [cliBin, '-i', join(src, 'public', input), '-o', join(stylesDir, output), '--minify'],
+    { stdio: 'inherit' },
+  );
+  if (result.status !== 0) process.exit(result.status ?? 1);
+};
+
+// Full dashboard stylesheet (includes Tailwind preflight — only loaded by profiler pages).
+compileCss('profiler.css', 'profiler.css');
+// Toolbar stylesheet (no preflight, scoped reset — injected into host application pages).
+compileCss('toolbar.css', 'toolbar.css');
 
 // 2. Vendor highlight.js ─────────────────────────────────────────────────────
 const hljsDir = dirname(require.resolve('@highlightjs/cdn-assets/package.json'));

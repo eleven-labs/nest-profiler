@@ -1,4 +1,5 @@
 import type { ClsService } from 'nestjs-cls';
+import type { ModuleRef as _MR } from '@nestjs/core';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { HttpProfilerRecorder } from './http-profiler-recorder.service';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
@@ -25,24 +26,32 @@ const entry: HttpRequestEntry = {
   startedAt: Date.now(),
 };
 
+function recorderModuleRef(cls: unknown): _MR {
+  return { get: () => cls } as unknown as _MR;
+}
+
 describe('HttpProfilerRecorder', () => {
   it('records an entry into the active profile', () => {
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    const recorder = new HttpProfilerRecorder(cls, {});
+    const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
     recorder.record(entry);
     expect(profile.collectors[HTTP_CLIENT_REQUESTS_KEY]).toEqual([entry]);
   });
 
   it('merges configured maskHeaders with the built-in defaults', () => {
     const cls = { get: jest.fn() } as unknown as ClsService;
-    const recorder = new HttpProfilerRecorder(cls, { maskHeaders: ['x-secret'] });
+    const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+      maskHeaders: ['x-secret'],
+    });
     expect(recorder.maskHeaders).toEqual([...DEFAULT_MASK_HEADERS, 'x-secret']);
   });
 
   it('exposes the configured capture options', () => {
     const cls = { get: jest.fn() } as unknown as ClsService;
-    const recorder = new HttpProfilerRecorder(cls, { captureResponseBody: true });
+    const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+      captureResponseBody: true,
+    });
     expect(recorder.options.captureResponseBody).toBe(true);
   });
 
@@ -57,7 +66,10 @@ describe('HttpProfilerRecorder', () => {
     it('extracts and masks request/response headers and includes bodies per options', () => {
       const profile = makeProfile();
       const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-      const recorder = new HttpProfilerRecorder(cls, { captureResponseBody: true });
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+        captureRequestBody: true,
+        captureResponseBody: true,
+      });
 
       recorder.capture({
         method: 'post',
@@ -82,7 +94,7 @@ describe('HttpProfilerRecorder', () => {
     it('honours disabled capture flags and the GET/HEAD request-body guard', () => {
       const profile = makeProfile();
       const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-      const recorder = new HttpProfilerRecorder(cls, {
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
         captureResponseHeaders: false,
         // captureResponseBody defaults to false
       });
@@ -104,10 +116,53 @@ describe('HttpProfilerRecorder', () => {
       expect(e.responseBody).toBeUndefined();
     });
 
+    it('does not capture the request body by default (captureRequestBody defaults to false)', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      recorder.capture({
+        method: 'POST',
+        url: 'https://api.example.com/users',
+        startedAt: 1,
+        duration: 2,
+        statusCode: 201,
+        requestBody: { name: 'alice' },
+      });
+
+      expect(recordedEntry(profile).requestBody).toBeUndefined();
+    });
+
+    it('redacts credentials in captured request/response bodies', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+        captureRequestBody: true,
+        captureResponseBody: true,
+      });
+
+      recorder.capture({
+        method: 'POST',
+        url: 'https://api.example.com/login',
+        startedAt: 1,
+        duration: 2,
+        statusCode: 200,
+        requestBody: { username: 'bob', password: 'hunter2' },
+        responseBody: { endpoint: 'postgres://user:pass@db/app' },
+      });
+
+      const e = recordedEntry(profile);
+      expect((e.requestBody as Record<string, unknown>)['password']).toBe('[REDACTED]');
+      // Non-sensitive key, but the value carries DSN credentials → userinfo masked.
+      expect((e.responseBody as Record<string, unknown>)['endpoint']).toBe(
+        'postgres://[REDACTED]@db/app',
+      );
+    });
+
     it('captures fetch Headers via record from a custom client', () => {
       const profile = makeProfile();
       const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-      const recorder = new HttpProfilerRecorder(cls, {});
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
 
       const responseHeaders = new Headers({ 'content-type': 'text/plain', 'set-cookie': 'a=1' });
       recorder.capture({

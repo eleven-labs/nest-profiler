@@ -1,3 +1,5 @@
+import type { AxiosInstance } from 'axios';
+
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the
  * shared "HTTP Client" panel.
@@ -57,7 +59,9 @@ export interface HttpCaptureOptions {
   captureRequestHeaders?: boolean;
 
   /**
-   * Capture outgoing request body for non-GET/HEAD methods. Default: `true`.
+   * Capture outgoing request body for non-GET/HEAD methods. Default: `false`
+   * (symmetry with `captureResponseBody`). Enable with caution — bodies may carry
+   * secrets and can be large; captured bodies are passed through redaction.
    */
   captureRequestBody?: boolean;
 
@@ -79,4 +83,20 @@ export interface HttpCaptureOptions {
    * `x-api-key`, `x-auth-token`, `proxy-authorization`.
    */
   maskHeaders?: string[];
+
+  /**
+   * The axios instance(s) to instrument, i.e. `HttpService.axiosRef`. This package never imports
+   * `@nestjs/axios` (an optional dependency of your app, not of the profiler) — you provide the
+   * ref, typically via {@link HttpCollectorModule.forRootAsync}:
+   *
+   * ```ts
+   * HttpCollectorModule.forRootAsync({
+   *   inject: [HttpService],
+   *   useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+   * });
+   * ```
+   *
+   * Pass an array to instrument several `HttpService` instances (per-feature `HttpModule`s).
+   */
+  axiosRef?: AxiosInstance | AxiosInstance[];
 }

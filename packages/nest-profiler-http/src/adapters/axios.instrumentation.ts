@@ -1,49 +1,47 @@
-import { Injectable } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
-import { HttpService } from '@nestjs/axios';
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { Inject, Injectable } from '@nestjs/common';
+import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
+import type { HttpCaptureOptions } from '../http-request.interface';
+import { HTTP_COLLECTOR_OPTIONS } from '../http-collector.constants';
 
 interface ProfilerAxiosConfig extends InternalAxiosRequestConfig {
   _profilerStart?: number;
   _profilerRequestBody?: unknown;
 }
 
+type PatchableAxios = AxiosInstance & { __profilerPatched?: boolean };
+
 /**
- * Built-in {@link HttpInstrumentation} for `@nestjs/axios`. Patches the
- * `HttpService`'s `axiosRef` interceptors and records each request/response on
- * the active profile via the {@link HttpProfilerRecorder}. `@nestjs/axios` and
- * `axios` are optional peers — if `HttpService` cannot be resolved, it no-ops.
+ * Built-in {@link HttpInstrumentation} for axios. It patches the `axiosRef` interceptors and
+ * records each request/response on the active profile via {@link HttpProfilerRecorder}.
+ *
+ * This package intentionally has **no dependency on `@nestjs/axios`** (nor a lazy `require` of
+ * it): the axios instance to instrument is supplied by the host application through
+ * `options.axiosRef` — typically wired with `HttpCollectorModule.forRootAsync({ inject:
+ * [HttpService], useFactory: (http) => ({ axiosRef: http.axiosRef }) })`. Only `axios`'s *types*
+ * are referenced (type-only imports, erased at build). Pass an array of refs to instrument
+ * several `HttpService` instances.
  */
 @Injectable()
 export class AxiosInstrumentation implements HttpInstrumentation {
-  constructor(private readonly moduleRef: ModuleRef) {}
+  constructor(@Inject(HTTP_COLLECTOR_OPTIONS) private readonly options: HttpCaptureOptions) {}
 
-  async install(recorder: HttpProfilerRecorder): Promise<void> {
-    let httpService: HttpService | undefined;
-    try {
-      httpService = await this.moduleRef.resolve<HttpService>(HttpService, undefined, {
-        strict: false,
-      });
-    } catch {
-      return;
-    }
+  install(recorder: HttpProfilerRecorder): void {
+    const refs = this.options.axiosRef;
+    const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+    for (const ref of list) this.patch(ref, recorder);
+  }
 
-    if (!httpService?.axiosRef) return;
-
-    // Guard against registering the interceptors twice if install runs again
-    // (e.g. multiple application contexts sharing the same axios instance).
-    const axiosRef = httpService.axiosRef as typeof httpService.axiosRef & {
-      __profilerPatched?: boolean;
-    };
-    if (axiosRef.__profilerPatched) return;
+  private patch(axiosRef: PatchableAxios, recorder: HttpProfilerRecorder): void {
+    // No axiosRef provided, or already patched (idempotent across re-inits / shared instances).
+    if (!axiosRef?.interceptors?.request || axiosRef.__profilerPatched) return;
     axiosRef.__profilerPatched = true;
 
     axiosRef.interceptors.request.use((config: ProfilerAxiosConfig) => {
       config._profilerStart = Date.now();
-      // Stash the body before axios serialises it (transformRequest runs after
-      // request interceptors), so the panel shows the original payload.
+      // Stash the body before axios serialises it (transformRequest runs after request
+      // interceptors), so the panel shows the original payload.
       config._profilerRequestBody = config.data;
       return config;
     });
