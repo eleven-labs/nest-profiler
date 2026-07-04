@@ -44,7 +44,9 @@ function absoluteUrl(url: string, headers: CurlInput['headers']): string {
 /**
  * Builds a runnable, multi-line `curl` command from captured HTTP request data,
  * mirroring the Symfony Web Profiler "Copy as cURL" feature. Header values are
- * reproduced as captured — sensitive ones are already masked upstream.
+ * reproduced exactly as captured; sensitive headers (`authorization`, `cookie`…)
+ * were already redacted to `[REDACTED]` at capture time (see `maskHeaders`), so a
+ * copied command carries the placeholder rather than a live credential.
  */
 export function buildCurlCommand(input: CurlInput): string {
   const method = (input.method || 'GET').toUpperCase();
