@@ -1,4 +1,4 @@
-import { toSafeData } from './safe-data.utils';
+import { toSafeData, safeStringify } from './safe-data.utils';
 
 describe('toSafeData', () => {
   it('passes through JSON-safe primitives untouched', () => {
@@ -78,5 +78,23 @@ describe('toSafeData', () => {
     };
     value['self'] = value;
     expect(() => JSON.stringify(toSafeData(value))).not.toThrow();
+  });
+});
+
+describe('safeStringify', () => {
+  it('serializes plain values like JSON.stringify', () => {
+    expect(safeStringify({ a: 1 }, 0)).toBe('{"a":1}');
+  });
+
+  it('never throws on circular references', () => {
+    const value: Record<string, unknown> = { a: 1 };
+    value['self'] = value;
+    expect(() => safeStringify(value)).not.toThrow();
+    expect(safeStringify(value, 0)).toContain('[Circular]');
+  });
+
+  it('never throws on BigInt', () => {
+    expect(() => safeStringify({ big: BigInt(10) })).not.toThrow();
+    expect(safeStringify({ big: BigInt(10) }, 0)).toBe('{"big":"10"}');
   });
 });
