@@ -7,6 +7,11 @@ export interface TypeOrmCollectorModuleOptions {
   slowQueryThreshold?: number;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
+  /**
+   * Name of the TypeORM DataSource to instrument. Omit for the default connection. Set this in
+   * apps that only register named DataSources (otherwise the default token would be missing).
+   */
+  connectionName?: string;
 }
 
 export const TYPEORM_COLLECTOR_OPTIONS = Symbol('TYPEORM_COLLECTOR_OPTIONS');
@@ -19,6 +24,7 @@ export class TypeOrmCollectorModule {
       module: TypeOrmCollectorModule,
       providers: [
         { provide: TYPEORM_COLLECTOR_OPTIONS, useValue: options },
+        // The patch resolves the (optionally named) DataSource + ClsService lazily via ModuleRef.
         TypeOrmDriverPatch,
         TypeOrmCollector,
       ],

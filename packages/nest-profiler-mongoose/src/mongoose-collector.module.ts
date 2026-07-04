@@ -7,6 +7,11 @@ export interface MongooseCollectorModuleOptions {
   slowQueryThreshold?: number;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
+  /**
+   * Name of the Mongoose connection to instrument. Omit for the default connection. Set this in
+   * apps that only register named connections (otherwise the default token would be missing).
+   */
+  connectionName?: string;
 }
 
 export const MONGOOSE_COLLECTOR_OPTIONS = Symbol('MONGOOSE_COLLECTOR_OPTIONS');
@@ -19,6 +24,7 @@ export class MongooseCollectorModule {
       module: MongooseCollectorModule,
       providers: [
         { provide: MONGOOSE_COLLECTOR_OPTIONS, useValue: options },
+        // The patch resolves the (optionally named) connection + ClsService lazily via ModuleRef.
         MongooseConnectionPatch,
         MongooseCollector,
       ],

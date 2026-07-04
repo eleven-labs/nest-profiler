@@ -49,13 +49,13 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "peerDependencies": {
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.7 <2.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0",
-    "typeorm": "^1.0.0"
+    "typeorm": ">=0.3.20 <2.0.0"
   },
   "devDependencies": {
     "@eleven-labs/nest-profiler": "workspace:*",
