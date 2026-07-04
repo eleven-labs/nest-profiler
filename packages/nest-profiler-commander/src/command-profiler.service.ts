@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import { ProfilerCoreService, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
@@ -29,10 +30,12 @@ export class CommandProfiler implements OnModuleInit {
   private readonly logger = new Logger(CommandProfiler.name);
   private warnedProcessLocalStorage = false;
 
-  constructor(
-    private readonly cls: ClsService,
-    private readonly core: ProfilerCoreService,
-  ) {}
+  /** Resolved lazily via ModuleRef (traverses to the core's global providers, or `undefined`
+   *  when the core is disabled — in which case `profile()` just runs the command). */
+  private cls: ClsService | undefined;
+  private core: ProfilerCoreService | undefined;
+
+  constructor(private readonly moduleRef: ModuleRef) {}
 
   /**
    * Registers the `command` entrypoint type so the profiler renders command
@@ -40,18 +43,34 @@ export class CommandProfiler implements OnModuleInit {
    * collector is enabled (this provider exists only then).
    */
   onModuleInit(): void {
-    this.core.registerEntrypointType(COMMAND_ENTRYPOINT_TYPE_DEF);
+    this.resolveCore();
+    this.core?.registerEntrypointType(COMMAND_ENTRYPOINT_TYPE_DEF);
+  }
+
+  /** Lazily resolves the core's global providers via ModuleRef (undefined when core disabled). */
+  private resolveCore(): void {
+    this.cls ??= tryResolve<ClsService>(this.moduleRef, ClsService);
+    this.core ??= tryResolve<ProfilerCoreService>(this.moduleRef, ProfilerCoreService);
   }
 
   async profile(meta: CommandProfileMeta, exec: () => Promise<void>): Promise<void> {
+    this.resolveCore();
+    // Profiler core disabled → run the command with no profiling rather than crashing.
+    if (!this.cls || !this.core) {
+      await exec();
+      return;
+    }
+    const cls = this.cls;
+    const core = this.core;
+
     this.warnIfProcessLocalStorage();
 
     const profile = this.buildProfile(meta);
     let error: Error | undefined;
 
-    await this.cls.run(async () => {
-      this.cls.set('profiler.token', profile.token);
-      this.cls.set('profiler.profile', profile);
+    await cls.run(async () => {
+      cls.set('profiler.token', profile.token);
+      cls.set('profiler.profile', profile);
 
       try {
         await exec();
@@ -60,8 +79,16 @@ export class CommandProfiler implements OnModuleInit {
       }
 
       this.finalize(profile, meta, error);
-      await this.core.collectorRegistry.collectAll(profile);
-      await this.core.storage.save(profile);
+
+      // Persistence must never fail the command or, worse, replace the command's own error:
+      // swallow + log storage/collect failures so `if (error) throw error` below always wins.
+      try {
+        await core.collectorRegistry.collectAll(profile);
+        await core.storage.save(profile);
+      } catch (persistErr) {
+        const message = persistErr instanceof Error ? persistErr.message : String(persistErr);
+        this.logger.warn(`Failed to persist command profile: ${message}`);
+      }
     });
 
     if (error) throw error;
@@ -73,7 +100,7 @@ export class CommandProfiler implements OnModuleInit {
    * server — warn once so the cause is obvious.
    */
   private warnIfProcessLocalStorage(): void {
-    if (this.warnedProcessLocalStorage || this.core.storage.crossProcess) return;
+    if (this.warnedProcessLocalStorage || !this.core || this.core.storage.crossProcess) return;
     this.warnedProcessLocalStorage = true;
     this.logger.warn(
       'Command profiles are being saved to an in-memory store, which is local to this ' +
@@ -86,8 +113,9 @@ export class CommandProfiler implements OnModuleInit {
     const startTime = Date.now();
     const data: CommandInfo = {
       name: meta.name,
-      arguments: meta.arguments,
-      options: meta.options,
+      // CLI args/options routinely carry secrets (`--password=…`, `--token=…`); redact them.
+      arguments: redact(meta.arguments),
+      options: redact(meta.options),
       exitCode: 0,
       success: true,
     };

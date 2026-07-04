@@ -1,12 +1,17 @@
 import * as path from 'path';
 import type { Connection } from 'mongoose';
-import type { ClsService } from 'nestjs-cls';
+import type { ModuleRef } from '@nestjs/core';
+import { ClsService } from 'nestjs-cls';
 import { MongooseCollector } from './mongoose.collector';
 import { MongooseCollectorModule } from './mongoose-collector.module';
 import { MongooseConnectionPatch } from './mongoose-connection.patch';
 import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import type { MongooseQueryEntry } from './mongoose-collector.interface';
+
+function mongooseModuleRef(cls: unknown, connection: unknown): ModuleRef {
+  return { get: (t: unknown) => (t === ClsService ? cls : connection) } as unknown as ModuleRef;
+}
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -139,7 +144,7 @@ describe('MongooseConnectionPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new MongooseConnectionPatch(cls, connection, {
+    const patch = new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {
       slowQueryThreshold: params.threshold,
     });
     patch.onModuleInit();
@@ -164,6 +169,128 @@ describe('MongooseConnectionPatch', () => {
 
   it('does nothing when the connection has no patchable base', () => {
     expect(() => setup({ base: null })).not.toThrow();
+  });
+
+  describe('write operations (MAJ-8)', () => {
+    function setupWithModel(): { base: Record<string, unknown>; profile: Profile } {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const base = {
+        Query: { prototype: { exec: jest.fn(() => Promise.resolve([])) } },
+        Aggregate: { prototype: { exec: jest.fn(() => Promise.resolve([])) } },
+        Model: {
+          prototype: {
+            save: jest.fn(function (this: unknown) {
+              return Promise.resolve({ _id: 1 });
+            }),
+            collection: { name: 'users' },
+          },
+          insertMany: jest.fn(() => Promise.resolve([{ _id: 1 }, { _id: 2 }])),
+          bulkWrite: jest.fn(() => Promise.resolve({ ok: 1 })),
+          collection: { name: 'users' },
+        },
+      };
+      const connection = { base } as unknown as Connection;
+      new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {
+        slowQueryThreshold: 100,
+      }).onModuleInit();
+      return { base, profile };
+    }
+
+    it('records document.save() as a write', async () => {
+      const { base, profile } = setupWithModel();
+      const model = base['Model'] as { prototype: { save: (this: unknown) => Promise<unknown> } };
+      // `this` is the document; its constructor is the model carrying the collection name.
+      await model.prototype.save.call({ constructor: { collection: { name: 'users' } } });
+      const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
+      expect(entries.map((e) => e.operation)).toContain('save');
+      expect(entries[0]?.collection).toBe('users');
+    });
+
+    it('records insertMany() with the inserted count', async () => {
+      const { base, profile } = setupWithModel();
+      const model = base['Model'] as {
+        insertMany: (this: unknown, docs: unknown[]) => Promise<unknown>;
+        collection: { name: string };
+      };
+      await model.insertMany.call(model, [{ a: 1 }, { a: 2 }]);
+      const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
+      const entry = entries.find((e) => e.operation === 'insertMany');
+      expect(entry).toBeDefined();
+      expect(entry?.count).toBe(2);
+    });
+
+    it('records bulkWrite()', async () => {
+      const { base, profile } = setupWithModel();
+      const model = base['Model'] as {
+        bulkWrite: (this: unknown, ops: unknown[]) => Promise<unknown>;
+        collection: { name: string };
+      };
+      await model.bulkWrite.call(model, [{ insertOne: {} }]);
+      const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
+      expect(entries.map((e) => e.operation)).toContain('bulkWrite');
+    });
+
+    it('records the error when a write rejects, then rethrows', async () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const base = {
+        Query: { prototype: { exec: jest.fn(() => Promise.resolve([])) } },
+        Aggregate: { prototype: { exec: jest.fn(() => Promise.resolve([])) } },
+        Model: {
+          prototype: {
+            save: jest.fn(() => Promise.reject(new Error('E11000 duplicate'))),
+            collection: { name: 'users' },
+          },
+          collection: { name: 'users' },
+        },
+      };
+      new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit();
+      const model = base.Model as { prototype: { save: (this: unknown) => Promise<unknown> } };
+      await expect(
+        model.prototype.save.call({ constructor: { collection: { name: 'users' } } }),
+      ).rejects.toThrow('E11000 duplicate');
+      const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
+      expect(entries.find((e) => e.operation === 'save')?.error).toContain('E11000');
+    });
+
+    it('falls back to "unknown" collection and undefined count for odd call shapes', async () => {
+      const { base, profile } = setupWithModel();
+      const model = base['Model'] as {
+        prototype: { save: (this: unknown) => Promise<unknown> };
+        insertMany: (this: unknown, docs: unknown) => Promise<unknown>;
+      };
+      // save on a `this` with neither collection nor constructor.collection → 'unknown'.
+      await model.prototype.save.call({});
+      // insertMany with a non-array first arg → count undefined.
+      await model.insertMany.call({}, { a: 1 });
+      const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
+      const save = entries.find((e) => e.operation === 'save' && e.collection === 'unknown');
+      expect(save).toBeDefined();
+      const insert = entries.find((e) => e.operation === 'insertMany');
+      expect(insert?.count).toBeUndefined();
+    });
+
+    it('skips write patching when the mongoose base exposes no Model', () => {
+      const cls = { get: jest.fn() } as unknown as ClsService;
+      const base = {
+        Query: { prototype: { exec: jest.fn() } },
+        Aggregate: { prototype: { exec: jest.fn() } },
+      };
+      expect(() =>
+        new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit(),
+      ).not.toThrow();
+    });
+  });
+
+  describe('named connection / disabled core (MAJ-18)', () => {
+    it('no-ops when the named connection is absent', () => {
+      const cls = { get: jest.fn() } as unknown as ClsService;
+      // moduleRef resolves cls but not the named connection token → undefined.
+      const moduleRef = mongooseModuleRef(cls, undefined);
+      const patch = new MongooseConnectionPatch(moduleRef, { connectionName: 'analytics' });
+      expect(() => patch.onModuleInit()).not.toThrow();
+    });
   });
 
   describe('Query.exec', () => {
@@ -303,7 +430,7 @@ describe('MongooseConnectionPatch', () => {
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
     // Third argument omitted → exercises the default `options = {}` parameter.
-    const patch = new MongooseConnectionPatch(cls, { base } as unknown as Connection);
+    const patch = new MongooseConnectionPatch(mongooseModuleRef(cls, { base }));
     patch.onModuleInit();
 
     await base.Query.prototype.exec.call(queryCtx);

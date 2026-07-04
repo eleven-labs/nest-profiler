@@ -1,8 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
+import type { ArgumentMetadata, OnModuleInit, PipeTransform } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
 import {
   VALIDATOR_KEY,
@@ -27,14 +28,26 @@ const PROFILE_KEY = 'profiler.profile';
  * over the thrown error to normalize violations.
  */
 @Injectable()
-export class ProfilerValidationPipe implements PipeTransform {
+export class ProfilerValidationPipe implements PipeTransform, OnModuleInit {
+  /** Resolved lazily: when the core is disabled the pipe still validates, it just records nothing. */
+  private cls: ClsService | undefined;
+
   constructor(
-    private readonly cls: ClsService,
+    private readonly moduleRef: ModuleRef,
     @Inject(PROFILER_INNER_PIPE) private readonly inner: PipeTransform,
     @Optional()
     @Inject(PROFILER_EXTRACTORS)
     private readonly extractors: readonly ValidationViolationExtractor[] = DEFAULT_EXTRACTORS,
   ) {}
+
+  onModuleInit(): void {
+    this.resolveCls();
+  }
+
+  /** Lazily resolves ClsService via ModuleRef (undefined when the core is disabled). */
+  private resolveCls(): ClsService | undefined {
+    return (this.cls ??= tryResolve<ClsService>(this.moduleRef, ClsService));
+  }
 
   async transform(value: unknown, metadata: ArgumentMetadata): Promise<unknown> {
     const startedAt = Date.now();
@@ -45,15 +58,27 @@ export class ProfilerValidationPipe implements PipeTransform {
       if (capture) this.recordValid(metadata, startedAt);
       return result;
     } catch (err) {
-      if (capture) this.recordInvalid(metadata, startedAt, this.runExtractors(err));
+      // Recording must never replace the validation error (a 400) with a 500: isolate the
+      // whole extraction so a throwing custom extractor can't propagate in place of `err`.
+      if (capture) {
+        try {
+          this.recordInvalid(metadata, startedAt, this.runExtractors(err));
+        } catch {
+          // extractor/record failure — swallow; the original validation error still throws below
+        }
+      }
       throw err;
     }
   }
 
   private runExtractors(error: unknown): ViolationEntry[] {
     for (const extractor of this.extractors) {
-      const violations = extractor.extract({ error });
-      if (violations) return violations;
+      try {
+        const violations = extractor.extract({ error });
+        if (violations) return violations;
+      } catch {
+        // A custom extractor threw — skip it and try the next one.
+      }
     }
     return [];
   }
@@ -91,7 +116,7 @@ export class ProfilerValidationPipe implements PipeTransform {
 
   private pushEntry(entry: ValidationEntry): void {
     try {
-      const profile = this.cls.get<Profile | undefined>(PROFILE_KEY);
+      const profile = this.resolveCls()?.get<Profile | undefined>(PROFILE_KEY);
       if (!profile) return;
       appendCollectorEntry<ValidationEntry>(profile, VALIDATOR_KEY, entry);
     } catch {

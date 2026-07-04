@@ -1,6 +1,6 @@
-import { DynamicModule, Module, OnModuleInit, Optional, Provider } from '@nestjs/common';
+import { DynamicModule, Module, OnModuleInit, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { ProfilerCoreService, PROFILER_CONTEXT_ADAPTERS } from '@eleven-labs/nest-profiler';
+import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
 import { RABBITMQ_COLLECTOR_OPTIONS } from './rabbitmq-collector.interface';
 import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
@@ -60,16 +60,11 @@ export class RabbitMqCollectorModule implements OnModuleInit {
     if (options.enabled === false) return { module: RabbitMqCollectorModule };
     return {
       module: RabbitMqCollectorModule,
+      // The adapter registers itself with the core in onModuleInit via
+      // registerContextAdapter() — the single, supported registration mechanism.
       providers: [
         { provide: RABBITMQ_COLLECTOR_OPTIONS, useValue: options },
         RabbitMqContextAdapter,
-        // `multi` is valid at runtime but absent from the NestJS Provider
-        // typings for `useExisting`, hence the cast.
-        {
-          provide: PROFILER_CONTEXT_ADAPTERS,
-          useExisting: RabbitMqContextAdapter,
-          multi: true,
-        } as Provider,
       ],
     };
   }

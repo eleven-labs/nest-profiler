@@ -1,3 +1,4 @@
+import type { ModuleRef } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
 import { AuthCollectorModule } from './auth-collector.module';
 import { AuthCollector } from './auth.collector';
@@ -5,6 +6,11 @@ import type { Profile } from '@eleven-labs/nest-profiler';
 
 const mockGet = jest.fn();
 const mockClsService = { get: mockGet } as Partial<ClsService> as ClsService;
+
+/** A ModuleRef whose strict:false get() resolves the given ClsService (or undefined). */
+function moduleRefFor(cls: ClsService | undefined): ModuleRef {
+  return { get: jest.fn(() => cls) } as unknown as ModuleRef;
+}
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -24,7 +30,8 @@ describe('AuthCollector', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    collector = new AuthCollector(mockClsService, {});
+    collector = new AuthCollector(moduleRefFor(mockClsService), {});
+    collector.onModuleInit();
   });
 
   it('returns anonymous context when no request user', () => {
@@ -53,7 +60,7 @@ describe('AuthCollector', () => {
     });
     const profile = makeProfile();
     const result = collector.collect(profile);
-    expect(result.user?.['password']).toBe('***');
+    expect(result.user?.['password']).toBe('[REDACTED]');
     expect(result.user?.['id']).toBe(1);
   });
 
@@ -127,10 +134,13 @@ describe('AuthCollector', () => {
   });
 
   it('masks fields configured via maskUserFields option', () => {
-    const customCollector = new AuthCollector(mockClsService, { maskUserFields: ['ssn'] });
+    const customCollector = new AuthCollector(moduleRefFor(mockClsService), {
+      maskUserFields: ['ssn'],
+    });
+    customCollector.onModuleInit();
     mockGet.mockReturnValue({ user: { id: 1, ssn: '123-45-6789' }, headers: {} });
     const result = customCollector.collect(makeProfile());
-    expect(result.user?.['ssn']).toBe('***');
+    expect(result.user?.['ssn']).toBe('[REDACTED]');
     expect(result.user?.['id']).toBe(1);
   });
 
@@ -196,6 +206,44 @@ describe('AuthCollector', () => {
 
   it('getTemplatePath returns an absolute path ending with auth-panel.ejs', () => {
     expect(collector.getTemplatePath()).toMatch(/auth-panel\.ejs$/);
+  });
+
+  it('maps object roles ({ name }) and string roles to display strings', () => {
+    mockGet.mockReturnValue({
+      user: { id: 1, roles: [{ name: 'admin' }, 'editor', { id: 7 }] },
+      headers: {},
+    });
+    expect(collector.collect(makeProfile()).roles).toEqual(['admin', 'editor', '7']);
+  });
+
+  it('supports a single string role via the `role` field', () => {
+    mockGet.mockReturnValue({ user: { id: 1, role: 'admin' }, headers: {} });
+    expect(collector.collect(makeProfile()).roles).toEqual(['admin']);
+  });
+
+  it('decodes and redacts JWT claims from the Authorization header', () => {
+    const payload = Buffer.from(JSON.stringify({ sub: '123', password: 'x' })).toString(
+      'base64url',
+    );
+    mockGet.mockReturnValue({
+      user: { id: 1 },
+      headers: { authorization: `Bearer a.${payload}.c` },
+    });
+    const result = collector.collect(makeProfile());
+    expect(result.jwtClaims?.['sub']).toBe('123');
+    expect(result.jwtClaims?.['password']).toBe('[REDACTED]');
+  });
+
+  it('ignores a malformed JWT (returns no claims)', () => {
+    mockGet.mockReturnValue({ user: { id: 1 }, headers: { authorization: 'Bearer not-a-jwt' } });
+    expect(collector.collect(makeProfile()).jwtClaims).toBeUndefined();
+  });
+
+  it('no-ops (anonymous) when ClsService is unavailable (core disabled)', () => {
+    const noCls = new AuthCollector(moduleRefFor(undefined), {});
+    noCls.onModuleInit();
+    const result = noCls.collect(makeProfile());
+    expect(result.isAuthenticated).toBe(false);
   });
 });
 

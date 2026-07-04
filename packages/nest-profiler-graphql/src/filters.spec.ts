@@ -29,6 +29,15 @@ describe('ignoreGraphQLPlayground', () => {
   it('does not ignore GET requests with no accept header', () => {
     expect(ignoreGraphQLPlayground(req({ method: 'GET', headers: {} }))).toBe(false);
   });
+
+  it('does not ignore an HTML GET on a non-GraphQL path (MAJ-7)', () => {
+    // A mixed SSR + GraphQL app: the homepage must still be profiled.
+    expect(
+      ignoreGraphQLPlayground(
+        req({ method: 'GET', url: '/', path: '/', headers: { accept: 'text/html' } }),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('ignoreGraphQLIntrospection', () => {
@@ -63,6 +72,16 @@ describe('ignoreGraphQLIntrospection', () => {
     expect(
       ignoreGraphQLIntrospection(
         req({ body: { operationName: 'GetBooks', query: 'query GetBooks { books { id } }' } }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does NOT treat the ubiquitous __typename meta-field as introspection (MAJ-7)', () => {
+    // Apollo Client adds __typename to almost every selection set — matching it would drop
+    // nearly all real traffic.
+    expect(
+      ignoreGraphQLIntrospection(
+        req({ body: { query: 'query GetBooks { books { id __typename } }' } }),
       ),
     ).toBe(false);
   });

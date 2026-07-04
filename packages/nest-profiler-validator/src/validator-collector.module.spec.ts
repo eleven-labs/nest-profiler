@@ -28,10 +28,16 @@ function hasProvideToken(providers: Provider[], token: unknown): boolean {
 const stubPipe: PipeTransform = { transform: (value: unknown) => value };
 
 describe('ValidatorCollectorModule.forRoot', () => {
-  it('returns a no-op module when enabled is false', () => {
-    expect(ValidatorCollectorModule.forRoot({ enabled: false })).toEqual({
-      module: ValidatorCollectorModule,
-    });
+  it('still installs the bare validation pipe (no profiler wrapper) when enabled is false', () => {
+    // MAJ-6: disabling turns off profiling, not validation — this module is the host's
+    // installation vector for the global pipe, so a provided pipe stays installed as APP_PIPE.
+    const mod = ValidatorCollectorModule.forRoot({ enabled: false, pipe: stubPipe });
+    const providers = mod.providers ?? [];
+    const appPipe = valueProvider(providers, APP_PIPE);
+    expect(appPipe?.useValue).toBe(stubPipe);
+    // But NOT the profiler wrapper / collector.
+    expect(providers).not.toContain(ProfilerValidationPipe);
+    expect(providers).not.toContain(ValidatorCollector);
   });
 
   it('registers the collector, pipe and global APP_PIPE by default', () => {

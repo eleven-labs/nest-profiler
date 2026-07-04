@@ -1,28 +1,36 @@
 import * as path from 'path';
 import { Inject, Injectable, Optional } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCollector, isPlainObject } from '@eleven-labs/nest-profiler';
+import { ProfilerCollector, isPlainObject, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { IProfilerCollector, Profile, SecurityContext } from '@eleven-labs/nest-profiler';
 import { AUTH_COLLECTOR_OPTIONS } from './auth-collector.module';
 import type { AuthCollectorModuleOptions } from './auth-collector.module';
 
 const AUTH_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L2 4v4c0 3.3 2.5 6.4 6 7 3.5-.6 6-3.7 6-7V4L8 1z" opacity="0.9"/></svg>`;
-const SECRET_FIELDS_RE = /password|secret|key|token|credential/i;
 
 @ProfilerCollector({ name: 'auth', label: 'Security', icon: AUTH_ICON, priority: 40 })
 @Injectable()
-export class AuthCollector implements IProfilerCollector {
+export class AuthCollector implements IProfilerCollector, OnModuleInit {
   readonly name = 'auth';
   readonly label = 'Security';
   readonly icon = AUTH_ICON;
   readonly priority = 40;
 
+  /** Resolved lazily so a disabled core (no ClsModule) degrades to a no-op instead of a DI crash. */
+  private cls: ClsService | undefined;
+
   constructor(
-    private readonly cls: ClsService,
+    private readonly moduleRef: ModuleRef,
     @Optional()
     @Inject(AUTH_COLLECTOR_OPTIONS)
     private readonly options: AuthCollectorModuleOptions = {},
   ) {}
+
+  onModuleInit(): void {
+    this.cls = tryResolve<ClsService>(this.moduleRef, ClsService);
+  }
 
   getBadgeValue(profile: Profile): string | null {
     const sec = profile.security;
@@ -48,7 +56,7 @@ export class AuthCollector implements IProfilerCollector {
     }
     let request: AuthRequest | undefined;
     try {
-      request = this.cls.get<AuthRequest | undefined>('profiler.request');
+      request = this.cls?.get<AuthRequest | undefined>('profiler.request');
     } catch {
       // Outside CLS
     }
@@ -56,14 +64,16 @@ export class AuthCollector implements IProfilerCollector {
     const user = request?.user;
     const authHeader = request?.headers?.['authorization'];
     const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
-    const jwtClaims = authHeaderStr ? this.decodeJwt(authHeaderStr) : undefined;
+    const rawClaims = authHeaderStr ? this.decodeJwt(authHeaderStr) : undefined;
     const roles = this.extractRoles(user);
 
     const context: SecurityContext = {
       isAuthenticated: !!user,
       user: user ? this.maskUser(user) : undefined,
       roles,
-      jwtClaims,
+      // JWT claims may carry sensitive custom claims — redact them (standard claims like
+      // `sub`/`iat`/`exp` are preserved; only sensitive keys/values are masked).
+      jwtClaims: rawClaims ? redact(rawClaims) : undefined,
     };
 
     profile.security = context;
@@ -73,9 +83,20 @@ export class AuthCollector implements IProfilerCollector {
   private extractRoles(user: Record<string, unknown> | undefined): string[] | undefined {
     if (!user) return undefined;
     const raw = user['roles'] ?? user['role'];
-    if (Array.isArray(raw)) return raw as string[];
+    if (Array.isArray(raw)) return raw.map((r) => this.roleToString(r));
     if (typeof raw === 'string') return [raw];
     return undefined;
+  }
+
+  /** Maps a role entry to a display string, handling role objects like `{ name: 'admin' }`. */
+  private roleToString(role: unknown): string {
+    if (typeof role === 'string') return role;
+    if (isPlainObject(role)) {
+      const label = role['name'] ?? role['role'] ?? role['id'];
+      if (typeof label === 'string') return label;
+      if (typeof label === 'number') return String(label);
+    }
+    return String(role);
   }
 
   private decodeJwt(authHeader: string): Record<string, unknown> | undefined {
@@ -93,14 +114,8 @@ export class AuthCollector implements IProfilerCollector {
   }
 
   private maskUser(user: Record<string, unknown>): Record<string, unknown> {
-    const maskFields = this.options.maskUserFields ?? [];
-    return Object.fromEntries(
-      Object.entries(user).map(([k, v]) => {
-        if (SECRET_FIELDS_RE.test(k) || maskFields.includes(k)) {
-          return [k, '***'];
-        }
-        return [k, v];
-      }),
-    );
+    // Recursive redaction so nested secrets (`user.credentials.apiKey`) are masked too, plus
+    // any extra field names the host lists via `maskUserFields`.
+    return redact(user, { maskKeys: this.options.maskUserFields ?? [] });
   }
 }

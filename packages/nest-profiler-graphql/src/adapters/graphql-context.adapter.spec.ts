@@ -84,6 +84,22 @@ describe('GraphQLContextAdapter', () => {
     });
   });
 
+  describe('getRequest()', () => {
+    it('returns the request carrying the profile (for CLS repose)', () => {
+      const profile = makeProfile();
+      const req = { [PROFILER_REQ_KEY]: profile } as Record<symbol, unknown>;
+      expect(adapter.getRequest(makeCtx([undefined, undefined, { req }]))).toBe(req);
+    });
+
+    it('returns undefined when no candidate carries the profile', () => {
+      expect(adapter.getRequest(makeCtx([undefined, undefined, { req: {} }]))).toBeUndefined();
+    });
+
+    it('returns undefined when gqlCtx is absent', () => {
+      expect(adapter.getRequest(makeCtx([undefined, undefined, undefined]))).toBeUndefined();
+    });
+  });
+
   describe('enrichProfile()', () => {
     it('promotes the http profile to the graphql entrypoint kind', () => {
       const profile = makeProfile();
