@@ -71,6 +71,11 @@ export class ProfilerStorageService {
     return this.adapter.clear();
   }
 
+  /** Releases the adapter's resources (e.g. a SQLite handle), if it holds any. */
+  close(): void | Promise<void> {
+    return this.adapter.close?.();
+  }
+
   /**
    * Runs a structured list query. Delegates to the adapter's native {@link
    * IProfilerStorageAdapter.query} when present, otherwise fetches all profiles and

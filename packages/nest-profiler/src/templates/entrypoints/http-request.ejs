@@ -14,11 +14,11 @@
     <span class="text-foreground-secondary text-xs"><%= req.ip || '—' %></span>
   </div>
   <div class="ml-auto self-end">
-    <%- copyBtn(buildCurl({ method: req.method, url: req.url, headers: req.headers, body: req.body }), 'Copy as cURL') %>
+    <%- copyBtn(buildCurl({ method: req.method, url: req.url, headers: req.headers || {}, body: req.body }), 'Copy as cURL') %>
   </div>
 </div>
 
-<% if (Object.keys(req.query).length > 0) { %>
+<% if (req.query && Object.keys(req.query).length > 0) { %>
   <section class="mb-6">
     <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Query Parameters</h2>
     <%- kvTable(req.query) %>
@@ -41,7 +41,7 @@
 
 <section class="mb-6">
   <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Request Headers</h2>
-  <%- kvTable(req.headers) %>
+  <%- kvTable(req.headers || {}) %>
 </section>
 
 <% if (req.body !== undefined && req.body !== null) { %>
