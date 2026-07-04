@@ -64,7 +64,12 @@ export class ProfilingModule {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             ...resolveStorageOptions(config),
+            // Demo captures bodies for a richer UI. In production, prefer `collectBody: false`
+            // (or a small `maxBodySize`) and ALWAYS set `PROFILER_TOKEN` so the dashboard — which
+            // exposes captured requests — is not left open. The token also accepts `?token=` for
+            // browser navigation.
             collectBody: true,
+            token: process.env['PROFILER_TOKEN'],
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
             ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),

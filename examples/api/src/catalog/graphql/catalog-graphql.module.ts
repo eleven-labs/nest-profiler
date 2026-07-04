@@ -5,7 +5,7 @@ import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import type { Request } from 'express';
-import { ProfilerGraphQLModule } from '@eleven-labs/nest-profiler-graphql';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 import { isProfilerEnabled } from '../../config/profiler.config.js';
 
 /**
@@ -16,7 +16,7 @@ import { isProfilerEnabled } from '../../config/profiler.config.js';
  */
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProfilerGraphQLModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
