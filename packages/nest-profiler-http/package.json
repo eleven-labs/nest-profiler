@@ -49,16 +49,14 @@
     "typecheck": "tsc --noEmit --incremental false && tsc --noEmit -p src/client/tsconfig.json"
   },
   "peerDependencies": {
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.7 <2.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "axios": "^1.0.0",
     "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0"
   },
   "peerDependenciesMeta": {
-    "@nestjs/axios": {
-      "optional": true
-    },
     "axios": {
       "optional": true
     }

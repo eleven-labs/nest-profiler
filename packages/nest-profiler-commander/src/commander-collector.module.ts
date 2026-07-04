@@ -1,6 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { COMMANDER_COLLECTOR_OPTIONS } from './commander-collector.interface';
 import { CommandProfiler } from './command-profiler.service';
 import { CommandProfilerExplorer } from './command-profiler.explorer';
 
@@ -18,11 +17,7 @@ export class CommanderCollectorModule {
     return {
       module: CommanderCollectorModule,
       imports: [DiscoveryModule],
-      providers: [
-        { provide: COMMANDER_COLLECTOR_OPTIONS, useValue: options },
-        CommandProfiler,
-        CommandProfilerExplorer,
-      ],
+      providers: [CommandProfiler, CommandProfilerExplorer],
     };
   }
 }

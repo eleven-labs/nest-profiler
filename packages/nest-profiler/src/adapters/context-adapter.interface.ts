@@ -2,20 +2,14 @@ import type { ExecutionContext } from '@nestjs/common';
 import type { Profile } from '../interfaces/profile.interface';
 
 /**
- * DI multi-token under which {@link IContextAdapter} implementations are
- * provided. Register an adapter with `{ provide: PROFILER_CONTEXT_ADAPTERS,
- * useClass: MyAdapter, multi: true }` and the profiler picks it up at bootstrap.
- */
-export const PROFILER_CONTEXT_ADAPTERS = 'PROFILER_CONTEXT_ADAPTERS';
-
-/**
  * Contract for teaching the profiler a non-HTTP protocol (GraphQL, gRPC,
  * WebSockets, message queues…) without modifying the core.
  *
- * Implement it, expose it via the {@link PROFILER_CONTEXT_ADAPTERS} multi-token
- * (or call {@link ProfilerCoreService.registerContextAdapter}), and
- * `ProfilerInterceptor` will route every execution context whose type equals
- * {@link contextType} to your adapter.
+ * Implement it and register it from your module's `onModuleInit` via
+ * `ProfilerCoreService.registerContextAdapter(adapter)` (resolve the core with
+ * `moduleRef.get(ProfilerCoreService, { strict: false })`). `ProfilerInterceptor`
+ * then routes every execution context whose type equals {@link contextType} to
+ * your adapter. This imperative registration is the single supported mechanism.
  */
 export interface IContextAdapter {
   /** The NestJS execution-context type this adapter handles, e.g. `graphql`, `rpc`, `ws`. */
@@ -39,4 +33,11 @@ export interface IContextAdapter {
    * with a 200 status).
    */
   enrichHttpResponse?(profile: Profile, req: object, responseBody: unknown): void;
+  /**
+   * Optional. Returns the underlying transport request (e.g. the HTTP request behind a
+   * GraphQL operation). When the interceptor re-establishes the CLS context on a recovered
+   * path, it reposes this request under `profiler.request` so request-scoped collectors
+   * (notably the auth collector reading `req.user`) work for non-HTTP entrypoints too.
+   */
+  getRequest?(ctx: ExecutionContext): object | undefined;
 }

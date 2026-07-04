@@ -40,8 +40,8 @@
   },
   "prettier": "@repo/prettier-config",
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json && find src -name '*.ejs' | while IFS= read -r f; do dest=\"dist/${f#src/}\"; mkdir -p \"$(dirname \"$dest\")\" && cp \"$f\" \"$dest\"; done",
-    "clean": "rimraf dist coverage",
+    "build": "repo-build",
+    "clean": "repo-clean dist coverage",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "lint": "eslint src",
@@ -50,9 +50,11 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "peerDependencies": {
-    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.1",
+    "@eleven-labs/nest-profiler": ">=1.0.0-alpha.7 <2.0.0",
+    "@golevelup/nestjs-rabbitmq": "^9.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
+    "amqplib": "^0.10.0",
     "reflect-metadata": "^0.2.0"
   },
   "peerDependenciesMeta": {
@@ -65,9 +67,11 @@
   },
   "devDependencies": {
     "@eleven-labs/nest-profiler": "workspace:*",
+    "@golevelup/nestjs-rabbitmq": "^9.0.0",
     "@nestjs/common": "^11.1.24",
     "@nestjs/core": "^11.1.3",
     "@nestjs/testing": "^11.1.3",
+    "@repo/build": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
@@ -75,7 +79,7 @@
     "@types/amqplib": "^0.10.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.2",
-    "amqplib": "^2.0.1",
+    "amqplib": "^0.10.0",
     "jest": "^30.4.2",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
