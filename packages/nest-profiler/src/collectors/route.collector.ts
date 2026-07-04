@@ -2,9 +2,24 @@ import { Injectable, OnApplicationBootstrap, RequestMethod } from '@nestjs/commo
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import type { RouteInfo } from '../interfaces/profile.interface';
 
+/**
+ * Compiles a route path (`/users/:id`, `/files/:id(\\d+)`) into an anchored RegExp: literal
+ * regex metacharacters (`.`, `(`, `+`…) are escaped, while `:param` tokens (with an optional
+ * `(constraint)`) become a single-segment matcher. Escaping is required — an unescaped `.` or a
+ * param constraint would otherwise cause false positives or a `SyntaxError`.
+ */
+function compileRoutePattern(routePath: string): RegExp {
+  const source = routePath.replace(/:[A-Za-z0-9_]+(?:\([^)]*\))?|[.*+?^${}()|[\]\\]/g, (match) =>
+    match.startsWith(':') ? '[^/]+' : `\\${match}`,
+  );
+  return new RegExp(`^${source}$`);
+}
+
 @Injectable()
 export class RouteCollector implements OnApplicationBootstrap {
   private readonly routeMap = new Map<string, RouteInfo>();
+  /** Memoized compiled patterns per route key (compiled once at bootstrap, not per request). */
+  private readonly patternCache = new Map<string, RegExp>();
 
   constructor(
     private readonly discovery: DiscoveryService,
@@ -64,7 +79,11 @@ export class RouteCollector implements OnApplicationBootstrap {
       const routeMethod = routeKey.slice(0, firstColon);
       const routePath = routeKey.slice(firstColon + 1);
       if (routeMethod !== method.toUpperCase()) continue;
-      const pattern = new RegExp(`^${routePath.replace(/:[^/]+/g, '[^/]+')}$`);
+      let pattern = this.patternCache.get(routeKey);
+      if (!pattern) {
+        pattern = compileRoutePattern(routePath);
+        this.patternCache.set(routeKey, pattern);
+      }
       if (pattern.test(pathname)) return info;
     }
     return undefined;

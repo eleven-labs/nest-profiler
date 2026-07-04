@@ -71,7 +71,13 @@ export function matchesCriterion(summary: ProfileSummary, criterion: FilterCrite
       return typeof actual === 'number' && actual >= min && actual <= max;
     }
     case 'contains':
-      return typeof actual === 'string' && actual.includes(String(criterion.value).toLowerCase());
+      // Lowercase BOTH sides so `contains` is truly case-insensitive (matching the SQLite
+      // adapter). Previously only the filter value was lowercased, so a filter on an
+      // upper-cased stored field like `method`/`url` silently missed.
+      return (
+        typeof actual === 'string' &&
+        actual.toLowerCase().includes(String(criterion.value).toLowerCase())
+      );
     case 'truthy':
       return Boolean(actual);
     default:
@@ -81,7 +87,9 @@ export function matchesCriterion(summary: ProfileSummary, criterion: FilterCrite
 
 /** Whether a summary satisfies a query's type constraint and every filter criterion. */
 export function matchesQuery(summary: ProfileSummary, query: ProfilerQuery): boolean {
-  if (query.typeIn?.includes(summary.type) === false) return false;
+  // An empty `typeIn` means "no type constraint" (matching the SQLite adapter), not "match
+  // nothing" — only a non-empty allowlist restricts the type.
+  if (query.typeIn && query.typeIn.length > 0 && !query.typeIn.includes(summary.type)) return false;
   if (query.typeNotIn?.includes(summary.type) === true) return false;
   return query.filters.every((criterion) => matchesCriterion(summary, criterion));
 }
@@ -98,11 +106,18 @@ export function selectPage<T>(
 ): { items: T[]; total: number } {
   const direction = query.sort?.direction ?? 'desc';
   const matched = entries.filter((e) => matchesQuery(e.summary, query));
-  matched.sort((a, b) =>
-    direction === 'desc'
-      ? b.summary.createdAt - a.summary.createdAt
-      : a.summary.createdAt - b.summary.createdAt,
-  );
+  matched.sort((a, b) => {
+    const byTime =
+      direction === 'desc'
+        ? b.summary.createdAt - a.summary.createdAt
+        : a.summary.createdAt - b.summary.createdAt;
+    if (byTime !== 0) return byTime;
+    // Deterministic tie-breaker on token so pagination is stable when two profiles share
+    // the same millisecond timestamp (matches the SQLite `ORDER BY created_at, token`).
+    return direction === 'desc'
+      ? b.summary.token.localeCompare(a.summary.token)
+      : a.summary.token.localeCompare(b.summary.token);
+  });
   const start = Math.max(0, (query.page - 1) * query.pageSize);
   return {
     items: matched.slice(start, start + query.pageSize).map((e) => e.value),
