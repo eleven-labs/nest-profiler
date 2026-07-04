@@ -42,7 +42,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 import { DataSource } from 'typeorm';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
 
 @Module({
   imports: [
@@ -95,7 +95,7 @@ The toolbar badge shows: `{n}q` (e.g., `5q`). When slow queries are present: `5q
 
 ## How it works
 
-The collector patches `dataSource.driver.query` at module initialization to wrap every query execution with timing. The patch is transparent — TypeORM behavior is unchanged.
+The collector patches `dataSource.createQueryRunner()` at module initialization to wrap every `QueryRunner.query()` call with timing, recording an entry into the active request profile (resolved via `nestjs-cls`); `TypeOrmCollector.collect()` then reads and returns those entries. This captures all queries from repositories, the `EntityManager`, and raw `dataSource.query()` calls. Queries executed outside a request context (e.g. during module initialization) are silently ignored. The patch is transparent — TypeORM behavior is unchanged.
 
 ---
 

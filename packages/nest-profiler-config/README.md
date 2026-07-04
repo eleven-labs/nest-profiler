@@ -40,7 +40,7 @@ pnpm add @eleven-labs/nest-profiler-config @nestjs/config
 import { ConfigModule, ConditionalModule } from '@nestjs/config';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

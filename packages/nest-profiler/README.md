@@ -43,7 +43,7 @@ import { Module } from '@nestjs/common';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ConditionalModule } from '@nestjs/config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

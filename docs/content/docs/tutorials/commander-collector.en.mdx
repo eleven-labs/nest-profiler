@@ -76,7 +76,7 @@ import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 import { SyncPostsCommand } from './sync-posts.command';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -137,4 +137,4 @@ A command that throws is captured too: its profile is marked failed (status `500
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command - so profile-scoped collectors keep capturing - then runs all collectors and persists the profile through the profiler's shared storage. The module also registers the `command` entrypoint type with the profiler core, contributing the Commands list table, the **Command** detail tab and a **Status** (success / failed) filter above the Commands list - so import it in the HTTP app too when you want command profiles to render there. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
+At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list table and **Command** detail tab) - so import it in the HTTP app too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.

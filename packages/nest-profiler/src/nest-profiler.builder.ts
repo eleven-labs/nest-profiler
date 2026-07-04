@@ -113,7 +113,7 @@ export interface ProfilerModuleOptions {
    */
   emitDebugHeaders?: boolean;
 
-  /** Custom predicate called after `ignorePaths`; return `true` to skip profiling. Compose with `combineFilters` for multiple conditions. */
+  /** Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose with `combineFilters` for multiple conditions. */
   ignoreRequest?: ProfilerRequestFilter;
 }
 

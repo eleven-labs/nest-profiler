@@ -44,7 +44,7 @@ Register the module in the application that consumes your messages (the same pro
 import { ConditionalModule } from '@nestjs/config';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

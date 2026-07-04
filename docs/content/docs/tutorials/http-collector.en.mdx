@@ -31,7 +31,7 @@ import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

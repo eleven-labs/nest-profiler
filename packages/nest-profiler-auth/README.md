@@ -40,7 +40,7 @@ No additional peer dependencies beyond `nestjs-cls` (already required by `@eleve
 import { ConditionalModule } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

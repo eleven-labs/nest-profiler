@@ -41,7 +41,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

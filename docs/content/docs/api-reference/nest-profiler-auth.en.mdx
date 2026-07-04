@@ -50,7 +50,7 @@ import type { AuthCollectorModuleOptions } from '@eleven-labs/nest-profiler-auth
 import { ConditionalModule } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

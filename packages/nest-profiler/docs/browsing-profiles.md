@@ -1,4 +1,4 @@
-Every profiled execution receives a unique token and lands in the profiler UI. This page covers the endpoints that expose the collected data, the debug headers that link a response to its profile, the list filters, and how to export a profile.
+Every profiled execution receives a unique token and lands in the profiler UI. This page is the **reference** for the endpoints that expose the collected data, the debug headers that link a response to its profile, the list filters, and how to export a profile.
 
 ![Profiler UI — profiles list with filters, HTTP statuses, durations and global panels](../../../docs/public/screenshots/profiler/profiles-list.png)
 

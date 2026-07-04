@@ -22,7 +22,7 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-http` captures outgoing HTTP requests and displays them in a dedicated **HTTP Client** panel. It is **client-agnostic**: it owns the `HttpRequestEntry` contract, the collector, the `HttpProfilerRecorder` and an `HttpInstrumentation` interface. An **axios adapter** is bundled and enabled by default; fetch, undici, got or any custom client can feed the same panel.
+`@eleven-labs/nest-profiler-http` captures outgoing HTTP requests and displays them in a dedicated **HTTP Client** panel. It is **client-agnostic**: it owns the `HttpRequestEntry` contract, the collector, the `HttpProfilerRecorder` and an `HttpInstrumentation` interface. A bundled **axios adapter** instruments the `axiosRef` you hand it (this package never imports `@nestjs/axios`); fetch, undici, got or any custom client can feed the same panel.
 
 ![HTTP Client panel — outgoing requests with method, URL, status and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/http-client.png)
 
@@ -30,27 +30,34 @@
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-http
-# for the bundled axios adapter (optional):
+# to instrument axios, your app already provides HttpService from @nestjs/axios:
 pnpm add @nestjs/axios axios
 ```
 
-**Optional peer dependencies:** `axios ^1.0.0`, `@nestjs/axios ^4.0.0` — only needed for the axios adapter.
+**Optional peer dependency:** `axios ^1.0.0` (type-only). This package never imports `@nestjs/axios` — `@nestjs/axios` is your application's dependency, not the profiler's.
 
-## Setup (axios, default)
+## Setup (axios)
 
-Import `HttpCollectorModule` to register the panel. The axios adapter is on by default and patches the `HttpService` provided by `@nestjs/axios`'s `HttpModule` in the same module:
+Hand the collector your `HttpService.axiosRef` through `forRootAsync`:
 
 ```ts title="app.module.ts"
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    HttpModule, // provides HttpService — required for the axios adapter
-    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+    HttpModule, // provides HttpService
+    ConditionalModule.registerWhen(
+      HttpCollectorModule.forRootAsync({
+        imports: [HttpModule],
+        inject: [HttpService],
+        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+      }),
+      isProfilerEnabled,
+    ),
   ],
 })
 export class AppModule {}

@@ -50,7 +50,7 @@ import type { ConfigCollectorModuleOptions } from '@eleven-labs/nest-profiler-co
 // In AppModule (alongside ConfigModule):
 import { ConditionalModule } from '@nestjs/config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 ConditionalModule.registerWhen(
   ConfigCollectorModule.forRoot({ maskKeys: ['database.password', 'jwt.secret'] }),

@@ -32,7 +32,7 @@ import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -141,14 +141,22 @@ export class ProductsModule {}
 
 ```ts title="content/content.module.ts"
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 
 @Module({
   imports: [
-    HttpModule, // provides HttpService for the bundled axios adapter
-    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+    HttpModule, // provides HttpService
+    // The profiler never imports @nestjs/axios — hand it your HttpService.axiosRef:
+    ConditionalModule.registerWhen(
+      HttpCollectorModule.forRootAsync({
+        imports: [HttpModule],
+        inject: [HttpService],
+        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+      }),
+      isProfilerEnabled,
+    ),
     ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
@@ -178,7 +186,7 @@ import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { ConditionalModule } from '@nestjs/config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -227,7 +235,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -274,6 +282,18 @@ ProfilerModule.forRoot({ storageType: 'file', storagePath: '.profiler' });
 ```
 
 Add `.profiler/` to `.gitignore` when using file storage.
+
+For a persistent store that filters and paginates **in the database** — useful once you keep many profiles — a first-party SQLite adapter ships under the `@eleven-labs/nest-profiler/sqlite` subpath (opt-in: `better-sqlite3` is an optional peer dependency). Pass it through the `storage` option:
+
+```ts
+import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
+
+ProfilerModule.forRoot({
+  storage: new SqliteStorageAdapter({ path: '.profiler/profiler.db', maxProfiles: 500 }),
+});
+```
+
+See [Storage backends](/docs/packages/nest-profiler/storage) for the full comparison of memory, file and SQLite.
 
 ## Test with the example application
 
@@ -323,3 +343,5 @@ curl -X POST http://localhost:3000/graphql \
 ```
 
 Open `http://localhost:3000/_profiler` to browse all collected profiles.
+
+Something not showing up? The [Troubleshooting](/docs/troubleshooting) page covers the common cases - no profiles, an empty Logs tab, GraphQL not captured, a missing collector panel, or a 401 on the UI.

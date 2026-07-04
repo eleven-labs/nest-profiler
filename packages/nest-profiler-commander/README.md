@@ -46,7 +46,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { AppCommand } from './app.command';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled)],
@@ -88,7 +88,7 @@ Duration and timing come from the profile's standard performance data, and a thr
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there. `nest-commander` is an optional peer dependency: when it is not installed the module is a no-op.
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
 
 ---
 
