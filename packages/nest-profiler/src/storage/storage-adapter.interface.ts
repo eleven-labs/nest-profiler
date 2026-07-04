@@ -58,4 +58,12 @@ export interface IProfilerStorageAdapter {
    * the provider for its in-memory fallback).
    */
   setIndexAttributesProvider?(provider: IndexAttributesProvider): void;
+
+  /**
+   * Optional: release any resources held by the adapter (database handle, file locks…). The
+   * profiler calls it on application shutdown, after draining pending saves. Adapters holding
+   * a native handle (e.g. SQLite) should implement it so the handle is closed and, for SQLite,
+   * the WAL is checkpointed — otherwise the file may stay locked (Windows) or leak in tests.
+   */
+  close?(): Promise<void> | void;
 }

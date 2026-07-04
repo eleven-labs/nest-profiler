@@ -3,8 +3,13 @@ import type { NestProfilerApi } from '../runtime';
 // The payload is base64-encoded (UTF-8) into `data-copy` by the `copyBtn` server
 // helper so any text (multi-line, quotes, unicode) survives without HTML-escaping.
 function decodeBase64Utf8(b64: string): string {
-  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  try {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    // Malformed base64 (InvalidCharacterError) — copy nothing rather than throwing.
+    return '';
+  }
 }
 
 function flash(button: HTMLElement): void {

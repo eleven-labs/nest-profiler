@@ -27,8 +27,14 @@ export class MemoryStorageAdapter implements IProfilerStorageAdapter {
   }
 
   save(profile: Profile): void {
-    // A non-positive cap disables eviction (unbounded).
-    if (this.maxProfiles > 0 && this.profiles.size >= this.maxProfiles) {
+    // A non-positive cap disables eviction (unbounded). Only evict when adding a NEW token
+    // would exceed the cap — re-saving an existing token (e.g. the GraphQL backfill) does not
+    // grow the store, so it must not evict the oldest and shrink it below the cap.
+    if (
+      this.maxProfiles > 0 &&
+      !this.profiles.has(profile.token) &&
+      this.profiles.size >= this.maxProfiles
+    ) {
       const oldest = this.profiles.keys().next().value;
       if (oldest !== undefined) {
         this.profiles.delete(oldest);

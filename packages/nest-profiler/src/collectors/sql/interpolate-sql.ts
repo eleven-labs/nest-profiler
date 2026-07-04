@@ -15,8 +15,17 @@ function formatValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   if (value instanceof Date) return `'${value.toISOString()}'`;
   if (Buffer.isBuffer(value)) return `X'${value.toString('hex')}'`;
-  if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-  return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+  if (typeof value === 'string') return `'${escapeSqlString(value)}'`;
+  return `'${escapeSqlString(JSON.stringify(value))}'`;
+}
+
+/**
+ * Escapes a string for display inside single quotes. Doubles `'` (standard SQL) and also
+ * escapes backslashes, which MySQL treats as an escape character — the interpolated SQL is for
+ * display only (never executed), so escaping conservatively avoids a misleading/broken preview.
+ */
+function escapeSqlString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "''");
 }
 
 /**
