@@ -14,9 +14,9 @@ import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
  * hooks. Prefer injecting {@link HttpProfilerRecorder} in application code; this
  * primitive is exposed for adapters and advanced use.
  */
-export function appendHttpRequestEntry(cls: ClsService, entry: HttpRequestEntry): void {
+export function appendHttpRequestEntry(cls: ClsService | undefined, entry: HttpRequestEntry): void {
   try {
-    const profile = cls.get<Profile | undefined>('profiler.profile');
+    const profile = cls?.get<Profile | undefined>('profiler.profile');
     if (profile) {
       appendCollectorEntry<HttpRequestEntry>(profile, HTTP_CLIENT_REQUESTS_KEY, entry);
     }

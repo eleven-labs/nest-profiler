@@ -2,17 +2,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> — NestJS Profiler</title>
-  <!-- Profiler styles — Tailwind compiled at build time, served same-origin -->
-  <link rel="stylesheet" href="<%= profilerPath %>/__assets/styles/profiler.css">
+  <!-- Profiler styles — Tailwind compiled at build time, served same-origin. The `?v=`
+       cache-buster invalidates browser/proxy caches on package upgrade (URLs are not
+       content-fingerprinted). -->
+  <link rel="stylesheet" href="<%= profilerPath %>/__assets/styles/profiler.css<%= assetVersion %>">
   <!-- highlight.js themes — syntax highlighting for JSON (and other languages) -->
-  <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css">
-  <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css">
+  <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css<%= assetVersion %>">
+  <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css<%= assetVersion %>">
   <!-- highlight.js runtime, then the profiler client bundles (core first, then any
        registered extension). All authored behaviour lives in these compiled scripts —
        templates carry no inline JavaScript. -->
-  <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js"></script>
-  <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js<%= assetVersion %>"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js<%= assetVersion %>"></script>
   <% (typeof clientScripts !== 'undefined' ? clientScripts : []).forEach(function (file) { %>
-    <script src="<%= profilerPath %>/__assets/scripts/<%= file %>"></script>
+    <script src="<%= profilerPath %>/__assets/scripts/<%= file %><%= assetVersion %>"></script>
   <% }) %>
 </head>
