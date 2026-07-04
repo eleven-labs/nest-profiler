@@ -1,4 +1,5 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
+import type { ModuleRef as _MR } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { IsNotEmpty, IsString } from 'class-validator';
@@ -41,6 +42,10 @@ class SimpleDto {
   name!: string;
 }
 
+function pipeModuleRef(cls: unknown): _MR {
+  return { get: () => cls } as unknown as _MR;
+}
+
 describe('ProfilerValidationPipe', () => {
   let cls: ClsService;
 
@@ -62,7 +67,7 @@ describe('ProfilerValidationPipe', () => {
   }
 
   it('captures a "valid" entry when the inner pipe succeeds', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -78,7 +83,7 @@ describe('ProfilerValidationPipe', () => {
 
   it('captures an "invalid" entry with violations via the class-validator extractor', async () => {
     const error = { [VALIDATOR_RAW_ERRORS]: [{ property: 'name', constraints: { x: 'bad' } }] };
-    const pipe = new ProfilerValidationPipe(cls, throwing(error));
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(error));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -94,7 +99,7 @@ describe('ProfilerValidationPipe', () => {
     const error = {
       getZodError: () => ({ issues: [{ code: 'too_small', path: ['t'], message: 'short' }] }),
     };
-    const pipe = new ProfilerValidationPipe(cls, throwing(error));
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(error));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -104,7 +109,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('records an invalid entry with no violations when no extractor recognizes the error', async () => {
-    const pipe = new ProfilerValidationPipe(cls, throwing(new Error('boom')));
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('boom')));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -136,7 +141,7 @@ describe('ProfilerValidationPipe', () => {
         return [];
       },
     };
-    const pipe = new ProfilerValidationPipe(cls, throwing(new Error('x')), [
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('x')), [
       nullExtractor,
       matchExtractor,
       neverExtractor,
@@ -151,7 +156,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not capture for primitive metatypes but still returns the value', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -162,7 +167,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not capture when there is no metatype', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -172,7 +177,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not append when there is no active profile in CLS', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     await cls.run(async () => {
       const result: unknown = await pipe.transform({ name: 'ok' }, bodyMeta(SimpleDto));
       expect(result).toMatchObject({ name: 'ok' });
@@ -180,16 +185,16 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('works entirely outside a CLS context (swallows CLS errors)', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     await expect(pipe.transform({ name: 'ok' }, bodyMeta(SimpleDto))).resolves.toMatchObject({
       name: 'ok',
     });
-    const failing = new ProfilerValidationPipe(cls, throwing(new Error('boom')));
+    const failing = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('boom')));
     await expect(failing.transform({ name: '' }, bodyMeta(SimpleDto))).rejects.toThrow('boom');
   });
 
   it('falls back to "unknown" when the metatype has no name', async () => {
-    const pipe = new ProfilerValidationPipe(cls, passThrough);
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
     const profile = makeProfile();
     const Nameless = function () {} as unknown as new () => unknown;
     Object.defineProperty(Nameless, 'name', { value: undefined });
@@ -201,7 +206,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('integrates end-to-end with a real class-validator pipe', async () => {
-    const pipe = new ProfilerValidationPipe(cls, createClassValidatorPipe());
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), createClassValidatorPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);

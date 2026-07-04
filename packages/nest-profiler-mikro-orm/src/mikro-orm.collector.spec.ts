@@ -1,15 +1,22 @@
 import * as path from 'path';
 import type { MikroORM, LogContext, Logger } from '@mikro-orm/core';
-import type { ClsService } from 'nestjs-cls';
+import type { ModuleRef } from '@nestjs/core';
+import { ClsService } from 'nestjs-cls';
 
 // MikroORM v7 is ESM-only; the patch imports `MikroORM` as a runtime DI token. Stub it so the
 // CommonJS jest runtime never parses the real ESM entry (the patch is constructed directly here).
 jest.mock('@mikro-orm/core', () => ({ MikroORM: class MikroORM {} }));
+// @mikro-orm/nestjs is ESM-only too; stub the token helper used by the collector module.
+jest.mock('@mikro-orm/nestjs', () => ({ getMikroORMToken: (name: string) => `MikroORM_${name}` }));
 
 import type { Profile, QueryEntry } from '@eleven-labs/nest-profiler';
 import { MikroOrmCollector } from './mikro-orm.collector.js';
 import { MikroOrmCollectorModule } from './mikro-orm-collector.module.js';
 import { MIKRO_ORM_QUERIES_KEY, MikroOrmLoggerPatch } from './mikro-orm-logger.patch.js';
+
+function mikroModuleRef(cls: unknown, orm: unknown): ModuleRef {
+  return { get: (t: unknown) => (t === ClsService ? cls : orm) } as unknown as ModuleRef;
+}
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -78,6 +85,15 @@ describe('MikroOrmCollectorModule.forRoot', () => {
   it('registers providers by default', () => {
     expect(MikroOrmCollectorModule.forRoot().providers?.length ?? 0).toBeGreaterThan(0);
   });
+
+  it('no-ops when the ORM context is absent (MAJ-18/disabled core)', () => {
+    const cls = { get: jest.fn() } as unknown as ClsService;
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : undefined),
+    } as unknown as ModuleRef;
+    const patch = new MikroOrmLoggerPatch(moduleRef, {});
+    expect(() => patch.onModuleInit()).not.toThrow();
+  });
 });
 
 describe('MikroOrmLoggerPatch', () => {
@@ -116,7 +132,9 @@ describe('MikroOrmLoggerPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new MikroOrmLoggerPatch(cls, orm, { slowQueryThreshold: params.threshold });
+    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {
+      slowQueryThreshold: params.threshold,
+    });
     patch.onModuleInit();
     return { logger, logQuerySpy, profile };
   }
@@ -171,6 +189,18 @@ describe('MikroOrmLoggerPatch', () => {
     expect(firstEntry(profile).error).toBe('Query failed');
   });
 
+  it('surfaces the real error message from the log context when present (MIN-17)', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ level: 'error', ...({ error: new Error('duplicate key') } as object) }));
+    expect(firstEntry(profile).error).toBe('duplicate key');
+  });
+
+  it('accepts a string error on the log context', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ level: 'error', ...({ error: 'constraint violation' } as object) }));
+    expect(firstEntry(profile).error).toBe('constraint violation');
+  });
+
   it('ignores log calls without a query', () => {
     const { logger, profile } = setup({});
     logger.logQuery(ctx({ query: undefined }));
@@ -219,7 +249,7 @@ describe('MikroOrmLoggerPatch', () => {
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
     // Third argument omitted → exercises the default `options = {}` parameter.
-    const patch = new MikroOrmLoggerPatch(cls, orm);
+    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {});
     patch.onModuleInit();
 
     logger.logQuery(ctx({ took: 50 }));
@@ -239,7 +269,7 @@ describe('MikroOrmLoggerPatch', () => {
     const orm = { config: { getLogger: () => logger } } as unknown as MikroORM;
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    const patch = new MikroOrmLoggerPatch(cls, orm, { slowQueryThreshold: 100 });
+    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), { slowQueryThreshold: 100 });
     patch.onModuleInit();
     patch.onModuleInit(); // second init must be a no-op (idempotency guard)
 

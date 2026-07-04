@@ -1,11 +1,19 @@
 import { Logger } from '@nestjs/common';
-import type { ClsService } from 'nestjs-cls';
-import type { ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import type { ModuleRef } from '@nestjs/core';
+import { ClsService } from 'nestjs-cls';
+import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { CommandProfiler } from './command-profiler.service';
 import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
+
+function moduleRefFor(cls?: ClsService, core?: ProfilerCoreService): ModuleRef {
+  return {
+    get: (token: unknown) =>
+      token === ClsService ? cls : token === ProfilerCoreService ? core : undefined,
+  } as unknown as ModuleRef;
+}
 
 function createCls(): { cls: ClsService; set: jest.Mock } {
   const store = new Map<string, unknown>();
@@ -52,14 +60,23 @@ describe('CommandProfiler', () => {
   it('registers the command entrypoint type on module init', () => {
     const { cls } = createCls();
     const { core, registerEntrypointType } = createCore();
-    new CommandProfiler(cls, core).onModuleInit();
+    new CommandProfiler(moduleRefFor(cls, core)).onModuleInit();
     expect(registerEntrypointType).toHaveBeenCalledWith(COMMAND_ENTRYPOINT_TYPE_DEF);
+  });
+
+  it('runs the command without profiling when the core is disabled (MAJ-9)', async () => {
+    // ModuleRef resolves neither ClsService nor ProfilerCoreService (core disabled).
+    const profiler = new CommandProfiler(moduleRefFor(undefined, undefined));
+    profiler.onModuleInit(); // must not throw / must not register anything
+    const exec = jest.fn().mockResolvedValue(undefined);
+    await expect(profiler.profile(META, exec)).resolves.toBeUndefined();
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('profiles a successful command and saves the profile', async () => {
     const { cls, set } = createCls();
     const { core, save, collectAll, saved } = createCore();
-    const profiler = new CommandProfiler(cls, core);
+    const profiler = new CommandProfiler(moduleRefFor(cls, core));
     const exec = jest.fn().mockResolvedValue(undefined);
 
     await profiler.profile(META, exec);
@@ -95,7 +112,7 @@ describe('CommandProfiler', () => {
   it('captures the exception, marks the profile failed, and rethrows', async () => {
     const { cls } = createCls();
     const { core, save, collectAll, saved } = createCore();
-    const profiler = new CommandProfiler(cls, core);
+    const profiler = new CommandProfiler(moduleRefFor(cls, core));
     const boom = new Error('boom');
     const exec = jest.fn().mockRejectedValue(boom);
 
@@ -115,7 +132,7 @@ describe('CommandProfiler', () => {
   it('wraps non-Error throws', async () => {
     const { cls } = createCls();
     const { core, saved } = createCore();
-    const profiler = new CommandProfiler(cls, core);
+    const profiler = new CommandProfiler(moduleRefFor(cls, core));
     const exec = jest.fn().mockRejectedValue('string failure');
 
     await expect(profiler.profile(META, exec)).rejects.toThrow('string failure');
@@ -128,7 +145,7 @@ describe('CommandProfiler', () => {
   it('records the command name and empty arguments when none are passed', async () => {
     const { cls } = createCls();
     const { core, saved } = createCore();
-    const profiler = new CommandProfiler(cls, core);
+    const profiler = new CommandProfiler(moduleRefFor(cls, core));
 
     await profiler.profile({ name: 'demo:greet', arguments: [], options: {} }, jest.fn());
 
@@ -143,7 +160,7 @@ describe('CommandProfiler', () => {
     try {
       const { cls } = createCls();
       const { core } = createCore(false); // in-memory / process-local
-      const profiler = new CommandProfiler(cls, core);
+      const profiler = new CommandProfiler(moduleRefFor(cls, core));
 
       await profiler.profile(META, jest.fn());
       await profiler.profile(META, jest.fn());
@@ -160,7 +177,7 @@ describe('CommandProfiler', () => {
     try {
       const { cls } = createCls();
       const { core } = createCore(true);
-      const profiler = new CommandProfiler(cls, core);
+      const profiler = new CommandProfiler(moduleRefFor(cls, core));
 
       await profiler.profile(META, jest.fn());
 
