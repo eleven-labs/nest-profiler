@@ -15,8 +15,12 @@ const DEFAULT_OPTIONS: Required<SafeDataOptions> = {
   maxStringLength: 2048,
 };
 
-function truncate(value: string, maxLength: number): string {
-  return value.length > maxLength ? `${value.slice(0, maxLength)}… [truncated]` : value;
+function truncate(value: unknown, maxLength: number): string {
+  // Guard against type confusion (CWE-843): captured request data can reach this sink as an
+  // array instead of a string (e.g. a tampered `?x=a&x=b` query parameter), which would make
+  // `.length`/`.slice` behave unexpectedly. Coerce anything non-string before operating on it.
+  const text = typeof value === 'string' ? value : String(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength)}… [truncated]` : text;
 }
 
 function serializeError(error: Error, maxLength: number): Record<string, unknown> {
