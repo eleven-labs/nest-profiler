@@ -47,11 +47,15 @@ ProfilerModule.forRoot({
     path: '.profiler/profiler.db', // relative to cwd; ':memory:' for an ephemeral DB
     maxProfiles: 500,
     ttl: 3600,
+    busyTimeout: 5000, // ms a write waits on a concurrent writer before giving up
+    onCorruption: 'recreate', // corrupt file → move aside and start fresh; or 'throw'
   }),
 });
 ```
 
 Pass it through the `storage` option (not `storageType`) so the core module never imports the driver. Each profile is stored as a row with indexed summary columns (type, method, status, duration, exceptions, a search column and its kind-specific attributes as JSON) plus the full profile; list queries run as `WHERE … ORDER BY created_at LIMIT/OFFSET` with a `COUNT(*)` total, and never load the whole store. A file database is cross-process (WAL); `:memory:` is single-connection.
+
+`busyTimeout` (default `5000` ms) sets how long a write waits on a concurrent writer of the same file database before failing. `onCorruption` controls what happens when the database file cannot be opened because it is corrupt: `'recreate'` (default) moves the corrupt file aside to `<path>.corrupt-<timestamp>` (sidecars included) and starts a fresh database, while `'throw'` surfaces an actionable error and leaves the file untouched. Any other open failure (e.g. a permission error) always throws, with the resolved path and the underlying driver error attached as `cause`.
 
 ## Custom adapter
 

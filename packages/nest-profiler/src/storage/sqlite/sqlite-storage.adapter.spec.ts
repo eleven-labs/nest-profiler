@@ -305,4 +305,81 @@ describe('SqliteStorageAdapter', () => {
     expect(page.total).toBe(0);
     expect(page.items).toEqual([]);
   });
+
+  describe('eviction counter', () => {
+    it('re-saving the same token never evicts the live row', () => {
+      const small = new SqliteStorageAdapter({ path: ':memory:', maxProfiles: 3, ttl: 3600 });
+      for (let i = 0; i < 20; i++) small.save(makeProfile('x', { duration: i }));
+      expect(small.findAll().map((p) => p.token)).toEqual(['x']);
+      expect(small.findOne('x')?.performance.duration).toBe(19);
+      small.close();
+    });
+
+    it('seeds the row count from an existing file so eviction stays capped after reopen', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-count-'));
+      const file = path.join(dir, 'p.db');
+      const base = Date.now();
+
+      const a = new SqliteStorageAdapter({ path: file, maxProfiles: 3, ttl: 3600 });
+      for (let i = 0; i < 3; i++) a.save(makeProfile(`a-${i}`, { createdAt: base + i }));
+      a.close();
+
+      const b = new SqliteStorageAdapter({ path: file, maxProfiles: 3, ttl: 3600 });
+      b.save(makeProfile('a-3', { createdAt: base + 3 }));
+      expect(b.findAll().map((p) => p.token)).toEqual(['a-3', 'a-2', 'a-1']);
+      b.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  describe('open error handling', () => {
+    const writeGarbageDb = (): { dir: string; file: string } => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-corrupt-'));
+      const file = path.join(dir, 'p.db');
+      fs.writeFileSync(file, 'this is definitely not a sqlite database');
+      return { dir, file };
+    };
+
+    it("throws an actionable, cause-chained error when onCorruption is 'throw'", () => {
+      const { dir, file } = writeGarbageDb();
+      let caught: Error | undefined;
+      try {
+        new SqliteStorageAdapter({ path: file, onCorruption: 'throw' });
+      } catch (err) {
+        caught = err as Error;
+      }
+      expect(caught?.message).toContain(file);
+      expect(caught?.cause).toBeDefined();
+      // The corrupt file is left untouched for inspection.
+      expect(fs.readdirSync(dir)).toEqual(['p.db']);
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('recreates a fresh database and moves the corrupt file aside by default', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const { dir, file } = writeGarbageDb();
+
+      const adapter = new SqliteStorageAdapter({ path: file }); // default onCorruption: 'recreate'
+      adapter.save(makeProfile('fresh'));
+      expect(adapter.findOne('fresh')?.token).toBe('fresh');
+      adapter.close();
+
+      const asideFiles = fs.readdirSync(dir).filter((f) => f.includes('.corrupt-'));
+      expect(asideFiles).toHaveLength(1);
+      expect(warn).toHaveBeenCalled();
+
+      warn.mockRestore();
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  it('accepts a custom busyTimeout', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-busy-'));
+    const file = path.join(dir, 'p.db');
+    const timed = new SqliteStorageAdapter({ path: file, busyTimeout: 1234 });
+    timed.save(makeProfile('a'));
+    expect(timed.findOne('a')?.token).toBe('a');
+    timed.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
