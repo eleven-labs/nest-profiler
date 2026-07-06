@@ -1,6 +1,5 @@
 import { CommandTestFactory } from 'nest-commander-testing';
 import request from 'supertest';
-import { ProfilerStorageService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-commander';
 import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
@@ -8,11 +7,16 @@ import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import { CliModule } from '../src/cli.module.js';
 import { createE2EApp, server } from './helpers/app.js';
+import { readStoredProfiles } from './helpers/storage.js';
 import { lockNetwork, mockJsonPlaceholder, unlockNetwork } from './helpers/jsonplaceholder.js';
 
 /**
  * Runs a CLI command in-process (CommandTestFactory) and returns the profile it wrote to the
- * shared file storage. Failing commands rethrow after the profile is saved — tolerated here.
+ * shared storage. Failing commands rethrow after the profile is saved — tolerated here.
+ *
+ * The profile is read back through a fresh adapter (`readStoredProfiles`), not the command's
+ * own `ProfilerStorageService`: `CommandTestFactory.run` shuts the app down, which closes the
+ * storage handle — fine for file storage, but a closed SQLite connection can no longer be read.
  */
 async function runCommand(args: string[]): Promise<Profile<CommandInfo>> {
   const cmd = await CommandTestFactory.createTestingCommand({ imports: [CliModule] }).compile();
@@ -25,8 +29,7 @@ async function runCommand(args: string[]): Promise<Profile<CommandInfo>> {
     exitSpy.mockRestore();
   }
 
-  const storage = cmd.get(ProfilerStorageService);
-  const profiles = await storage.findAll();
+  const profiles = await readStoredProfiles();
   const profile = profiles
     .filter(
       (p) =>
@@ -38,7 +41,7 @@ async function runCommand(args: string[]): Promise<Profile<CommandInfo>> {
   return profile as Profile<CommandInfo>;
 }
 
-describe('CLI commands (e2e) — commander collector + cross-process file storage', () => {
+describe('CLI commands (e2e) — commander collector + cross-process shared storage', () => {
   it('profiles demo:greet with its parsed options', async () => {
     const profile = await runCommand(['demo:greet', '-n', 'Ada']);
 
@@ -107,10 +110,10 @@ describe('CLI commands (e2e) — commander collector + cross-process file storag
     }
   });
 
-  it('command profiles are visible from the HTTP app via the shared file storage', async () => {
+  it('command profiles are visible from the HTTP app via the shared storage', async () => {
     const cmdProfile = await runCommand(['demo:greet', '-n', 'CrossProcess']);
 
-    // A separate Nest application reads the same storage directory.
+    // A separate Nest application reads the same shared storage.
     const app = await createE2EApp();
     try {
       const res = await request(server(app)).get(`/_profiler/${cmdProfile.token}/data`);
