@@ -1,3 +1,4 @@
+import { isSecretKey, redact, REDACTED } from '@eleven-labs/nest-profiler';
 import type {
   ValidationViolationExtractor,
   ViolationExtractorContext,
@@ -25,7 +26,9 @@ interface WithRawErrors {
 export function mapClassValidatorErrors(errors: RawValidationError[]): ViolationEntry[] {
   return errors.map((err) => ({
     property: err.property,
-    value: err.value,
+    // The rejected value is the raw user input. When the property itself looks sensitive
+    // (`password`, `apiKey`…) mask it entirely; otherwise redact only embedded credentials.
+    value: isSecretKey(err.property) ? REDACTED : redact(err.value),
     constraints: err.constraints ?? {},
     children: err.children?.length ? mapClassValidatorErrors(err.children) : undefined,
   }));

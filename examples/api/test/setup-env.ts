@@ -17,11 +17,16 @@ process.env['FEATURE_PINO_LOGGER'] = 'true';
 // pino applies its level filter, so `profile.logs` assertions still work.
 process.env['LOG_LEVEL'] = 'silent';
 
-// File storage in the example's own `.profiler` dir — emptied once per run (test/global-setup.ts)
-// and kept afterwards so the recorded profiles can be browsed by starting the server. The HTTP
-// apps and the CLI module all share it (cross-process FileStorageAdapter).
-process.env['PROFILER_STORAGE_TYPE'] = 'file';
-process.env['PROFILER_STORAGE_PATH'] = path.resolve(__dirname, '..', '.profiler');
+// Persistent storage in the example's own `.profiler` dir — emptied once per run
+// (test/global-setup.ts) and kept afterwards so the recorded profiles can be browsed by starting
+// the server. The HTTP apps and the CLI module all share it (cross-process). The backend is
+// chosen with `PROFILER_STORAGE_TYPE` (default `file`; the `test:e2e:sqlite` script sets
+// `sqlite`) so the exact same suite runs against both — only this env var changes.
+const storageType = (process.env['PROFILER_STORAGE_TYPE'] ??= 'file');
+process.env['PROFILER_STORAGE_PATH'] ??=
+  storageType === 'sqlite'
+    ? path.resolve(__dirname, '..', '.profiler', 'profiler.db') // sqlite: the database file
+    : path.resolve(__dirname, '..', '.profiler'); // file: the profiles directory
 // Long TTL so the recorded profiles stay browsable well after the run (server default is 1h).
 process.env['PROFILER_TTL'] = '86400';
 

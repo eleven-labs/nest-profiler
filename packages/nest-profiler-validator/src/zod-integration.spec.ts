@@ -1,4 +1,5 @@
 import type { ArgumentMetadata } from '@nestjs/common';
+import type { ModuleRef as _MR } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { z } from 'zod';
@@ -29,6 +30,10 @@ function makeProfile(): Profile {
 
 const bodyMeta: ArgumentMetadata = { type: 'body', metatype: CreateWidgetDto, data: '' };
 
+function pipeModuleRef(cls: unknown): _MR {
+  return { get: () => cls } as unknown as _MR;
+}
+
 describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   let cls: ClsService;
 
@@ -44,7 +49,7 @@ describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   }
 
   it('captures a valid entry for a payload that satisfies the zod schema', async () => {
-    const pipe = new ProfilerValidationPipe(cls, new ZodValidationPipe());
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), new ZodValidationPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -55,7 +60,7 @@ describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   });
 
   it('captures an invalid entry with violations mapped from the ZodError', async () => {
-    const pipe = new ProfilerValidationPipe(cls, new ZodValidationPipe());
+    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), new ZodValidationPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);

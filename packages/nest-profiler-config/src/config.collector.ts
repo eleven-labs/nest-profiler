@@ -1,7 +1,12 @@
 import * as path from 'path';
-import { Inject, Injectable, OnApplicationBootstrap, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ProfilerCollector, isPlainObject } from '@eleven-labs/nest-profiler';
+import {
+  ProfilerCollector,
+  isPlainObject,
+  redactString,
+  REDACTED,
+} from '@eleven-labs/nest-profiler';
 import type { IProfilerCollector, Profile } from '@eleven-labs/nest-profiler';
 import { CONFIG_COLLECTOR_OPTIONS } from './config-collector.module';
 import type { ConfigCollectorModuleOptions } from './config-collector.module';
@@ -66,6 +71,15 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
       const internalConfig = this.readInternalConfig();
       this.configSnapshot = this.flattenAndMask(internalConfig);
       this.keyCount = Object.keys(this.configSnapshot).length;
+      // Canary (MIN-14): we read ConfigService's private `internalConfig`. If a ConfigService is
+      // present but we extracted nothing, the private shape likely changed in a @nestjs/config
+      // update — warn so the empty panel is diagnosable instead of silent.
+      if (this.keyCount === 0) {
+        new Logger(ConfigCollector.name).warn(
+          'Config panel is empty despite a ConfigService being present — the internal config ' +
+            'shape may have changed in this @nestjs/config version, or no namespaced config is loaded.',
+        );
+      }
     } catch {
       this.configSnapshot = {};
     }
@@ -109,11 +123,22 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
     const maskKeys = this.options.maskKeys ?? [];
 
     for (const [key, value] of Object.entries(obj)) {
+      // `@nestjs/config` stores the whole validated env (secrets included) under this internal
+      // key when a `validationSchema` is used — never expose that firehose.
+      if (key === '_PROCESS_ENV_VALIDATED') continue;
+
       const fullKey = prefix ? `${prefix}.${key}` : key;
       if (isPlainObject(value)) {
         Object.assign(result, this.flattenAndMask(value, fullKey));
+      } else if (shouldMaskKey(key, fullKey, maskKeys)) {
+        // Masked by key name (e.g. `password`, `apiKey`).
+        result[fullKey] = REDACTED;
+      } else if (typeof value === 'string') {
+        // Masked by value pattern (e.g. a DSN `postgres://user:pass@host` whose key
+        // — `DATABASE_URL` — does not itself look sensitive).
+        result[fullKey] = redactString(value);
       } else {
-        result[fullKey] = shouldMaskKey(key, fullKey, maskKeys) ? '***' : value;
+        result[fullKey] = value;
       }
     }
 

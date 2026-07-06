@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { buildCurlCommand } from './copy/build-curl';
 import { interpolateSql } from '../collectors/sql/interpolate-sql';
+import { safeStringify } from '../utils/safe-data.utils';
 
 export const TEMPLATES_DIR = path.join(__dirname, '../templates');
 
@@ -86,7 +87,9 @@ export const HELPERS = {
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
   isoDate: (ts: number): string => new Date(ts).toISOString().replace('T', ' ').slice(0, 19),
   timeOnly: (ts: number): string => new Date(ts).toISOString().slice(11, 23),
-  toJson: (val: unknown): string => JSON.stringify(val, null, 2),
+  // Defensive: a captured body/log payload may contain circular references or BigInt, both of
+  // which make a raw JSON.stringify throw and 500 the detail page. safeStringify never throws.
+  toJson: (val: unknown): string => safeStringify(val, 2),
   highlightSql: (sql: string): string =>
     escapeHtml(sql).replace(SQL_KEYWORDS, '<span class="sql-keyword">$&</span>'),
   // Returns safe HTML — use <%- kvTable(...) %> in templates

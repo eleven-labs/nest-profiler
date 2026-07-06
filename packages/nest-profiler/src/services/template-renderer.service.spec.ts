@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { TemplateRendererService } from './template-renderer.service';
+import { ClientAssetRegistry } from './client-asset-registry.service';
 import { TEMPLATES_DIR } from '../views/template-engine';
 
 const MINIMAL_LIST_DATA = {
@@ -41,7 +42,7 @@ describe('TemplateRendererService', () => {
   let service: TemplateRendererService;
 
   beforeEach(() => {
-    service = new TemplateRendererService();
+    service = new TemplateRendererService(new ClientAssetRegistry());
   });
 
   it('renders the built-in list template', async () => {

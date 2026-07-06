@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerCoreService } from '@eleven-labs/nest-profiler';
-import { ProfilerGraphQLModule } from './profiler-graphql.module';
+import { GraphQLCollectorModule } from './graphql-collector.module';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
 
 @Controller()
@@ -12,13 +12,13 @@ class DummyController {
   }
 }
 
-describe('ProfilerGraphQLModule', () => {
+describe('GraphQLCollectorModule', () => {
   describe('forRoot({ enabled: false })', () => {
     it('returns an empty module and registers no providers', async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           ProfilerModule.forRoot({ isGlobal: true }),
-          ProfilerGraphQLModule.forRoot({ enabled: false }),
+          GraphQLCollectorModule.forRoot({ enabled: false }),
         ],
         controllers: [DummyController],
       }).compile();
@@ -36,7 +36,7 @@ describe('ProfilerGraphQLModule', () => {
   describe('forRoot() — enabled (default)', () => {
     it('registers GraphQLContextAdapter in ProfilerCoreService after app.init()', async () => {
       const moduleRef = await Test.createTestingModule({
-        imports: [ProfilerModule.forRoot({ isGlobal: true }), ProfilerGraphQLModule.forRoot()],
+        imports: [ProfilerModule.forRoot({ isGlobal: true }), GraphQLCollectorModule.forRoot()],
         controllers: [DummyController],
       }).compile();
 
@@ -53,7 +53,7 @@ describe('ProfilerGraphQLModule', () => {
 
     it('registers the graphql entrypoint type with its own section and scoped filter', async () => {
       const moduleRef = await Test.createTestingModule({
-        imports: [ProfilerModule.forRoot({ isGlobal: true }), ProfilerGraphQLModule.forRoot()],
+        imports: [ProfilerModule.forRoot({ isGlobal: true }), GraphQLCollectorModule.forRoot()],
         controllers: [DummyController],
       }).compile();
 
@@ -71,7 +71,7 @@ describe('ProfilerGraphQLModule', () => {
 
     it('silently skips registration when ProfilerModule is not available', async () => {
       const moduleRef = await Test.createTestingModule({
-        imports: [ProfilerGraphQLModule.forRoot()],
+        imports: [GraphQLCollectorModule.forRoot()],
         controllers: [DummyController],
       }).compile();
 

@@ -126,7 +126,9 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     const offset = Math.max(0, (query.page - 1) * query.pageSize);
     const rows = this.db
       .prepare(
-        `SELECT profile FROM profiles ${clause} ORDER BY created_at ${direction} LIMIT ? OFFSET ?`,
+        // `token` tie-breaker keeps pagination deterministic when two profiles share a
+        // millisecond timestamp (matches the in-memory selectPage ordering).
+        `SELECT profile FROM profiles ${clause} ORDER BY created_at ${direction}, token ${direction} LIMIT ? OFFSET ?`,
       )
       .all(...params, query.pageSize, offset) as { profile: string }[];
 
@@ -212,8 +214,14 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
         const [min, max] = value as [number, number];
         return { sql: `${expr} BETWEEN ? AND ?`, params: [min, max] };
       }
-      case 'contains':
-        return { sql: `LOWER(${expr}) LIKE ?`, params: [`%${String(value).toLowerCase()}%`] };
+      case 'contains': {
+        // Escape LIKE wildcards (`%`, `_`) and the escape char itself so a user filter like
+        // "50%" matches literally instead of acting as a wildcard (false positives).
+        const escaped = String(value)
+          .toLowerCase()
+          .replace(/[\\%_]/g, (ch) => `\\${ch}`);
+        return { sql: `LOWER(${expr}) LIKE ? ESCAPE '\\'`, params: [`%${escaped}%`] };
+      }
       case 'truthy':
         return { sql: `${expr} IS NOT NULL AND ${expr} NOT IN (0, '')`, params: [] };
       default:

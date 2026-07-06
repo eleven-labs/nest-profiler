@@ -1,5 +1,8 @@
 export { HttpCollectorModule } from './http-collector.module';
-export type { HttpCollectorModuleOptions } from './http-collector.module';
+export type {
+  HttpCollectorModuleOptions,
+  HttpCollectorModuleAsyncOptions,
+} from './http-collector.module';
 export { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants';
 export { HttpProfilerRecorder } from './http-profiler-recorder.service';
 export { HttpClientCollector } from './http-client.collector';

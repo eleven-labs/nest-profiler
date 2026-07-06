@@ -28,7 +28,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -96,14 +96,7 @@ You will see:
 
 ## How it works
 
-The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` on the Mongoose instance obtained from `connection.base`. This captures:
-
-- All `Model.find()`, `Model.findOne()`, `Model.findById()` queries
-- All `Model.updateOne()`, `Model.deleteOne()`, `Model.deleteMany()` mutations
-- All `Model.aggregate()` pipelines
-- `Model.countDocuments()`, `Model.distinct()`, and other cursor-based operations
-
-Queries executed outside a request context (e.g., during module initialization or seeding) are silently ignored since there is no active CLS profile.
+The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` to record every query and aggregation into the active request profile. See [How it works](/docs/packages/nest-profiler-mongoose#how-it-works) on the package page for the full mechanism and the operations it captures.
 
 <Callout type="info" title="Anti-double-patch guard">
   If multiple modules import `MongooseCollectorModule.forRoot()`, the patch is applied only once - a

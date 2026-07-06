@@ -1,6 +1,7 @@
 import * as path from 'path';
+import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
-import type { ClsService } from 'nestjs-cls';
+import { ClsService } from 'nestjs-cls';
 import { TypeOrmCollector } from './typeorm.collector';
 import { TypeOrmCollectorModule } from './typeorm-collector.module';
 import { TYPEORM_QUERIES_KEY, TypeOrmDriverPatch } from './typeorm-driver.patch';
@@ -96,6 +97,41 @@ describe('TypeOrmCollectorModule.forRoot', () => {
   it('registers providers by default', () => {
     expect(TypeOrmCollectorModule.forRoot().providers?.length ?? 0).toBeGreaterThan(0);
   });
+
+  it('warns and no-ops when the named DataSource is absent (MAJ-18/MIN-20)', () => {
+    const cls = { get: jest.fn() } as unknown as ClsService;
+    // moduleRef resolves cls but not the named DataSource token → undefined.
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : undefined),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, { connectionName: 'analytics' });
+    expect(() => patch.onModuleInit()).not.toThrow();
+  });
+
+  it('warns and no-ops when the DataSource is not initialized', () => {
+    const cls = { get: jest.fn() } as unknown as ClsService;
+    const dataSource = { isInitialized: false } as unknown as DataSource;
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : dataSource),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
+    expect(() => patch.onModuleInit()).not.toThrow();
+  });
+
+  it('no-ops silently when the profiler core is disabled (no ClsService)', () => {
+    const moduleRef = { get: () => undefined } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
+    expect(() => patch.onModuleInit()).not.toThrow();
+  });
+
+  it('no-ops silently when the default DataSource is absent (no connectionName, no warn)', () => {
+    const cls = { get: jest.fn() } as unknown as ClsService;
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : undefined),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
+    expect(() => patch.onModuleInit()).not.toThrow();
+  });
 });
 
 describe('detectQueryType', () => {
@@ -146,7 +182,10 @@ describe('TypeOrmDriverPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new TypeOrmDriverPatch(cls, dataSource, { slowQueryThreshold: params.threshold });
+    const moduleRef = {
+      get: (token: unknown) => (token === ClsService ? cls : dataSource),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, { slowQueryThreshold: params.threshold });
     patch.onModuleInit();
     return { dataSource, profile };
   }
@@ -233,7 +272,10 @@ describe('TypeOrmDriverPatch', () => {
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
     // Third argument omitted → exercises the default `options = {}` parameter.
-    const patch = new TypeOrmDriverPatch(cls, dataSource);
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : dataSource),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
     patch.onModuleInit();
 
     await dataSource.createQueryRunner().query('SELECT 1');
@@ -249,7 +291,10 @@ describe('TypeOrmDriverPatch', () => {
     } as unknown as DataSource & { createQueryRunner: () => QueryRunnerLike };
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    const patch = new TypeOrmDriverPatch(cls, dataSource, {});
+    const moduleRef = {
+      get: (t: unknown) => (t === ClsService ? cls : dataSource),
+    } as unknown as ModuleRef;
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
     patch.onModuleInit();
     patch.onModuleInit(); // second init must be a no-op (idempotency guard)
 

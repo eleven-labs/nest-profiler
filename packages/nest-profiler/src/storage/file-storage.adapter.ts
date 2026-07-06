@@ -353,6 +353,13 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
   }
 
   private tokenPath(token: string): string {
+    // Defence in depth against path traversal: the token becomes a filename, so reject any
+    // token that is not a plain safe id. Tokens are internal UUIDs, but a custom entrypoint
+    // or a future code path could feed a hostile value (`../../evil`); this guarantees writes
+    // and reads never escape the storage directory.
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(token)) {
+      throw new Error(`Invalid profile token: ${JSON.stringify(token)}`);
+    }
     return path.join(this.dir, `${token}.json`);
   }
 

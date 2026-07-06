@@ -41,7 +41,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

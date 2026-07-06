@@ -48,7 +48,7 @@ describe('ConfigCollector', () => {
     }));
     const result = collector.collect(makeProfile());
     expect(result.config['db.host']).toBe('localhost');
-    expect(result.config['db.password']).toBe('***');
+    expect(result.config['db.password']).toBe('[REDACTED]');
     expect(result.config['port']).toBe(3000);
   });
 
@@ -57,7 +57,7 @@ describe('ConfigCollector', () => {
       maskKeys: ['MY_KEY'],
     });
     const result = collector.collect(makeProfile());
-    expect(result.config['MY_KEY']).toBe('***');
+    expect(result.config['MY_KEY']).toBe('[REDACTED]');
   });
 
   it('getBadgeValue shows key count', async () => {

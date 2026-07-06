@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
+import { redact } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 import {
   DEFAULT_MASK_HEADERS,
@@ -85,8 +86,11 @@ export class RabbitMqContextAdapter implements IContextAdapter {
   readonly contextType = RMQ_CONTEXT_TYPE;
 
   constructor(
+    // @Optional() with a default: the adapter is exported for manual wiring, so a consumer that
+    // provides it without forRoot() (no options token) must not hit a DI resolution error.
+    @Optional()
     @Inject(RABBITMQ_COLLECTOR_OPTIONS)
-    private readonly options: RabbitMqCollectorModuleOptions,
+    private readonly options: RabbitMqCollectorModuleOptions = {},
   ) {}
 
   recoverProfile(): Profile {
@@ -134,7 +138,7 @@ export class RabbitMqContextAdapter implements IContextAdapter {
       deliveryTag: fields?.deliveryTag,
     };
     if (headers) data.headers = headers;
-    if (opts.captureBody !== false && payload != null) data.payload = payload;
+    if (opts.captureBody !== false && payload != null) data.payload = redact(payload);
     data.publishSnippet = buildAmqpPublish(data);
 
     profile.entrypoint = { type: RABBITMQ_ENTRYPOINT_TYPE, data };

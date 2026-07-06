@@ -1,7 +1,6 @@
 /**
- * The installed profiler package version, used as an asset cache-buster (`?v=<version>`).
- * Because the asset URLs (`profiler.css`, `profiler.js`…) are not content-fingerprinted, the
- * version query keeps browsers/proxies from serving a stale CSS/JS bundle after an upgrade.
+ * The installed profiler package version. Used as the asset cache-buster fallback when a
+ * file's content digest cannot be computed (see {@link assetVersionQuery}).
  *
  * Resolved from this package's own `package.json`. `version.ts` sits at the source root, so
  * `../package.json` resolves correctly from both `src/version.ts` and `dist/version.js`.
@@ -15,6 +14,3 @@ export function getProfilerVersion(): string {
     return '0.0.0';
   }
 }
-
-/** The `?v=<version>` query string appended to profiler asset URLs. */
-export const ASSET_VERSION_QUERY = `?v=${getProfilerVersion()}`;

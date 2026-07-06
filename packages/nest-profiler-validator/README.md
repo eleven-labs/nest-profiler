@@ -58,7 +58,7 @@ When `pipe` is omitted, a class-validator `ValidationPipe` is built from `valida
 import { ConditionalModule } from '@nestjs/config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [

@@ -35,7 +35,7 @@ import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
 ```ts
 import { ConditionalModule } from '@nestjs/config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
 
 ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
 ```
@@ -51,7 +51,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { AppCommand } from './app.command';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled)],

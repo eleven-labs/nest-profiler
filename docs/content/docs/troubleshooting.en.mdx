@@ -1,0 +1,61 @@
+---
+title: Troubleshooting
+description: Common issues when profiling a NestJS app - no profiles appear, empty Logs tab, GraphQL not captured, missing collector panels, 401 on the UI - and how to fix each one.
+seo:
+  title: Common profiler issues & fixes
+  description: 'A troubleshooting guide for @eleven-labs/nest-profiler: why no profiles appear, why the Logs tab is empty, why GraphQL or a collector panel is missing, and why the /_profiler UI returns 401 - with the fix for each symptom.'
+---
+
+This page collects the symptoms people hit most often and the fix for each. If none of these match, open the raw profile JSON at `/_profiler/{token}/data` to see exactly what was captured.
+
+## No profiles appear at all
+
+The list at `/_profiler` stays empty even after making requests.
+
+- **The profiler is disabled.** With the recommended wiring, the active `ProfilerModule` is only loaded when `isProfilerEnabled` is true (e.g. `PROFILER_ENABLED` is not `false`). Check the environment the app actually booted with.
+- **The path is ignored.** Requests matching `ignorePaths` or the built-in defaults (favicon, robots.txt, the Chrome DevTools probe, apple-touch-icon) are skipped. Set `useDefaultIgnorePaths: false` to profile those too, or verify your `ignorePaths` / `ignoreRequest` predicate isn't matching your route.
+- **Sampling is on.** A `sampleRate` below `1.0` profiles only a fraction of requests. Set it to `1.0` while debugging.
+- **In-memory storage was cleared.** The default `memory` backend is emptied on every restart. Use `storageType: 'file'` (or the SQLite adapter) to keep profiles across restarts. See [Storage backends](/docs/packages/nest-profiler/storage).
+
+## The Logs tab is empty
+
+Logs are written to the console but never show up in the profile.
+
+- Wrap the logger in `main.ts`: `app.useLogger(profilerService.createLogger(new ConsoleLogger()))`, and create the app with `{ bufferLogs: true }`. See [Set up the profiler](/docs/tutorials/setup-profiler#step-3-enable-log-capture).
+- `app.useLogger()` only captures logs that flow through NestJS's `Logger`. A logger injected directly into a service (e.g. `nestjs-pino`'s `PinoLogger`) must be wrapped explicitly with `profiler.createLogger(...)` at the injection point. See [Log capture](/docs/packages/nest-profiler/logs).
+
+## GraphQL operations are not profiled
+
+REST requests appear but GraphQL operations don't.
+
+- **The GraphQL package is missing.** The core `ProfilerModule` is HTTP-only. Install and register [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql).
+- **The `context` factory is missing.** The profiler needs access to the underlying HTTP request. Configure `context: ({ req }) => ({ req })` (Apollo / graphql-yoga) or `context: ({ request }) => ({ request })` (Mercurius uses `request`, not `req`). Without it the profiler silently falls back to passthrough.
+- **Subscriptions.** WebSocket-transport subscriptions are not profiled at this time.
+
+See [GraphQL support](/docs/getting-started#graphql-support).
+
+## A collector is installed but its panel is missing
+
+The package is added but no tab shows up in the UI.
+
+- **The collector isn't loaded.** Each collector must be imported in the feature module it instruments and gated with the same `isProfilerEnabled` predicate. If profiling is off, it isn't loaded.
+- **Wrong placement.** Infra-scoped collectors (database, HTTP client, cache, messaging, GraphQL transport) must sit next to the `HttpModule` / ORM / broker they instrument - they cannot join a root-level `ProfilingModule` bundle. See [Configuration](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+- **Nothing was captured.** A panel only renders when the collector recorded at least one entry during the request. Exercise the code it instruments (run a query, hit the cache, consume a message).
+
+## Database queries are missing
+
+The Database (or MongoDB) tab is empty for a request that clearly hit the database.
+
+- Queries executed **outside a request context** - during module initialization, in a scheduled job with no active profile, or before the middleware ran - are silently ignored because there is no active CLS profile to append to. Only queries triggered within a profiled request are captured.
+
+## `/_profiler` returns 401 Unauthorized
+
+Access to the UI is protected.
+
+- A `token` option or the `PROFILER_TOKEN` environment variable is set. Send `Authorization: Bearer <token>` with your request, or unset it for local development. See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui).
+
+## CLI command profiles don't appear next to HTTP requests
+
+You profiled a `nest-commander` command but can't find it in the web UI.
+
+- The CLI process and the HTTP app are separate processes with separate in-memory stores. Use **file** (or SQLite) storage with the **same** `storagePath` for both, so the command runs written by the CLI show up at `/_profiler` next to the HTTP profiles. See [Command profiling](/docs/tutorials/commander-collector) and the [example app](/docs/example-api#profiling-cli-commands-nest-profiler-commander).

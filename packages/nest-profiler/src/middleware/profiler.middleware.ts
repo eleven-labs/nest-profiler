@@ -6,9 +6,12 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants';
+import { PROFILER_REQ_KEY, PROFILER_BASE_PATH, PROFILER_CLS_KEYS } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
+import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
+import { redact } from '../utils/redact.utils';
+import { normalizeBody } from '../utils/safe-data.utils';
 
 /**
  * Paths skipped by default so the profiler list is not flooded with browser and
@@ -22,10 +25,20 @@ export const DEFAULT_IGNORE_PATHS: (string | RegExp)[] = [
   /^\/apple-touch-icon/,
 ];
 
-function normalizeIncomingHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
+/**
+ * Flattens incoming headers into a plain record, replacing the value of any header whose
+ * (lower-cased) name is in `maskHeaders` with `[REDACTED]`. This masks credential-bearing
+ * headers (`authorization`, the raw `cookie` header, `x-api-key`…) before they are ever
+ * persisted or shown in the dashboard / "Copy as cURL".
+ */
+function normalizeIncomingHeaders(
+  headers: IncomingHttpHeaders,
+  maskHeaders: ReadonlySet<string>,
+): Record<string, string | string[]> {
   const result: Record<string, string | string[]> = {};
   for (const [k, v] of Object.entries(headers)) {
-    if (v !== undefined) result[k] = v;
+    if (v === undefined) continue;
+    result[k] = maskHeaders.has(k.toLowerCase()) ? '[REDACTED]' : v;
   }
   return result;
 }
@@ -48,13 +61,19 @@ type RawResponse = {
  */
 const MAX_BUFFERED_BODY_BYTES = 1024 * 1024;
 
+/** Shared empty mask set for calls that must not redact (the user's own skip predicate). */
+const EMPTY_MASK: ReadonlySet<string> = new Set();
+
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
   private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
+  private readonly maxBodySize: number | undefined;
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
   private readonly maskCookies: Set<string>;
+  private readonly maskHeaders: ReadonlySet<string>;
+  private readonly emitDebugHeaders: boolean;
   private readonly ignoreRequest: ProfilerRequestFilter | undefined;
 
   constructor(
@@ -66,12 +85,17 @@ export class ProfilerMiddleware implements NestMiddleware {
     @Optional() private readonly core: ProfilerCoreService,
   ) {
     this.collectBody = options.collectBody ?? false;
+    this.maxBodySize = options.maxBodySize;
     this.sampleRate = options.sampleRate ?? 1.0;
     this.ignorePaths = [
       ...(options.useDefaultIgnorePaths === false ? [] : DEFAULT_IGNORE_PATHS),
       ...(options.ignorePaths ?? []),
     ];
     this.maskCookies = new Set(options.maskCookies ?? []);
+    this.maskHeaders = new Set(
+      (options.maskHeaders ?? DEFAULT_MASK_HEADERS).map((h) => h.toLowerCase()),
+    );
+    this.emitDebugHeaders = options.emitDebugHeaders ?? true;
     this.ignoreRequest = options.ignoreRequest;
   }
 
@@ -81,8 +105,13 @@ export class ProfilerMiddleware implements NestMiddleware {
       return;
     }
 
-    const requestId = req.headers['x-request-id'];
-    const token = (Array.isArray(requestId) ? requestId[0] : requestId) ?? crypto.randomUUID();
+    // The storage token is ALWAYS an internal UUID — never derived from the client-controlled
+    // `x-request-id` header. Deriving it from the header allowed path traversal on write
+    // (`x-request-id: ../../evil`) and token collisions between concurrent requests sharing an
+    // id. The header is kept only as a display-only correlation attribute.
+    const token = crypto.randomUUID();
+    const rawRequestId = req.headers['x-request-id'];
+    const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId;
 
     const profile: Profile<HttpRequestData> = {
       token,
@@ -92,10 +121,11 @@ export class ProfilerMiddleware implements NestMiddleware {
         data: {
           method: req.method,
           url: req.originalUrl ?? req.url,
-          headers: normalizeIncomingHeaders(req.headers),
+          headers: normalizeIncomingHeaders(req.headers, this.maskHeaders),
           query: req.query ?? {},
           ip: req.ip,
-          body: this.collectBody ? req.body : undefined,
+          requestId,
+          body: this.collectBody ? this.normalizeBody(req.body) : undefined,
           cookies: this.buildCookieMap(req),
           session: this.buildSessionData(req),
         },
@@ -113,10 +143,12 @@ export class ProfilerMiddleware implements NestMiddleware {
 
     this.cls.run(() => {
       this.cls.set('profiler.token', token);
-      this.cls.set('profiler.profile', profile);
-      this.cls.set('profiler.request', req);
-      res.setHeader('X-Debug-Token', token);
-      res.setHeader('X-Debug-Token-Link', `${this.profilerPath}/${token}`);
+      this.cls.set(PROFILER_CLS_KEYS.profile, profile);
+      this.cls.set(PROFILER_CLS_KEYS.request, req);
+      if (this.emitDebugHeaders) {
+        res.setHeader('X-Debug-Token', token);
+        res.setHeader('X-Debug-Token-Link', `${this.profilerPath}/${token}`);
+      }
 
       this.attachFinishHook(profile, req, res);
       next();
@@ -150,7 +182,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         // transport-level { data, errors } envelope the driver writes afterwards. Backfill
         // it so the Response tab shows what the client actually received, errors included.
         if (profile.entrypoint.data.graphql && interceptedResponseBody !== undefined) {
-          profile.response.body = interceptedResponseBody;
+          profile.response.body = this.normalizeBody(interceptedResponseBody);
           profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
           this.core.scheduleSave(profile);
         }
@@ -161,7 +193,7 @@ export class ProfilerMiddleware implements NestMiddleware {
       profile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},
-        body: this.collectBody ? interceptedResponseBody : undefined,
+        body: this.collectBody ? this.normalizeBody(interceptedResponseBody) : undefined,
       };
 
       this.core.enrichHttpResponse(profile, req, interceptedResponseBody);
@@ -268,7 +300,9 @@ export class ProfilerMiddleware implements NestMiddleware {
         method: req.method,
         url: req.url,
         path: req.path,
-        headers: normalizeIncomingHeaders(req.headers),
+        // The user's own skip predicate sees raw headers (never persisted) so it can inspect
+        // e.g. `authorization` to decide what to profile.
+        headers: normalizeIncomingHeaders(req.headers, EMPTY_MASK),
         body: req.body,
       })
     )
@@ -279,11 +313,18 @@ export class ProfilerMiddleware implements NestMiddleware {
     );
   }
 
+  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize`). */
+  private normalizeBody(body: unknown): unknown {
+    return this.maxBodySize === undefined
+      ? normalizeBody(body)
+      : normalizeBody(body, this.maxBodySize);
+  }
+
   private buildCookieMap(req: PlatformRequest): Record<string, string> | undefined {
     const raw = req.cookies ?? this.parseCookies(req.headers.cookie);
     if (Object.keys(raw).length === 0) return undefined;
     return Object.fromEntries(
-      Object.entries(raw).map(([k, v]) => [k, this.maskCookies.has(k) ? '***' : v]),
+      Object.entries(raw).map(([k, v]) => [k, this.maskCookies.has(k) ? '[REDACTED]' : v]),
     );
   }
 
@@ -293,7 +334,8 @@ export class ProfilerMiddleware implements NestMiddleware {
     for (const [k, v] of Object.entries(req.session)) {
       if (typeof v !== 'function') data[k] = v;
     }
-    return Object.keys(data).length > 0 ? data : undefined;
+    // Session data commonly holds tokens/passport payloads — redact sensitive keys/values.
+    return Object.keys(data).length > 0 ? redact(data) : undefined;
   }
 
   private parseCookies(header?: string): Record<string, string> {

@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "getting-started",
+    "troubleshooting",
     "agent-skills",
     "packages",
     "api-reference",

@@ -40,10 +40,19 @@ const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
  * a 404. Authored/extension scripts are served via {@link ClientAssetRegistry}
  * instead; the vendored third-party scripts below round out the script allowlist.
  */
-const STYLE_ALLOWLIST = ['profiler.css', 'github.min.css', 'github-dark.min.css'];
+const STYLE_ALLOWLIST = ['profiler.css', 'toolbar.css', 'github.min.css', 'github-dark.min.css'];
 
 /** Vendored third-party scripts served from `public/scripts` (not authored bundles). */
 const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
+
+/**
+ * Content-Security-Policy for the profiler's sensitive responses. `script-src 'self'` (the UI
+ * carries no inline scripts) neutralises any residual XSS; `frame-ancestors 'none'` blocks
+ * clickjacking. Paired with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`
+ * on the HTML pages and the JSON export.
+ */
+const PROFILER_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
 
 @UseGuards(ProfilerGuard)
 @Controller()
@@ -95,21 +104,28 @@ export class ProfilerController {
 
   @Get(PROFILER_BASE_PATH)
   @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Content-Security-Policy', PROFILER_CSP)
   async listProfiles(
     @Query() query: Record<string, string | string[] | undefined>,
   ): Promise<string> {
     const allSections = this.core.getListSections();
 
-    const [recent, globalPanels] = await Promise.all([
-      this.core.storage.findAll(),
+    // Fetch only the 30 most-recent profiles for the heap trend — never the whole store.
+    // `findAll()` would defeat the SQLite query pushdown (SELECT without LIMIT + JSON.parse
+    // of every document) on the dashboard's own hot path.
+    const [recentPage, globalPanels] = await Promise.all([
+      this.core.storage.query({ filters: [], page: 1, pageSize: 30 }),
       this.core.collectorRegistry.buildGlobalPanels(),
     ]);
 
-    // The heap trend reflects the real process history, so it ignores filters.
-    const heapSeries = recent
-      .slice(-30)
+    // The heap trend reflects the real process history, so it ignores filters. `query()`
+    // returns newest-first; reverse to plot oldest → newest.
+    const heapSeries = recentPage.items
       .map((p) => p.performance.heapUsed)
-      .filter((v) => v !== undefined);
+      .filter((v) => v !== undefined)
+      .reverse();
 
     // Each section is an independent list: it queries the store for its own page,
     // scoped to its entrypoint type(s), with its own namespaced filter/page params
@@ -249,6 +265,8 @@ export class ProfilerController {
   }
 
   @Get(`${PROFILER_BASE_PATH}/:token/data`)
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
   async getProfileData(@Param('token') token: string): Promise<Profile> {
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
@@ -257,6 +275,9 @@ export class ProfilerController {
 
   @Get(`${PROFILER_BASE_PATH}/:token`)
   @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Content-Security-Policy', PROFILER_CSP)
   async getProfileDetail(
     @Param('token') token: string,
     @Query('tab') tab?: string,

@@ -29,7 +29,7 @@ import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
 
 @Module({
   imports: [
@@ -94,15 +94,7 @@ The **Timeline** panel shows the `db.products.findAll` span alongside other phas
 
 ## How it works
 
-The collector patches `dataSource.createQueryRunner()` to wrap every `QueryRunner.query()` call with timing. The patch records entries directly into the CLS profile for the current request, then `TypeOrmCollector.collect()` reads and returns them.
-
-This approach captures:
-
-- All queries from TypeORM Repositories
-- All queries from the EntityManager
-- Raw queries via `dataSource.query()`
-
-Queries executed outside a request context (e.g., during module initialization) are silently ignored since there is no active CLS profile.
+The collector patches TypeORM's `createQueryRunner()` to time every query and record it into the active request profile. See [How it works](/docs/packages/nest-profiler-typeorm#how-it-works) on the package page for the full mechanism and the exact set of captured queries.
 
 <Callout type="warn" title="Synchronize in production">
   Never use `synchronize: true` in production. It auto-migrates the schema on startup and can cause

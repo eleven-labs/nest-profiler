@@ -88,6 +88,24 @@ export class GraphQLContextAdapter implements IContextAdapter {
     return null;
   }
 
+  /**
+   * Returns the underlying HTTP request behind the GraphQL operation (the one carrying
+   * `req.user`/headers), so the interceptor can repose it in CLS on the recovered path and
+   * the auth collector no longer reports an authenticated GraphQL request as anonymous.
+   */
+  getRequest(ctx: ExecutionContext): object | undefined {
+    const [, , gqlCtx] = ctx.getArgs<[unknown, unknown, GqlContext]>();
+    if (!gqlCtx) return undefined;
+    const candidates = [gqlCtx['req'], gqlCtx['request'], gqlCtx].filter(Boolean) as Record<
+      symbol,
+      unknown
+    >[];
+    for (const candidate of candidates) {
+      if (candidate[PROFILER_REQ_KEY]) return candidate;
+    }
+    return undefined;
+  }
+
   enrichProfile(profile: Profile<HttpRequestData>, ctx: ExecutionContext): void {
     // A GraphQL operation is its own entrypoint kind: flip the `http` discriminator
     // the middleware seeded so the profile renders in the GraphQL list and tab.

@@ -57,6 +57,12 @@ export interface HttpRequestData {
   cookies?: Record<string, string>;
   session?: Record<string, unknown>;
   /**
+   * The client-supplied `x-request-id` header, kept purely as a correlation attribute for
+   * display. It is never used as the storage token (which is always an internal UUID) so a
+   * malicious or duplicated `x-request-id` can neither collide with nor traverse storage.
+   */
+  requestId?: string;
+  /**
    * Set when the HTTP request carried a GraphQL operation. The GraphQL package
    * reads this signal to promote the profile to the `graphql` entrypoint kind.
    */

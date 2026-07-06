@@ -16,6 +16,9 @@
     "cli:dev": "nest start --entryFile cli --",
     "test": "echo 'No tests for example-api'",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.cjs",
+    "test:e2e:file": "PROFILER_STORAGE_TYPE=file pnpm test:e2e",
+    "test:e2e:sqlite": "PROFILER_STORAGE_TYPE=sqlite pnpm test:e2e",
+    "test:e2e:storages": "pnpm test:e2e:file && pnpm test:e2e:sqlite",
     "test:e2e:no-stress": "PROFILER_STRESS=false pnpm test:e2e",
     "typecheck": "tsc --noEmit --incremental false"
   },
@@ -51,6 +54,7 @@
     "@nestjs/typeorm": "^11.0.3",
     "amqplib": "^2.0.1",
     "axios": "^1.18.1",
+    "better-sqlite3": "^12.11.1",
     "cache-manager": "^7.2.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",

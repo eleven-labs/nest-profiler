@@ -8,6 +8,11 @@ export interface MikroOrmCollectorModuleOptions {
   slowQueryThreshold?: number;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
+  /**
+   * Name of the MikroORM context to instrument. Omit for the default. Set this in apps that
+   * only register named contexts (otherwise the default `MikroORM` token would be missing).
+   */
+  connectionName?: string;
 }
 
 export const MIKRO_ORM_COLLECTOR_OPTIONS = Symbol('MIKRO_ORM_COLLECTOR_OPTIONS');

@@ -14,6 +14,7 @@ export class MikroOrmCollectorModule {
       module: MikroOrmCollectorModule,
       providers: [
         { provide: MIKRO_ORM_COLLECTOR_OPTIONS, useValue: options },
+        // The patch resolves the (optionally named) MikroORM context + ClsService lazily via ModuleRef.
         MikroOrmLoggerPatch,
         MikroOrmCollector,
       ],

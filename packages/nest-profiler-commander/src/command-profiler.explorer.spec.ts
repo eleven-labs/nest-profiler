@@ -23,11 +23,10 @@ class HelloCommand extends FakeCommandRunner {
 /** A command with no `command.name()` — name should fall back to the class name. */
 class NamelessCommand extends FakeCommandRunner {}
 
-/** Exposes a settable runner class so we can simulate nest-commander present/absent. */
+/** Substitutes the CommandRunner discriminant with a stand-in so tests need no real class. */
 class TestExplorer extends CommandProfilerExplorer {
-  runnerClass: typeof FakeCommandRunner | undefined = FakeCommandRunner;
-  protected override getCommandRunnerClass(): typeof FakeCommandRunner | undefined {
-    return this.runnerClass;
+  protected override getCommandRunnerClass(): typeof FakeCommandRunner {
+    return FakeCommandRunner;
   }
 }
 
@@ -125,13 +124,13 @@ describe('CommandProfilerExplorer', () => {
     expect(profile).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves the real nest-commander CommandRunner via require()', async () => {
+  it('detects commands via the real nest-commander CommandRunner (static import)', async () => {
     class RealCommand extends CommandRunner {
       async run(_passedParams: string[], _options?: Record<string, unknown>): Promise<void> {}
     }
     const cmd = new RealCommand();
     const { profiler, profile, metas } = createProfiler();
-    // Plain explorer — exercises the real getCommandRunnerClass() require() path.
+    // Plain explorer — exercises getCommandRunnerClass() returning the statically-imported class.
     const explorer = new CommandProfilerExplorer(createDiscovery([cmd]), profiler);
 
     explorer.onApplicationBootstrap();
@@ -139,21 +138,5 @@ describe('CommandProfilerExplorer', () => {
 
     expect(profile).toHaveBeenCalledTimes(1);
     expect(metas[0]).toMatchObject({ name: 'RealCommand' });
-  });
-
-  it('is a no-op when nest-commander cannot be loaded', async () => {
-    const hello = new HelloCommand();
-    const { profiler, profile } = createProfiler();
-    // Plain explorer with a throwing loader — exercises the real catch path.
-    const explorer = new CommandProfilerExplorer(createDiscovery([hello]), profiler);
-    (explorer as unknown as { loadNestCommander: () => never }).loadNestCommander = () => {
-      throw new Error('Cannot find module nest-commander');
-    };
-
-    explorer.onApplicationBootstrap();
-    await hello.run(['x']);
-
-    expect(hello.ran).toBe(true);
-    expect(profile).not.toHaveBeenCalled();
   });
 });

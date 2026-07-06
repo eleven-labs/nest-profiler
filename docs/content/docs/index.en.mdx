@@ -18,7 +18,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Commander, Auth, Config, Validator, GraphQL."
+    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Commander, Auth, Config, Validator, GraphQL, RabbitMQ."
   />
   <Card
     href="/docs/example-api"
@@ -52,16 +52,21 @@ The ecosystem is built around an **extensible collector architecture**: the core
 | [`@eleven-labs/nest-profiler-config`](/docs/packages/nest-profiler-config)       | Config          | `ConfigService` snapshot with secret masking                                   |
 | [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator) | Validator       | DTO validation results - property violations with constraint names             |
 | [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)     | GraphQL         | GraphQL queries/mutations: operation type, name, query, variables              |
+| [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)   | RabbitMQ        | Consumed `@RabbitSubscribe` messages: exchange, routing key, handler, payload  |
 
 ## Key features
 
 - **Floating toolbar** - injected into HTML responses with per-collector badges (query count, hit ratio, violation count, …)
 - **Extensible collectors** - implement `IProfilerCollector` to add your own panel with a custom EJS template and toolbar badge
-- **Two storage backends** - in-memory LRU (default) or file-based persistence that survives restarts
+- **Three storage backends** - in-memory LRU (default), file-based persistence that survives restarts, or a first-party SQLite adapter that filters and paginates in the database
 - **Request sampling & path filtering** - `sampleRate` and `ignorePaths` to control overhead in busy environments
 - **Module-per-collector pattern** - each optional package is imported in the feature module it instruments, not in the root module
 - **GraphQL support** - profiles queries and mutations with a **GQL** badge, operation type/name, and syntax-highlighted query via `@eleven-labs/nest-profiler-graphql`; compatible with Apollo, Mercurius, and graphql-yoga
 - **CLI command profiling** - profiles `nest-commander` commands with a **CLI** badge in a dedicated **Command** panel via `@eleven-labs/nest-profiler-commander`; with file storage the command profiles show up next to HTTP requests at `/_profiler`
+
+## Versioning and stability
+
+Every package follows [Semantic Versioning](https://semver.org). The public API is what each package exports from its entry point (plus documented subpaths such as `@eleven-labs/nest-profiler/sqlite`) — breaking changes to it only ship in a major version. The rendered UI, EJS templates and internal services are implementation details and can change in a minor release. Packages are versioned and published together with [Changesets](https://github.com/changesets/changesets).
 
 <Callout type="warn" title="Development only">
   The profiler is designed for development environments. Disable it in production to avoid exposing

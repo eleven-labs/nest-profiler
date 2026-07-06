@@ -17,6 +17,7 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
+import { normalizeBody } from '../utils/safe-data.utils';
 
 function normalizeHeaders(
   raw: Record<string, string | number | string[]>,
@@ -30,6 +31,7 @@ function normalizeHeaders(
 export class ProfilerInterceptor implements NestInterceptor {
   private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
+  private readonly maxBodySize: number | undefined;
 
   constructor(
     private readonly cls: ClsService,
@@ -39,6 +41,14 @@ export class ProfilerInterceptor implements NestInterceptor {
     options: ProfilerModuleOptions = {},
   ) {
     this.collectBody = options.collectBody ?? false;
+    this.maxBodySize = options.maxBodySize;
+  }
+
+  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize`). */
+  private normalizeBody(body: unknown): unknown {
+    return this.maxBodySize === undefined
+      ? normalizeBody(body)
+      : normalizeBody(body, this.maxBodySize);
   }
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -80,6 +90,10 @@ export class ProfilerInterceptor implements NestInterceptor {
       this.cls.run(() => {
         this.cls.set('profiler.profile', activeProfile);
         this.cls.set('profiler.token', activeProfile.token);
+        // Repose the transport request so request-scoped collectors (auth) can read
+        // `req.user` on this recovered path instead of reporting the user as anonymous.
+        const recoveredReq = adapter.getRequest?.(ctx);
+        if (recoveredReq) this.cls.set('profiler.request', recoveredReq);
         this.processNonHttp(activeProfile, next).subscribe(subscriber);
       });
     });
@@ -144,10 +158,12 @@ export class ProfilerInterceptor implements NestInterceptor {
           timestamp: Date.now(),
         });
         this.finalize(capturedProfile, res, undefined);
-        if (capturedProfile.response && err instanceof HttpException) {
+        if (capturedProfile.response) {
           // Exception filters run after the observable chain, so res.statusCode is still 200
-          // here. Read the real status directly from HttpException when available.
-          capturedProfile.response.statusCode = err.getStatus();
+          // here. Derive the real status from the error: an HttpException carries its own,
+          // anything else becomes a 500 (mirrors processNonHttp).
+          capturedProfile.response.statusCode =
+            err instanceof HttpException ? err.getStatus() : 500;
         }
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
@@ -191,14 +207,14 @@ export class ProfilerInterceptor implements NestInterceptor {
       profile.response = {
         statusCode: res.statusCode,
         headers: normalizeHeaders(res.getHeaders()),
-        body: this.collectBody ? body : undefined,
+        body: this.collectBody ? this.normalizeBody(body) : undefined,
       };
     } else {
       // Non-HTTP context (GraphQL, microservices): always capture resolver result as body.
       profile.response = {
         statusCode: 200,
         headers: {},
-        body,
+        body: this.normalizeBody(body),
       };
     }
   }

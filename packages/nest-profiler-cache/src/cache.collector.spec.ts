@@ -1,4 +1,5 @@
 import * as path from 'path';
+import type { ModuleRef } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
 import { CacheCollector } from './cache.collector';
 import { CacheCollectorModule } from './cache-collector.module';
@@ -6,6 +7,10 @@ import { CacheManagerPatch } from './cache-manager.patch';
 import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import type { CacheOperationEntry } from './cache-collector.interface';
+
+function moduleRefFor(cls: ClsService | undefined): ModuleRef {
+  return { get: jest.fn(() => cls) } as unknown as ModuleRef;
+}
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -134,7 +139,7 @@ describe('CacheManagerPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new CacheManagerPatch(cls, cacheManager);
+    const patch = new CacheManagerPatch(moduleRefFor(cls), cacheManager);
     patch.onModuleInit();
     return { cacheManager, original, profile };
   }
@@ -145,7 +150,7 @@ describe('CacheManagerPatch', () => {
 
   it('does nothing when no cache manager is available', () => {
     const cls = { get: jest.fn() } as unknown as ClsService;
-    const patch = new CacheManagerPatch(cls, undefined as never);
+    const patch = new CacheManagerPatch(moduleRefFor(cls), undefined as never);
     expect(() => patch.onModuleInit()).not.toThrow();
   });
 
@@ -187,6 +192,43 @@ describe('CacheManagerPatch', () => {
     expect(profile).toBeNull();
   });
 
+  it('records a failed cache operation with its error, then rethrows (MIN-13)', async () => {
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+    const cacheManager: FakeCacheManager = {
+      get: jest.fn(() => Promise.reject(new Error('backend down'))),
+      set: jest.fn(() => Promise.resolve()),
+      del: jest.fn(() => Promise.resolve()),
+    };
+    const patch = new CacheManagerPatch(moduleRefFor(cls), cacheManager);
+    patch.onModuleInit();
+
+    await expect(cacheManager.get('k')).rejects.toThrow('backend down');
+    const op = opsOf(profile).find((o) => o.operation === 'GET_MISS');
+    expect(op?.error).toBe('backend down');
+  });
+
+  it('un-instruments (and resets the guard) on module destroy', async () => {
+    const originalGet = jest.fn(() => Promise.resolve('v'));
+    const cacheManager = {
+      get: originalGet,
+      set: jest.fn(() => Promise.resolve()),
+      del: jest.fn(() => Promise.resolve()),
+    } as FakeCacheManager & { __profilerPatched?: boolean };
+    const profile = makeProfile();
+    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+    const patch = new CacheManagerPatch(moduleRefFor(cls), cacheManager);
+
+    patch.onModuleInit();
+    expect(cacheManager.get).not.toBe(originalGet); // patched
+    patch.onModuleDestroy();
+    expect(cacheManager.__profilerPatched).toBe(false);
+
+    // After destroy the method is restored: a get is no longer instrumented.
+    await cacheManager.get('k');
+    expect(opsOf(profile)).toHaveLength(0);
+  });
+
   it('does not double-instrument when onModuleInit runs twice', async () => {
     const store = new Map<string, unknown>();
     const cacheManager: FakeCacheManager = {
@@ -197,7 +239,7 @@ describe('CacheManagerPatch', () => {
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
 
-    const patch = new CacheManagerPatch(cls, cacheManager);
+    const patch = new CacheManagerPatch(moduleRefFor(cls), cacheManager);
     patch.onModuleInit();
     patch.onModuleInit();
 

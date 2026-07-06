@@ -21,22 +21,29 @@ pnpm add @eleven-labs/nest-profiler-http @nestjs/axios axios
 
 ## Step 2 - Register the module
 
-Import `HttpModule` (from `@nestjs/axios`) alongside `HttpCollectorModule.forRoot()` in the feature module that uses `HttpService`. The bundled axios adapter is enabled by default and patches the `HttpService` provided by `HttpModule`:
+This package does **not** depend on `@nestjs/axios` — you hand it your `HttpService.axiosRef` through `HttpCollectorModule.forRootAsync()`, so the axios adapter has nothing to resolve and no optional peer to guess at. Import `HttpModule` (from `@nestjs/axios`) alongside it in the feature module that uses `HttpService`:
 
 ```ts title="posts.module.ts"
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
     HttpModule,
-    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
+    ConditionalModule.registerWhen(
+      HttpCollectorModule.forRootAsync({
+        imports: [HttpModule],
+        inject: [HttpService],
+        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+      }),
+      isProfilerEnabled,
+    ),
   ],
   controllers: [PostsController],
   providers: [PostsService],
@@ -44,7 +51,13 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !=
 export class PostsModule {}
 ```
 
-If several feature modules use `HttpService`, register `HttpModule` + `HttpCollectorModule.forRoot()` in each one. The collector is idempotent - registering it multiple times is safe.
+If several feature modules create their own `HttpService`, pass them all: `axiosRef: [httpA.axiosRef, httpB.axiosRef]`. The adapter is idempotent — patching the same `axiosRef` twice is safe.
+
+<Callout>
+  Prefer `forRoot()` (no `axiosRef`) if you only record from a non-axios client (fetch/undici/got)
+  via the exported `HttpProfilerRecorder` / `appendHttpRequestEntry` — the axios adapter is then a
+  harmless no-op.
+</Callout>
 
 ## Step 3 - Use HttpService in a service
 
