@@ -24,10 +24,23 @@ interface RuntimeInfo {
   pid: number;
 }
 
+/** A single collapsible section in the Config panel. Namespaces registered with `registerAs`
+ *  (whether loaded via `forRoot({ load })` or `ConfigModule.forFeature`) become one group each;
+ *  top-level scalar values are gathered under a synthetic `General` group. */
+export interface ConfigGroup {
+  name: string;
+  entries: Record<string, unknown>;
+  keyCount: number;
+}
+
 export interface ConfigCollectorData {
   runtime: RuntimeInfo;
-  config: Record<string, unknown>;
+  groups: ConfigGroup[];
+  keyCount: number;
 }
+
+/** Synthetic group holding top-level scalar config values that don't belong to a namespace. */
+export const GENERAL_GROUP = 'General';
 
 @ProfilerCollector({
   name: 'config',
@@ -44,7 +57,7 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
   readonly priority = 90;
   readonly scope = 'global' as const;
 
-  private configSnapshot: Record<string, unknown> = {};
+  private groups: ConfigGroup[] = [];
   private keyCount = 0;
   private nestVersion = 'unknown';
 
@@ -69,8 +82,8 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
 
     try {
       const internalConfig = this.readInternalConfig();
-      this.configSnapshot = this.flattenAndMask(internalConfig);
-      this.keyCount = Object.keys(this.configSnapshot).length;
+      this.groups = this.buildGroups(internalConfig);
+      this.keyCount = this.groups.reduce((total, group) => total + group.keyCount, 0);
       // Canary (MIN-14): we read ConfigService's private `internalConfig`. If a ConfigService is
       // present but we extracted nothing, the private shape likely changed in a @nestjs/config
       // update — warn so the empty panel is diagnosable instead of silent.
@@ -81,7 +94,8 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
         );
       }
     } catch {
-      this.configSnapshot = {};
+      this.groups = [];
+      this.keyCount = 0;
     }
   }
 
@@ -104,45 +118,95 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         pid: process.pid,
       },
-      config: this.configSnapshot,
+      groups: this.groups,
+      keyCount: this.keyCount,
     };
   }
 
   /** Accesses ConfigService's private `internalConfig` property which holds all loaded config
    *  namespace values. No public API for this exists in NestJS 11. */
   private readInternalConfig(): Record<string, unknown> {
-    if (!this.configService) return {};
     // ConfigService has no public accessor for the full config map; TypeScript requires
     // the intermediate `unknown` cast when the source type has no index signature.
     const raw = (this.configService as unknown as Record<PropertyKey, unknown>)['internalConfig'];
     return isPlainObject(raw) ? raw : {};
   }
 
-  private flattenAndMask(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-    const maskKeys = this.options.maskKeys ?? [];
+  /** Splits the flat internal config into collapsible groups: one per `registerAs` namespace
+   *  (top-level plain objects) plus a `General` group for top-level scalar values.
+   *  Provenance (`forRoot` load vs `forFeature`) is not recoverable from `@nestjs/config` — both
+   *  merge into the same shared object — so grouping is purely structural (by namespace). */
+  private buildGroups(internalConfig: Record<string, unknown>): ConfigGroup[] {
+    const namespaceGroups: ConfigGroup[] = [];
+    const generalEntries: Record<string, unknown> = {};
 
-    for (const [key, value] of Object.entries(obj)) {
+    for (const [key, value] of Object.entries(internalConfig)) {
       // `@nestjs/config` stores the whole validated env (secrets included) under this internal
       // key when a `validationSchema` is used — never expose that firehose.
       if (key === '_PROCESS_ENV_VALIDATED') continue;
 
-      const fullKey = prefix ? `${prefix}.${key}` : key;
       if (isPlainObject(value)) {
-        Object.assign(result, this.flattenAndMask(value, fullKey));
-      } else if (shouldMaskKey(key, fullKey, maskKeys)) {
-        // Masked by key name (e.g. `password`, `apiKey`).
-        result[fullKey] = REDACTED;
-      } else if (typeof value === 'string') {
-        // Masked by value pattern (e.g. a DSN `postgres://user:pass@host` whose key
-        // — `DATABASE_URL` — does not itself look sensitive).
-        result[fullKey] = redactString(value);
+        // A `registerAs` namespace: its keys are shown relative to the namespace (e.g. `host`),
+        // but masked against their fully-qualified path (e.g. `database.host`) so user-supplied
+        // `maskKeys: ['database.password']` keep matching.
+        const entries = this.flattenAndMask(value, '', key);
+        namespaceGroups.push({ name: key, entries, keyCount: Object.keys(entries).length });
       } else {
-        result[fullKey] = value;
+        generalEntries[key] = this.maskLeaf(key, key, value);
+      }
+    }
+
+    namespaceGroups.sort((a, b) => a.name.localeCompare(b.name));
+
+    const groups: ConfigGroup[] = [];
+    if (Object.keys(generalEntries).length > 0) {
+      groups.push({
+        name: GENERAL_GROUP,
+        entries: generalEntries,
+        keyCount: Object.keys(generalEntries).length,
+      });
+    }
+    groups.push(...namespaceGroups);
+    return groups;
+  }
+
+  /** Flattens a namespace object to dot-notation leaf keys. `displayPrefix` builds the key shown
+   *  in the panel (relative to the namespace); `maskPrefix` builds the fully-qualified key used
+   *  only to decide masking. */
+  private flattenAndMask(
+    obj: Record<string, unknown>,
+    displayPrefix: string,
+    maskPrefix: string,
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(obj)) {
+      const displayKey = displayPrefix ? `${displayPrefix}.${key}` : key;
+      const maskKey = `${maskPrefix}.${key}`;
+      if (isPlainObject(value)) {
+        Object.assign(result, this.flattenAndMask(value, displayKey, maskKey));
+      } else {
+        result[displayKey] = this.maskLeaf(key, maskKey, value);
       }
     }
 
     return result;
+  }
+
+  /** Returns the display value for a leaf: `[REDACTED]` when the key looks sensitive, a redacted
+   *  string when the value itself contains secrets (e.g. a DSN), otherwise the value unchanged. */
+  private maskLeaf(key: string, maskKey: string, value: unknown): unknown {
+    const maskKeys = this.options.maskKeys ?? [];
+    if (shouldMaskKey(key, maskKey, maskKeys)) {
+      // Masked by key name (e.g. `password`, `apiKey`) or an explicit `maskKeys` entry.
+      return REDACTED;
+    }
+    if (typeof value === 'string') {
+      // Masked by value pattern (e.g. a DSN `postgres://user:pass@host` whose key
+      // — `DATABASE_URL` — does not itself look sensitive).
+      return redactString(value);
+    }
+    return value;
   }
 }
 

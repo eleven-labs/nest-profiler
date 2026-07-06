@@ -58,16 +58,19 @@ export class AppModule {}
 
 ## What it collects
 
-The full configuration object (from `ConfigService`'s internal store), flattened to dot-notation keys:
+The full configuration object (from `ConfigService`'s internal store), **grouped by namespace**. Each top-level namespace registered with `registerAs` — whether loaded via `ConfigModule.forRoot({ load: [...] })` **or** `ConfigModule.forFeature(...)` — becomes its own collapsible section, with its keys shown relative to the namespace. Top-level scalar values are gathered under a synthetic **General** group:
 
 ```
-db.host      = localhost
-db.password  = ***
-port         = 3000
-NODE_ENV     = development
+▸ General
+    port      = 3000
+    NODE_ENV  = development
+▸ database
+    host      = localhost
+    port      = 5432
+    password  = ***
 ```
 
-Nested objects are flattened with `.` separators.
+Within a group, nested objects are flattened with `.` separators (e.g. `pool.max`). Grouping is purely structural: `@nestjs/config` merges `forRoot` and `forFeature` configuration into the same store, so their origin is not distinguished — a namespace is identified by its shape (a nested object at the top level), not by how it was loaded.
 
 ## Automatic masking
 

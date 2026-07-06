@@ -3,7 +3,7 @@ title: nest-profiler-config
 description: Types and API of the configuration snapshot collector.
 seo:
   title: Config collector API reference
-  description: 'Complete API reference for @eleven-labs/nest-profiler-config: the types and options of the configuration snapshot collector that captures a flattened @nestjs/config view with secret masking.'
+  description: 'Complete API reference for @eleven-labs/nest-profiler-config: the types and options of the configuration snapshot collector that captures a @nestjs/config view grouped by namespace with secret masking.'
 ---
 
 ## ConfigCollectorModuleOptions
@@ -21,9 +21,11 @@ Keys matching `/password|secret|key|token|credential|api_key|apikey/i` are repla
 
 ## What is captured
 
-The collector reads `ConfigService.internalConfig` - the merged output of all `load` factory functions passed to `ConfigModule.forRoot()`. It does **not** read `process.env` directly.
+The collector reads `ConfigService.internalConfig` - the merged output of every namespace registered with `registerAs`, whether passed to `ConfigModule.forRoot({ load })` or `ConfigModule.forFeature()`. It does **not** read `process.env` directly.
 
-**Prerequisite:** `ConfigModule.forRoot({ isGlobal: true, load: [factory1, factory2] })` must be registered with at least one `load` factory using `registerAs`. Without `load` factories, `internalConfig` is empty and nothing is captured.
+Each top-level namespace becomes its own group in the panel (keys shown relative to the namespace); top-level scalar values are gathered under a **General** group. Grouping is structural — `@nestjs/config` merges `forRoot` and `forFeature` config into the same store, so a namespace's origin is not distinguished.
+
+**Prerequisite:** at least one namespace must be registered with `registerAs`, either via `ConfigModule.forRoot({ isGlobal: true, load: [factory1, factory2] })` or `ConfigModule.forFeature(factory)`. Without any loaded config, `internalConfig` is empty and nothing is captured.
 
 ```ts
 // Required setup - config factory

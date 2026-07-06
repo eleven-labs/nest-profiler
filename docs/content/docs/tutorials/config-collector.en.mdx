@@ -96,20 +96,33 @@ curl -i http://localhost:3000/health
 
 Open `/_profiler/{token}` and click the **Config** tab.
 
-You will see the configuration as a flat table of dot-notation keys:
+You will see the configuration split into one collapsible section per namespace, with keys shown relative to their namespace:
 
-| Key                 | Value         |
-| ------------------- | ------------- |
-| `app.port`          | `3000`        |
-| `app.env`           | `development` |
-| `app.debug`         | `false`       |
-| `database.host`     | `localhost`   |
-| `database.port`     | `5432`        |
-| `database.name`     | `myapp`       |
-| `database.username` | `postgres`    |
-| `database.password` | `***`         |
+**`app`** — 3 keys
 
-The toolbar badge shows the total number of resolved configuration keys (e.g., `8 keys`).
+| Key     | Value         |
+| ------- | ------------- |
+| `port`  | `3000`        |
+| `env`   | `development` |
+| `debug` | `false`       |
+
+**`database`** — 5 keys
+
+| Key        | Value       |
+| ---------- | ----------- |
+| `host`     | `localhost` |
+| `port`     | `5432`      |
+| `name`     | `myapp`     |
+| `username` | `postgres`  |
+| `password` | `***`       |
+
+Top-level scalar values that don't belong to a namespace appear under a **General** section. The toolbar badge shows the total number of resolved configuration keys (e.g., `8 keys`).
+
+<Callout title="forFeature is supported too">
+  A namespace loaded lazily with `ConfigModule.forFeature(databaseConfig)` in a feature module is
+  captured exactly like one passed to `forRoot({load})` — both merge into the same config store.
+  Grouping is by namespace, not by how it was loaded.
+</Callout>
 
 ## Masking additional keys
 
@@ -125,4 +138,4 @@ Values matching `/password|secret|key|token|credential/i` are also masked automa
 
 ## How it works
 
-The collector reads `ConfigService`'s internal config **once at application bootstrap**, flattens it into dot-notation keys (e.g. `database.host`) and applies the masking rules; every profile then shows that same snapshot. See [How it works](/docs/packages/nest-profiler-config#how-it-works) on the package page.
+The collector reads `ConfigService`'s internal config **once at application bootstrap**, groups it by namespace (with keys flattened relative to each namespace, e.g. `pool.max`) and applies the masking rules; every profile then shows that same snapshot. Masking still matches the fully-qualified path, so `maskKeys: ['database.password']` works even though the key is displayed as `password`. See [How it works](/docs/packages/nest-profiler-config#how-it-works) on the package page.
