@@ -3,18 +3,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> — NestJS Profiler</title>
   <!-- Profiler styles — Tailwind compiled at build time, served same-origin. The `?v=`
-       cache-buster invalidates browser/proxy caches on package upgrade (URLs are not
-       content-fingerprinted). -->
-  <link rel="stylesheet" href="<%= profilerPath %>/__assets/styles/profiler.css<%= assetVersion %>">
+       cache-buster is a per-file content digest (assetVersion), so each URL changes only when
+       that asset's bytes change — an immutable cache is never invalidated wholesale on upgrade. -->
+  <link rel="stylesheet" href="<%= profilerPath %>/__assets/styles/profiler.css<%= assetVersion('styles/profiler.css') %>">
   <!-- highlight.js themes — syntax highlighting for JSON (and other languages) -->
-  <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css<%= assetVersion %>">
-  <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css<%= assetVersion %>">
+  <link id="hljs-light" rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github.min.css<%= assetVersion('styles/github.min.css') %>">
+  <link id="hljs-dark"  rel="stylesheet" href="<%= profilerPath %>/__assets/styles/github-dark.min.css<%= assetVersion('styles/github-dark.min.css') %>">
   <!-- highlight.js runtime, then the profiler client bundles (core first, then any
        registered extension). All authored behaviour lives in these compiled scripts —
        templates carry no inline JavaScript. -->
-  <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js<%= assetVersion %>"></script>
-  <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js<%= assetVersion %>"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/highlight.min.js<%= assetVersion('scripts/highlight.min.js') %>"></script>
+  <script src="<%= profilerPath %>/__assets/scripts/graphql.min.js<%= assetVersion('scripts/graphql.min.js') %>"></script>
   <% (typeof clientScripts !== 'undefined' ? clientScripts : []).forEach(function (file) { %>
-    <script src="<%= profilerPath %>/__assets/scripts/<%= file %><%= assetVersion %>"></script>
+    <script src="<%= profilerPath %>/__assets/scripts/<%= file %><%= assetVersion('scripts/' + file) %>"></script>
   <% }) %>
 </head>
