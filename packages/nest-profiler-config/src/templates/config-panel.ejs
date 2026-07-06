@@ -1,7 +1,9 @@
 <%
   const runtime = (data && data.runtime) ? data.runtime : null;
-  const config  = (data && data.config)  ? data.config  : (data || {});
-  const configEntries = Object.entries(config);
+  const groups  = (data && Array.isArray(data.groups)) ? data.groups : [];
+  const totalKeys = (data && typeof data.keyCount === 'number')
+    ? data.keyCount
+    : groups.reduce((n, g) => n + (g && g.keyCount ? g.keyCount : 0), 0);
 
   /* ── Uptime helpers ──────────────────────────────────────────── */
   function formatUptime(sec) {
@@ -68,7 +70,7 @@
 <% } %>
 
 <!-- ── Application configuration ───────────────────────────────── -->
-<% if (configEntries.length === 0) { %>
+<% if (totalKeys === 0) { %>
   <div class="py-8 text-center bg-surface-muted border border-line rounded-lg space-y-3 px-6">
     <p class="text-foreground-muted text-sm font-medium">No application configuration to display.</p>
     <p class="text-foreground-faint text-xs leading-relaxed">
@@ -90,34 +92,50 @@ ConfigModule.forRoot({
 <% } else { %>
   <div class="flex items-center gap-2 mb-3">
     <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Application configuration</h3>
-    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= configEntries.length %> keys</span>
+    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= totalKeys %> keys</span>
   </div>
-  <div class="rounded-lg border border-line overflow-hidden">
-    <table class="w-full">
-      <thead>
-        <tr class="bg-surface-muted border-b border-line">
-          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-2/5">Key</th>
-          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Value</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-line-subtle">
-        <% for (const [key, value] of configEntries.sort((a, b) => a[0].localeCompare(b[0]))) { %>
-          <tr class="hover:bg-surface-muted transition-colors">
-            <td class="py-2 px-4 text-foreground-muted text-xs font-mono align-top"><%= key %></td>
-            <td class="py-2 px-4 text-xs align-top">
-              <% if (value === '***') { %>
-                <span class="text-foreground-faint font-mono">***</span>
-              <% } else if (value === null || value === undefined) { %>
-                <span class="text-foreground-faint italic">null</span>
-              <% } else if (typeof value === 'boolean') { %>
-                <span class="<%= value ? 'text-success' : 'text-danger' %> font-mono font-bold"><%= String(value) %></span>
-              <% } else { %>
-                <span class="text-foreground font-mono break-all"><%= String(value) %></span>
-              <% } %>
-            </td>
-          </tr>
-        <% } %>
-      </tbody>
-    </table>
-  </div>
+
+  <!-- One collapsible section per config namespace; scalar top-level values live under "General". -->
+  <% for (const group of groups) { %>
+    <% const entries = Object.entries(group.entries || {}).sort((a, b) => a[0].localeCompare(b[0])); %>
+    <details class="group mb-3 rounded-lg border border-line overflow-hidden" open>
+      <summary class="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+        <div class="flex items-center gap-2 min-w-0">
+          <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="text-xs font-semibold text-foreground font-mono truncate"><%= group.name %></span>
+        </div>
+        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface border border-line text-foreground-faint tabular-nums shrink-0"><%= group.keyCount %> keys</span>
+      </summary>
+      <div class="border-t border-line">
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-2/5">Key</th>
+              <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Value</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line-subtle">
+            <% for (const [key, value] of entries) { %>
+              <tr class="hover:bg-surface-muted transition-colors">
+                <td class="py-2 px-4 text-foreground-muted text-xs font-mono align-top"><%= key %></td>
+                <td class="py-2 px-4 text-xs align-top">
+                  <% if (value === '***' || value === '[REDACTED]') { %>
+                    <span class="text-foreground-faint font-mono"><%= value %></span>
+                  <% } else if (value === null || value === undefined) { %>
+                    <span class="text-foreground-faint italic">null</span>
+                  <% } else if (typeof value === 'boolean') { %>
+                    <span class="<%= value ? 'text-success' : 'text-danger' %> font-mono font-bold"><%= String(value) %></span>
+                  <% } else { %>
+                    <span class="text-foreground font-mono break-all"><%= String(value) %></span>
+                  <% } %>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  <% } %>
 <% } %>
