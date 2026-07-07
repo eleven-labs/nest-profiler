@@ -3,11 +3,9 @@ import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from './auth-collector.module';
 
 /**
- * Core × collector bootstrap matrix. The collector must initialise cleanly against BOTH an
- * enabled profiler core and the no-op core (which provides no ClsModule). The no-op axis is
- * the MAJ-9 regression guard: a collector left enabled while the core is disabled must inject
- * ClsService lazily/optionally and degrade to a no-op instead of failing DI with
- * "Nest can't resolve dependencies … ClsService".
+ * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler
+ * core and the no-op core (which provides no ClsModule). It injects ClsService lazily and
+ * degrades to a no-op, so a disabled core must never break `app.init()`.
  */
 describe.each([
   ['enabled core', () => ProfilerModule.forRoot({ isGlobal: true })],

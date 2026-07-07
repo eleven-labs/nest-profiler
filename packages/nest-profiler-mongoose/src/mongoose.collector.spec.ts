@@ -438,7 +438,7 @@ describe('MongooseConnectionPatch', () => {
     expect(firstEntry(profile).isSlow).toBe(false);
   });
 
-  describe('hardening (#132)', () => {
+  describe('redaction and named connection', () => {
     it('redacts sensitive keys in the recorded query filter', async () => {
       const { base, profile } = setup({ threshold: 100 });
       await base.Query.prototype.exec.call({

@@ -3,10 +3,9 @@ import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { GraphQLCollectorModule } from './graphql-collector.module';
 
 /**
- * Core × collector bootstrap matrix. The collector resolves the GraphQL plugin surface lazily
- * (via ModuleRef, @Optional) and must initialise cleanly against BOTH an enabled profiler core
- * and the no-op core (which provides no ClsModule), with no GraphQL server present — the MAJ-9
- * class of DI regression guard.
+ * Bootstrap matrix: the collector resolves the GraphQL plugin surface lazily (ModuleRef,
+ * @Optional), so it must initialise cleanly against both an enabled profiler core and the
+ * no-op core (which provides no ClsModule), with no GraphQL server present.
  */
 describe.each([
   ['enabled core', () => ProfilerModule.forRoot({ isGlobal: true })],

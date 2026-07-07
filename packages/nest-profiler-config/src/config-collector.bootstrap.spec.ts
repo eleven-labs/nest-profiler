@@ -3,9 +3,9 @@ import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ConfigCollectorModule } from './config-collector.module';
 
 /**
- * Core × collector bootstrap matrix. The collector must initialise cleanly against BOTH an
- * enabled profiler core and the no-op core (which provides no ClsModule) — the MAJ-9 class of
- * DI regression guard.
+ * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler
+ * core and the no-op core (which provides no ClsModule). It injects ClsService lazily and
+ * degrades to a no-op, so a disabled core must never break `app.init()`.
  */
 describe.each([
   ['enabled core', () => ProfilerModule.forRoot({ isGlobal: true })],

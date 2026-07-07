@@ -3,10 +3,9 @@ import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollectorModule } from './typeorm-collector.module';
 
 /**
- * Core × collector bootstrap matrix. The collector must initialise cleanly against BOTH an
- * enabled profiler core and the no-op core (which provides no ClsModule). With no DataSource
- * present the driver patch resolves nothing and no-ops — `app.init()` must still succeed
- * (MAJ-9 regression guard on lazy/optional DI).
+ * Bootstrap matrix: with no DataSource present the driver patch resolves nothing and no-ops,
+ * so the collector must initialise cleanly against both an enabled profiler core and the
+ * no-op core (which provides no ClsModule) — `app.init()` must succeed in both.
  */
 describe.each([
   ['enabled core', () => ProfilerModule.forRoot({ isGlobal: true })],
