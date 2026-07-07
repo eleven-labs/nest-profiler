@@ -438,6 +438,48 @@ describe('MongooseConnectionPatch', () => {
     expect(firstEntry(profile).isSlow).toBe(false);
   });
 
+  describe('redaction and named connection', () => {
+    it('redacts sensitive keys in the recorded query filter', async () => {
+      const { base, profile } = setup({ threshold: 100 });
+      await base.Query.prototype.exec.call({
+        model: { collection: { name: 'users' } },
+        op: 'findOne',
+        getFilter: () => ({ email: 'a@b.c', password: 'hunter2', token: 'abc123' }),
+      });
+      expect(firstEntry(profile).filter).toEqual({
+        email: 'a@b.c',
+        password: '[REDACTED]',
+        token: '[REDACTED]',
+      });
+    });
+
+    it('redacts sensitive values inside the aggregation pipeline', async () => {
+      const { base, profile } = setup({ threshold: 100 });
+      await base.Aggregate.prototype.exec.call({
+        _model: { collection: { name: 'users' } },
+        _pipeline: [{ $match: { apiKey: 'secret-key' } }],
+      });
+      expect(firstEntry(profile).pipeline).toEqual([{ $match: { apiKey: '[REDACTED]' } }]);
+    });
+
+    it('patches a named connection resolved via its connection token', async () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const base: FakeBase = {
+        Query: { prototype: { exec: jest.fn(() => Promise.resolve([{ _id: 1 }])) } },
+        Aggregate: { prototype: { exec: jest.fn(() => Promise.resolve([])) } },
+      };
+      const connection = { base } as unknown as Connection;
+      // The moduleRef resolves the analytics connection token → the patch targets it.
+      new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {
+        connectionName: 'analytics',
+      }).onModuleInit();
+
+      await base.Query.prototype.exec.call(queryCtx);
+      expect(firstEntry(profile).collection).toBe('reviews');
+    });
+  });
+
   it('patches each prototype only once (idempotent)', () => {
     const { base, patch } = setup({});
     const patchedQueryExec = base.Query.prototype.exec;

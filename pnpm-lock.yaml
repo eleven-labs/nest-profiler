@@ -1061,12 +1061,18 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../configs/typescript
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
+      better-sqlite3:
+        specifier: ^12.11.1
+        version: 12.11.1
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@24.13.2)

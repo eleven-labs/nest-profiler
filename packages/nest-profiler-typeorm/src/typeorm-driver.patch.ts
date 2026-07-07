@@ -14,6 +14,9 @@ export const TYPEORM_QUERIES_KEY = '__typeorm_queries';
 
 type PatchableMethod = (...args: unknown[]) => Promise<unknown>;
 
+/** A patched `QueryRunner.query` tagged so a re-used runner is never wrapped twice. */
+type PatchedQuery = PatchableMethod & { __profilerPatched?: boolean };
+
 /** A patched `createQueryRunner` tagged so re-initialisation cannot re-wrap it. */
 type PatchedCreateQueryRunner = ((...args: unknown[]) => QueryRunner) & {
   __profilerPatched?: boolean;
@@ -77,11 +80,15 @@ export class TypeOrmDriverPatch implements OnModuleInit {
 
     const patched: PatchedCreateQueryRunner = function (...args: unknown[]): QueryRunner {
       const qr = originalCreate(...args);
+      // SQLite drivers memoise a single QueryRunner, so `createQueryRunner` hands back the same
+      // instance every call — guard against re-wrapping its `query`, which would otherwise nest
+      // the patch and record each query N times.
+      if ((qr.query as PatchedQuery).__profilerPatched) return qr;
       // TypeORM's query() has complex overloads — bind as PatchableMethod (widening cast),
       // then use Reflect.set to assign the patched version without a type conflict on assignment.
       const originalQuery = qr.query.bind(qr) as PatchableMethod;
 
-      const patchedQuery: PatchableMethod = async function (...args: unknown[]): Promise<unknown> {
+      const patchedQuery: PatchedQuery = async function (...args: unknown[]): Promise<unknown> {
         const query = String(args[0]);
         const parameters = Array.isArray(args[1]) ? args[1] : undefined;
         const rest = args.slice(2);
@@ -116,6 +123,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
         }
       };
 
+      patchedQuery.__profilerPatched = true;
       Reflect.set(qr, 'query', patchedQuery);
       return qr;
     };

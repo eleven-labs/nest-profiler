@@ -4,6 +4,11 @@ import * as path from 'node:path';
 import { FileStorageAdapter } from './file-storage.adapter';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 
+// The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered for every adapter
+// in `storage-adapter.contract.spec.ts`. This spec keeps only what is specific to the
+// file adapter: on-disk layout, cross-process discovery, the sidecar index and
+// concurrency guarantees.
+
 function makeProfile(token: string, createdAt = Date.now()): Profile<HttpRequestData> {
   return {
     token,
@@ -46,26 +51,6 @@ describe('FileStorageAdapter', () => {
     expect(raw.token).toBe('abc');
   });
 
-  it('findOne returns the saved profile', async () => {
-    const p = makeProfile('token1');
-    await adapter.save(p);
-    const found = await adapter.findOne('token1');
-    expect(found?.token).toBe('token1');
-  });
-
-  it('findOne returns undefined for unknown token', async () => {
-    expect(await adapter.findOne('unknown')).toBeUndefined();
-  });
-
-  it('findAll returns profiles newest-first', async () => {
-    const base = Date.now();
-    await adapter.save(makeProfile('a', base));
-    await adapter.save(makeProfile('b', base + 100));
-    await adapter.save(makeProfile('c', base + 200));
-    const all = await adapter.findAll();
-    expect(all.map((p) => p.token)).toEqual(['c', 'b', 'a']);
-  });
-
   it('evicts oldest profile when maxProfiles exceeded', async () => {
     await adapter.save(makeProfile('old'));
     await adapter.save(makeProfile('mid'));
@@ -79,29 +64,6 @@ describe('FileStorageAdapter', () => {
     expect(files).not.toContain('old.json');
   });
 
-  it('filters expired profiles by TTL', async () => {
-    const expiredAdapter = new FileStorageAdapter({ storagePath: dir, ttl: 1 });
-    const expired = makeProfile('expired', Date.now() - 5000); // 5s ago, TTL=1s
-    await expiredAdapter.save(expired);
-    expect(await expiredAdapter.findOne('expired')).toBeUndefined();
-    const all = await expiredAdapter.findAll();
-    expect(all.find((p) => p.token === 'expired')).toBeUndefined();
-  });
-
-  it('never caps the store when maxProfiles is 0', async () => {
-    const uncapped = new FileStorageAdapter({ storagePath: dir, maxProfiles: 0, ttl: 3600 });
-    const base = Date.now();
-    for (let i = 0; i < 20; i++) await uncapped.save(makeProfile(`u-${i}`, base + i));
-    expect(await uncapped.findAll()).toHaveLength(20);
-  });
-
-  it('never expires when ttl is 0', async () => {
-    const noTtl = new FileStorageAdapter({ storagePath: dir, ttl: 0 });
-    await noTtl.save(makeProfile('ancient', Date.now() - 10 * 365 * 24 * 3600 * 1000));
-    expect(await noTtl.findOne('ancient')).toBeDefined();
-    expect((await noTtl.findAll()).map((p) => p.token)).toEqual(['ancient']);
-  });
-
   it('clear removes all profile files', async () => {
     await adapter.save(makeProfile('x'));
     await adapter.save(makeProfile('y'));
@@ -109,20 +71,6 @@ describe('FileStorageAdapter', () => {
 
     const files = await fs.promises.readdir(dir);
     expect(files.filter((f) => f.endsWith('.json'))).toHaveLength(0);
-  });
-
-  it('findAll applies method filter', async () => {
-    const get = makeProfile('get');
-    get.entrypoint.data.method = 'GET';
-    const post = makeProfile('post');
-    post.entrypoint.data.method = 'POST';
-    await adapter.save(get);
-    await adapter.save(post);
-
-    const results = await adapter.findAll({ method: 'POST' });
-    expect(results.every((p) => (p.entrypoint.data as HttpRequestData).method === 'POST')).toBe(
-      true,
-    );
   });
 
   it('reconstructs index from disk on new adapter instance', async () => {
