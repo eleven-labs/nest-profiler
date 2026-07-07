@@ -34,8 +34,14 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
       }),
     }),
     TypeOrmModule.forFeature([ProductEntity]),
+    // `forRootAsync` drives `slowQueryThreshold` from `ConfigService`; gating stays ConditionalModule's job.
     ConditionalModule.registerWhen(
-      TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      TypeOrmCollectorModule.forRootAsync({
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          slowQueryThreshold: config.get<number>('profiler.slowQueryThreshold') ?? 50,
+        }),
+      }),
       isProfilerEnabled,
     ),
   ],

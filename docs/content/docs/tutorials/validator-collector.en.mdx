@@ -184,6 +184,27 @@ export class CreateArticleDto extends createZodDto(ArticleSchema) {}
 
 The Validator panel renders zod violations exactly the same way - one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time.
 
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve the options (`pipe`, `extractors`, `validationPipeOptions`) from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  ValidatorCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      validationPipeOptions: {
+        whitelist: true,
+        transform: config.get<boolean>('validation.transform') ?? true,
+      },
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
 ## How it works
 
 `ValidatorCollectorModule` registers `ProfilerValidationPipe` as a global `APP_PIPE` that **wraps** the validation pipe you configure, records a valid/invalid entry into the active request profile, and normalizes violations through duck-typed extractors (class-validator, then zod, then a generic `HttpException` fallback) before re-throwing the original exception. See [How it works](/docs/packages/nest-profiler-validator#how-it-works) on the package page.

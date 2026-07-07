@@ -40,7 +40,10 @@ Fields in `user` whose name matches the pattern `/password|secret|key|token|cred
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 import { AuthCollector } from '@eleven-labs/nest-profiler-auth';
 
-import type { AuthCollectorModuleOptions } from '@eleven-labs/nest-profiler-auth';
+import type {
+  AuthCollectorModuleOptions,
+  AuthCollectorModuleAsyncOptions,
+} from '@eleven-labs/nest-profiler-auth';
 ```
 
 ## Setup
@@ -64,3 +67,27 @@ export class AuthModule {}
 ```
 
 **Prerequisite:** A guard or middleware that sets `request.user` (Passport, custom JWT guard, etc.). The collector reads `request.user` and the `Authorization` header from the per-request CLS context.
+
+## Async setup
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+
+ConditionalModule.registerWhen(
+  AuthCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      maskUserFields: config.get<string[]>('profiler.maskUserFields') ?? [
+        'password',
+        'refreshToken',
+      ],
+    }),
+  }),
+  isProfilerEnabled,
+);
+```

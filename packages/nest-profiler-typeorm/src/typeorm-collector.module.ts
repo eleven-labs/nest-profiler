@@ -1,4 +1,7 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { ConfigurableModuleBuilder, DynamicModule, Module } from '@nestjs/common';
+import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import { buildCollectorModule } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollector } from './typeorm.collector';
 import { TypeOrmDriverPatch } from './typeorm-driver.patch';
 
@@ -14,20 +17,32 @@ export interface TypeOrmCollectorModuleOptions {
   connectionName?: string;
 }
 
-export const TYPEORM_COLLECTOR_OPTIONS = Symbol('TYPEORM_COLLECTOR_OPTIONS');
+/** Async configuration for {@link TypeOrmCollectorModule.forRootAsync}. */
+export type TypeOrmCollectorModuleAsyncOptions =
+  ConfigurableModuleAsyncOptions<TypeOrmCollectorModuleOptions> & {
+    /** Synchronous enable flag (decided at module-build time, not by the factory). */
+    enabled?: boolean;
+  };
+
+export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: TYPEORM_COLLECTOR_OPTIONS } =
+  new ConfigurableModuleBuilder<TypeOrmCollectorModuleOptions>()
+    .setClassMethodName('forRoot')
+    .build();
+
+// The patch resolves the (optionally named) DataSource + ClsService lazily via ModuleRef.
+const SHAPE: CollectorModuleShape = { providers: [TypeOrmDriverPatch, TypeOrmCollector] };
 
 @Module({})
-export class TypeOrmCollectorModule {
+export class TypeOrmCollectorModule extends ConfigurableModuleClass {
   static forRoot(options: TypeOrmCollectorModuleOptions = {}): DynamicModule {
-    if (options.enabled === false) return { module: TypeOrmCollectorModule };
-    return {
-      module: TypeOrmCollectorModule,
-      providers: [
-        { provide: TYPEORM_COLLECTOR_OPTIONS, useValue: options },
-        // The patch resolves the (optionally named) DataSource + ClsService lazily via ModuleRef.
-        TypeOrmDriverPatch,
-        TypeOrmCollector,
-      ],
-    };
+    return buildCollectorModule(super.forRoot(options), options, SHAPE);
+  }
+
+  /**
+   * Async variant — resolve the options (e.g. `slowQueryThreshold`) from DI such as
+   * `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
+   */
+  static forRootAsync(options: TypeOrmCollectorModuleAsyncOptions): DynamicModule {
+    return buildCollectorModule(super.forRootAsync(options), options, SHAPE);
   }
 }

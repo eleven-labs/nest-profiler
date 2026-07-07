@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import type { FactoryProvider } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
   ProfilerModule,
@@ -7,6 +8,7 @@ import {
 } from '@eleven-labs/nest-profiler';
 import { RabbitMqCollectorModule } from './rabbitmq-collector.module';
 import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
+import { RABBITMQ_COLLECTOR_OPTIONS } from './rabbitmq-collector.interface';
 
 @Controller()
 class DummyController {
@@ -63,6 +65,42 @@ describe('RabbitMqCollectorModule', () => {
       expect(sectionTypeConstraint(section!, sections)).toEqual({ typeIn: ['rabbitmq'] });
 
       await app.close();
+    });
+  });
+
+  describe('forRootAsync()', () => {
+    it('resolves options from the factory and registers the adapter after app.init()', async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ProfilerModule.forRoot({ isGlobal: true }),
+          RabbitMqCollectorModule.forRootAsync({
+            inject: [],
+            useFactory: () => ({ captureBody: false, maskHeaders: ['x-trace'] }),
+          }),
+        ],
+        controllers: [DummyController],
+      }).compile();
+      const app = moduleRef.createNestApplication();
+      await app.init();
+
+      const core = moduleRef.get(ProfilerCoreService, { strict: false });
+      expect(core.findContextAdapter('rmq')).toBeInstanceOf(RabbitMqContextAdapter);
+
+      await app.close();
+    });
+
+    it('provides the options token from the factory (not a static value)', () => {
+      const useFactory = (): { maskHeaders: string[] } => ({ maskHeaders: ['x-trace'] });
+      const mod = RabbitMqCollectorModule.forRootAsync({ inject: ['CONFIG'], useFactory });
+      const provider = (mod.providers ?? []).find(
+        (p): p is FactoryProvider =>
+          typeof p === 'object' &&
+          p !== null &&
+          'provide' in p &&
+          p.provide === RABBITMQ_COLLECTOR_OPTIONS,
+      );
+      expect(provider?.useFactory).toBe(useFactory);
+      expect(provider?.inject).toEqual(['CONFIG']);
     });
   });
 

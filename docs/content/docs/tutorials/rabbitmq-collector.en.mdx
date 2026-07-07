@@ -109,6 +109,25 @@ RabbitMqCollectorModule.forRoot({
 
 Gate it per environment with `ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot({ … }), isProfilerEnabled)` — the same pattern used for every profiler module.
 
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve `captureBody`/`maskHeaders` from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  RabbitMqCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      captureBody: config.get<boolean>('profiler.rabbitmqCaptureBody') ?? true,
+      maskHeaders: config.get<string[]>('profiler.maskHeaders') ?? [],
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
 ## How it works
 
 A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list table and **Message** detail tab). See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.

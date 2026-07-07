@@ -1,5 +1,42 @@
+import { ConfigurableModuleBuilder } from '@nestjs/common';
+import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+
+export interface RabbitMqCollectorModuleOptions {
+  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
+  enabled?: boolean;
+
+  /**
+   * Capture incoming AMQP message headers. Default: `true`.
+   * Sensitive headers are masked — see {@link maskHeaders}.
+   */
+  captureHeaders?: boolean;
+
+  /**
+   * Capture the deserialized message payload. Default: `true`.
+   * Enable with caution — payloads can be large.
+   */
+  captureBody?: boolean;
+
+  /**
+   * Header names (lowercase) whose values are replaced with `[REDACTED]`.
+   * Merged with the built-in list: `authorization`, `cookie`, `x-api-key`,
+   * `x-auth-token`.
+   */
+  maskHeaders?: string[];
+}
+
+/** Async configuration for `RabbitMqCollectorModule.forRootAsync`. */
+export type RabbitMqCollectorModuleAsyncOptions =
+  ConfigurableModuleAsyncOptions<RabbitMqCollectorModuleOptions> & {
+    /** Synchronous enable flag (decided at module-build time, not by the factory). */
+    enabled?: boolean;
+  };
+
 /** DI token for `RabbitMqCollectorModuleOptions`. */
-export const RABBITMQ_COLLECTOR_OPTIONS = Symbol('RABBITMQ_COLLECTOR_OPTIONS');
+export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: RABBITMQ_COLLECTOR_OPTIONS } =
+  new ConfigurableModuleBuilder<RabbitMqCollectorModuleOptions>()
+    .setClassMethodName('forRoot')
+    .build();
 
 /** `Profile.entrypoint.type` value marking a profile as a consumed RabbitMQ message. */
 export const RABBITMQ_ENTRYPOINT_TYPE = 'rabbitmq';

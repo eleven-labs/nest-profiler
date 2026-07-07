@@ -20,5 +20,12 @@ export default registerAs('profiler', () => {
       ttl: parseInt(process.env['PROFILER_TTL'] ?? '3600', 10),
     }),
     maxProfiles: parseInt(process.env['PROFILER_MAX_PROFILES'] ?? '200', 10),
+    // Collector options driven from config to showcase the collectors' `forRootAsync`
+    // (see AuthModule and ProductTypeOrmModule).
+    maskUserFields: (process.env['PROFILER_MASK_USER_FIELDS'] ?? 'password,refreshToken')
+      .split(',')
+      .map((field) => field.trim())
+      .filter(Boolean),
+    slowQueryThreshold: parseInt(process.env['PROFILER_SLOW_QUERY_MS'] ?? '50', 10),
   };
 });

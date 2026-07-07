@@ -40,6 +40,7 @@ import { TypeOrmCollector } from '@eleven-labs/nest-profiler-typeorm';
 
 import type {
   TypeOrmCollectorModuleOptions,
+  TypeOrmCollectorModuleAsyncOptions,
   QueryEntry,
   QueryType,
 } from '@eleven-labs/nest-profiler-typeorm';
@@ -55,3 +56,24 @@ TypeOrmCollectorModule.forRoot({
 ```
 
 **Prerequisite:** `TypeOrmModule.forRoot()` must be registered in the application (provides `DataSource` globally via `@InjectDataSource()`).
+
+## Async setup
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(
+  TypeOrmCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+    }),
+  }),
+  isProfilerEnabled,
+);
+```

@@ -10,7 +10,7 @@ import {
   RMQ_CONTEXT_TYPE,
 } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
-import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.module';
+import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface';
 import { buildAmqpPublish } from './build-amqp-publish';
 
 /**

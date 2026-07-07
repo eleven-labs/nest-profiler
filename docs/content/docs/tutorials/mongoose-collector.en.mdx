@@ -94,6 +94,24 @@ You will see:
 - Slow queries highlighted in red
 - Result count for find queries
 
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve the options from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  MongooseCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
 ## How it works
 
 The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` to record every query and aggregation into the active request profile. See [How it works](/docs/packages/nest-profiler-mongoose#how-it-works) on the package page for the full mechanism and the operations it captures.

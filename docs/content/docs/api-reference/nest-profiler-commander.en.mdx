@@ -75,6 +75,8 @@ void bootstrap();
 
 Every provider that extends nest-commander's `CommandRunner` is wrapped automatically - you do not change your command classes.
 
+There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+
 **Prerequisite:** `nest-commander` installed, and a **cross-process storage adapter** if you want to inspect command profiles from the HTTP app's web profiler at `/_profiler`. The CLI and the server are separate processes, so they must share the backing store - use `storageType: 'file'` (or a Redis/DB adapter). In-memory storage is per-process and can never surface command profiles in a separate web server; the profiler logs a warning when you profile a command against an in-memory store.
 
 ## How a command profile is shaped

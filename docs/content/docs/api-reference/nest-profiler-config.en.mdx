@@ -43,7 +43,10 @@ export default registerAs('database', () => ({
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ConfigCollector } from '@eleven-labs/nest-profiler-config';
 
-import type { ConfigCollectorModuleOptions } from '@eleven-labs/nest-profiler-config';
+import type {
+  ConfigCollectorModuleOptions,
+  ConfigCollectorModuleAsyncOptions,
+} from '@eleven-labs/nest-profiler-config';
 ```
 
 ## Setup
@@ -56,6 +59,27 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 
 ConditionalModule.registerWhen(
   ConfigCollectorModule.forRoot({ maskKeys: ['database.password', 'jwt.secret'] }),
+  isProfilerEnabled,
+);
+```
+
+## Async setup
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+
+ConditionalModule.registerWhen(
+  ConfigCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
+    }),
+  }),
   isProfilerEnabled,
 );
 ```

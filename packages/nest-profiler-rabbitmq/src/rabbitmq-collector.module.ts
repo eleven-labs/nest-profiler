@@ -1,33 +1,18 @@
 import { DynamicModule, Module, OnModuleInit, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
-import { RABBITMQ_COLLECTOR_OPTIONS } from './rabbitmq-collector.interface';
+import {
+  ConfigurableModuleClass,
+  type RabbitMqCollectorModuleOptions,
+  type RabbitMqCollectorModuleAsyncOptions,
+} from './rabbitmq-collector.interface';
 import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
 
-export interface RabbitMqCollectorModuleOptions {
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
-
-  /**
-   * Capture incoming AMQP message headers. Default: `true`.
-   * Sensitive headers are masked — see {@link maskHeaders}.
-   */
-  captureHeaders?: boolean;
-
-  /**
-   * Capture the deserialized message payload. Default: `true`.
-   * Enable with caution — payloads can be large.
-   */
-  captureBody?: boolean;
-
-  /**
-   * Header names (lowercase) whose values are replaced with `[REDACTED]`.
-   * Merged with the built-in list: `authorization`, `cookie`, `x-api-key`,
-   * `x-auth-token`.
-   */
-  maskHeaders?: string[];
-}
+// The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
+// the single, supported registration mechanism.
+const SHAPE: CollectorModuleShape = { providers: [RabbitMqContextAdapter] };
 
 /**
  * Captures RabbitMQ messages consumed via `@RabbitSubscribe`
@@ -39,11 +24,13 @@ export interface RabbitMqCollectorModuleOptions {
  * and the `type` filter option — all in one call, without touching the core.
  */
 @Module({})
-export class RabbitMqCollectorModule implements OnModuleInit {
+export class RabbitMqCollectorModule extends ConfigurableModuleClass implements OnModuleInit {
   constructor(
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly adapter?: RabbitMqContextAdapter,
-  ) {}
+  ) {
+    super();
+  }
 
   onModuleInit(): void {
     if (!this.adapter) return;
@@ -57,15 +44,14 @@ export class RabbitMqCollectorModule implements OnModuleInit {
   }
 
   static forRoot(options: RabbitMqCollectorModuleOptions = {}): DynamicModule {
-    if (options.enabled === false) return { module: RabbitMqCollectorModule };
-    return {
-      module: RabbitMqCollectorModule,
-      // The adapter registers itself with the core in onModuleInit via
-      // registerContextAdapter() — the single, supported registration mechanism.
-      providers: [
-        { provide: RABBITMQ_COLLECTOR_OPTIONS, useValue: options },
-        RabbitMqContextAdapter,
-      ],
-    };
+    return buildCollectorModule(super.forRoot(options), options, SHAPE);
+  }
+
+  /**
+   * Async variant — resolve the options (e.g. `maskHeaders`, `captureBody`) from DI such as
+   * `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
+   */
+  static forRootAsync(options: RabbitMqCollectorModuleAsyncOptions): DynamicModule {
+    return buildCollectorModule(super.forRootAsync(options), options, SHAPE);
   }
 }

@@ -104,4 +104,6 @@ import {
 import type { GraphQLCollectorModuleOptions } from '@eleven-labs/nest-profiler-graphql';
 ```
 
+There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+
 Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.

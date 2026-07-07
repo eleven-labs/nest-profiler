@@ -99,6 +99,7 @@ import {
 
 import type {
   ValidatorCollectorModuleOptions,
+  ValidatorCollectorModuleAsyncOptions,
   ValidationViolationExtractor,
   ViolationExtractorContext,
   ValidationEntry,
@@ -142,3 +143,26 @@ import type { CreateArticleDto } from './dto/create-article.dto';
 ```
 
 **Prerequisite:** install the validator you use (`class-validator` + `class-transformer`, or `nestjs-zod` + `zod`). For class-validator, `emitDecoratorMetadata: true` must be set in `tsconfig.json`.
+
+### Async setup
+
+Resolve the options (`pipe`, `extractors`, `validationPipeOptions`) from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  ValidatorCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      validationPipeOptions: {
+        whitelist: true,
+        transform: config.get<boolean>('validation.transform') ?? true,
+      },
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
+Like `forRoot`, `enabled: false` keeps validation installed (the bare inner pipe, no profiler wrapper). When no pipe can be resolved it falls back to a passthrough pipe so the bootstrap never crashes; to disable validation entirely, gate the module out with `ConditionalModule` and install your own `APP_PIPE`.
