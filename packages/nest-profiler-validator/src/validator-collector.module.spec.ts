@@ -1,5 +1,5 @@
 import { APP_PIPE } from '@nestjs/core';
-import type { PipeTransform, Provider, ValueProvider } from '@nestjs/common';
+import type { FactoryProvider, PipeTransform, Provider, ValueProvider } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ClsModule } from 'nestjs-cls';
 import { ValidatorCollectorModule } from './validator-collector.module';
@@ -79,5 +79,71 @@ describe('ValidatorCollectorModule.forRoot', () => {
     expect(moduleRef.get(ProfilerValidationPipe, { strict: false })).toBeInstanceOf(
       ProfilerValidationPipe,
     );
+  });
+});
+
+function factoryProvider(providers: Provider[], token: unknown): FactoryProvider | undefined {
+  return providers.find(
+    (p): p is FactoryProvider =>
+      typeof p === 'object' &&
+      p !== null &&
+      'provide' in p &&
+      p.provide === token &&
+      'useFactory' in p,
+  );
+}
+
+describe('ValidatorCollectorModule.forRootAsync', () => {
+  it('derives the inner pipe and extractors from the async options token and forwards imports', () => {
+    class FakeImport {}
+    const useFactory = (): { pipe: PipeTransform } => ({ pipe: stubPipe });
+    const mod = ValidatorCollectorModule.forRootAsync({
+      imports: [FakeImport],
+      inject: ['CONFIG'],
+      useFactory,
+    });
+    const providers = mod.providers ?? [];
+    expect(mod.imports).toContain(FakeImport);
+    expect(providers).toContain(ValidatorCollector);
+    expect(providers).toContain(ProfilerValidationPipe);
+    // The inner pipe + extractors are resolved from the async options (useFactory, not useValue).
+    const inner = factoryProvider(providers, PROFILER_INNER_PIPE);
+    expect(inner?.useFactory({ pipe: stubPipe })).toBe(stubPipe);
+    // With no `pipe`, the factory builds the default class-validator pipe.
+    expect(typeof (inner?.useFactory({}) as PipeTransform).transform).toBe('function');
+
+    const extractors = [{ extract: () => null }];
+    const extractorsProvider = factoryProvider(providers, PROFILER_EXTRACTORS);
+    expect(extractorsProvider?.useFactory({ extractors })).toBe(extractors);
+    // With no `extractors`, the factory falls back to the built-in chain.
+    expect(extractorsProvider?.useFactory({})).toBe(DEFAULT_EXTRACTORS);
+  });
+
+  it('keeps a validation pipe installed (no profiler wrapper) when enabled is false', () => {
+    const mod = ValidatorCollectorModule.forRootAsync({
+      enabled: false,
+      useFactory: () => ({ pipe: stubPipe }),
+    });
+    const providers = mod.providers ?? [];
+    const appPipe = factoryProvider(providers, APP_PIPE);
+    expect(appPipe?.useFactory({ pipe: stubPipe })).toBe(stubPipe);
+    expect(providers).not.toContain(ProfilerValidationPipe);
+    expect(providers).not.toContain(ValidatorCollector);
+  });
+
+  it('falls back to a passthrough pipe when no validation pipe can be resolved (async, disabled)', () => {
+    // Simulate a missing class-validator peer: resolveInnerPipe returns undefined.
+    const spy = jest
+      .spyOn(
+        ValidatorCollectorModule as unknown as { resolveInnerPipe: () => undefined },
+        'resolveInnerPipe',
+      )
+      .mockReturnValue(undefined);
+    const mod = ValidatorCollectorModule.forRootAsync({ enabled: false, useFactory: () => ({}) });
+    const appPipe = factoryProvider(mod.providers ?? [], APP_PIPE);
+    const pipe = appPipe?.useFactory({}) as PipeTransform;
+    // A passthrough pipe returns its input unchanged (no validation, but bootstrap never crashes).
+    expect(pipe.transform('x', { type: 'body' })).toBe('x');
+    spy.mockRestore();
   });
 });

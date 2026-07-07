@@ -52,4 +52,6 @@ export class PostsModule {}
 
 `CacheCollectorModule.forRoot()` takes no configuration options. The collector patches the `CACHE_MANAGER`'s `get`, `set`, and `del` methods with a proxy at module initialization.
 
+There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+
 **Prerequisite:** `CacheModule.register({ isGlobal: true })` from `@nestjs/cache-manager` must be registered in the application (provides `CACHE_MANAGER` globally).

@@ -1,5 +1,8 @@
 export { ValidatorCollectorModule } from './validator-collector.module';
-export type { ValidatorCollectorModuleOptions } from './validator-collector.module';
+export type {
+  ValidatorCollectorModuleOptions,
+  ValidatorCollectorModuleAsyncOptions,
+} from './validator-collector.module';
 export type { ValidationPipeOptions } from '@nestjs/common';
 export { ProfilerValidationPipe } from './profiler-validation.pipe';
 export { ValidatorCollector } from './validator.collector';

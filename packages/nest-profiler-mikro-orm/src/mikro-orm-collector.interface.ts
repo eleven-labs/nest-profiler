@@ -1,3 +1,6 @@
+import { ConfigurableModuleBuilder } from '@nestjs/common';
+import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+
 // SQL query types are shared across ORM collectors and live in the core package.
 // Re-exported here to keep this package's public API self-contained.
 export type { QueryEntry, QueryType } from '@eleven-labs/nest-profiler';
@@ -15,4 +18,14 @@ export interface MikroOrmCollectorModuleOptions {
   connectionName?: string;
 }
 
-export const MIKRO_ORM_COLLECTOR_OPTIONS = Symbol('MIKRO_ORM_COLLECTOR_OPTIONS');
+/** Async configuration for `MikroOrmCollectorModule.forRootAsync`. */
+export type MikroOrmCollectorModuleAsyncOptions =
+  ConfigurableModuleAsyncOptions<MikroOrmCollectorModuleOptions> & {
+    /** Synchronous enable flag (decided at module-build time, not by the factory). */
+    enabled?: boolean;
+  };
+
+export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: MIKRO_ORM_COLLECTOR_OPTIONS } =
+  new ConfigurableModuleBuilder<MikroOrmCollectorModuleOptions>()
+    .setClassMethodName('forRoot')
+    .build();

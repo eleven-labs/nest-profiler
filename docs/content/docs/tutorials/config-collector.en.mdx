@@ -136,6 +136,24 @@ ConfigCollectorModule.forRoot({
 
 Values matching `/password|secret|key|token|credential/i` are also masked automatically regardless of `maskKeys`.
 
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve `maskKeys` from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  ConfigCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
 ## How it works
 
 The collector reads `ConfigService`'s internal config **once at application bootstrap**, groups it by namespace (with keys flattened relative to each namespace, e.g. `pool.max`) and applies the masking rules; every profile then shows that same snapshot. Masking still matches the fully-qualified path, so `maskKeys: ['database.password']` works even though the key is displayed as `password`. See [How it works](/docs/packages/nest-profiler-config#how-it-works) on the package page.

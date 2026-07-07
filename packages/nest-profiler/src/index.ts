@@ -2,6 +2,8 @@ export { NEST_PROFILER_MODULE_OPTIONS } from './nest-profiler.builder';
 export type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
 export { ProfilerModule } from './nest-profiler.module';
 export { ProfilerNoopModule } from './nest-profiler-noop.module';
+export { buildCollectorModule } from './collector-module.builder';
+export type { CollectorModuleShape } from './collector-module.builder';
 export { ProfilerService } from './services/nest-profiler.service';
 export { NoopProfilerService } from './services/noop-profiler.service';
 export {

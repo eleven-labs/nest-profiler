@@ -1,6 +1,12 @@
 import { APP_PIPE } from '@nestjs/core';
-import { DynamicModule, Logger, Module } from '@nestjs/common';
-import type { PipeTransform, ValidationPipeOptions } from '@nestjs/common';
+import { ConfigurableModuleBuilder, DynamicModule, Logger, Module } from '@nestjs/common';
+import type {
+  ConfigurableModuleAsyncOptions,
+  PipeTransform,
+  ValidationPipeOptions,
+} from '@nestjs/common';
+import { buildCollectorModule } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { ValidatorCollector } from './validator.collector';
 import { ProfilerValidationPipe } from './profiler-validation.pipe';
 import { PROFILER_INNER_PIPE, PROFILER_EXTRACTORS } from './validator-collector.interface';
@@ -32,8 +38,45 @@ export interface ValidatorCollectorModuleOptions {
   extractors?: ValidationViolationExtractor[];
 }
 
+/** Async configuration for {@link ValidatorCollectorModule.forRootAsync}. */
+export type ValidatorCollectorModuleAsyncOptions =
+  ConfigurableModuleAsyncOptions<ValidatorCollectorModuleOptions> & {
+    /** Synchronous enable flag (decided at module-build time, not by the factory). */
+    enabled?: boolean;
+  };
+
+export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: VALIDATOR_COLLECTOR_OPTIONS } =
+  new ConfigurableModuleBuilder<ValidatorCollectorModuleOptions>()
+    .setClassMethodName('forRoot')
+    .build();
+
+/**
+ * Active-path wiring for {@link ValidatorCollectorModule.forRootAsync}: the inner pipe and the
+ * extractor chain are derived from the async-resolved options token (so both survive an async
+ * factory), then wrapped by {@link ProfilerValidationPipe} and installed globally.
+ */
+const ASYNC_ACTIVE_SHAPE: CollectorModuleShape = {
+  providers: [
+    {
+      provide: PROFILER_INNER_PIPE,
+      inject: [VALIDATOR_COLLECTOR_OPTIONS],
+      useFactory: (options: ValidatorCollectorModuleOptions) =>
+        options.pipe ?? createClassValidatorPipe(options.validationPipeOptions),
+    },
+    {
+      provide: PROFILER_EXTRACTORS,
+      inject: [VALIDATOR_COLLECTOR_OPTIONS],
+      useFactory: (options: ValidatorCollectorModuleOptions) =>
+        options.extractors ?? DEFAULT_EXTRACTORS,
+    },
+    ValidatorCollector,
+    ProfilerValidationPipe,
+    { provide: APP_PIPE, useExisting: ProfilerValidationPipe },
+  ],
+};
+
 @Module({})
-export class ValidatorCollectorModule {
+export class ValidatorCollectorModule extends ConfigurableModuleClass {
   /**
    * Registers ValidatorCollector and installs ProfilerValidationPipe as the
    * global APP_PIPE, wrapping the configured pipe (or a default class-validator
@@ -69,6 +112,38 @@ export class ValidatorCollectorModule {
         { provide: APP_PIPE, useExisting: ProfilerValidationPipe },
       ],
     };
+  }
+
+  /**
+   * Async variant — resolve the options (`pipe`, `extractors`, `validationPipeOptions`) from DI
+   * such as `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
+   *
+   * `enabled: false` keeps validation installed (like {@link forRoot}) by deriving the bare inner
+   * pipe from the async-resolved options; when none can be resolved it falls back to a passthrough
+   * pipe (with a warning) so the bootstrap never crashes.
+   */
+  static forRootAsync(options: ValidatorCollectorModuleAsyncOptions): DynamicModule {
+    const base = super.forRootAsync(options);
+
+    if (options.enabled === false) {
+      return {
+        ...base,
+        module: base.module,
+        providers: [
+          ...(base.providers ?? []),
+          {
+            provide: APP_PIPE,
+            inject: [VALIDATOR_COLLECTOR_OPTIONS],
+            useFactory: (resolved: ValidatorCollectorModuleOptions) =>
+              ValidatorCollectorModule.resolveInnerPipe(resolved) ?? {
+                transform: (value: unknown) => value,
+              },
+          },
+        ],
+      };
+    }
+
+    return buildCollectorModule(base, options, ASYNC_ACTIVE_SHAPE);
   }
 
   /**

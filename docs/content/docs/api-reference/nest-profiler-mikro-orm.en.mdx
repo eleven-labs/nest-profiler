@@ -41,6 +41,7 @@ import { MikroOrmCollector } from '@eleven-labs/nest-profiler-mikro-orm';
 
 import type {
   MikroOrmCollectorModuleOptions,
+  MikroOrmCollectorModuleAsyncOptions,
   QueryEntry,
   QueryType,
 } from '@eleven-labs/nest-profiler-mikro-orm';
@@ -57,3 +58,24 @@ MikroOrmCollectorModule.forRoot({
 
 **Prerequisite:** `MikroOrmModule.forRoot()` must be registered in the application (provides the
 `MikroORM` instance whose logger the collector wraps).
+
+## Async setup
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(
+  MikroOrmCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+    }),
+  }),
+  isProfilerEnabled,
+);
+```

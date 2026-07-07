@@ -32,6 +32,7 @@ import { MongooseCollector } from '@eleven-labs/nest-profiler-mongoose';
 
 import type {
   MongooseCollectorModuleOptions,
+  MongooseCollectorModuleAsyncOptions,
   MongooseQueryEntry,
 } from '@eleven-labs/nest-profiler-mongoose';
 ```
@@ -46,3 +47,24 @@ MongooseCollectorModule.forRoot({
 ```
 
 **Prerequisite:** `MongooseModule.forRoot()` must be registered in the application (provides `Connection` globally via `@InjectConnection()`).
+
+## Async setup
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
+
+ConditionalModule.registerWhen(
+  MongooseCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+    }),
+  }),
+  isProfilerEnabled,
+);
+```

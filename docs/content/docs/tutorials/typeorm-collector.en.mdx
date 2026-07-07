@@ -92,6 +92,24 @@ You will see:
 
 The **Timeline** panel shows the `db.products.findAll` span alongside other phases.
 
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve the options from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  TypeOrmCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
 ## How it works
 
 The collector patches TypeORM's `createQueryRunner()` to time every query and record it into the active request profile. See [How it works](/docs/packages/nest-profiler-typeorm#how-it-works) on the package page for the full mechanism and the exact set of captured queries.

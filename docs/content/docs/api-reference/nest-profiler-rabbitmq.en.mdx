@@ -29,6 +29,7 @@ import { RabbitMqContextAdapter } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RABBITMQ_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-rabbitmq';
 
 import type { RabbitMqCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { RabbitMqCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqInfo } from '@eleven-labs/nest-profiler-rabbitmq';
 ```
 
@@ -65,6 +66,23 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   ],
 })
 export class AppModule {}
+```
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended) — it resolves option _values_ only, not `enabled` (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  RabbitMqCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      captureBody: config.get<boolean>('profiler.rabbitmqCaptureBody') ?? true,
+      maskHeaders: config.get<string[]>('profiler.maskHeaders') ?? [],
+    }),
+  }),
+  isProfilerEnabled,
+);
 ```
 
 Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback once at the root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
