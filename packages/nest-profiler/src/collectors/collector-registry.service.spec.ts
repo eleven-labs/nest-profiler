@@ -271,6 +271,41 @@ describe('CollectorRegistry', () => {
       expect(group?.badgeValue).toBe('5 · 3');
     });
 
+    it('merges three database collectors (typeorm + mikro-orm + mongoose) into one group', () => {
+      // Mirrors an app wiring several ORMs at once: every query collector shares the
+      // `database` group, so all of them must surface as distinct, labelled sub-panels
+      // under a single "Database" panel with a concatenated badge — no query is dropped.
+      registry.register({
+        name: 'typeorm',
+        label: 'TypeORM',
+        group: 'database',
+        groupLabel: 'Database',
+        groupPriority: 10,
+        collect: () => [],
+        getBadgeValue: () => '2q',
+      });
+      registry.register({
+        name: 'mikro-orm',
+        label: 'MikroORM',
+        group: 'database',
+        collect: () => [],
+        getBadgeValue: () => '4q (1 slow)',
+      });
+      registry.register({
+        name: 'mongoose',
+        label: 'MongoDB',
+        group: 'database',
+        collect: () => [],
+        getBadgeValue: () => '3q',
+      });
+
+      const group = registry.buildPanels(makeProfile()).find((p) => p.name === 'database');
+      expect(group?.isGroup).toBe(true);
+      expect(group?.subPanels?.map((s) => s.name)).toEqual(['typeorm', 'mikro-orm', 'mongoose']);
+      expect(group?.subPanels?.map((s) => s.label)).toEqual(['TypeORM', 'MikroORM', 'MongoDB']);
+      expect(group?.badgeValue).toBe('2q · 4q (1 slow) · 3q');
+    });
+
     it('derives group label/priority from minimal metadata and a deferred badge', () => {
       // First collector has no badge (group badge starts undefined); the group label
       // and priority fall back to the group name and the collector priority respectively.

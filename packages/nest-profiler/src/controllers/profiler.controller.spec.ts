@@ -115,6 +115,48 @@ describe('ProfilerController (unit)', () => {
     expect(rendered[0]?.ctx.entrypointTabs).toEqual([]);
   });
 
+  it('enriches grouped sub-panels with each collector data when several ORMs share a group', async () => {
+    // A profile produced by an app wiring TypeORM + Mongoose at once: both collectors
+    // stored their entries under their own name. Opening the merged "Database" tab must
+    // hand every sub-panel its own data so all queries are visualised, none dropped.
+    const profile = makeProfile();
+    const typeormEntries = [{ sql: 'SELECT 1', duration: 2, isSlow: false }];
+    const mongooseEntries = [
+      { collection: 'reviews', operation: 'find', duration: 3, isSlow: false },
+    ];
+    profile.collectors = { typeorm: typeormEntries, mongoose: mongooseEntries };
+
+    const { controller, rendered, core } = setup({ profiles: [profile] });
+    (core.collectorRegistry as { buildPanels: jest.Mock }).buildPanels.mockReturnValue([
+      {
+        name: 'database',
+        label: 'Database',
+        priority: 10,
+        isGroup: true,
+        templatePath: '/tmp/grouped.ejs',
+        subPanels: [
+          { name: 'typeorm', label: 'TypeORM', templatePath: '/tmp/sql.ejs' },
+          { name: 'mongoose', label: 'MongoDB', templatePath: '/tmp/mongo.ejs' },
+        ],
+      },
+    ]);
+
+    await controller.getProfileDetail(profile.token, 'database');
+
+    expect(rendered[0]?.ctx.activeTab).toBe('database');
+    expect(rendered[0]?.ctx.collectorData).toEqual({
+      subPanels: [
+        { name: 'typeorm', label: 'TypeORM', templatePath: '/tmp/sql.ejs', data: typeormEntries },
+        {
+          name: 'mongoose',
+          label: 'MongoDB',
+          templatePath: '/tmp/mongo.ejs',
+          data: mongooseEntries,
+        },
+      ],
+    });
+  });
+
   it('keeps a badgeless entrypoint tab active (undefined, not null) so it is never dimmed', async () => {
     const { controller, rendered, core } = setup();
     (core.getEntrypointType as jest.Mock).mockReturnValue({
