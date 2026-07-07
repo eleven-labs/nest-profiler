@@ -1,6 +1,11 @@
 import { MemoryStorageAdapter } from './memory-storage.adapter';
 import type { Profile } from '../interfaces/profile.interface';
 
+// The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered once for every
+// adapter in `storage-adapter.contract.spec.ts`. What remains here is what is specific
+// to the in-memory adapter: every method returns synchronously (never a Promise), which
+// is the property the service's synchronous fast paths rely on.
+
 function makeProfile(token: string, overrides: Partial<Profile> = {}): Profile {
   return {
     token,
@@ -15,95 +20,19 @@ function makeProfile(token: string, overrides: Partial<Profile> = {}): Profile {
 }
 
 describe('MemoryStorageAdapter', () => {
-  describe('save / findOne', () => {
-    it('stores and retrieves a profile by token', () => {
-      const adapter = new MemoryStorageAdapter();
-      const profile = makeProfile('a');
-      adapter.save(profile);
-      expect(adapter.findOne('a')).toBe(profile);
-    });
+  it('returns synchronously from save, findOne, findAll and clear (never a Promise)', () => {
+    const adapter = new MemoryStorageAdapter();
 
-    it('returns undefined for an unknown token', () => {
-      const adapter = new MemoryStorageAdapter();
-      expect(adapter.findOne('missing')).toBeUndefined();
-    });
+    expect(adapter.save(makeProfile('a'))).toBeUndefined();
+    const found = adapter.findOne('a');
+    expect(found).not.toBeInstanceOf(Promise);
+    expect(found?.token).toBe('a');
 
-    it('evicts the oldest profile when maxProfiles is exceeded (LRU)', () => {
-      const adapter = new MemoryStorageAdapter({ maxProfiles: 2 });
-      adapter.save(makeProfile('a'));
-      adapter.save(makeProfile('b'));
-      adapter.save(makeProfile('c'));
-      expect(adapter.findOne('a')).toBeUndefined();
-      expect(adapter.findOne('b')).toBeDefined();
-      expect(adapter.findOne('c')).toBeDefined();
-    });
+    const all = adapter.findAll();
+    expect(all).not.toBeInstanceOf(Promise);
+    expect(all.map((p) => p.token)).toEqual(['a']);
 
-    it('never evicts when maxProfiles is 0 (no cap)', () => {
-      const adapter = new MemoryStorageAdapter({ maxProfiles: 0 });
-      for (let i = 0; i < 250; i++) adapter.save(makeProfile(`p-${i}`));
-      expect(adapter.findAll()).toHaveLength(250);
-      expect(adapter.findOne('p-0')).toBeDefined();
-    });
-  });
-
-  describe('TTL expiration', () => {
-    it('findOne drops and returns undefined for an expired profile', () => {
-      const adapter = new MemoryStorageAdapter({ ttl: 1 });
-      adapter.save(makeProfile('old', { createdAt: Date.now() - 5000 }));
-      expect(adapter.findOne('old')).toBeUndefined();
-      // A subsequent valid save then findAll should not surface the expired one
-      adapter.save(makeProfile('fresh'));
-      expect(adapter.findAll().map((p) => p.token)).toEqual(['fresh']);
-    });
-
-    it('findAll filters out expired profiles', () => {
-      const adapter = new MemoryStorageAdapter({ ttl: 1 });
-      adapter.save(makeProfile('expired', { createdAt: Date.now() - 5000 }));
-      adapter.save(makeProfile('valid'));
-      expect(adapter.findAll().map((p) => p.token)).toEqual(['valid']);
-    });
-
-    it('never expires when ttl is 0', () => {
-      const adapter = new MemoryStorageAdapter({ ttl: 0 });
-      adapter.save(makeProfile('ancient', { createdAt: Date.now() - 10 * 365 * 24 * 3600 * 1000 }));
-      expect(adapter.findOne('ancient')).toBeDefined();
-      expect(adapter.findAll().map((p) => p.token)).toEqual(['ancient']);
-    });
-  });
-
-  describe('findAll', () => {
-    it('returns profiles in reverse insertion order (newest first)', () => {
-      const adapter = new MemoryStorageAdapter();
-      adapter.save(makeProfile('a'));
-      adapter.save(makeProfile('b'));
-      adapter.save(makeProfile('c'));
-      expect(adapter.findAll().map((p) => p.token)).toEqual(['c', 'b', 'a']);
-    });
-
-    it('delegates filtering to applyProfileFilters', () => {
-      const adapter = new MemoryStorageAdapter();
-      adapter.save(
-        makeProfile('a', {
-          entrypoint: { type: 'http', data: { method: 'GET', url: '/a', headers: {}, query: {} } },
-        }),
-      );
-      adapter.save(
-        makeProfile('b', {
-          entrypoint: { type: 'http', data: { method: 'POST', url: '/b', headers: {}, query: {} } },
-        }),
-      );
-      const result = adapter.findAll({ method: 'POST' });
-      expect(result.map((p) => p.token)).toEqual(['b']);
-    });
-  });
-
-  describe('clear', () => {
-    it('removes all stored profiles', () => {
-      const adapter = new MemoryStorageAdapter();
-      adapter.save(makeProfile('a'));
-      adapter.clear();
-      expect(adapter.findAll()).toEqual([]);
-      expect(adapter.findOne('a')).toBeUndefined();
-    });
+    expect(adapter.clear()).toBeUndefined();
+    expect(adapter.findAll()).toEqual([]);
   });
 });

@@ -4,6 +4,11 @@ import * as path from 'node:path';
 import { SqliteStorageAdapter } from './sqlite-storage.adapter';
 import type { Profile } from '../../interfaces/profile.interface';
 
+// The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered for every adapter
+// in `storage-adapter.contract.spec.ts`. This spec keeps only what is specific to the
+// SQLite adapter: native pushed-down query/distinct, index attributes, the eviction
+// counter, file persistence and corruption handling.
+
 function makeProfile(
   token: string,
   o: {
@@ -44,69 +49,6 @@ describe('SqliteStorageAdapter', () => {
 
   afterEach(() => {
     adapter.close();
-  });
-
-  it('saves and retrieves a profile', () => {
-    const p = makeProfile('abc');
-    adapter.save(p);
-    expect(adapter.findOne('abc')?.token).toBe('abc');
-  });
-
-  it('findOne returns undefined for an unknown token', () => {
-    expect(adapter.findOne('nope')).toBeUndefined();
-  });
-
-  it('findAll returns profiles newest-first', () => {
-    const base = Date.now();
-    adapter.save(makeProfile('a', { createdAt: base }));
-    adapter.save(makeProfile('b', { createdAt: base + 1 }));
-    adapter.save(makeProfile('c', { createdAt: base + 2 }));
-    expect(adapter.findAll().map((p) => p.token)).toEqual(['c', 'b', 'a']);
-  });
-
-  it('findAll applies legacy StorageFindOptions', () => {
-    adapter.save(makeProfile('get', { method: 'GET' }));
-    adapter.save(makeProfile('post', { method: 'POST' }));
-    const results = adapter.findAll({ method: 'POST' });
-    expect(results.map((p) => p.token)).toEqual(['post']);
-  });
-
-  it('clear removes everything', () => {
-    adapter.save(makeProfile('x'));
-    adapter.clear();
-    expect(adapter.findAll()).toEqual([]);
-  });
-
-  it('excludes profiles past their TTL', () => {
-    const ttlAdapter = new SqliteStorageAdapter({ path: ':memory:', ttl: 1 });
-    ttlAdapter.save(makeProfile('stale', { createdAt: Date.now() - 5000 }));
-    expect(ttlAdapter.findOne('stale')).toBeUndefined();
-    expect(ttlAdapter.findAll()).toEqual([]);
-    ttlAdapter.close();
-  });
-
-  it('evicts the oldest profiles beyond maxProfiles', () => {
-    const small = new SqliteStorageAdapter({ path: ':memory:', maxProfiles: 3, ttl: 3600 });
-    const base = Date.now();
-    for (let i = 0; i < 5; i++) small.save(makeProfile(`e-${i}`, { createdAt: base + i }));
-    expect(small.findAll().map((p) => p.token)).toEqual(['e-4', 'e-3', 'e-2']);
-    small.close();
-  });
-
-  it('never caps the store when maxProfiles is 0', () => {
-    const uncapped = new SqliteStorageAdapter({ path: ':memory:', maxProfiles: 0, ttl: 3600 });
-    const base = Date.now();
-    for (let i = 0; i < 150; i++) uncapped.save(makeProfile(`u-${i}`, { createdAt: base + i }));
-    expect(uncapped.query({ filters: [], page: 1, pageSize: 1 }).total).toBe(150);
-    uncapped.close();
-  });
-
-  it('never expires when ttl is 0', () => {
-    const noTtl = new SqliteStorageAdapter({ path: ':memory:', ttl: 0 });
-    noTtl.save(makeProfile('ancient', { createdAt: Date.now() - 10 * 365 * 24 * 3600 * 1000 }));
-    expect(noTtl.findOne('ancient')?.token).toBe('ancient');
-    expect(noTtl.query({ filters: [], page: 1, pageSize: 10 }).total).toBe(1);
-    noTtl.close();
   });
 
   it('crossProcess is true for a file database and false for :memory:', () => {

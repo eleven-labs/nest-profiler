@@ -359,6 +359,21 @@ describe('ProfilerController (e2e)', () => {
       expect(res.text).toContain('&lt;script&gt;');
     });
 
+    it('sends a strict CSP and hardening headers on both HTML routes', async () => {
+      const token = await createProfile('/hello');
+      // Mirrors PROFILER_CSP in the controller — a regression guard on the exact policy.
+      const expectedCsp =
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
+
+      for (const url of ['/_profiler', `/_profiler/${token}`]) {
+        const res = await request(server()).get(url);
+        expect(res.status).toBe(200);
+        expect(res.headers['content-security-policy']).toBe(expectedCsp);
+        expect(res.headers['x-content-type-options']).toBe('nosniff');
+        expect(res.headers['cache-control']).toBe('no-store');
+      }
+    });
+
     it('renders a single-collector tab', async () => {
       const token = await createProfile('/hello');
       const res = await request(server()).get(`/_profiler/${token}`).query({ tab: 'custom' });
