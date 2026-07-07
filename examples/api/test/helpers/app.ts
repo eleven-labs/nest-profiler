@@ -20,6 +20,12 @@ export const activeSqlOrm = (): SqlOrm =>
 export const inactiveSqlOrm = (): SqlOrm =>
   activeSqlOrm() === 'mikro-orm' ? 'typeorm' : 'mikro-orm';
 
+export type HttpClient = 'axios' | 'fetch';
+
+/** The content HTTP client for this run — `test:e2e:http-clients` sets HTTP_CLIENT; default axios. */
+export const activeHttpClient = (): HttpClient =>
+  process.env['HTTP_CLIENT'] === 'fetch' ? 'fetch' : 'axios';
+
 /** Boots the real AppModule and mirrors the logger wiring from `src/main.ts`. */
 export async function createE2EApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();

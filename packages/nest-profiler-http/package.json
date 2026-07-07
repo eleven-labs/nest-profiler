@@ -1,7 +1,7 @@
 {
   "name": "@eleven-labs/nest-profiler-http",
   "version": "1.0.0-alpha.7",
-  "description": "HTTP client collector for @eleven-labs/nest-profiler — ships axios wiring, bring your own client",
+  "description": "Client-agnostic HTTP-client collector for @eleven-labs/nest-profiler — pluggable axios/fetch instrumentations",
   "keywords": [
     "nestjs",
     "http-client",
@@ -25,10 +25,23 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
-    }
+    },
+    "./axios": {
+      "types": "./dist/axios/index.d.ts",
+      "require": "./dist/axios/index.js",
+      "default": "./dist/axios/index.js"
+    },
+    "./fetch": {
+      "types": "./dist/fetch/index.d.ts",
+      "require": "./dist/fetch/index.js",
+      "default": "./dist/fetch/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "axios",
+    "fetch",
     "CHANGELOG.md"
   ],
   "engines": {
@@ -88,7 +101,7 @@
     "rootDir": ".",
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",
-      "!src/index.ts",
+      "!src/**/index.ts",
       "!src/client/**"
     ],
     "coverageDirectory": "coverage"

@@ -3,7 +3,7 @@ import request from 'supertest';
 import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
-import { createE2EApp, profileOf, server } from './helpers/app.js';
+import { activeHttpClient, createE2EApp, profileOf, server } from './helpers/app.js';
 import {
   lockNetwork,
   mockJsonPlaceholder,
@@ -11,14 +11,18 @@ import {
   MOCK_POSTS,
 } from './helpers/jsonplaceholder.js';
 
-const axiosEntries = (collectors: Record<string, unknown>): HttpRequestEntry[] =>
+// The suite is client-agnostic: it runs against whichever ArticleGateway `HTTP_CLIENT` selected
+// (axios or fetch) and asserts the same outgoing calls in the shared `http-client` panel. nock (v14)
+// intercepts both node:http (axios) and global fetch (undici), so a single mock covers both. The
+// `test:e2e:http-clients` script re-runs this file for each client.
+const httpEntries = (collectors: Record<string, unknown>): HttpRequestEntry[] =>
   (collectors['http-client'] as HttpRequestEntry[] | undefined) ?? [];
 const cacheEntries = (collectors: Record<string, unknown>): CacheOperationEntry[] =>
   (collectors['cache'] as CacheOperationEntry[] | undefined) ?? [];
 const validatorEntries = (collectors: Record<string, unknown>): ValidationEntry[] =>
   (collectors['validator'] as ValidationEntry[] | undefined) ?? [];
 
-describe('Content endpoints (e2e) — axios + cache + validator collectors', () => {
+describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator collectors`, () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -33,16 +37,16 @@ describe('Content endpoints (e2e) — axios + cache + validator collectors', () 
   });
 
   describe('GET /articles', () => {
-    it('cold call: records outgoing axios requests and a cache MISS + SET', async () => {
+    it('cold call: records outgoing HTTP requests and a cache MISS + SET', async () => {
       const { res, profile } = await profileOf(app, 'get', '/api/v1/articles');
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(MOCK_POSTS.length);
 
-      const axios = axiosEntries(profile.collectors);
+      const http = httpEntries(profile.collectors);
       // 1 articles fetch + 1 author fetch per distinct userId in the mock data
-      expect(axios.length).toBeGreaterThanOrEqual(2);
-      expect(axios).toEqual(
+      expect(http.length).toBeGreaterThanOrEqual(2);
+      expect(http).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             method: 'GET',
@@ -65,11 +69,11 @@ describe('Content endpoints (e2e) — axios + cache + validator collectors', () 
       expect(phases).toEqual(expect.arrayContaining(['http.articles', 'http.articles.authors']));
     });
 
-    it('warm call: served from cache, no axios request', async () => {
+    it('warm call: served from cache, no outgoing request', async () => {
       const { res, profile } = await profileOf(app, 'get', '/api/v1/articles');
 
       expect(res.status).toBe(200);
-      expect(axiosEntries(profile.collectors)).toHaveLength(0);
+      expect(httpEntries(profile.collectors)).toHaveLength(0);
       expect(cacheEntries(profile.collectors).map((c) => c.operation)).toContain('GET_HIT');
     });
   });
@@ -137,50 +141,22 @@ describe('Content endpoints (e2e) — axios + cache + validator collectors', () 
 
       expect(res.status).toBe(201);
 
-      const post = axiosEntries(profile.collectors).find((e) => e.method === 'POST');
+      const post = httpEntries(profile.collectors).find((e) => e.method === 'POST');
       expect(post).toMatchObject({
         url: 'https://jsonplaceholder.typicode.com/posts',
         statusCode: 201,
       });
       expect(post?.requestBody).toMatchObject({ title: 'Forwarded article', userId: 1 });
-      expect(post?.responseBody).toBeDefined(); // captureResponseBody: true in ArticleHttpModule
-    });
-  });
-
-  describe('GET /articles/via-fetch — bring-your-own client (native fetch, no axios)', () => {
-    const realFetch = globalThis.fetch;
-    afterEach(() => {
-      globalThis.fetch = realFetch;
-    });
-
-    it('records the native fetch call in the HTTP Client panel via HttpProfilerRecorder', async () => {
-      const headers = new Headers({ 'content-type': 'application/json', 'x-served-by': 'mock' });
-      globalThis.fetch = jest.fn(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ id: 1, title: 'fetched via fetch' }), {
-            status: 200,
-            headers,
-          }),
-        ),
-      );
-
-      const { res, profile } = await profileOf(app, 'get', '/api/v1/articles/via-fetch');
-      expect(res.status).toBe(200);
-
-      const fetched = axiosEntries(profile.collectors).find((e) => e.url.endsWith('/posts/1'));
-      expect(fetched).toMatchObject({ method: 'GET', statusCode: 200 });
-      expect(fetched?.requestHeaders).toMatchObject({ accept: 'application/json' });
-      expect(fetched?.responseHeaders?.['content-type']).toBe('application/json');
-      expect(fetched?.responseBody).toEqual({ id: 1, title: 'fetched via fetch' });
+      expect(post?.responseBody).toBeDefined(); // captureResponseBody: true in the active adapter module
     });
   });
 
   describe('GET /articles/todos/:id', () => {
-    it('records the two concurrent axios calls, then a HIT on the second request', async () => {
+    it('records the two concurrent HTTP calls, then a HIT on the second request', async () => {
       const { res, profile } = await profileOf(app, 'get', '/api/v1/articles/todos/7');
 
       expect(res.status).toBe(200);
-      const urls = axiosEntries(profile.collectors).map((e) => e.url);
+      const urls = httpEntries(profile.collectors).map((e) => e.url);
       expect(urls).toEqual(
         expect.arrayContaining([
           'https://jsonplaceholder.typicode.com/todos/7',
@@ -189,7 +165,7 @@ describe('Content endpoints (e2e) — axios + cache + validator collectors', () 
       );
 
       const { profile: warm } = await profileOf(app, 'get', '/api/v1/articles/todos/7');
-      expect(axiosEntries(warm.collectors)).toHaveLength(0);
+      expect(httpEntries(warm.collectors)).toHaveLength(0);
       expect(cacheEntries(warm.collectors).map((c) => c.operation)).toContain('GET_HIT');
     });
   });

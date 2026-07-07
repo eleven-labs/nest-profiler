@@ -1,30 +1,29 @@
 ---
 title: nest-profiler-http
-description: Types and API of the HTTP Client panel and axios adapter.
+description: Types and API of the HTTP Client panel and its axios/fetch adapters.
 seo:
   title: HTTP Client collector API reference
-  description: API reference for @eleven-labs/nest-profiler-http - the client-agnostic HTTP Client panel, recorder, instrumentation interface and bundled axios adapter.
+  description: API reference for @eleven-labs/nest-profiler-http - the client-agnostic HTTP Client panel, recorder, instrumentation interface and the bundled axios/fetch adapters.
 ---
 
-This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder`, the `HttpInstrumentation` interface and a bundled **axios adapter** (`AxiosInstrumentation`, enabled by default). Any HTTP client (fetch, undici, got, a custom module…) can feed the same panel through the recorder.
+This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder` and the `HttpInstrumentation` interface. It ships two opt-in adapters — `AxiosInstrumentation` (`/axios`) and `FetchInstrumentation` (`/fetch`) — each on its own subpath, both capturing request and response bodies safely. You select which client(s) to instrument; nothing is patched unless listed. Any other client (undici, got, a custom module…) can feed the same panel through the recorder or a custom `HttpInstrumentation`.
 
 ## Module
 
 ### HttpCollectorModule
 
-Registers the HTTP Client panel and the `HttpProfilerRecorder`, then installs any HTTP instrumentations (the bundled axios adapter by default). Import it once with `HttpCollectorModule.forRoot(options)`.
+Registers the HTTP Client panel and the `HttpProfilerRecorder`, then installs the HTTP instrumentations you selected in `instrumentations`. Import it once with `HttpCollectorModule.forRoot(options)`.
 
 ### HttpCollectorModuleOptions
 
-Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `axios` toggle and an `instrumentations` array.
+Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpCaptureOptions` capture/redaction contract with an `instrumentations` array.
 
 <AutoTypeTable
   path="packages/nest-profiler-http/src/http-collector.module.ts"
   name="HttpCollectorModuleOptions"
 />
 
-- `axios` (default `true`) - enable the bundled axios adapter. It is a no-op when `@nestjs/axios` is absent, so it is safe to leave on for non-axios apps.
-- `instrumentations` (default `[]`) - additional `HttpInstrumentation` providers to install (e.g. a custom fetch/got/undici adapter).
+- `instrumentations` (default `[]`) - the adapters to install, imported from their subpaths (`AxiosInstrumentation`, `FetchInstrumentation`) or your own `HttpInstrumentation`. Nothing is instrumented unless it appears here.
 
 Gate the module with `ConditionalModule.registerWhen(HttpCollectorModule.forRoot({ … }), isProfilerEnabled)` so it loads only when the profiler is on — the same pattern used for every profiler module.
 
@@ -39,7 +38,7 @@ Injectable façade for recording outgoing HTTP requests into the active profile.
   name="HttpProfilerRecorder"
 />
 
-`capture(input: HttpCaptureInput): void` builds an `HttpRequestEntry` from raw request/response material, honouring the configured `HttpCaptureOptions` (capture flags) and masking sensitive headers, then records it. This is the recommended entry point - it guarantees a custom client captures the same request/response detail (shown in the panel) as the bundled axios adapter.
+`capture(input: HttpCaptureInput): void` builds an `HttpRequestEntry` from raw request/response material, honouring the configured `HttpCaptureOptions` (capture flags) and masking sensitive headers, then records it. This is the recommended entry point - it guarantees a custom client captures the same request/response detail (shown in the panel) as the bundled adapters.
 
 `record(entry: HttpRequestEntry): void` appends an already-built entry as-is (no capture flags / masking applied) - use it only to bypass the options. Both methods are a no-op outside a CLS context or when no profile is active.
 
@@ -65,15 +64,31 @@ Interface to implement when teaching the profiler how to capture requests from a
 
 `install(recorder: HttpProfilerRecorder): void | Promise<void>` is called once at application bootstrap. Use `recorder.capture(...)` to push captured requests - it applies the capture options and header masking for you.
 
+This is the extension point for any client without a bundled adapter (got, undici, superagent, a bespoke NestJS service…): hook the client's own API in `install` so you capture full request **and** response bodies safely. For a one-off call, inject `HttpProfilerRecorder` and call `capture(...)` inline instead. The [HTTP client tutorial](/docs/tutorials/http-collector#wire-your-own-http-client) walks through both patterns with a complete `got` example.
+
+Each bundled adapter is exported from its own subpath so importing one never loads another's dependency.
+
 ### AxiosInstrumentation
 
-The bundled axios adapter, implementing `HttpInstrumentation`. It patches the `axiosRef` supplied through the options (see `forRootAsync`) and records each request via the recorder — it never imports `@nestjs/axios`. It is installed automatically unless `axios: false` is passed; with no `axiosRef` it is a no-op. You rarely reference it directly.
+```ts
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+```
+
+The bundled axios adapter. It **auto-discovers** every axios instance in the DI container via `DiscoveryService` — `@nestjs/axios` `HttpService` (including each per-feature `HttpModule` / `HttpModule.register()`, which build distinct instances) and bare axios instances — and patches their interceptors. No `axiosRef` wiring and no `@nestjs/axios` import; only axios's types are referenced. Instances created outside DI aren't discoverable — record those with a custom instrumentation. Optional peer: `axios`.
+
+### FetchInstrumentation
+
+```ts
+import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
+```
+
+Patches `globalThis.fetch` once (Node ≥ 22 built-in). A single global hook captures every caller. Response bodies are read (via `Response.clone()`) only when `captureResponseBody` is enabled; request bodies are captured for serialisable `init.body` (string / `URLSearchParams`). No dependency.
 
 ## Types
 
 ### HttpRequestEntry
 
-One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-agnostic by design: the bundled axios adapter produces these, but any client can record the same shape via `HttpProfilerRecorder` or `appendHttpRequestEntry`.
+One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-agnostic by design: the bundled adapters (axios, fetch) produce these, but any client can record the same shape via `HttpProfilerRecorder` or `appendHttpRequestEntry`.
 
 <AutoTypeTable
   path="packages/nest-profiler-http/src/http-request.interface.ts"
@@ -115,12 +130,13 @@ Client-agnostic header redaction helpers shared by instrumentations.
 
 ## Public exports
 
+The root barrel is client-agnostic — it exports no adapter. Select adapters from their subpaths.
+
 ```ts
 import {
   HttpCollectorModule,
   HttpProfilerRecorder,
   HttpClientCollector,
-  AxiosInstrumentation,
   appendHttpRequestEntry,
   DEFAULT_MASK_HEADERS,
   extractHeaders,
@@ -136,37 +152,39 @@ import type {
   HttpRequestEntry,
   HttpCaptureOptions,
 } from '@eleven-labs/nest-profiler-http';
+
+// Adapters — one per subpath:
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 ```
 
 ## Installation
 
 ```bash
 pnpm add @eleven-labs/nest-profiler-http
-# to instrument axios, your app already provides HttpService from @nestjs/axios:
+# only if you select the axios adapter — your app already owns these:
 pnpm add @nestjs/axios axios
 ```
 
-**Optional peer dependency:** `axios ^1.0.0` (type-only — the shape of the `axiosRef` you pass). This package never imports `@nestjs/axios`; you supply your `HttpService.axiosRef` via `HttpCollectorModule.forRootAsync()`, so `@nestjs/axios` is your application's dependency, not the profiler's.
+**Optional peer dependency:** `axios ^1.0.0` (type-only, used by the `/axios` adapter). `fetch` is a Node ≥ 22 built-in and needs no dependency. This package never imports `@nestjs/axios` — that is your application's dependency.
 
 ## Setup
 
-Hand the collector your `HttpService.axiosRef` through `forRootAsync()` — the package never imports `@nestjs/axios` itself:
+Select the client(s) to instrument via `instrumentations`, importing each adapter from its subpath:
 
 ```ts
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule, HttpService } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    HttpModule, // provides HttpService
     ConditionalModule.registerWhen(
-      HttpCollectorModule.forRootAsync({
-        imports: [HttpModule],
-        inject: [HttpService],
-        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
+      HttpCollectorModule.forRoot({
+        instrumentations: [AxiosInstrumentation, FetchInstrumentation],
       }),
       isProfilerEnabled,
     ),
@@ -175,4 +193,4 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 export class PostsModule {}
 ```
 
-At bootstrap each registered instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.
+The axios adapter auto-discovers your `HttpService` instances, so injecting `HttpService` as usual is enough — no `axiosRef` wiring. At bootstrap each selected instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.

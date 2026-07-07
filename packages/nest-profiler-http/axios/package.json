@@ -1,0 +1,5 @@
+{
+  "main": "../dist/axios/index.js",
+  "types": "../dist/axios/index.d.ts",
+  "sideEffects": false
+}

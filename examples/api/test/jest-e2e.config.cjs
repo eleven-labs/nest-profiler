@@ -14,6 +14,26 @@ const stressEnabled = !['0', 'false', 'off', 'no'].includes(
   (process.env.PROFILER_STRESS ?? '').trim().toLowerCase(),
 );
 
+// E2E_SKIP_HTTP_SPECS: skip content/cli (they depend on HTTP_CLIENT, not SQL_ORM).
+const skipHttpClientSpecs = ['1', 'true'].includes(
+  (process.env.E2E_SKIP_HTTP_SPECS ?? '').trim().toLowerCase(),
+);
+const httpClientSpecs = ['content\\.e2e-spec', 'cli\\.e2e-spec'];
+
+// E2E_ORM_DEPENDENT_ONLY: keep only the SQL_ORM-dependent specs (products/graphql/profiler-ui).
+const ormDependentOnly = ['1', 'true'].includes(
+  (process.env.E2E_ORM_DEPENDENT_ONLY ?? '').trim().toLowerCase(),
+);
+const ormIndependentSpecs = [
+  'auth',
+  'health',
+  'diagnostics',
+  'reviews',
+  'profiler-stress',
+  'content',
+  'cli',
+].map((name) => `${name}\\.e2e-spec`);
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: '@repo/jest-config',
@@ -23,6 +43,8 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     ...(stressEnabled ? [] : ['profiler-stress\\.e2e-spec']),
+    ...(skipHttpClientSpecs ? httpClientSpecs : []),
+    ...(ormDependentOnly ? ormIndependentSpecs : []),
   ],
   // Empties `.profiler` once per run; the suite's profiles are kept afterwards for browsing.
   globalSetup: '<rootDir>/test/global-setup.ts',

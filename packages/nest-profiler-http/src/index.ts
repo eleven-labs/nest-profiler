@@ -15,4 +15,8 @@ export type {
   HttpCaptureOptions,
 } from './http-request.interface';
 export { DEFAULT_MASK_HEADERS, extractHeaders, formatHeaderValue } from './http-redaction.util';
-export { AxiosInstrumentation } from './adapters/axios.instrumentation';
+
+// Client adapters are NOT re-exported here — importing this barrel must never pull in a client
+// library. Select an adapter from its subpath instead:
+//   import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+//   import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';

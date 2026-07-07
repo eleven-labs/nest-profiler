@@ -109,9 +109,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # jest's require(esm) — needed by the ESM-only @mikro-orm v7 — relies on the
-        # synchronous vm module APIs introduced in Node 24.9, so Node 22 is excluded.
-        node-version: [24, 26]
+        # Single Node version: unit tests cover 22/24/26; 24 is the floor for require(esm) (mikro-orm v7 ESM).
+        node-version: [24]
         sql-orm: [typeorm, mikro-orm]
     services:
       postgres:
@@ -154,12 +153,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # typeorm (primary) runs the full suite minus content/cli; mikro-orm (secondary) runs only the
+      # SQL_ORM-dependent specs. content/cli depend on HTTP_CLIENT — the step below runs them once per client.
       - name: E2E tests
-        # --filter=example-api: ^build only builds the @eleven-labs/* workspace deps
-        # (skips the docs site, so no GITHUB_TOKEN is needed).
         run: pnpm turbo run test:e2e --filter=example-api
         env:
           SQL_ORM: ${{ matrix.sql-orm }}
+          E2E_SKIP_HTTP_SPECS: ${{ matrix.sql-orm == 'typeorm' && 'true' || '' }}
+          E2E_ORM_DEPENDENT_ONLY: ${{ matrix.sql-orm == 'mikro-orm' && 'true' || '' }}
+
+      - name: E2E HTTP clients (content + cli, axios & fetch)
+        if: matrix.sql-orm == 'typeorm'
+        run: pnpm --filter example-api test:e2e:http-clients
 
   commitlint:
     name: Validate commit messages

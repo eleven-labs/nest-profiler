@@ -10,6 +10,10 @@ process.env['NODE_ENV'] = 'test';
 // Every feature flag on — the suite exercises all collectors.
 process.env['PROFILER_ENABLED'] = 'true';
 process.env['SQL_ORM'] ??= 'typeorm'; // CI matrix overrides with mikro-orm
+// Content HTTP client backing the ArticleGateway. Default axios; the `test:e2e:http-clients` script
+// re-runs the content suite with HTTP_CLIENT=fetch. nock (v14) intercepts both node:http (axios) and
+// global fetch (undici), so the exact same suite validates either adapter — only this var changes.
+process.env['HTTP_CLIENT'] ??= 'axios';
 process.env['FEATURE_MONGOOSE'] = 'true';
 process.env['FEATURE_GRAPHQL'] = 'true';
 process.env['FEATURE_PINO_LOGGER'] = 'true';

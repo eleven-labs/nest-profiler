@@ -1,14 +1,18 @@
 import type { DynamicModule, FactoryProvider } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
 import { HttpCollectorModule } from './http-collector.module';
 import type { HttpInstrumentation } from './http-instrumentation.interface';
 import type { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import { AxiosInstrumentation } from './adapters/axios.instrumentation';
 import { HttpClientCollector } from './http-client.collector';
 import { HttpProfilerRecorder as Recorder } from './http-profiler-recorder.service';
 import { HttpInstrumentationRunner } from './http-instrumentation.runner';
 import { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants';
 
 class FakeInstrumentation implements HttpInstrumentation {
+  install(_recorder: HttpProfilerRecorder): void {}
+}
+
+class OtherInstrumentation implements HttpInstrumentation {
   install(_recorder: HttpProfilerRecorder): void {}
 }
 
@@ -42,30 +46,35 @@ describe('HttpCollectorModule.forRoot', () => {
     expect(mod.exports).toContain(Recorder);
   });
 
-  it('enables the axios instrumentation by default', () => {
+  it('imports DiscoveryModule on the active path (powers axios auto-discovery)', () => {
     const mod = HttpCollectorModule.forRoot();
-    expect(mod.providers).toContain(AxiosInstrumentation);
-    expect(instrumentationsProvider(mod).inject).toEqual([AxiosInstrumentation]);
+    expect(mod.imports).toContain(DiscoveryModule);
   });
 
-  it('omits the axios instrumentation when axios is false', () => {
-    const mod = HttpCollectorModule.forRoot({ axios: false });
-    expect(mod.providers).not.toContain(AxiosInstrumentation);
+  it('instruments nothing by default (no adapter is default-on)', () => {
+    const mod = HttpCollectorModule.forRoot();
     expect(instrumentationsProvider(mod).inject).toEqual([]);
   });
 
-  it('appends custom instrumentations after the built-ins', () => {
-    const mod = HttpCollectorModule.forRoot({ instrumentations: [FakeInstrumentation] });
+  it('registers and wires exactly the selected instrumentations, in order', () => {
+    const mod = HttpCollectorModule.forRoot({
+      instrumentations: [FakeInstrumentation, OtherInstrumentation],
+    });
+    expect(mod.providers).toEqual(
+      expect.arrayContaining([FakeInstrumentation, OtherInstrumentation]),
+    );
     expect(instrumentationsProvider(mod).inject).toEqual([
-      AxiosInstrumentation,
       FakeInstrumentation,
+      OtherInstrumentation,
     ]);
   });
 
   it('collects the resolved instrumentation instances via its factory', () => {
-    const provider = instrumentationsProvider(HttpCollectorModule.forRoot());
-    const a = new AxiosInstrumentation({});
-    expect(provider.useFactory(a)).toEqual([a]);
+    const provider = instrumentationsProvider(
+      HttpCollectorModule.forRoot({ instrumentations: [FakeInstrumentation] }),
+    );
+    const instance = new FakeInstrumentation();
+    expect(provider.useFactory(instance)).toEqual([instance]);
   });
 });
 
@@ -82,18 +91,19 @@ describe('HttpCollectorModule.forRootAsync', () => {
     return found;
   }
 
-  it('provides HTTP_COLLECTOR_OPTIONS from the factory, forwards imports, and wires axios', () => {
+  it('provides HTTP_COLLECTOR_OPTIONS from the factory, forwards imports, and wires instrumentations', () => {
     class FakeImport {}
     const useFactory = (): { captureResponseBody: boolean } => ({ captureResponseBody: true });
     const mod = HttpCollectorModule.forRootAsync({
       imports: [FakeImport],
       inject: ['SOME_TOKEN'],
       useFactory,
+      instrumentations: [FakeInstrumentation],
     });
 
-    expect(mod.imports).toContain(FakeImport);
+    expect(mod.imports).toEqual(expect.arrayContaining([FakeImport, DiscoveryModule]));
     expect(mod.providers).toEqual(
-      expect.arrayContaining([AxiosInstrumentation, Recorder, HttpInstrumentationRunner]),
+      expect.arrayContaining([FakeInstrumentation, Recorder, HttpInstrumentationRunner]),
     );
     expect(mod.exports).toContain(Recorder);
     // The options come from the async factory (not a useValue).
