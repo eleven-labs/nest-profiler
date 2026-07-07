@@ -3,6 +3,7 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerInterceptor } from './profiler.interceptor';
+import { PROFILER_DEFER_COLLECTION } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
@@ -411,6 +412,41 @@ describe('ProfilerInterceptor', () => {
 
       expect(result).toEqual({ data: 1 });
       expect(profile.response).toEqual({ statusCode: 200, headers: {}, body: { data: 1 } });
+    });
+
+    it('defers collection to the finish hook when the profile is marked for it', async () => {
+      const profile = makeProfile();
+      // The middleware marks the profile once its finish listener is registered; the finish hook
+      // then collects after every field resolver, so the interceptor must not finalize early.
+      (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(profile, core);
+
+      const result = await lastValueFrom(interceptor.intercept(makeGqlCtx(), handler({ data: 1 })));
+
+      expect(result).toEqual({ data: 1 });
+      expect(profile.response).toBeUndefined();
+      expect(core.schedulePersist).not.toHaveBeenCalled();
+      expect(core.collectorRegistry.collectAll).not.toHaveBeenCalled();
+      expect(core.storage.save).not.toHaveBeenCalled();
+    });
+
+    it('records the exception but leaves persistence to the finish hook when deferred', async () => {
+      const profile = makeProfile();
+      (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
+      const adapter = makeAdapter(profile);
+      const core = makeCore(adapter);
+      const interceptor = makeInterceptor(profile, core);
+      const error = new BadRequestException('invalid input');
+
+      await expect(
+        lastValueFrom(interceptor.intercept(makeGqlCtx(), errorHandler(error))),
+      ).rejects.toBe(error);
+
+      expect(profile.exceptions[0]?.message).toBe('invalid input');
+      expect(profile.response).toBeUndefined();
+      expect(core.schedulePersist).not.toHaveBeenCalled();
     });
 
     it('records HttpException status code from GraphQL resolver errors', async () => {
