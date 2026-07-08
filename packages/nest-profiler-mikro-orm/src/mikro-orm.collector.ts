@@ -7,7 +7,7 @@ const DB_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy
 @Injectable()
 @ProfilerCollector({
   name: 'mikro-orm',
-  label: 'SQL',
+  label: 'MikroORM',
   icon: DB_ICON,
   priority: 10,
   group: 'database',
@@ -17,7 +17,7 @@ const DB_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy
 })
 export class MikroOrmCollector extends AbstractSqlQueryCollector {
   readonly name = 'mikro-orm';
-  readonly label = 'SQL';
+  readonly label = 'MikroORM';
   readonly icon = DB_ICON;
   readonly priority = 10;
   readonly group = 'database';
