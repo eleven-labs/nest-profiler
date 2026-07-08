@@ -42,8 +42,8 @@ importers:
         specifier: ^17.0.8
         version: 17.0.8
       prettier:
-        specifier: ^3.9.1
-        version: 3.9.1
+        specifier: ^3.9.4
+        version: 3.9.4
       publint:
         specifier: ^0.3.12
         version: 0.3.21
@@ -51,8 +51,8 @@ importers:
         specifier: ^4.20.3
         version: 4.22.4
       turbo:
-        specifier: ^2.10.0
-        version: 2.10.0
+        specifier: ^2.10.2
+        version: 2.10.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -282,7 +282,7 @@ importers:
     devDependencies:
       '@nestjs/cli':
         specifier: ^11.0.7
-        version: 11.0.23(@types/node@24.13.2)(prettier@3.9.1)
+        version: 11.0.23(@types/node@24.13.2)(prettier@3.9.4)
       '@nestjs/testing':
         specifier: ^11.1.3
         version: 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(@nestjs/platform-express@11.1.27)
@@ -375,7 +375,7 @@ importers:
         version: 7.1.1(eslint@10.6.0(jiti@2.7.0))
       eslint-plugin-turbo:
         specifier: ^2.10.0
-        version: 2.10.0(eslint@10.6.0(jiti@2.7.0))(turbo@2.10.0)
+        version: 2.10.0(eslint@10.6.0(jiti@2.7.0))(turbo@2.10.4)
       globals:
         specifier: ^17.7.0
         version: 17.7.0
@@ -3554,33 +3554,63 @@ packages:
   '@ts-morph/common@0.29.0':
     resolution: {integrity: sha512-35oUmphHbJvQ/+UTwFNme/t2p3FoKiGJ5auTjjpNTop2dyREspirjMy82PLSC1pnDJ8ah1GU98hwpVt64YXQsg==}
 
-  '@turbo/darwin-64@2.10.0':
-    resolution: {integrity: sha512-EwvHThXzpY0KGd1/NAmuewI5D+aVa3Rl/OlxE36yfjUKb/+ySrfJrSlEFt8aD1OXwnnaHnQnPKHFndor0Zxlsg==}
+  '@turbo/darwin-64@2.10.2':
+    resolution: {integrity: sha512-wBM3ObqOWnKUDmg7QfUFDkDHPFUAJmrYlYqmEM8jMPAPA/I6wRJIbWimeQUqhOiQ8xPKhzyWM+xaiUP0wz8FEQ==}
     cpu: [x64]
     os: [darwin]
 
-  '@turbo/darwin-arm64@2.10.0':
-    resolution: {integrity: sha512-9d2fTyyG0lf5Wq1bwJA9qUaeecViMkLcdctWaMMmCkxZ/JqypmqOwK3W6vmejeKVgkr06gSoiX8bD+xN5Jpxcg==}
+  '@turbo/darwin-64@2.10.4':
+    resolution: {integrity: sha512-m1MUEI4MJ69r5CwfMYxmHi0H0rrgiYCBOp0tgBZ9x/YVvOb5uu/lRIDyDwdtH054R2yWeQaIigUGu6aCX9f8cA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@turbo/darwin-arm64@2.10.2':
+    resolution: {integrity: sha512-/Cq0joWnuMjDPfhjbFP4sv+C/7gkQ415zlaO4XUzD5EZxbtrKgXKvuuydMvogG8GeUnN1aDltW71RlmEfpjbyw==}
     cpu: [arm64]
     os: [darwin]
 
-  '@turbo/linux-64@2.10.0':
-    resolution: {integrity: sha512-sZBtjMuufitanjzi6UssoUpJMnnPlLMcdcJj3m3ptNsSq31Xh7MnjhwA5nWvLDTfEFg8GPcbYFXMo8vSdKRfqQ==}
+  '@turbo/darwin-arm64@2.10.4':
+    resolution: {integrity: sha512-VQ1Yxs5zkPT+2z7t1P4mvn6JmcKLkOCAsPuK9XbOvuVj0DlTlETfIXNisX0771v/vTWHOQqiwoGi+TtAUq8efw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@turbo/linux-64@2.10.2':
+    resolution: {integrity: sha512-mMsf5IIhiKuceEXNstd25IbadjBXZ0amxzFOqliEzJX6HyeeHdBQPVSY583PWqYDyqM/FB8d5ZjkthfBSeuH3Q==}
     cpu: [x64]
     os: [linux]
 
-  '@turbo/linux-arm64@2.10.0':
-    resolution: {integrity: sha512-vkq/Z8R+1DQ+kifWFa810IjRy2NNBVvha3cg9sWA3nFh6nnGrHSMnnJKrzH7c/No9kq4Jb55Ru44YKsCSBgrKg==}
+  '@turbo/linux-64@2.10.4':
+    resolution: {integrity: sha512-IzV1QovmwX7mfGnVinmE++2IB8tbeo38weltiuH5zNqwCTBjLs/DytyRKx+bmnhHdXIq9SheR8p0Nip/LBUPHg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@turbo/linux-arm64@2.10.2':
+    resolution: {integrity: sha512-Wcng1i2kaKmXutmwxT9MUoYZvdaIekXAdlGr4+0TpgbhGLw7nDuEcRBFrxb5BbRoX1d1q8SpdRxLc45TvDZIdQ==}
     cpu: [arm64]
     os: [linux]
 
-  '@turbo/windows-64@2.10.0':
-    resolution: {integrity: sha512-CRUEguLWxFQHptYZS7HjPhNhAFawfea07iR+xAQ5e4klgLrPCMdexBkXwSCwOxqTFknJ7RZFN3gOaADsw+Gttg==}
+  '@turbo/linux-arm64@2.10.4':
+    resolution: {integrity: sha512-rfujSQkP5aYiRn0PgTM7F00WkJCP/bKDVZbOx3WmrZwa/vHA0bplhCl328kpX7VI9HH2vI90ISGwuSVgJgoqTw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@turbo/windows-64@2.10.2':
+    resolution: {integrity: sha512-SsNhM7Ho7EpAdwtrJKBOic9Hso23vu6Dp0gAfLOvUFjPzurr/sGQlXZEvr6z89ne4RDOypTwz5CBDrixpMKtXw==}
     cpu: [x64]
     os: [win32]
 
-  '@turbo/windows-arm64@2.10.0':
-    resolution: {integrity: sha512-dVHGaf9F8twzgibcBqKoADT/LLqf9++jDb+hq/LPWWaOmRpp4M+/pVOm7vy4z9D++xg8eaxWLT0+wQxFwhYu9A==}
+  '@turbo/windows-64@2.10.4':
+    resolution: {integrity: sha512-NnspP7Wd5fa3Wwnqv9bKfhegqZzuHBgbPxdZU/idTLQcazx/vgKu95JlCx2YHY0hdvKCnPcARrDwM+KEUmaO7A==}
+    cpu: [x64]
+    os: [win32]
+
+  '@turbo/windows-arm64@2.10.2':
+    resolution: {integrity: sha512-Gf+S7ICAdimT/n02bOuVWKvhHnct/HYjZg3oBNIz5hZ9ZyWHbQim9J3P5Qip8WpX0ksxF7eaBVziJCuLnjhqDg==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@turbo/windows-arm64@2.10.4':
+    resolution: {integrity: sha512-Iv02YgOpaEShc2OkG7mgCJ2pEw1RUKiKbs0h8W5wAf4jZ5vpmraTEjuGTgHRuOORQnC1GN3KHo5WB+hu1abRMA==}
     cpu: [arm64]
     os: [win32]
 
@@ -7117,8 +7147,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  prettier@3.9.1:
-    resolution: {integrity: sha512-ppiDo2CSwexck1eyZUwJHg/N3nf1+6IRCv7W/VJ5vaLnVCmB7+3CdRfMwoCHBBX6xTrREDTksZ4OZl5SSf4zXA==}
+  prettier@3.9.4:
+    resolution: {integrity: sha512-yWG/o/4oJfo036EKAfK6ACAoDOfHeRHx4tuxkfBZiauURiaSmYwlpOr5LQqKtIkRD2z1PLteme2WoxEnj4tHTg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -7958,8 +7988,12 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
-  turbo@2.10.0:
-    resolution: {integrity: sha512-o016H9PPtuH2deb3mh3Vci3Avfi9UYgM/RONQisY7HnloupP0IFSbFS3gFYJgFJP8nwBrByHWFQIDa8T2zIXPw==}
+  turbo@2.10.2:
+    resolution: {integrity: sha512-wTExrNrRjB8qzIcg+ZLm0A3GFNLDsWNwdS/RBXB0FPrBDyzk3i96Yx+TxWZC7a0k1SIreFB8ciUbxjmEqTH8IQ==}
+    hasBin: true
+
+  turbo@2.10.4:
+    resolution: {integrity: sha512-GQpduILaKjoaGljw097ScsSyKTtZSY7cZ3bJktzfTkPMyCf3ShKLuXK2IaOEN2Plziml+ArR7WJ1m+V4VbnaKQ==}
     hasBin: true
 
   type-check@0.4.0:
@@ -9335,7 +9369,7 @@ snapshots:
   '@fig/complete-commander@3.2.0(commander@11.1.0)':
     dependencies:
       commander: 11.1.0
-      prettier: 3.9.1
+      prettier: 3.9.4
 
   '@floating-ui/core@1.7.5':
     dependencies:
@@ -10033,13 +10067,13 @@ snapshots:
       keyv: 5.6.0
       rxjs: 7.8.2
 
-  '@nestjs/cli@11.0.23(@types/node@24.13.2)(prettier@3.9.1)':
+  '@nestjs/cli@11.0.23(@types/node@24.13.2)(prettier@3.9.4)':
     dependencies:
       '@angular-devkit/core': 19.2.27(chokidar@4.0.3)
       '@angular-devkit/schematics': 19.2.27(chokidar@4.0.3)
       '@angular-devkit/schematics-cli': 19.2.27(@types/node@24.13.2)(chokidar@4.0.3)
       '@inquirer/prompts': 7.10.1(@types/node@24.13.2)
-      '@nestjs/schematics': 11.1.0(chokidar@4.0.3)(prettier@3.9.1)(typescript@5.9.3)
+      '@nestjs/schematics': 11.1.0(chokidar@4.0.3)(prettier@3.9.4)(typescript@5.9.3)
       ansis: 4.2.0
       chokidar: 4.0.3
       cli-table3: 0.6.5
@@ -10187,7 +10221,7 @@ snapshots:
     optionalDependencies:
       '@fastify/static': 9.1.3
 
-  '@nestjs/schematics@11.1.0(chokidar@4.0.3)(prettier@3.9.1)(typescript@5.9.3)':
+  '@nestjs/schematics@11.1.0(chokidar@4.0.3)(prettier@3.9.4)(typescript@5.9.3)':
     dependencies:
       '@angular-devkit/core': 19.2.24(chokidar@4.0.3)
       '@angular-devkit/schematics': 19.2.24(chokidar@4.0.3)
@@ -10196,7 +10230,7 @@ snapshots:
       pluralize: 8.0.0
       typescript: 5.9.3
     optionalDependencies:
-      prettier: 3.9.1
+      prettier: 3.9.4
     transitivePeerDependencies:
       - chokidar
 
@@ -10939,22 +10973,40 @@ snapshots:
       path-browserify: 1.0.1
       tinyglobby: 0.2.17
 
-  '@turbo/darwin-64@2.10.0':
+  '@turbo/darwin-64@2.10.2':
     optional: true
 
-  '@turbo/darwin-arm64@2.10.0':
+  '@turbo/darwin-64@2.10.4':
     optional: true
 
-  '@turbo/linux-64@2.10.0':
+  '@turbo/darwin-arm64@2.10.2':
     optional: true
 
-  '@turbo/linux-arm64@2.10.0':
+  '@turbo/darwin-arm64@2.10.4':
     optional: true
 
-  '@turbo/windows-64@2.10.0':
+  '@turbo/linux-64@2.10.2':
     optional: true
 
-  '@turbo/windows-arm64@2.10.0':
+  '@turbo/linux-64@2.10.4':
+    optional: true
+
+  '@turbo/linux-arm64@2.10.2':
+    optional: true
+
+  '@turbo/linux-arm64@2.10.4':
+    optional: true
+
+  '@turbo/windows-64@2.10.2':
+    optional: true
+
+  '@turbo/windows-64@2.10.4':
+    optional: true
+
+  '@turbo/windows-arm64@2.10.2':
+    optional: true
+
+  '@turbo/windows-arm64@2.10.4':
     optional: true
 
   '@tybys/wasm-util@0.10.2':
@@ -12382,11 +12434,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-turbo@2.10.0(eslint@10.6.0(jiti@2.7.0))(turbo@2.10.0):
+  eslint-plugin-turbo@2.10.0(eslint@10.6.0(jiti@2.7.0))(turbo@2.10.4):
     dependencies:
       dotenv: 16.0.3
       eslint: 10.6.0(jiti@2.7.0)
-      turbo: 2.10.0
+      turbo: 2.10.4
 
   eslint-scope@5.1.1:
     dependencies:
@@ -15096,7 +15148,7 @@ snapshots:
 
   prettier@2.8.8: {}
 
-  prettier@3.9.1: {}
+  prettier@3.9.4: {}
 
   pretty-format@30.4.1:
     dependencies:
@@ -15979,14 +16031,23 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  turbo@2.10.0:
+  turbo@2.10.2:
     optionalDependencies:
-      '@turbo/darwin-64': 2.10.0
-      '@turbo/darwin-arm64': 2.10.0
-      '@turbo/linux-64': 2.10.0
-      '@turbo/linux-arm64': 2.10.0
-      '@turbo/windows-64': 2.10.0
-      '@turbo/windows-arm64': 2.10.0
+      '@turbo/darwin-64': 2.10.2
+      '@turbo/darwin-arm64': 2.10.2
+      '@turbo/linux-64': 2.10.2
+      '@turbo/linux-arm64': 2.10.2
+      '@turbo/windows-64': 2.10.2
+      '@turbo/windows-arm64': 2.10.2
+
+  turbo@2.10.4:
+    optionalDependencies:
+      '@turbo/darwin-64': 2.10.4
+      '@turbo/darwin-arm64': 2.10.4
+      '@turbo/linux-64': 2.10.4
+      '@turbo/linux-arm64': 2.10.4
+      '@turbo/windows-64': 2.10.4
+      '@turbo/windows-arm64': 2.10.4
 
   type-check@0.4.0:
     dependencies:
