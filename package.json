@@ -58,7 +58,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.4",
     "@changesets/cli": "^2.29.5",
-    "@commitlint/cli": "^21.1.0",
+    "@commitlint/cli": "^21.2.0",
     "@commitlint/config-conventional": "^21.1.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
