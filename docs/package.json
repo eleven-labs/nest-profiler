@@ -14,14 +14,14 @@
     "typecheck": "fumadocs-mdx && tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.18",
     "class-variance-authority": "^0.7.1",
     "eslint-plugin-better-tailwindcss": "^4.5.0",
-    "fumadocs-core": "^16.10.6",
+    "fumadocs-core": "^16.10.7",
     "fumadocs-mdx": "^15.0.13",
     "fumadocs-typescript": "^5.2.7",
-    "fumadocs-ui": "^16.10.6",
-    "lucide-react": "^1.16.0",
+    "fumadocs-ui": "^16.10.7",
+    "lucide-react": "^1.22.0",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -34,14 +34,14 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@tailwindcss/postcss": "^4.2.4",
+    "@tailwindcss/postcss": "^4.3.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "postcss": "^8.5.12",
+    "postcss": "^8.5.16",
     "shiki": "^4.3.0",
-    "tailwindcss": "^4.2.4",
+    "tailwindcss": "^4.3.2",
     "typescript": "^6.0.3"
   }
 }
