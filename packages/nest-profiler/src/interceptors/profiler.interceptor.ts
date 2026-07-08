@@ -12,7 +12,7 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import { PROFILER_BASE_PATH } from '../constants';
+import { PROFILER_BASE_PATH, PROFILER_DEFER_COLLECTION } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { Profile } from '../interfaces/profile.interface';
@@ -80,9 +80,15 @@ export class ProfilerInterceptor implements NestInterceptor {
     // core no longer needs to know which protocol field signals "already enriched".
     adapter.enrichProfile(activeProfile, ctx);
 
+    // When the HTTP middleware registered a finish listener (marked on the profile), defer
+    // collection to it: it fires after graphql-js has run every field resolver, so queries issued
+    // there — which happen after the root resolver returns — are still drained into their panels.
+    const deferToFinishHook =
+      (activeProfile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] === true;
+
     if (profile) {
       // CLS already active — route directly to the non-HTTP pipeline.
-      return this.processNonHttp(activeProfile, next);
+      return this.processNonHttp(activeProfile, next, deferToFinishHook);
     }
 
     // Re-establish CLS context so ProfilerService.addLog() works inside resolvers.
@@ -94,7 +100,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         // `req.user` on this recovered path instead of reporting the user as anonymous.
         const recoveredReq = adapter.getRequest?.(ctx);
         if (recoveredReq) this.cls.set('profiler.request', recoveredReq);
-        this.processNonHttp(activeProfile, next).subscribe(subscriber);
+        this.processNonHttp(activeProfile, next, deferToFinishHook).subscribe(subscriber);
       });
     });
   }
@@ -175,9 +181,16 @@ export class ProfilerInterceptor implements NestInterceptor {
     );
   }
 
-  private processNonHttp(capturedProfile: Profile, next: CallHandler): Observable<unknown> {
+  private processNonHttp(
+    capturedProfile: Profile,
+    next: CallHandler,
+    deferToFinishHook: boolean,
+  ): Observable<unknown> {
     return next.handle().pipe(
       map((body: unknown) => {
+        // Deferred: the HTTP finish hook finalizes and collects after every field resolver, so
+        // draining here (when the root resolver returns) would miss field-resolver queries.
+        if (deferToFinishHook) return body;
         this.finalize(capturedProfile, null, body);
         this.core.schedulePersist(capturedProfile);
         return body;
@@ -190,12 +203,16 @@ export class ProfilerInterceptor implements NestInterceptor {
           stack: error.stack,
           timestamp: Date.now(),
         });
-        this.finalize(capturedProfile, null, undefined);
-        if (capturedProfile.response) {
-          capturedProfile.response.statusCode =
-            err instanceof HttpException ? err.getStatus() : 500;
+        // Deferred: leave finalize + persist to the finish hook (the exception is already on the
+        // profile, so it is saved with everything else once the response completes).
+        if (!deferToFinishHook) {
+          this.finalize(capturedProfile, null, undefined);
+          if (capturedProfile.response) {
+            capturedProfile.response.statusCode =
+              err instanceof HttpException ? err.getStatus() : 500;
+          }
+          this.core.schedulePersist(capturedProfile);
         }
-        this.core.schedulePersist(capturedProfile);
         return throwError(() => err);
       }),
     );

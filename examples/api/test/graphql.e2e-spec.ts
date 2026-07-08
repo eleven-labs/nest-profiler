@@ -1,11 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { HttpRequestData } from '@eleven-labs/nest-profiler';
+import type { MongooseQueryEntry } from '@eleven-labs/nest-profiler-mongoose';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
-import { createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
+import { activeSqlOrm, createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
 
 const validatorEntries = (collectors: Record<string, unknown>): ValidationEntry[] =>
   (collectors['validator'] as ValidationEntry[] | undefined) ?? [];
+const mongooseEntries = (collectors: Record<string, unknown>): MongooseQueryEntry[] =>
+  (collectors['mongoose'] as MongooseQueryEntry[] | undefined) ?? [];
 
 interface GqlBody {
   data?: Record<string, unknown> | null;
@@ -41,6 +44,35 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
       fieldName: 'products',
     });
     expect((profile.spans ?? []).map((s) => s.phase)).toContain('db.products.findAll');
+  });
+
+  it('resolving Product.reviews (field resolver) captures SQL and MongoDB in one profile', async () => {
+    // A single GraphQL query lists products (SQL ORM, root resolver) and resolves each product's
+    // reviews from MongoDB (field resolver). Field resolvers run after the root resolver returns, so
+    // this exercises the deferred-collection fix: both database collectors must appear in one profile.
+    const res = await gql(app, { query: '{ products { id reviews { rating author } } }' });
+
+    expect(res.status).toBe(200);
+    const { data } = res.body as {
+      data: { products: Array<{ id: string; reviews: Array<{ rating: number }> }> };
+    };
+    // Products 1-3 are seeded with reviews; at least one product resolves a non-empty list.
+    expect(data.products.some((p) => p.reviews.length > 0)).toBe(true);
+
+    const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
+
+    // SQL side: the catalog list query ran under the active ORM (root resolver).
+    expect((profile.spans ?? []).map((s) => s.phase)).toContain('db.products.findAll');
+    expect(
+      (profile.collectors[activeSqlOrm()] as unknown[] | undefined)?.length ?? 0,
+    ).toBeGreaterThan(0);
+
+    // Mongo side: one `find({ productId })` per resolved product, captured by the mongoose collector
+    // even though it runs in a field resolver.
+    const finds = mongooseEntries(profile.collectors).filter((e) => e.operation === 'find');
+    expect(finds.length).toBeGreaterThan(0);
+    expect(finds[0]).toMatchObject({ collection: 'reviews' });
+    expect(finds.some((e) => e.filter && 'productId' in e.filter)).toBe(true);
   });
 
   it('named query with variables: captures operationName and variables', async () => {

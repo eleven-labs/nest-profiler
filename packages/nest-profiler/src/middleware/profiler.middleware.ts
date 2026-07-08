@@ -6,7 +6,12 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { PROFILER_REQ_KEY, PROFILER_BASE_PATH, PROFILER_CLS_KEYS } from '../constants';
+import {
+  PROFILER_REQ_KEY,
+  PROFILER_BASE_PATH,
+  PROFILER_CLS_KEYS,
+  PROFILER_DEFER_COLLECTION,
+} from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
@@ -171,6 +176,11 @@ export class ProfilerMiddleware implements NestMiddleware {
     if (!this.core) return; // only active in the enabled layer
     const rawRes = res as unknown as RawResponse;
     if (!rawRes.once) return;
+
+    // A finish listener is guaranteed to run: let the non-HTTP (GraphQL) interceptor path defer
+    // collection to it, so queries issued in field resolvers — which execute after the root
+    // resolver returns — are still drained into their panels.
+    (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
 
     const getResponseBody = this.interceptResponseBody(rawRes, profile);
 
