@@ -114,7 +114,7 @@ ConditionalModule.registerWhen(
 
 ## How it works
 
-The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` to record every query and aggregation into the active request profile. See [How it works](/docs/packages/nest-profiler-mongoose#how-it-works) on the package page for the full mechanism and the operations it captures.
+The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` to record every query and aggregation into the active request profile. Streaming reads (`Query.cursor()` / `Aggregate.cursor()`) are captured too and flagged as `streaming`. See [How it works](/docs/packages/nest-profiler-mongoose#how-it-works) on the package page for the full mechanism and the operations it captures.
 
 <Callout type="info" title="Anti-double-patch guard">
   If multiple modules import `MongooseCollectorModule.forRoot()`, the patch is applied only once - a

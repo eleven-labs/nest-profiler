@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProductService } from '../application/product.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
@@ -14,6 +14,17 @@ export class ProductController {
   @ApiResponse({ status: 200, description: 'Array of products' })
   findAll(): Promise<Product[]> {
     return this.products.findAll();
+  }
+
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="products.csv"')
+  @ApiOperation({
+    summary: 'Export all products as CSV — streams the rows (QueryBuilder.stream()) into the file',
+  })
+  @ApiResponse({ status: 200, description: 'CSV export of every product' })
+  exportCsv(): Promise<string> {
+    return this.products.exportCsv();
   }
 
   @Get(':id')

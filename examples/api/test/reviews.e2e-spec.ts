@@ -30,6 +30,24 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
     expect(find?.duration).toBeGreaterThanOrEqual(0);
   });
 
+  it('GET /reviews/export streams every document into a CSV and records the streaming cursor', async () => {
+    // Anti-regression: every document must reach the CSV — none lost to the cursor instrumentation.
+    const list = await profileOf(app, 'get', '/api/v1/reviews');
+    const expected = (list.res.body as unknown[]).length;
+
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/reviews/export');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    const lines = res.text.trim().split('\n');
+    expect(lines[0]).toBe('id,productId,rating,author');
+    expect(lines).toHaveLength(expected + 1); // header + one line per document
+
+    const streamed = mongooseEntries(profile.collectors).find((e) => e.streaming);
+    expect(streamed).toMatchObject({ collection: 'reviews', operation: 'find', streaming: true });
+    expect(streamed?.duration).toBeGreaterThanOrEqual(0);
+  });
+
   it('GET /reviews/stats records an aggregate query', async () => {
     const { res, profile } = await profileOf(app, 'get', '/api/v1/reviews/stats');
 

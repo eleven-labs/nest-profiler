@@ -35,6 +35,14 @@ export class ProductService implements OnApplicationBootstrap {
     return products;
   }
 
+  async exportCsv(): Promise<string> {
+    this.logger.log('Streaming all products to CSV');
+    const stop = this.profiler.startSpan('db.products.exportCsv');
+    const csv = await this.repo.streamCsv();
+    stop();
+    return csv;
+  }
+
   async findOne(id: number): Promise<Product> {
     this.logger.log(`Fetching product #${id}`);
     const stop = this.profiler.startSpan('db.products.findOne');

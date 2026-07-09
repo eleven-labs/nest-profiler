@@ -69,16 +69,17 @@ export class AppModule {}
 
 For each SQL query executed during a request:
 
-| Field         | Description                                        |
-| ------------- | -------------------------------------------------- |
-| `sql`         | The SQL query string (with keyword highlighting)   |
-| `parameters`  | Bound parameters                                   |
-| `duration`    | Execution time in ms (from MikroORM's `took`)      |
-| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`    |
-| `startedAt`   | Unix timestamp                                     |
-| `error`       | Set when MikroORM reports the query at error level |
-| `fingerprint` | Parameter-free normalized SQL, used to group N+1s  |
-| `tags`        | Performance tags applied by the core rule engine   |
+| Field         | Description                                                         |
+| ------------- | ------------------------------------------------------------------- |
+| `sql`         | The SQL query string (with keyword highlighting)                    |
+| `parameters`  | Bound parameters                                                    |
+| `duration`    | Execution time in ms (from MikroORM's `took`)                       |
+| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`                     |
+| `startedAt`   | Unix timestamp                                                      |
+| `error`       | Set when MikroORM reports the query at error level                  |
+| `streaming`   | `true` for streaming reads (`QueryBuilder.stream()`, `duration: 0`) |
+| `fingerprint` | Parameter-free normalized SQL, used to group N+1s                   |
+| `tags`        | Performance tags applied by the core rule engine                    |
 
 Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
@@ -96,6 +97,8 @@ logger handle console output only if you had query logging enabled. Queries exec
 request context (startup, background jobs) are silently ignored.
 
 This captures all queries issued through the `EntityManager`, repositories and the QueryBuilder.
+
+**Streaming reads** — `QueryBuilder.stream()` is captured too, since MikroORM's SQL connection calls `logQuery` for it like any other query. It is logged at stream start (before rows are consumed) with no `took`; a `SELECT` logged without `took` is therefore detected as a streaming read and flagged `streaming: true` (a normal query always carries `took`, and transaction/savepoint control is type `OTHER`). Its `duration` stays `0` — measuring the real value would require intrusively wrapping MikroORM's internal row generator, so it is left as a documented limitation. The panel labels such rows `not timed (stream)`.
 
 ---
 

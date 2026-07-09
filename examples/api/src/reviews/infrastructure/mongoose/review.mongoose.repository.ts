@@ -4,6 +4,7 @@ import type { Model } from 'mongoose';
 import { ReviewRepository } from '../../domain/review.repository.js';
 import type { NewReview, Review, ReviewStats } from '../../domain/review.js';
 import { Review as ReviewSchemaClass, type ReviewDocument } from './review.schema.js';
+import { toCsvRow } from '../../../shared/csv.util.js';
 
 /** Maps a Mongoose document (with `_id` + timestamps) to the domain model. */
 function toDomain(doc: ReviewDocument): Review {
@@ -27,6 +28,17 @@ export class MongooseReviewRepository implements ReviewRepository {
   async findAll(): Promise<Review[]> {
     const reviews = await this.model.find().sort({ createdAt: -1 }).exec();
     return reviews.map(toDomain);
+  }
+
+  // Exports documents through a Mongoose cursor() — the path that bypasses Query.exec and that the
+  // profiler's streaming-read collector instruments. Streams the collection into CSV row by row.
+  async streamCsv(): Promise<string> {
+    const cursor = this.model.find().sort({ createdAt: -1 }).cursor();
+    const lines: string[] = ['id,productId,rating,author'];
+    for await (const doc of cursor) {
+      lines.push(toCsvRow([doc._id.toString(), doc.productId, doc.rating, doc.author]));
+    }
+    return lines.join('\n');
   }
 
   async findApproved(): Promise<Review[]> {

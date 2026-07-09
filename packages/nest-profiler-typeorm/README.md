@@ -78,16 +78,17 @@ ConditionalModule.registerWhen(
 
 For each SQL query executed during a request:
 
-| Field         | Description                                       |
-| ------------- | ------------------------------------------------- |
-| `sql`         | The SQL query string (with keyword highlighting)  |
-| `parameters`  | Bound parameters                                  |
-| `duration`    | Execution time in ms                              |
-| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`   |
-| `startedAt`   | Unix timestamp                                    |
-| `error`       | Error message if the query failed                 |
-| `fingerprint` | Parameter-free normalized SQL, used to group N+1s |
-| `tags`        | Performance tags applied by the core rule engine  |
+| Field         | Description                                          |
+| ------------- | ---------------------------------------------------- |
+| `sql`         | The SQL query string (with keyword highlighting)     |
+| `parameters`  | Bound parameters                                     |
+| `duration`    | Execution time in ms                                 |
+| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`      |
+| `startedAt`   | Unix timestamp                                       |
+| `error`       | Error message if the query failed                    |
+| `streaming`   | `true` for streaming reads (`QueryBuilder.stream()`) |
+| `fingerprint` | Parameter-free normalized SQL, used to group N+1s    |
+| `tags`        | Performance tags applied by the core rule engine     |
 
 Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `duplicateThreshold`; see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
@@ -98,6 +99,8 @@ The toolbar badge shows: `{n}q` (e.g., `5q`). When slow queries are present: `5q
 ## How it works
 
 The collector patches `dataSource.createQueryRunner()` at module initialization to wrap every `QueryRunner.query()` call with timing, recording an entry into the active request profile (resolved via `nestjs-cls`); `TypeOrmCollector.collect()` then reads and returns those entries. This captures all queries from repositories, the `EntityManager`, and raw `dataSource.query()` calls. Queries executed outside a request context (e.g. during module initialization) are silently ignored. The patch is transparent — TypeORM behavior is unchanged.
+
+**Streaming reads** — `Repository.stream()` / `QueryBuilder.stream()` go through `QueryRunner.stream()`, a separate path from `query()`. The collector also wraps `stream()`: it measures duration across the returned stream's lifetime by listening only to its terminal `end`/`close`/`error` events — never a `data` listener, so no rows are consumed or diverted from the caller — and records the entry with `streaming: true`. Streamed row counts are not captured (that would require tapping the data).
 
 ---
 

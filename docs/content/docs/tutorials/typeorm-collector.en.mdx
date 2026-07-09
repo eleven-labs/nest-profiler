@@ -112,7 +112,7 @@ ConditionalModule.registerWhen(
 
 ## How it works
 
-The collector patches TypeORM's `createQueryRunner()` to time every query and record it into the active request profile. See [How it works](/docs/packages/nest-profiler-typeorm#how-it-works) on the package page for the full mechanism and the exact set of captured queries.
+The collector patches TypeORM's `createQueryRunner()` to time every query and record it into the active request profile. Streaming reads (`QueryBuilder.stream()`) are captured too and flagged as `streaming`. See [How it works](/docs/packages/nest-profiler-typeorm#how-it-works) on the package page for the full mechanism and the exact set of captured queries.
 
 <Callout type="warn" title="Synchronize in production">
   Never use `synchronize: true` in production. It auto-migrates the schema on startup and can cause

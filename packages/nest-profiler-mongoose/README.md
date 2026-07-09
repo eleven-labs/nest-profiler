@@ -63,17 +63,18 @@ export class AppModule {}
 
 For each Mongoose query or aggregation executed during a request:
 
-| Field         | Description                                               |
-| ------------- | --------------------------------------------------------- |
-| `collection`  | MongoDB collection name (e.g. `reviews`)                  |
-| `operation`   | Mongoose operation (e.g. `find`, `aggregate`)             |
-| `filter`      | Query filter object (if applicable)                       |
-| `duration`    | Execution time in ms                                      |
-| `startedAt`   | Unix timestamp                                            |
-| `count`       | Number of results returned (find queries only)            |
-| `error`       | Error message if the query failed                         |
-| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping |
-| `tags`        | Performance tags applied by the core rule engine          |
+| Field         | Description                                                          |
+| ------------- | -------------------------------------------------------------------- |
+| `collection`  | MongoDB collection name (e.g. `reviews`)                             |
+| `operation`   | Mongoose operation (e.g. `find`, `aggregate`)                        |
+| `filter`      | Query filter object (if applicable)                                  |
+| `duration`    | Execution time in ms                                                 |
+| `startedAt`   | Unix timestamp                                                       |
+| `count`       | Number of results returned (find queries only)                       |
+| `error`       | Error message if the query failed                                    |
+| `streaming`   | `true` for streaming reads (`Query.cursor()` / `Aggregate.cursor()`) |
+| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping            |
+| `tags`        | Performance tags applied by the core rule engine                     |
 
 Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
@@ -84,6 +85,8 @@ The toolbar badge shows: `{n}q` (e.g., `4q`). When slow queries are present: `4q
 ## How it works
 
 At module initialization, the collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` on the Mongoose instance retrieved from `connection.base`. This captures all queries regardless of when schemas were registered, and is fully transparent — Mongoose behavior is unchanged.
+
+**Streaming reads** — `Query.cursor()` and `Aggregate.cursor()` bypass `exec()`, so they are patched too. The read is recorded (with `streaming: true`) at cursor creation, so it is captured whatever the consumption pattern. Its `duration` is finalized from the cursor's terminal `close`/`end`/`error` events when they fire — which they do for flowing / `pipe()` / explicit `close()` consumption, but **not** for `for await` or `eachAsync()` on a Mongoose cursor (they emit no terminal event); those keep `duration: 0` and are labelled `not timed (stream)` in the panel's Duration column. Measuring their duration would require wrapping the row iterator, a per-document cost we avoid. Streamed row counts are not captured.
 
 ---
 

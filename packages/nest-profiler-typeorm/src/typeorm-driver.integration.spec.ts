@@ -113,6 +113,23 @@ describe('TypeOrmDriverPatch (real better-sqlite3 integration)', () => {
     expect(serialized).toContain('[REDACTED]');
   });
 
+  it('records a streaming read as an error entry when the real driver rejects stream()', async () => {
+    // The sqlite driver does not support streaming (`QueryRunner.stream` throws). The patch must
+    // still capture the attempt as a streaming entry carrying the driver error, and rethrow.
+    const profile = makeProfile();
+
+    await cls.run(async () => {
+      cls.set('profiler.profile', profile);
+      const qr = dataSource.createQueryRunner();
+      await expect(qr.stream('SELECT * FROM widget')).rejects.toThrow(/not supported/i);
+    });
+
+    const streamed = entriesOf(profile).find((e) => e.streaming);
+    expect(streamed).toBeDefined();
+    expect(streamed?.sql).toContain('SELECT * FROM widget');
+    expect(streamed?.error).toMatch(/not supported/i);
+  });
+
   it('does not double-wrap the driver when onModuleInit runs twice', async () => {
     const patchModuleRef = {
       get: (token: unknown) =>

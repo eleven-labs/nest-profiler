@@ -230,7 +230,7 @@ importers:
         version: 11.4.4(@fastify/static@9.1.3)(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)
       '@nestjs/typeorm':
         specifier: ^11.0.3
-        version: 11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0))
+        version: 11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0))
       amqplib:
         specifier: ^2.0.1
         version: 2.0.1
@@ -267,6 +267,9 @@ importers:
       pg:
         specifier: ^8.16.0
         version: 8.22.0
+      pg-query-stream:
+        specifier: ^4.10.3
+        version: 4.16.0(pg@8.22.0)
       pino-http:
         specifier: ^11.0.0
         version: 11.0.0
@@ -278,7 +281,7 @@ importers:
         version: 7.8.2
       typeorm:
         specifier: ^1.0.0
-        version: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0)
+        version: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0)
     devDependencies:
       '@nestjs/cli':
         specifier: ^11.0.7
@@ -1045,7 +1048,7 @@ importers:
         version: 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(@nestjs/platform-express@11.1.27)
       '@nestjs/typeorm':
         specifier: ^11.0.3
-        version: 11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0))
+        version: 11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0))
       '@repo/build':
         specifier: workspace:*
         version: link:../configs/build
@@ -1090,7 +1093,7 @@ importers:
         version: 29.4.11(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.4.1)(jest@30.4.2(@types/node@24.13.2))(typescript@6.0.3)
       typeorm:
         specifier: ^1.0.0
-        version: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0)
+        version: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -7010,6 +7013,11 @@ packages:
     peerDependencies:
       pg: ^8
 
+  pg-cursor@2.21.0:
+    resolution: {integrity: sha512-IYvk/j+Suhtbo/C3uOf4JLsLK/gWxOTUOmYbDsbKnLaVJDq+KwhwK6ngpRfiCk8eDMS3AmGQABZCv0cREEzHQw==}
+    peerDependencies:
+      pg: ^8
+
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
@@ -7021,6 +7029,11 @@ packages:
 
   pg-protocol@1.15.0:
     resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
+
+  pg-query-stream@4.16.0:
+    resolution: {integrity: sha512-vyqxAG4YVax43BCSfqcKxHSbh8YQshhVR0CjLNdo7MIM2UOqI+XsIYk0bVZJ0aKjQfjJQcGiGo9xK3hz0JcFyg==}
+    peerDependencies:
+      pg: ^8
 
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
@@ -10263,13 +10276,13 @@ snapshots:
     optionalDependencies:
       '@nestjs/platform-express': 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)
 
-  '@nestjs/typeorm@11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0))':
+  '@nestjs/typeorm@11.0.3(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0))':
     dependencies:
       '@nestjs/common': 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
-      typeorm: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0)
+      typeorm: 1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0)
 
   '@next/env@16.2.9': {}
 
@@ -14996,6 +15009,10 @@ snapshots:
     dependencies:
       pg: 8.21.0
 
+  pg-cursor@2.21.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+
   pg-int8@1.0.1: {}
 
   pg-pool@3.14.0(pg@8.21.0):
@@ -15007,6 +15024,11 @@ snapshots:
       pg: 8.22.0
 
   pg-protocol@1.15.0: {}
+
+  pg-query-stream@4.16.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+      pg-cursor: 2.21.0(pg@8.22.0)
 
   pg-types@2.2.0:
     dependencies:
@@ -16080,7 +16102,7 @@ snapshots:
 
   typedarray@0.0.6: {}
 
-  typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg@8.22.0):
+  typeorm@1.0.0(better-sqlite3@12.11.1)(mongodb@7.2.0)(pg-query-stream@4.16.0(pg@8.22.0))(pg@8.22.0):
     dependencies:
       '@sqltools/formatter': 1.2.5
       ansis: 4.3.1
@@ -16096,6 +16118,7 @@ snapshots:
       better-sqlite3: 12.11.1
       mongodb: 7.2.0
       pg: 8.22.0
+      pg-query-stream: 4.16.0(pg@8.22.0)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color

@@ -115,7 +115,7 @@ ConditionalModule.registerWhen(
 
 ## How it works
 
-At module initialization the collector wraps MikroORM's `Logger.logQuery` to record every executed query into the active request profile. See [How it works](/docs/packages/nest-profiler-mikro-orm#how-it-works) on the package page for the full mechanism.
+At module initialization the collector wraps MikroORM's `Logger.logQuery` to record every executed query into the active request profile. Streaming reads (`QueryBuilder.stream()`) are captured too and flagged as `streaming`, but with `duration: 0` — a documented limitation. See [How it works](/docs/packages/nest-profiler-mikro-orm#how-it-works) on the package page for the full mechanism.
 
 <Callout type="info" title="Sharing the SQL panel">
   The TypeORM and MikroORM collectors share the same **Database** panel rendering and `QueryEntry`

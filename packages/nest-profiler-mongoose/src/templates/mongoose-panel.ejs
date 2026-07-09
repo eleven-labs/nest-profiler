@@ -57,6 +57,9 @@
           <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one')) ? 'bg-warning-bg/30' : '' %>">
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[q.operation] || 'badge-default' %>"><%= q.operation %></span>
+              <% if (q.streaming) { %>
+                <span class="block mt-1 px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">stream</span>
+              <% } %>
             </td>
             <td class="py-2 px-4 align-top">
               <code class="text-xs text-code-text"><%= q.collection %></code>
@@ -94,6 +97,8 @@
               <span class="text-xs tabular-nums <%= hasTag(q, 'slow') ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
               <% if (hasTag(q, 'slow')) { %>
                 <span class="block text-2xs text-danger/70">slow</span>
+              <% } else if (q.streaming && q.duration === 0) { %>
+                <span class="block text-2xs text-foreground-faint" title="Duration is not measured for this streaming read (cursor consumed via for-await / eachAsync).">not timed (stream)</span>
               <% } %>
             </td>
             <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums align-top whitespace-nowrap"><%= timeOnly(q.startedAt) %></td>

@@ -38,6 +38,14 @@ export class ReviewService implements OnApplicationBootstrap {
     return reviews;
   }
 
+  async exportCsv(): Promise<string> {
+    this.logger.log('Streaming all reviews to CSV');
+    const stop = this.profiler.startSpan('db.reviews.exportCsv');
+    const csv = await this.repo.streamCsv();
+    stop();
+    return csv;
+  }
+
   async findApproved(): Promise<Review[]> {
     const stop = this.profiler.startSpan('db.reviews.findApproved');
     const reviews = await this.repo.findApproved();

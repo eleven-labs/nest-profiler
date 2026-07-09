@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { EventEmitter } from 'events';
 import type { Connection } from 'mongoose';
 import type { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
@@ -301,6 +302,176 @@ describe('MongooseConnectionPatch', () => {
       const moduleRef = mongooseModuleRef(cls, undefined);
       const patch = new MongooseConnectionPatch(moduleRef, { connectionName: 'analytics' });
       expect(() => patch.onModuleInit()).not.toThrow();
+    });
+  });
+
+  describe('cursor (streaming reads)', () => {
+    interface CursorBase {
+      Query: { prototype: { exec: jest.Mock; cursor: jest.Mock } };
+      Aggregate: { prototype: { exec: jest.Mock; cursor: jest.Mock } };
+    }
+
+    function setupCursor(): {
+      base: CursorBase;
+      profile: Profile;
+      queryCursor: EventEmitter;
+      aggCursor: EventEmitter;
+    } {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const queryCursor = new EventEmitter();
+      const aggCursor = new EventEmitter();
+      const base: CursorBase = {
+        Query: {
+          prototype: {
+            exec: jest.fn(() => Promise.resolve([])),
+            cursor: jest.fn(() => queryCursor),
+          },
+        },
+        Aggregate: {
+          prototype: {
+            exec: jest.fn(() => Promise.resolve([])),
+            cursor: jest.fn(() => aggCursor),
+          },
+        },
+      };
+      new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit();
+      return { base, profile, queryCursor, aggCursor };
+    }
+
+    it('records a Query cursor as a streaming find when it closes', () => {
+      const { base, profile, queryCursor } = setupCursor();
+      base.Query.prototype.cursor.call(queryCtx);
+      queryCursor.emit('close');
+
+      const e = firstEntry(profile);
+      expect(e.operation).toBe('find');
+      expect(e.collection).toBe('reviews');
+      expect(e.filter).toEqual({ status: 'active' });
+      expect(e.streaming).toBe(true);
+      expect(e.count).toBeUndefined();
+    });
+
+    it('records an Aggregate cursor as a streaming aggregate when it ends', () => {
+      const { base, profile, aggCursor } = setupCursor();
+      const aggCtx = {
+        _model: { collection: { name: 'reviews' } },
+        _pipeline: [{ $match: { x: 1 } }],
+      };
+      base.Aggregate.prototype.cursor.call(aggCtx);
+      aggCursor.emit('end');
+
+      const e = firstEntry(profile);
+      expect(e.operation).toBe('aggregate');
+      expect(e.pipeline).toEqual([{ $match: { x: 1 } }]);
+      expect(e.streaming).toBe(true);
+    });
+
+    it('captures the read at cursor creation even when no terminal event fires (for-await/eachAsync)', () => {
+      // Mongoose cursors emit no close/end when drained via `for await` or `eachAsync()`; the read
+      // must still be captured — at creation, with duration 0 (documented limitation).
+      const { base, profile } = setupCursor();
+      base.Query.prototype.cursor.call(queryCtx);
+      // No event emitted (mimics for-await consumption).
+      const e = firstEntry(profile);
+      expect(e.operation).toBe('find');
+      expect(e.streaming).toBe(true);
+      expect(e.duration).toBe(0);
+    });
+
+    it('records the error once when a cursor errors then closes', () => {
+      const { base, profile, queryCursor } = setupCursor();
+      base.Query.prototype.cursor.call(queryCtx);
+      queryCursor.emit('error', new Error('cursor boom'));
+      queryCursor.emit('close');
+
+      const entries = entriesOf(profile);
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.error).toBe('cursor boom');
+      expect(entries[0]?.streaming).toBe(true);
+    });
+
+    it('falls back to unknown collection / find and skips the filter for an odd query shape', () => {
+      const { base, profile, queryCursor } = setupCursor();
+      base.Query.prototype.cursor.call({
+        model: undefined,
+        op: undefined,
+        getFilter: () => {
+          throw new Error('no filter for this query type');
+        },
+      });
+      queryCursor.emit('close');
+
+      const e = firstEntry(profile);
+      expect(e.collection).toBe('unknown');
+      expect(e.operation).toBe('find');
+      expect(e.filter).toBeUndefined();
+      expect(e.streaming).toBe(true);
+    });
+
+    it('falls back to unknown collection and no pipeline for an odd aggregate shape', () => {
+      const { base, profile, aggCursor } = setupCursor();
+      base.Aggregate.prototype.cursor.call({ _model: undefined, _pipeline: undefined });
+      aggCursor.emit('close');
+
+      const e = firstEntry(profile);
+      expect(e.collection).toBe('unknown');
+      expect(e.operation).toBe('aggregate');
+      expect(e.pipeline).toBeUndefined();
+      expect(e.streaming).toBe(true);
+    });
+
+    it('still records the read when the cursor exposes no event-emitter API', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const base = {
+        Query: {
+          prototype: { exec: jest.fn(() => Promise.resolve([])), cursor: jest.fn(() => ({})) },
+        },
+        Aggregate: {
+          prototype: { exec: jest.fn(() => Promise.resolve([])), cursor: jest.fn(() => ({})) },
+        },
+      };
+      new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit();
+      (base.Query.prototype.cursor as jest.Mock).call(queryCtx);
+
+      const e = firstEntry(profile);
+      expect(e.streaming).toBe(true);
+      expect(e.duration).toBe(0);
+    });
+
+    it('does not record a cursor read outside a profile context', () => {
+      const cls = { get: jest.fn(() => undefined) } as unknown as ClsService;
+      const queryCursor = new EventEmitter();
+      const base = {
+        Query: {
+          prototype: {
+            exec: jest.fn(() => Promise.resolve([])),
+            cursor: jest.fn(() => queryCursor),
+          },
+        },
+        Aggregate: {
+          prototype: {
+            exec: jest.fn(() => Promise.resolve([])),
+            cursor: jest.fn(() => queryCursor),
+          },
+        },
+      };
+      new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit();
+      expect(() => {
+        (base.Query.prototype.cursor as jest.Mock).call(queryCtx);
+        queryCursor.emit('close');
+      }).not.toThrow();
+    });
+
+    it('does not double-wrap cursor when onModuleInit runs twice', () => {
+      const { base, profile, queryCursor } = setupCursor();
+      // A second init reusing the already-patched prototype must be a no-op.
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      new MongooseConnectionPatch(mongooseModuleRef(cls, { base }), {}).onModuleInit();
+      base.Query.prototype.cursor.call(queryCtx);
+      queryCursor.emit('close');
+      expect(entriesOf(profile).filter((e) => e.streaming)).toHaveLength(1);
     });
   });
 

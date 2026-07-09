@@ -28,6 +28,17 @@ interface PatchableExec {
   __profilerPatched?: boolean;
 }
 
+/** A patched `cursor()` returning a QueryCursor/AggregationCursor synchronously. */
+interface PatchableCursor {
+  (...args: unknown[]): unknown;
+  __profilerPatched?: boolean;
+}
+
+/** Minimal QueryCursor surface used to time a cursor without consuming its data. */
+interface LifecycleCursor {
+  once(event: string, listener: (...args: unknown[]) => void): unknown;
+}
+
 /** Narrow surface of the base Model used to patch write operations. */
 interface PatchableModel {
   prototype: { save?: PatchableExec };
@@ -37,8 +48,8 @@ interface PatchableModel {
 
 /** Mongoose base instance accessible via connection.base */
 interface MongooseBase {
-  Query: { prototype: PatchableQuery & { exec: PatchableExec } };
-  Aggregate: { prototype: PatchableAggregate & { exec: PatchableExec } };
+  Query: { prototype: PatchableQuery & { exec: PatchableExec; cursor?: PatchableCursor } };
+  Aggregate: { prototype: PatchableAggregate & { exec: PatchableExec; cursor?: PatchableCursor } };
   Model?: PatchableModel;
 }
 
@@ -78,6 +89,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
     if (mongoose?.Query?.prototype == null || mongoose?.Aggregate?.prototype == null) return;
     this.patchQueryExec(mongoose);
     this.patchAggregateExec(mongoose);
+    this.patchQueryCursor(mongoose);
+    this.patchAggregateCursor(mongoose);
     this.patchWrites(mongoose);
   }
 
@@ -278,4 +291,106 @@ export class MongooseConnectionPatch implements OnModuleInit {
     patched.__profilerPatched = true;
     mongoose.Aggregate.prototype.exec = patched;
   }
+
+  /**
+   * Patches `Query.prototype.cursor()` — streaming reads that bypass `Query.exec` entirely.
+   * The cursor is a long-lived stream, so duration is measured across its lifetime via the
+   * terminal `close`/`error` events only; no `data` listener is attached (that would force
+   * flowing mode and steal documents from the caller), so streamed row `count` is not captured.
+   */
+  private patchQueryCursor(mongoose: MongooseBase): void {
+    const cursorFn = mongoose.Query.prototype.cursor;
+    if (typeof cursorFn !== 'function' || cursorFn.__profilerPatched) return;
+    const cls = this.cls;
+    const originalCursor = cursorFn;
+
+    const patched: PatchableCursor = function (this: PatchableQuery, ...args: unknown[]): unknown {
+      const startedAt = Date.now();
+      const collection = this.model?.collection?.name ?? 'unknown';
+      const operation = this.op ?? 'find';
+      let filter: Record<string, unknown> | undefined;
+      try {
+        filter = this.getFilter();
+      } catch {
+        // not all query types support getFilter()
+      }
+      const profile = cls?.get<Profile | undefined>('profiler.profile');
+      const cursor = originalCursor.apply(this, args);
+      recordCursorLifecycle(profile, cursor, startedAt, {
+        collection,
+        operation,
+        filter: filter ? redact(filter) : undefined,
+      });
+      return cursor;
+    };
+
+    patched.__profilerPatched = true;
+    mongoose.Query.prototype.cursor = patched;
+  }
+
+  /**
+   * Patches `Aggregate.prototype.cursor()` — the aggregation streaming counterpart of
+   * {@link patchQueryCursor}. Same non-intrusive timing (terminal events only, no `count`).
+   */
+  private patchAggregateCursor(mongoose: MongooseBase): void {
+    const cursorFn = mongoose.Aggregate.prototype.cursor;
+    if (typeof cursorFn !== 'function' || cursorFn.__profilerPatched) return;
+    const cls = this.cls;
+    const originalCursor = cursorFn;
+
+    const patched: PatchableCursor = function (
+      this: PatchableAggregate,
+      ...args: unknown[]
+    ): unknown {
+      const startedAt = Date.now();
+      const collection = this._model?.collection?.name ?? 'unknown';
+      const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
+      const profile = cls?.get<Profile | undefined>('profiler.profile');
+      const cursor = originalCursor.apply(this, args);
+      recordCursorLifecycle(profile, cursor, startedAt, {
+        collection,
+        operation: 'aggregate',
+        pipeline: pipeline ? redact(pipeline) : undefined,
+      });
+      return cursor;
+    };
+
+    patched.__profilerPatched = true;
+    mongoose.Aggregate.prototype.cursor = patched;
+  }
+}
+
+/**
+ * Records a streaming read for a cursor. The entry is appended immediately, at cursor creation
+ * (synchronously, inside the request's CLS context and before the profiler collects), so the read
+ * is captured whatever the consumption pattern. Its `duration` is then finalized in place if a
+ * terminal `close`/`end`/`error` event fires — which happens for flowing / `pipe()` / explicit
+ * `close()` consumption but NOT for `for await` / `eachAsync()` on a Mongoose cursor (they emit no
+ * terminal event); those keep `duration = 0`, a documented limitation, since measuring it would
+ * require wrapping the row iterator (a per-document cost).
+ */
+function recordCursorLifecycle(
+  profile: Profile | undefined,
+  cursor: unknown,
+  startedAt: number,
+  meta: Pick<MongooseQueryEntry, 'collection' | 'operation' | 'filter' | 'pipeline'>,
+): void {
+  if (!profile) return;
+  const entry: MongooseQueryEntry = { ...meta, duration: 0, startedAt, streaming: true };
+  appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, entry);
+
+  if (cursor == null || typeof (cursor as LifecycleCursor).once !== 'function') return;
+  const emitter = cursor as LifecycleCursor;
+  let finalized = false;
+  const finalize = (error?: string): void => {
+    if (finalized) return;
+    finalized = true;
+    entry.duration = Date.now() - startedAt;
+    if (error !== undefined) entry.error = error;
+  };
+  emitter.once('close', () => finalize());
+  emitter.once('end', () => finalize());
+  emitter.once('error', (err: unknown) =>
+    finalize(err instanceof Error ? err.message : String(err)),
+  );
 }

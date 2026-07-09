@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ReviewService } from '../application/review.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
@@ -23,6 +23,17 @@ export class ReviewController {
   @ApiResponse({ status: 200, description: 'Per-product rating statistics' })
   getStats(): Promise<ReviewStats[]> {
     return this.reviews.getStats();
+  }
+
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="reviews.csv"')
+  @ApiOperation({
+    summary: 'Export all reviews as CSV — streams the documents (cursor()) into the file',
+  })
+  @ApiResponse({ status: 200, description: 'CSV export of every review' })
+  exportCsv(): Promise<string> {
+    return this.reviews.exportCsv();
   }
 
   @Get('product/:productId')

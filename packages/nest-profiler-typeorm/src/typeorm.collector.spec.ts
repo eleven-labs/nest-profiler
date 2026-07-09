@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { Readable } from 'stream';
 import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -175,11 +176,13 @@ describe('detectQueryType', () => {
 describe('TypeOrmDriverPatch', () => {
   interface QueryRunnerLike {
     query: (...args: unknown[]) => Promise<unknown>;
+    stream?: (...args: unknown[]) => Promise<unknown>;
   }
 
   function setup(
     params: {
       queryImpl?: (...args: unknown[]) => Promise<unknown>;
+      streamImpl?: (...args: unknown[]) => Promise<unknown>;
       initialized?: boolean;
       profile?: Profile | null;
       clsThrows?: boolean;
@@ -190,6 +193,7 @@ describe('TypeOrmDriverPatch', () => {
   } {
     const queryFn = jest.fn(params.queryImpl ?? (() => Promise.resolve([{ id: 1 }])));
     const qr: QueryRunnerLike = { query: queryFn };
+    if (params.streamImpl) qr.stream = jest.fn(params.streamImpl);
     const dataSource = {
       isInitialized: params.initialized !== false,
       createQueryRunner: jest.fn(() => qr),
@@ -275,6 +279,65 @@ describe('TypeOrmDriverPatch', () => {
     const { dataSource, profile } = setup({ profile: null });
     await dataSource.createQueryRunner().query('SELECT 1');
     expect(profile).toBeNull();
+  });
+
+  it('captures a streaming read with streaming:true when the stream ends', async () => {
+    const { dataSource, profile } = setup({
+      streamImpl: () => Promise.resolve(Readable.from([{ id: 1 }, { id: 2 }])),
+    });
+    const stream = (await dataSource
+      .createQueryRunner()
+      .stream?.('SELECT * FROM users', [1])) as Readable;
+    await new Promise<void>((resolve) => {
+      stream.on('data', () => {});
+      stream.on('end', () => resolve());
+    });
+
+    const e = firstEntry(profile);
+    expect(e.sql).toBe('SELECT * FROM users');
+    expect(e.parameters).toEqual([1]);
+    expect(e.type).toBe('SELECT');
+    expect(e.streaming).toBe(true);
+    expect(e.error).toBeUndefined();
+    expect(e.duration).toBeGreaterThanOrEqual(0);
+  });
+
+  it('records the error and streaming:true when the stream emits an error', async () => {
+    const bad = new Readable({ read() {} });
+    const { dataSource, profile } = setup({ streamImpl: () => Promise.resolve(bad) });
+    const stream = (await dataSource.createQueryRunner().stream?.('SELECT x')) as Readable;
+    const done = new Promise<void>((resolve) => stream.on('error', () => resolve()));
+    bad.destroy(new Error('stream boom'));
+    await done;
+
+    const e = firstEntry(profile);
+    expect(e.error).toBe('stream boom');
+    expect(e.streaming).toBe(true);
+  });
+
+  it('records the error and rethrows when stream() itself rejects', async () => {
+    const { dataSource, profile } = setup({
+      streamImpl: () => Promise.reject(new Error('open fail')),
+    });
+    await expect(dataSource.createQueryRunner().stream?.('SELECT x')).rejects.toThrow('open fail');
+
+    const e = firstEntry(profile);
+    expect(e.error).toBe('open fail');
+    expect(e.streaming).toBe(true);
+  });
+
+  it('records a streamed query only once for a re-used (memoised) runner', async () => {
+    const { dataSource, profile } = setup({
+      streamImpl: () => Promise.resolve(Readable.from([{ id: 1 }])),
+    });
+    // Same qr instance is returned on every createQueryRunner() call (SQLite-style memoisation).
+    dataSource.createQueryRunner();
+    const stream = (await dataSource.createQueryRunner().stream?.('SELECT 1')) as Readable;
+    await new Promise<void>((resolve) => {
+      stream.on('data', () => {});
+      stream.on('end', () => resolve());
+    });
+    expect(entriesOf(profile).filter((e) => e.streaming)).toHaveLength(1);
   });
 
   it('does not double-wrap createQueryRunner when onModuleInit runs twice', async () => {
