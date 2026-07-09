@@ -2,6 +2,7 @@ import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
 import type { ProfilerRequestFilter } from './filters';
+import type { PerformanceRule } from './analysis/performance-rule.interface';
 
 export interface ProfilerModuleOptions {
   /**
@@ -115,6 +116,20 @@ export interface ProfilerModuleOptions {
 
   /** Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose with `combineFilters` for multiple conditions. */
   ignoreRequest?: ProfilerRequestFilter;
+
+  /** Performance-tagging configuration (custom rules for the N+1/slow engine). */
+  performance?: ProfilerPerformanceOptions;
+}
+
+/** Configuration for the performance-tagging rule engine ({@link analyzeProfile}). */
+export interface ProfilerPerformanceOptions {
+  /**
+   * Extra {@link PerformanceRule}s appended to the built-ins (slow, N+1,
+   * error, chatty, large-payload). Each rule tags collected entries or the profile;
+   * its emitted tag ids become filterable on the list page. Equivalent to calling
+   * {@link ProfilerCoreService.registerPerformanceRule} for each at startup.
+   */
+  rules?: PerformanceRule[];
 }
 
 export type ProfilerModuleAsyncOptions = ConfigurableModuleAsyncOptions<ProfilerModuleOptions> & {

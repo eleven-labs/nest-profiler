@@ -1,9 +1,12 @@
 import { AbstractQueryCollector } from './abstract-query.collector';
 import type { Profile } from '../interfaces/profile.interface';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface';
 
 interface TestEntry {
   id: number;
-  isSlow: boolean;
+  duration: number;
+  fingerprint?: string;
+  tags?: ProfilerTag[];
   command?: string;
 }
 
@@ -43,8 +46,11 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
 }
 
 function makeEntry(overrides: Partial<TestEntry> = {}): TestEntry {
-  return { id: 1, isSlow: false, ...overrides };
+  return { id: 1, duration: 5, ...overrides };
 }
+
+const slowTag: ProfilerTag = { id: 'slow', label: 'Slow', severity: 'warning' };
+const dupTag: ProfilerTag = { id: 'n-plus-one', label: 'N+1 ×2', severity: 'danger', count: 2 };
 
 describe('AbstractQueryCollector', () => {
   describe('collect', () => {
@@ -66,8 +72,8 @@ describe('AbstractQueryCollector', () => {
         collectors: { [QUERIES_KEY]: [makeEntry({ id: 1 }), makeEntry({ id: 2 })] },
       });
       expect(collector.collect(profile)).toEqual([
-        { id: 1, isSlow: false, command: 'run-1' },
-        { id: 2, isSlow: false, command: 'run-2' },
+        { id: 1, duration: 5, command: 'run-1' },
+        { id: 2, duration: 5, command: 'run-2' },
       ]);
       expect(profile.collectors[QUERIES_KEY]).toBeUndefined();
     });
@@ -84,12 +90,33 @@ describe('AbstractQueryCollector', () => {
       expect(collector.getBadgeValue(profile)).toBe('2q');
     });
 
-    it('includes the slow count when some queries are slow', () => {
+    it('keeps the badge a plain query count regardless of tags', () => {
       const collector = new PlainCollector();
       const profile = makeProfile({
-        collectors: { [QUERIES_KEY]: [makeEntry({ isSlow: true }), makeEntry()] },
+        collectors: { [QUERIES_KEY]: [makeEntry({ tags: [slowTag] }), makeEntry()] },
       });
-      expect(collector.getBadgeValue(profile)).toBe('2q (1 slow)');
+      expect(collector.getBadgeValue(profile)).toBe('2q');
+    });
+
+    it('getBadgeSeverity returns the worst tag severity, or null when untagged', () => {
+      const collector = new PlainCollector();
+      const tagged = makeProfile({
+        collectors: {
+          [QUERIES_KEY]: [makeEntry({ tags: [slowTag] }), makeEntry({ tags: [dupTag] })],
+        },
+      });
+      expect(collector.getBadgeSeverity(tagged)).toBe('danger');
+      const untagged = makeProfile({ collectors: { [QUERIES_KEY]: [makeEntry()] } });
+      expect(collector.getBadgeSeverity(untagged)).toBeNull();
+    });
+
+    it('exposes stored entries and a default tag config to the rule engine', () => {
+      const collector = new PlainCollector();
+      const entries = [makeEntry()];
+      const profile = makeProfile({ collectors: { [collector.name]: entries } });
+      expect(collector.getTaggableEntries(profile)).toBe(entries);
+      expect(collector.getTagConfig()).toMatchObject({ slowThreshold: 100, nPlusOneThreshold: 2 });
+      expect(collector.tagDomain).toBe('query');
     });
 
     it('reads from profile.collectors[name] once collect() has stored the entries', () => {

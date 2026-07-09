@@ -1,6 +1,9 @@
 <%
   const queries = data || [];
   const totalDuration = queries.reduce((sum, q) => sum + q.duration, 0);
+  const hasTag = (q, id) => (q.tags || []).some(t => t.id === id);
+  const slowCount = queries.filter(q => hasTag(q, 'slow')).length;
+  const nPlusOneGroups = new Set(queries.filter(q => hasTag(q, 'n-plus-one') && q.fingerprint).map(q => q.fingerprint));
   const typeColors = {
     SELECT: 'badge-get',
     INSERT: 'badge-post',
@@ -14,9 +17,11 @@
   <div class="flex items-center gap-4 text-xs text-foreground-muted">
     <span><strong class="text-foreground"><%= queries.length %></strong> quer<%= queries.length !== 1 ? 'ies' : 'y' %></span>
     <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
-    <% const slowCount = queries.filter(q => q.isSlow).length; %>
     <% if (slowCount > 0) { %>
       <span class="text-danger"><strong><%= slowCount %></strong> slow</span>
+    <% } %>
+    <% if (nPlusOneGroups.size > 0) { %>
+      <span class="text-danger"><strong><%= nPlusOneGroups.size %></strong> N+1</span>
     <% } %>
   </div>
 </div>
@@ -38,7 +43,7 @@
       </thead>
       <tbody class="divide-y divide-line-subtle">
         <% for (const q of queries) { %>
-          <tr class="hover:bg-surface-muted transition-colors <%= q.isSlow ? 'bg-warning-bg/30' : '' %>">
+          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one')) ? 'bg-warning-bg/30' : '' %>">
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= typeColors[q.type] || 'badge-default' %>"><%= q.type %></span>
             </td>
@@ -47,6 +52,9 @@
                 <code class="text-xs text-code-text leading-relaxed break-all"><% if (typeof highlightSql === 'function') { %><%- highlightSql(q.sql) %><% } else { %><%= q.sql %><% } %></code>
                 <span class="shrink-0"><%- copyBtn(interpolateSql(q.sql, q.parameters), 'Copy SQL') %></span>
               </div>
+              <% if (q.tags && q.tags.length > 0) { %>
+                <div class="mt-1.5 flex flex-wrap gap-1"><%- tagBadges(q.tags) %></div>
+              <% } %>
               <% if (q.parameters && q.parameters.length > 0) { %>
                 <div class="mt-2">
                   <div class="text-2xs text-foreground-muted font-medium mb-0.5">Parameters:</div>
@@ -58,8 +66,8 @@
               <% } %>
             </td>
             <td class="py-2 px-4 text-right align-top">
-              <span class="text-xs tabular-nums <%= q.isSlow ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
-              <% if (q.isSlow) { %>
+              <span class="text-xs tabular-nums <%= hasTag(q, 'slow') ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
+              <% if (hasTag(q, 'slow')) { %>
                 <span class="block text-2xs text-danger/70">slow</span>
               <% } %>
             </td>

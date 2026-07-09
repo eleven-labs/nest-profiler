@@ -70,8 +70,10 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.text).not.toContain(short(errorToken));
     });
 
-    it('filters by exceptions', async () => {
-      const res = await request(server(app)).get('/_profiler').query({ http_hasExceptions: '1' });
+    it('filters by the errors checkbox', async () => {
+      // The engine tags a profile carrying an unhandled exception `error`; the dedicated
+      // "errors" checkbox replaces the former "exceptions" filter.
+      const res = await request(server(app)).get('/_profiler').query({ http_error: '1' });
 
       expect(res.text).toContain(short(errorToken));
       expect(res.text).not.toContain(short(healthToken));

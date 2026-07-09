@@ -26,6 +26,13 @@ export interface ProfileSummary {
   /** Request duration in ms; `0` when not yet measured (so min/max filters treat it as fast). */
   readonly duration: number;
   readonly hasExceptions: boolean;
+  /**
+   * Space-delimited performance-tag ids (e.g. `' slow n-plus-one '`) aggregated by the
+   * rule engine, scanned by the `tag` list filter via a `contains` criterion. Empty
+   * when the profile carries no tags. Leading/trailing spaces let `contains` match a
+   * whole id without a partial-id false positive.
+   */
+  readonly tags: string;
   /** Pre-computed, lowercased haystack scanned by the free-text `search` filter. */
   readonly search: string;
   /** Kind-specific queryable facets contributed by the entrypoint type. */
@@ -78,7 +85,19 @@ export function summarizeProfile(
     statusCode: profile.response?.statusCode,
     duration: profile.performance.duration ?? 0,
     hasExceptions: profile.exceptions.length > 0,
+    tags: tagHaystack(profile),
     search: searchHaystack(profile),
     attributes: getAttributes ? getAttributes(profile) : {},
   };
+}
+
+/**
+ * Space-delimited, space-wrapped list of the profile's performance-tag ids (e.g.
+ * `' slow n-plus-one '`). The wrapping spaces let the `tag` filter match a whole id
+ * with a `contains ' <id> '` criterion, so `slow` never matches `very-slow`. Empty
+ * string when the profile has no tags.
+ */
+function tagHaystack(profile: Profile): string {
+  const ids = (profile.tags ?? []).map((tag) => tag.id);
+  return ids.length > 0 ? ` ${ids.join(' ')} ` : '';
 }

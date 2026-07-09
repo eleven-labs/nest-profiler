@@ -41,7 +41,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       (env) => !isProfilerEnabled(env),
     ),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 100 }), // queries > 100ms highlighted
+      MikroOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
       isProfilerEnabled,
     ),
   ],
@@ -90,7 +90,7 @@ You will see:
 
 - Each SQL query with its type badge (`SELECT`, `INSERT`, …)
 - Duration per query (MikroORM's measured `took`) with a bar chart indicator
-- Slow queries highlighted in red
+- Slow queries and N+1 patterns flagged as performance tags
 - Bound parameters
 
 The **Timeline** panel shows the `db.products.findAll` span alongside other phases.
@@ -106,7 +106,7 @@ ConditionalModule.registerWhen(
   MikroOrmCollectorModule.forRootAsync({
     inject: [ConfigService],
     useFactory: (config: ConfigService) => ({
-      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
     }),
   }),
   isProfilerEnabled,

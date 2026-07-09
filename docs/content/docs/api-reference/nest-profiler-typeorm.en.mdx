@@ -51,7 +51,7 @@ import type {
 ```ts
 // In ProductsModule (or any module that uses TypeORM):
 TypeOrmCollectorModule.forRoot({
-  slowQueryThreshold: 50, // ms - queries above this are highlighted red
+  slowThreshold: 50, // ms — queries at/above this are tagged 'slow'
 });
 ```
 
@@ -71,7 +71,7 @@ ConditionalModule.registerWhen(
   TypeOrmCollectorModule.forRootAsync({
     inject: [ConfigService],
     useFactory: (config: ConfigService) => ({
-      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
     }),
   }),
   isProfilerEnabled,

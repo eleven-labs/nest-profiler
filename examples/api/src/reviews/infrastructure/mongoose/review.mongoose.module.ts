@@ -22,7 +22,7 @@ import { MongooseReviewRepository } from './review.mongoose.repository.js';
     }),
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
     ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      MongooseCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
   ],

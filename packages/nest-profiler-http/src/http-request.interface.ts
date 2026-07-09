@@ -1,3 +1,5 @@
+import type { ProfilerTag } from '@eleven-labs/nest-profiler';
+
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the
  * shared "HTTP Client" panel.
@@ -17,6 +19,13 @@ export interface HttpRequestEntry {
   requestBody?: unknown;
   responseHeaders?: Record<string, string>;
   responseBody?: unknown;
+  /**
+   * Value-free key (method + normalized URL) used by the performance-rule engine
+   * to group repeated calls (the N+1 signal). Filled by the collector.
+   */
+  fingerprint?: string;
+  /** Performance tags applied by the rule engine (slow, N+1, error, large-payload). */
+  tags?: ProfilerTag[];
 }
 
 /**

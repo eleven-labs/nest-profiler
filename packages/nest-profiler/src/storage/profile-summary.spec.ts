@@ -40,6 +40,19 @@ describe('summarizeProfile', () => {
     expect(summary.duration).toBe(0);
   });
 
+  it('projects performance tags as a space-wrapped id haystack (empty when none)', () => {
+    expect(summarizeProfile(httpProfile({})).tags).toBe('');
+    const tagged = summarizeProfile(
+      httpProfile({
+        tags: [
+          { id: 'slow', label: 'Slow', severity: 'warning' },
+          { id: 'n-plus-one', label: 'N+1', severity: 'danger' },
+        ],
+      }),
+    );
+    expect(tagged.tags).toBe(' slow n-plus-one ');
+  });
+
   it('leaves method/url undefined for a non-HTTP entrypoint', () => {
     const summary = summarizeProfile(
       httpProfile({ entrypoint: { type: 'command', data: { name: 'sync:posts' } } }),

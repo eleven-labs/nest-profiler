@@ -26,6 +26,6 @@ export default registerAs('profiler', () => {
       .split(',')
       .map((field) => field.trim())
       .filter(Boolean),
-    slowQueryThreshold: parseInt(process.env['PROFILER_SLOW_QUERY_MS'] ?? '50', 10),
+    slowThreshold: parseInt(process.env['PROFILER_SLOW_QUERY_MS'] ?? '50', 10),
   };
 });

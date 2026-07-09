@@ -29,11 +29,12 @@ function makeQuery(overrides: Partial<QueryEntry> = {}): QueryEntry {
     sql: 'SELECT * FROM users',
     duration: 10,
     type: 'SELECT',
-    isSlow: false,
     startedAt: Date.now(),
     ...overrides,
   };
 }
+
+const slowTag = { id: 'slow', label: 'Slow', severity: 'warning' as const };
 
 describe('AbstractSqlQueryCollector', () => {
   let collector: TestSqlCollector;
@@ -42,11 +43,11 @@ describe('AbstractSqlQueryCollector', () => {
     collector = new TestSqlCollector();
   });
 
-  it('returns the private queries key entries and removes them from collectors', () => {
+  it('returns the private queries key entries with a fingerprint and removes them from collectors', () => {
     const q = makeQuery();
     const profile = makeProfile({ collectors: { [QUERIES_KEY]: [q] } });
     const result = collector.collect(profile);
-    expect(result).toEqual([q]);
+    expect(result).toEqual([{ ...q, fingerprint: 'SELECT * FROM users' }]);
     expect(profile.collectors[QUERIES_KEY]).toBeUndefined();
   });
 
@@ -64,11 +65,12 @@ describe('AbstractSqlQueryCollector', () => {
     expect(collector.getBadgeValue(profile)).toBe('2q');
   });
 
-  it('getBadgeValue includes slow count when present', () => {
-    const slow = makeQuery({ isSlow: true });
+  it('getBadgeValue is a plain query count; getBadgeSeverity reflects the tags', () => {
+    const slow = makeQuery({ tags: [slowTag] });
     const fast = makeQuery();
     const profile = makeProfile({ collectors: { [QUERIES_KEY]: [slow, fast] } });
-    expect(collector.getBadgeValue(profile)).toBe('2q (1 slow)');
+    expect(collector.getBadgeValue(profile)).toBe('2q');
+    expect(collector.getBadgeSeverity(profile)).toBe('warning');
   });
 
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {

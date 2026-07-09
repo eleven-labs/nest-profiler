@@ -3,6 +3,7 @@ import { ProfilerCoreService } from './profiler-core.service';
 import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
@@ -147,7 +148,7 @@ describe('ProfilerCoreService', () => {
             provide: ProfilerStorageService,
             useValue: { save, setIndexAttributesProvider: jest.fn() },
           },
-          { provide: CollectorRegistry, useValue: { collectAll } },
+          { provide: CollectorRegistry, useValue: { collectAll, getCollectors: () => [] } },
           { provide: RouteCollector, useValue: { match: jest.fn() } },
         ],
       }).compile();
@@ -280,6 +281,44 @@ describe('ProfilerCoreService', () => {
       const statusClass = core.getListFilters().find((f) => f.key === 'statusClass');
       const dupes = statusClass?.options?.filter((o) => o.value === '9');
       expect(dupes).toHaveLength(1);
+    });
+  });
+
+  describe('performance rule registry', () => {
+    const customRule = { id: 'custom-rule', evaluate: jest.fn() };
+
+    async function buildCore(performance?: { rules: { id: string; evaluate: jest.Mock }[] }) {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ProfilerCoreService,
+          {
+            provide: ProfilerStorageService,
+            useValue: { findAll: jest.fn(), setIndexAttributesProvider: jest.fn() },
+          },
+          { provide: CollectorRegistry, useValue: { buildPanels: jest.fn() } },
+          { provide: RouteCollector, useValue: { match: jest.fn() } },
+          { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: { performance } },
+        ],
+      }).compile();
+      return moduleRef.get(ProfilerCoreService);
+    }
+
+    it('seeds the built-in performance rules', async () => {
+      const core = await buildCore();
+      const ids = core.getPerformanceRules().map((r) => r.id);
+      expect(ids).toEqual(expect.arrayContaining(['slow', 'n-plus-one', 'error']));
+    });
+
+    it('registerPerformanceRule appends a custom rule once', async () => {
+      const core = await buildCore();
+      core.registerPerformanceRule(customRule);
+      core.registerPerformanceRule({ ...customRule, evaluate: jest.fn() });
+      expect(core.getPerformanceRules().filter((r) => r.id === 'custom-rule')).toHaveLength(1);
+    });
+
+    it('seeds custom rules from the performance module option', async () => {
+      const core = await buildCore({ rules: [customRule] });
+      expect(core.getPerformanceRules().some((r) => r.id === 'custom-rule')).toBe(true);
     });
   });
 

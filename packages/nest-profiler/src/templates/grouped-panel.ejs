@@ -1,6 +1,11 @@
 <%
   const subPanels = (data && data.subPanels) ? data.subPanels : [];
   const groupId = 'grp-' + Math.random().toString(36).slice(2, 8);
+  // The initially-active sub-tab, from the `?subtab=` query param (falls back to the
+  // first sub-panel when absent or unknown) — makes a sub-panel linkable/screenshot-able.
+  const activeSub = (typeof activeSubTab !== 'undefined' && activeSubTab) ? activeSubTab : null;
+  let activeIdx = subPanels.findIndex((sp) => sp.name === activeSub);
+  if (activeIdx < 0) activeIdx = 0;
 %>
 
 <% if (subPanels.length === 0) { %>
@@ -14,15 +19,22 @@
     <div class="flex gap-0 border-b border-line mb-5" id="<%= groupId %>-tabs">
       <% for (let i = 0; i < subPanels.length; i++) { %>
         <% const sp = subPanels[i]; %>
+        <%
+          // Severity is signalled by a dot only — never a border, which is the active-tab
+          // indicator (a coloured border on an inactive tab would look selected too).
+          const spSevDot = sp.severity === 'danger' ? 'bg-red-500'
+            : sp.severity === 'warning' ? 'bg-amber-500' : null;
+        %>
         <button
           data-group-tab="<%= groupId %>"
           data-panel="<%= sp.name %>"
           class="group-tab-btn flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors
-            <%= i === 0
+            <%= i === activeIdx
               ? 'border-nest text-nest'
               : 'border-transparent text-foreground-muted hover:text-foreground hover:border-line-active' %>">
           <% if (sp.icon) { %><span class="w-3.5 h-3.5 shrink-0"><%- sp.icon %></span><% } %>
           <%= sp.label %>
+          <% if (spSevDot) { %><span class="w-1.5 h-1.5 rounded-full shrink-0 <%= spSevDot %>" title="Performance issue"></span><% } %>
         </button>
       <% } %>
     </div>
@@ -32,7 +44,7 @@
       <div
         data-group-panel="<%= groupId %>"
         data-panel="<%= sp.name %>"
-        class="<%= i !== 0 ? 'hidden' : '' %>">
+        class="<%= i !== activeIdx ? 'hidden' : '' %>">
         <%- include(sp.templatePath, { data: sp.data, panel, profile, highlightSql, toJson, isoDate, timeOnly }) %>
       </div>
     <% } %>

@@ -27,11 +27,12 @@ function makeQuery(overrides: Partial<QueryEntry> = {}): QueryEntry {
     sql: 'SELECT * FROM users',
     duration: 10,
     type: 'SELECT',
-    isSlow: false,
     startedAt: Date.now(),
     ...overrides,
   };
 }
+
+const slowTag = { id: 'slow', label: 'Slow', severity: 'warning' as const };
 
 describe('TypeOrmCollector', () => {
   let collector: TypeOrmCollector;
@@ -44,7 +45,7 @@ describe('TypeOrmCollector', () => {
     const q = makeQuery();
     const profile = makeProfile({ collectors: { [TYPEORM_QUERIES_KEY]: [q] } });
     const result = collector.collect(profile);
-    expect(result).toEqual([q]);
+    expect(result).toEqual([{ ...q, fingerprint: 'SELECT * FROM users' }]);
     expect(profile.collectors[TYPEORM_QUERIES_KEY]).toBeUndefined();
   });
 
@@ -64,11 +65,32 @@ describe('TypeOrmCollector', () => {
     expect(collector.getBadgeValue(profile)).toBe('2q');
   });
 
-  it('getBadgeValue includes slow count when present', () => {
-    const slow = makeQuery({ isSlow: true });
+  it('getBadgeValue is a plain query count; getBadgeSeverity reflects the tags', () => {
+    const slow = makeQuery({ tags: [slowTag] });
     const fast = makeQuery();
     const profile = makeProfile({ collectors: { [TYPEORM_QUERIES_KEY]: [slow, fast] } });
-    expect(collector.getBadgeValue(profile)).toBe('2q (1 slow)');
+    expect(collector.getBadgeValue(profile)).toBe('2q');
+    expect(collector.getBadgeSeverity(profile)).toBe('warning');
+  });
+
+  it('collect() stamps a parameter-free fingerprint on each query', () => {
+    const a = makeQuery({ sql: 'SELECT * FROM users WHERE id = 1' });
+    const b = makeQuery({ sql: 'SELECT * FROM users WHERE id = 2' });
+    const profile = makeProfile({ collectors: { [TYPEORM_QUERIES_KEY]: [a, b] } });
+    const [fa, fb] = collector.collect(profile);
+    expect(fa?.fingerprint).toBe('SELECT * FROM users WHERE id = ?');
+    expect(fa?.fingerprint).toBe(fb?.fingerprint);
+  });
+
+  it('getTagConfig returns defaults, and the configured thresholds when provided', () => {
+    expect(new TypeOrmCollector().getTagConfig()).toMatchObject({
+      slowThreshold: 100,
+      nPlusOneThreshold: 2,
+      chattyThreshold: 20,
+    });
+    expect(
+      new TypeOrmCollector({ slowThreshold: 25, nPlusOneThreshold: 3 }).getTagConfig(),
+    ).toMatchObject({ slowThreshold: 25, nPlusOneThreshold: 3 });
   });
 
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {
@@ -159,7 +181,6 @@ describe('TypeOrmDriverPatch', () => {
     params: {
       queryImpl?: (...args: unknown[]) => Promise<unknown>;
       initialized?: boolean;
-      threshold?: number;
       profile?: Profile | null;
       clsThrows?: boolean;
     } = {},
@@ -185,7 +206,7 @@ describe('TypeOrmDriverPatch', () => {
     const moduleRef = {
       get: (token: unknown) => (token === ClsService ? cls : dataSource),
     } as unknown as ModuleRef;
-    const patch = new TypeOrmDriverPatch(moduleRef, { slowQueryThreshold: params.threshold });
+    const patch = new TypeOrmDriverPatch(moduleRef, {});
     patch.onModuleInit();
     return { dataSource, profile };
   }
@@ -207,7 +228,7 @@ describe('TypeOrmDriverPatch', () => {
   });
 
   it('captures sql, parameters, type and duration for a query', async () => {
-    const { dataSource, profile } = setup({ threshold: 100 });
+    const { dataSource, profile } = setup({});
     const result: unknown = await dataSource.createQueryRunner().query('SELECT * FROM users', [1]);
     expect(result).toEqual([{ id: 1 }]);
 
@@ -215,7 +236,7 @@ describe('TypeOrmDriverPatch', () => {
     expect(e.sql).toBe('SELECT * FROM users');
     expect(e.parameters).toEqual([1]);
     expect(e.type).toBe('SELECT');
-    expect(e.isSlow).toBe(false);
+    expect(typeof e.duration).toBe('number');
     expect(e.error).toBeUndefined();
   });
 
@@ -223,12 +244,6 @@ describe('TypeOrmDriverPatch', () => {
     const { dataSource, profile } = setup({});
     await dataSource.createQueryRunner().query('UPDATE users SET x = 1');
     expect(firstEntry(profile).parameters).toEqual([]);
-  });
-
-  it('flags slow queries when the duration meets the threshold', async () => {
-    const { dataSource, profile } = setup({ threshold: 0 });
-    await dataSource.createQueryRunner().query('SELECT 1');
-    expect(firstEntry(profile).isSlow).toBe(true);
   });
 
   it('records the error message and rethrows when a query fails', async () => {
@@ -260,26 +275,6 @@ describe('TypeOrmDriverPatch', () => {
     const { dataSource, profile } = setup({ profile: null });
     await dataSource.createQueryRunner().query('SELECT 1');
     expect(profile).toBeNull();
-  });
-
-  it('uses the default threshold when no options are provided', async () => {
-    const queryFn = jest.fn(() => Promise.resolve([{ id: 1 }]));
-    const qr = { query: queryFn };
-    const dataSource = {
-      isInitialized: true,
-      createQueryRunner: jest.fn(() => qr),
-    } as unknown as DataSource & { createQueryRunner: () => QueryRunnerLike };
-    const profile = makeProfile();
-    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    // Third argument omitted → exercises the default `options = {}` parameter.
-    const moduleRef = {
-      get: (t: unknown) => (t === ClsService ? cls : dataSource),
-    } as unknown as ModuleRef;
-    const patch = new TypeOrmDriverPatch(moduleRef, {});
-    patch.onModuleInit();
-
-    await dataSource.createQueryRunner().query('SELECT 1');
-    expect(firstEntry(profile).isSlow).toBe(false);
   });
 
   it('does not double-wrap createQueryRunner when onModuleInit runs twice', async () => {

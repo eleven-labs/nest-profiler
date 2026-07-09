@@ -50,7 +50,8 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
     ConditionalModule.registerWhen(
       TypeOrmCollectorModule.forRoot({
         dataSource, // your DataSource instance
-        slowQueryThreshold: 100, // ms — queries above this are highlighted (default: 100)
+        slowThreshold: 100, // ms — queries at/above this are tagged `slow` (default: 100)
+        duplicateThreshold: 2, // identical queries repeated ≥ N are tagged `duplicate` / N+1 (default: 2)
       }),
       isProfilerEnabled,
     ),
@@ -65,7 +66,7 @@ Since `DataSource` is not available at module declaration time, use `forRootAsyn
 ConditionalModule.registerWhen(
   TypeOrmCollectorModule.forRootAsync({
     inject: [DataSource],
-    useFactory: (dataSource: DataSource) => ({ dataSource, slowQueryThreshold: 50 }),
+    useFactory: (dataSource: DataSource) => ({ dataSource, slowThreshold: 50 }),
   }),
   isProfilerEnabled,
 ),
@@ -77,17 +78,18 @@ ConditionalModule.registerWhen(
 
 For each SQL query executed during a request:
 
-| Field        | Description                                      |
-| ------------ | ------------------------------------------------ |
-| `sql`        | The SQL query string (with keyword highlighting) |
-| `parameters` | Bound parameters                                 |
-| `duration`   | Execution time in ms                             |
-| `type`       | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`  |
-| `isSlow`     | `true` if duration ≥ `slowQueryThreshold`        |
-| `startedAt`  | Unix timestamp                                   |
-| `error`      | Error message if the query failed                |
+| Field         | Description                                       |
+| ------------- | ------------------------------------------------- |
+| `sql`         | The SQL query string (with keyword highlighting)  |
+| `parameters`  | Bound parameters                                  |
+| `duration`    | Execution time in ms                              |
+| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`   |
+| `startedAt`   | Unix timestamp                                    |
+| `error`       | Error message if the query failed                 |
+| `fingerprint` | Parameter-free normalized SQL, used to group N+1s |
+| `tags`        | Performance tags applied by the core rule engine  |
 
-Slow queries are highlighted in red in the panel.
+Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `duplicateThreshold`; see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

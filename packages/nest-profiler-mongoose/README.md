@@ -47,7 +47,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   imports: [
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
     ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({ slowQueryThreshold: 100 }), // ms — above this is highlighted
+      MongooseCollectorModule.forRoot({ slowThreshold: 100, duplicateThreshold: 2 }), // slow/N+1 tagging
       isProfilerEnabled,
     ),
   ],
@@ -63,18 +63,19 @@ export class AppModule {}
 
 For each Mongoose query or aggregation executed during a request:
 
-| Field        | Description                                    |
-| ------------ | ---------------------------------------------- |
-| `collection` | MongoDB collection name (e.g. `reviews`)       |
-| `operation`  | Mongoose operation (e.g. `find`, `aggregate`)  |
-| `filter`     | Query filter object (if applicable)            |
-| `duration`   | Execution time in ms                           |
-| `isSlow`     | `true` if duration ≥ `slowQueryThreshold`      |
-| `startedAt`  | Unix timestamp                                 |
-| `count`      | Number of results returned (find queries only) |
-| `error`      | Error message if the query failed              |
+| Field         | Description                                               |
+| ------------- | --------------------------------------------------------- |
+| `collection`  | MongoDB collection name (e.g. `reviews`)                  |
+| `operation`   | Mongoose operation (e.g. `find`, `aggregate`)             |
+| `filter`      | Query filter object (if applicable)                       |
+| `duration`    | Execution time in ms                                      |
+| `startedAt`   | Unix timestamp                                            |
+| `count`       | Number of results returned (find queries only)            |
+| `error`       | Error message if the query failed                         |
+| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping |
+| `tags`        | Performance tags applied by the core rule engine          |
 
-Slow queries are highlighted in red in the panel.
+Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

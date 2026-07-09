@@ -1,4 +1,5 @@
 import type { Profile } from '../interfaces/profile.interface';
+import type { TagSeverity } from '../analysis/profiler-tag.interface';
 
 export interface IProfilerCollector {
   readonly name: string;
@@ -18,6 +19,12 @@ export interface IProfilerCollector {
   readonly groupIcon?: string;
   readonly groupPriority?: number;
   getBadgeValue?(profile: Profile): string | number | null;
+  /**
+   * Worst performance-tag severity among this collector's entries, used to colour
+   * its nav tab so a problematic panel stands out without cramming counts into the
+   * badge. `null`/absent leaves the tab in its neutral style.
+   */
+  getBadgeSeverity?(profile: Profile): TagSeverity | null;
   getTemplatePath?(): string | undefined;
   collect(profile: Profile): unknown;
 }

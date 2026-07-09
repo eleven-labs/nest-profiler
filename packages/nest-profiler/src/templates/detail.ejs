@@ -59,6 +59,33 @@
       </a>
     </nav>
 
+    <!-- ── Performance banner ────────────────────────────────────────────── -->
+    <%
+      // Only genuine performance tags belong in the banner — `error` is a failure,
+      // not a performance issue, so it is surfaced per-row and via the "errors" filter.
+      const perfTags = (profile.tags || []).filter((t) => t.id !== 'error');
+    %>
+    <% if (perfTags.length > 0) {
+      const worst = perfTags.some((t) => t.severity === 'danger') ? 'danger'
+        : perfTags.some((t) => t.severity === 'warning') ? 'warning' : 'info';
+      const boxCls = worst === 'danger'
+        ? 'border-red-300 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30'
+        : worst === 'warning'
+          ? 'border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30'
+          : 'border-sky-300 bg-sky-50 dark:border-sky-900/50 dark:bg-sky-950/30';
+      const iconCls = worst === 'danger' ? 'text-red-600 dark:text-red-400'
+        : worst === 'warning' ? 'text-amber-600 dark:text-amber-400'
+        : 'text-sky-600 dark:text-sky-400';
+    %>
+      <div class="mb-6 rounded-lg border <%= boxCls %> px-4 py-3">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-4 h-4 shrink-0 <%= iconCls %>" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <span class="text-sm font-semibold text-foreground">Performance — <%= perfTags.length %> issue<%= perfTags.length !== 1 ? 's' : '' %> detected</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5"><%- tagBadges(perfTags) %></div>
+      </div>
+    <% } %>
+
     <!-- ── Two-column layout ─────────────────────────────────────────────── -->
     <div class="flex gap-5 items-start">
 
@@ -108,6 +135,11 @@
                 const badge = (panel.badgeValue !== null && panel.badgeValue !== undefined) ? panel.badgeValue : null;
                 // badgeValue === null (strict) means getBadgeValue returned null = no data for this request
                 const isEmpty = panel.badgeValue === null;
+                // The worst severity in this panel is signalled by a dot only — never a
+                // border, which is the active-tab indicator (a coloured border on an
+                // inactive tab would read as "selected" too).
+                const sev = panel.severity || null;
+                const sevDot = sev === 'danger' ? 'bg-red-500' : sev === 'warning' ? 'bg-amber-500' : null;
               %>
               <a href="<%= profilerPath %>/<%= profile.token %>?tab=<%= panel.name %>"
                  class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2
@@ -118,6 +150,7 @@
                        : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted' %>">
                 <% if (panel.icon) { %><span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><%- panel.icon %></span><% } %>
                 <span class="flex-1"><%= panel.label %></span>
+                <% if (sevDot) { %><span class="w-1.5 h-1.5 rounded-full shrink-0 <%= sevDot %>" title="Performance issue"></span><% } %>
                 <% if (badge !== null) { %>
                   <span class="px-1.5 py-0.5 rounded-full text-2xs font-bold border
                     <%= isActive
@@ -270,7 +303,7 @@
               const activePanel = collectorPanelMap[activeTab];
             %>
             <% if (activePanel && activePanel.templatePath) { %>
-              <%- include(activePanel.templatePath, { panel: activePanel, data: collectorData, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+              <%- include(activePanel.templatePath, { panel: activePanel, data: collectorData, activeSubTab: typeof activeSubTab !== 'undefined' ? activeSubTab : null, profile, highlightSql, toJson, isoDate, timeOnly }) %>
             <% } else if (typeof collectorData !== 'undefined') { %>
               <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs text-code-text overflow-x-auto leading-relaxed"><%= toJson(collectorData) %></pre>
             <% } else { %>

@@ -63,6 +63,7 @@ interface Profile {
   response?: { statusCode?: number };
   exceptions?: unknown[];
   collectors?: Record<string, unknown>;
+  tags?: Array<{ id?: string }>;
 }
 
 /** Load every stored profile in `dir`, most-recent first (stable, deterministic pick). */
@@ -98,6 +99,16 @@ const hasCollector = (p: Profile, key: string): boolean => {
   const value = p.collectors?.[key];
   return Array.isArray(value) ? value.length > 0 : !!value && Object.keys(value).length > 0;
 };
+const hasTag = (p: Profile, id: string): boolean => (p.tags ?? []).some((t) => t.id === id);
+
+// When ONLY is set (comma-separated file names), capture just those files and skip
+// the rest (including the extra MikroORM/RabbitMQ reboots) — used to refresh a single
+// view without regenerating the whole carousel.
+const ONLY = (process.env.ONLY ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const wanted = (file: string): boolean => ONLY.length === 0 || ONLY.includes(file);
 
 const isPost = (p: Profile): boolean => isHttp(p) && methodOf(p) === 'POST';
 const bodyOf = (p: Profile): unknown => dataOf(p).body;
@@ -115,6 +126,8 @@ const api = (path: string): string => `/api/v1${path}`;
 interface Target {
   file: string;
   tab: string;
+  /** Optional grouped-panel sub-tab to activate (e.g. `mongoose` within Database). */
+  subtab?: string;
   /** Tried in order; first matching profile wins (preferred → fallback). */
   preds: Predicate[];
 }
@@ -238,6 +251,25 @@ const TARGETS: Target[] = [
     tab: 'exceptions',
     preds: [(p) => typeOf(p) === 'graphql' && exceptionsOf(p) > 0],
   },
+  // Performance tags — the `{ products { reviews } }` query lists products (SQL root
+  // resolver) then resolves each product's reviews from MongoDB (field resolver), an
+  // N+1 pattern. The Database tab shows the Performance banner, the severity-coloured
+  // Database sub-tabs and the N+1 pills; captured on the tagged graphql profile.
+  {
+    file: 'performance-tags-detail.png',
+    tab: 'database',
+    // Land on the MongoDB sub-tab, where the per-row N+1 pills live.
+    subtab: 'mongoose',
+    preds: [
+      (p) =>
+        typeOf(p) === 'graphql' &&
+        gqlOpOf(p) === 'query' &&
+        hasTag(p, 'n-plus-one') &&
+        hasCollector(p, 'mongoose'),
+      (p) => typeOf(p) === 'graphql' && hasTag(p, 'n-plus-one'),
+      (p) => hasTag(p, 'n-plus-one'),
+    ],
+  },
 ];
 
 function run(
@@ -286,10 +318,16 @@ const withBase = (html: string): string =>
  * open, rewrite asset URLs with a `<base>`, and shoot the local copy. Used for the
  * GraphQL and Commands section views.
  */
-async function captureSection(filename: string, title: string, workDir: string): Promise<void> {
+async function captureSection(
+  filename: string,
+  title: string,
+  workDir: string,
+  query = '',
+): Promise<void> {
   const html = withBase(
-    (await (await fetch(PROFILER_URL)).text()).replace(/<details\b[\s\S]*?<\/details>/g, (block) =>
-      block.includes(`>${title}<`) ? block.replace('<details', '<details open') : '',
+    (await (await fetch(`${PROFILER_URL}${query}`)).text()).replace(
+      /<details\b[\s\S]*?<\/details>/g,
+      (block) => (block.includes(`>${title}<`) ? block.replace('<details', '<details open') : ''),
     ),
   );
   const file = join(workDir, filename.replace(/\.png$/, '.html'));
@@ -414,6 +452,7 @@ async function main(): Promise<void> {
 
     let resolved = 0;
     for (const target of TARGETS) {
+      if (!wanted(target.file)) continue;
       const profile = target.preds.reduce<Profile | undefined>(
         (found, pred) => found ?? profiles.find(pred),
         undefined,
@@ -423,35 +462,57 @@ async function main(): Promise<void> {
         continue;
       }
       console.log(`  • ${target.file}`);
-      capture(target.file, `${PROFILER_URL}/${profile.token}?tab=${target.tab}`);
+      const subtab = target.subtab ? `&subtab=${target.subtab}` : '';
+      capture(target.file, `${PROFILER_URL}/${profile.token}?tab=${target.tab}${subtab}`);
       resolved += 1;
     }
 
     // 5. List page — `?http_method=DELETE` shows the method filter active over the
     //    DELETE profiles, exercising the per-section filter bar.
-    console.log('  • profiles-list.png');
-    capture('profiles-list.png', `${PROFILER_URL}?http_method=DELETE`);
+    if (wanted('profiles-list.png')) {
+      console.log('  • profiles-list.png');
+      capture('profiles-list.png', `${PROFILER_URL}?http_method=DELETE`);
+    }
 
     // 6. Per-section list views — each entrypoint kind's table on its own.
-    console.log('  • graphql-list.png');
-    await captureSection('graphql-list.png', 'GraphQL', workDir);
-    console.log('  • command-list.png');
-    await captureSection('command-list.png', 'Commands', workDir);
+    if (wanted('graphql-list.png')) {
+      console.log('  • graphql-list.png');
+      await captureSection('graphql-list.png', 'GraphQL', workDir);
+    }
+    if (wanted('command-list.png')) {
+      console.log('  • command-list.png');
+      await captureSection('command-list.png', 'Commands', workDir);
+    }
+
+    // Performance-tag filter — the GraphQL list narrowed to the profiles carrying the
+    // `n-plus-one` tag, showing the tag select active and the N+1 pills on rows.
+    if (wanted('performance-tags-filter.png')) {
+      console.log('  • performance-tags-filter.png');
+      await captureSection(
+        'performance-tags-filter.png',
+        'GraphQL',
+        workDir,
+        '?graphql_tag=n-plus-one',
+      );
+    }
 
     // 7. Config — a collapsed-by-default global panel. Headless Chrome cannot open a
     //    <details>, so fetch the rendered page, force every disclosure open, rewrite
     //    asset URLs with a <base>, and shoot the local copy.
-    console.log('  • config.png');
-    const html = withBase(
-      (await (await fetch(PROFILER_URL)).text()).replace(/<details/g, '<details open'),
-    );
-    const configHtml = join(workDir, 'config.html');
-    writeFileSync(configHtml, html);
-    capture('config.png', `file://${configHtml}`);
+    if (wanted('config.png')) {
+      console.log('  • config.png');
+      const html = withBase(
+        (await (await fetch(PROFILER_URL)).text()).replace(/<details/g, '<details open'),
+      );
+      const configHtml = join(workDir, 'config.html');
+      writeFileSync(configHtml, html);
+      capture('config.png', `file://${configHtml}`);
+    }
 
     // The next two passes reboot the app with different feature flags, so they
-    // only run when this script manages the app (not under SKIP_APP).
-    if (!skip('SKIP_APP')) {
+    // only run when this script manages the app (not under SKIP_APP) and when their
+    // views are wanted (an ONLY run for other files skips these costly reboots).
+    if (!skip('SKIP_APP') && wanted('mikro-orm.png')) {
       // 8. MikroORM Database panel — the catalog binds exactly one SQL adapter
       //    per boot, so the MikroORM query panel needs its own run
       //    (SQL_ORM=mikro-orm) against fresh storage. Drive one GET /products
@@ -483,12 +544,14 @@ async function main(): Promise<void> {
         app = undefined;
         rmSync(mikroDir, { recursive: true, force: true });
       }
+    }
 
-      // 9. RabbitMQ delivery — @RabbitSubscribe messages become their own
-      //    profiles (the `rabbitmq` entrypoint). Boot with the broker on, POST a
-      //    review to publish `review.created`, wait for the consumer's delivery
-      //    profile, then shoot its Message detail tab and the RabbitMQ list
-      //    section (mirrors command.png / command-list.png).
+    // 9. RabbitMQ delivery — @RabbitSubscribe messages become their own
+    //    profiles (the `rabbitmq` entrypoint). Boot with the broker on, POST a
+    //    review to publish `review.created`, wait for the consumer's delivery
+    //    profile, then shoot its Message detail tab and the RabbitMQ list
+    //    section (mirrors command.png / command-list.png).
+    if (!skip('SKIP_APP') && (wanted('rabbitmq.png') || wanted('rabbitmq-list.png'))) {
       console.log('  • rabbitmq.png + rabbitmq-list.png (FEATURE_RABBITMQ pass)');
       const rmqDir = mkdtempSync(join(tmpdir(), 'profiler-rmq-'));
       try {

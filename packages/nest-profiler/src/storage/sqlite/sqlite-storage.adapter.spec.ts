@@ -19,6 +19,7 @@ function makeProfile(
     duration?: number;
     exceptions?: number;
     createdAt?: number;
+    tags?: string[];
   } = {},
 ): Profile {
   return {
@@ -37,6 +38,7 @@ function makeProfile(
       timestamp: 0,
     })),
     collectors: {},
+    tags: o.tags?.map((id) => ({ id, label: id, severity: 'warning' as const })),
   };
 }
 
@@ -174,6 +176,20 @@ describe('SqliteStorageAdapter', () => {
         pageSize: 10,
       });
       expect(withExc.items.map((p) => p.token)).toEqual(['d']);
+    });
+
+    it('filters by an indexed performance tag (whole-id contains)', () => {
+      adapter.save(makeProfile('slow-one', { tags: ['slow', 'n-plus-one'] }));
+      adapter.save(makeProfile('very-slow', { tags: ['very-slow'] }));
+      adapter.save(makeProfile('clean'));
+
+      const slow = adapter.query({
+        filters: [{ field: 'tags', op: 'contains', value: ' slow ' }],
+        page: 1,
+        pageSize: 10,
+      });
+      // ' very-slow ' must not match a ' slow ' filter.
+      expect(slow.items.map((p) => p.token)).toEqual(['slow-one']);
     });
   });
 

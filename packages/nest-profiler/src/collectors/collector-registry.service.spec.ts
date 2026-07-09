@@ -306,6 +306,41 @@ describe('CollectorRegistry', () => {
       expect(group?.badgeValue).toBe('2q · 4q (1 slow) · 3q');
     });
 
+    it('propagates the worst sub-panel severity onto the group tab', () => {
+      registry.register({
+        name: 'typeorm',
+        label: 'TypeORM',
+        group: 'database',
+        groupLabel: 'Database',
+        collect: () => [],
+        getBadgeValue: () => '2q',
+        getBadgeSeverity: () => 'warning',
+      });
+      registry.register({
+        name: 'mongoose',
+        label: 'MongoDB',
+        group: 'database',
+        collect: () => [],
+        getBadgeValue: () => '3q',
+        getBadgeSeverity: () => 'danger',
+      });
+
+      const group = registry.buildPanels(makeProfile()).find((p) => p.name === 'database');
+      expect(group?.severity).toBe('danger');
+    });
+
+    it('exposes a non-grouped collector severity on its own panel', () => {
+      registry.register({
+        name: 'http-client',
+        label: 'HTTP Client',
+        collect: () => [],
+        getBadgeValue: () => '5',
+        getBadgeSeverity: () => 'warning',
+      });
+      const panel = registry.buildPanels(makeProfile()).find((p) => p.name === 'http-client');
+      expect(panel?.severity).toBe('warning');
+    });
+
     it('derives group label/priority from minimal metadata and a deferred badge', () => {
       // First collector has no badge (group badge starts undefined); the group label
       // and priority fall back to the group name and the collector priority respectively.

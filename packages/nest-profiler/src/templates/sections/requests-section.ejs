@@ -40,8 +40,11 @@
                 <%= req.method %>
               </span>
             </td>
-            <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs truncate" title="<%= req.url %>">
-              <%= req.url %>
+            <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs">
+              <div class="truncate" title="<%= req.url %>"><%= req.url %></div>
+              <% if (p.tags && p.tags.length > 0) { %>
+                <div class="mt-1 flex flex-wrap gap-1"><%- tagBadges(p.tags) %></div>
+              <% } %>
             </td>
             <td class="py-2.5 px-4">
               <% if (p.response) { %>

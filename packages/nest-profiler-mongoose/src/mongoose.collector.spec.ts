@@ -31,11 +31,12 @@ function makeQuery(overrides: Partial<MongooseQueryEntry> = {}): MongooseQueryEn
     collection: 'reviews',
     operation: 'find',
     duration: 10,
-    isSlow: false,
     startedAt: Date.now(),
     ...overrides,
   };
 }
+
+const slowTag = { id: 'slow', label: 'Slow', severity: 'warning' as const };
 
 describe('MongooseCollector', () => {
   let collector: MongooseCollector;
@@ -49,7 +50,11 @@ describe('MongooseCollector', () => {
     const profile = makeProfile({ collectors: { [MONGOOSE_QUERIES_KEY]: [q] } });
     const result = collector.collect(profile);
     expect(result).toEqual([
-      { ...q, command: `db.reviews.find(${JSON.stringify({ status: 'active' }, null, 2)})` },
+      {
+        ...q,
+        command: `db.reviews.find(${JSON.stringify({ status: 'active' }, null, 2)})`,
+        fingerprint: 'find reviews {"status":"?"}',
+      },
     ]);
     expect(profile.collectors[MONGOOSE_QUERIES_KEY]).toBeUndefined();
   });
@@ -70,11 +75,20 @@ describe('MongooseCollector', () => {
     expect(collector.getBadgeValue(profile)).toBe('2q');
   });
 
-  it('getBadgeValue includes slow count when present', () => {
-    const slow = makeQuery({ isSlow: true });
+  it('getBadgeValue is a plain query count; getBadgeSeverity reflects the tags', () => {
+    const slow = makeQuery({ tags: [slowTag] });
     const fast = makeQuery();
     const profile = makeProfile({ collectors: { [MONGOOSE_QUERIES_KEY]: [slow, fast] } });
-    expect(collector.getBadgeValue(profile)).toBe('2q (1 slow)');
+    expect(collector.getBadgeValue(profile)).toBe('2q');
+    expect(collector.getBadgeSeverity(profile)).toBe('warning');
+  });
+
+  it('getTagConfig returns defaults, and the configured thresholds when provided', () => {
+    expect(new MongooseCollector().getTagConfig()).toMatchObject({
+      slowThreshold: 100,
+      nPlusOneThreshold: 2,
+    });
+    expect(new MongooseCollector({ slowThreshold: 40 }).getTagConfig().slowThreshold).toBe(40);
   });
 
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {
@@ -119,7 +133,6 @@ describe('MongooseConnectionPatch', () => {
       queryExec?: () => Promise<unknown>;
       aggExec?: () => Promise<unknown>;
       base?: unknown;
-      threshold?: number;
       profile?: Profile | null;
       clsThrows?: boolean;
     } = {},
@@ -144,9 +157,7 @@ describe('MongooseConnectionPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {
-      slowQueryThreshold: params.threshold,
-    });
+    const patch = new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {});
     patch.onModuleInit();
     return { base, profile, patch };
   }
@@ -192,7 +203,7 @@ describe('MongooseConnectionPatch', () => {
       };
       const connection = { base } as unknown as Connection;
       new MongooseConnectionPatch(mongooseModuleRef(cls, connection), {
-        slowQueryThreshold: 100,
+        slowThreshold: 100,
       }).onModuleInit();
       return { base, profile };
     }
@@ -294,8 +305,8 @@ describe('MongooseConnectionPatch', () => {
   });
 
   describe('Query.exec', () => {
-    it('records collection, operation, filter, count and slow flag', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+    it('records collection, operation, filter and count', async () => {
+      const { base, profile } = setup({});
       const result: unknown = await base.Query.prototype.exec.call(queryCtx);
       expect(result).toEqual([{ _id: 1 }]);
 
@@ -304,14 +315,18 @@ describe('MongooseConnectionPatch', () => {
       expect(e.operation).toBe('find');
       expect(e.filter).toEqual({ status: 'active' });
       expect(e.count).toBe(1);
-      expect(e.isSlow).toBe(false);
       expect(e.error).toBeUndefined();
     });
 
-    it('flags slow queries when duration meets the threshold', async () => {
-      const { base, profile } = setup({ threshold: 0 });
+    it('stamps a value-free fingerprint on the collected query', async () => {
+      const { base, profile } = setup({});
       await base.Query.prototype.exec.call(queryCtx);
-      expect(firstEntry(profile).isSlow).toBe(true);
+      // The patch records the raw entry; the fingerprint is added by the collector's
+      // transform at collect time.
+      const collector = new MongooseCollector();
+      profile!.collectors[collector.name] = collector.collect(profile!);
+      const [entry] = profile!.collectors[collector.name] as MongooseQueryEntry[];
+      expect(entry?.fingerprint).toBe('find reviews {"status":"?"}');
     });
 
     it('leaves the filter undefined when getFilter throws', async () => {
@@ -372,7 +387,7 @@ describe('MongooseConnectionPatch', () => {
     const aggCtx = { _model: { collection: { name: 'orders' } } };
 
     it('records an aggregate operation with collection and count', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+      const { base, profile } = setup({});
       await base.Aggregate.prototype.exec.call(aggCtx);
       const e = firstEntry(profile);
       expect(e.operation).toBe('aggregate');
@@ -381,14 +396,14 @@ describe('MongooseConnectionPatch', () => {
     });
 
     it('captures the aggregation pipeline', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+      const { base, profile } = setup({});
       const pipeline = [{ $match: { status: 'active' } }, { $count: 'n' }];
       await base.Aggregate.prototype.exec.call({ ...aggCtx, _pipeline: pipeline });
       expect(firstEntry(profile).pipeline).toEqual(pipeline);
     });
 
     it('leaves the pipeline undefined when none is present', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+      const { base, profile } = setup({});
       await base.Aggregate.prototype.exec.call(aggCtx);
       expect(firstEntry(profile).pipeline).toBeUndefined();
     });
@@ -420,7 +435,7 @@ describe('MongooseConnectionPatch', () => {
     });
   });
 
-  it('uses the default threshold when no options are provided', async () => {
+  it('captures a query with the default options (no options provided)', async () => {
     const queryExec = jest.fn(() => Promise.resolve([{ _id: 1 }])) as ExecFn;
     const aggExec = jest.fn(() => Promise.resolve([])) as ExecFn;
     const base: FakeBase = {
@@ -434,13 +449,12 @@ describe('MongooseConnectionPatch', () => {
     patch.onModuleInit();
 
     await base.Query.prototype.exec.call(queryCtx);
-    // Fast query stays under the default 100ms threshold.
-    expect(firstEntry(profile).isSlow).toBe(false);
+    expect(firstEntry(profile).collection).toBe('reviews');
   });
 
   describe('redaction and named connection', () => {
     it('redacts sensitive keys in the recorded query filter', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+      const { base, profile } = setup({});
       await base.Query.prototype.exec.call({
         model: { collection: { name: 'users' } },
         op: 'findOne',
@@ -454,7 +468,7 @@ describe('MongooseConnectionPatch', () => {
     });
 
     it('redacts sensitive values inside the aggregation pipeline', async () => {
-      const { base, profile } = setup({ threshold: 100 });
+      const { base, profile } = setup({});
       await base.Aggregate.prototype.exec.call({
         _model: { collection: { name: 'users' } },
         _pipeline: [{ $match: { apiKey: 'secret-key' } }],

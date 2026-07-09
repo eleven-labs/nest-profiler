@@ -55,7 +55,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       // ...your connection options
     }),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 100 }), // ms — above this is highlighted
+      MikroOrmCollectorModule.forRoot({ slowThreshold: 100, duplicateThreshold: 2 }), // slow/N+1 tagging
       isProfilerEnabled,
     ),
   ],
@@ -69,17 +69,18 @@ export class AppModule {}
 
 For each SQL query executed during a request:
 
-| Field        | Description                                        |
-| ------------ | -------------------------------------------------- |
-| `sql`        | The SQL query string (with keyword highlighting)   |
-| `parameters` | Bound parameters                                   |
-| `duration`   | Execution time in ms (from MikroORM's `took`)      |
-| `type`       | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`    |
-| `isSlow`     | `true` if duration ≥ `slowQueryThreshold`          |
-| `startedAt`  | Unix timestamp                                     |
-| `error`      | Set when MikroORM reports the query at error level |
+| Field         | Description                                        |
+| ------------- | -------------------------------------------------- |
+| `sql`         | The SQL query string (with keyword highlighting)   |
+| `parameters`  | Bound parameters                                   |
+| `duration`    | Execution time in ms (from MikroORM's `took`)      |
+| `type`        | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `OTHER`    |
+| `startedAt`   | Unix timestamp                                     |
+| `error`       | Set when MikroORM reports the query at error level |
+| `fingerprint` | Parameter-free normalized SQL, used to group N+1s  |
+| `tags`        | Performance tags applied by the core rule engine   |
 
-Slow queries are highlighted in red in the panel.
+Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

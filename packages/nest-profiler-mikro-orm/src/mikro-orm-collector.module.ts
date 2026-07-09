@@ -19,7 +19,7 @@ export class MikroOrmCollectorModule extends ConfigurableModuleClass {
   }
 
   /**
-   * Async variant — resolve the options (e.g. `slowQueryThreshold`) from DI such as
+   * Async variant — resolve the options (e.g. `slowThreshold`) from DI such as
    * `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
    */
   static forRootAsync(options: MikroOrmCollectorModuleAsyncOptions): DynamicModule {

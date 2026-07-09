@@ -34,7 +34,7 @@ import { MikroOrmSchemaInitializer } from './product.mikro-orm.schema-initialize
     }),
     MikroOrmModule.forFeature([ProductEntity]),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
   ],
