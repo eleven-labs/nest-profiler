@@ -2,6 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { CommandProfiler } from './command-profiler.service';
 import { CommandProfilerExplorer } from './command-profiler.explorer';
+import { CommanderRouteSource } from './commander-route-source';
 
 export interface CommanderCollectorModuleOptions {
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
@@ -17,7 +18,7 @@ export class CommanderCollectorModule {
     return {
       module: CommanderCollectorModule,
       imports: [DiscoveryModule],
-      providers: [CommandProfiler, CommandProfilerExplorer],
+      providers: [CommandProfiler, CommandProfilerExplorer, CommanderRouteSource],
     };
   }
 }
