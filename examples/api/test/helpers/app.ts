@@ -76,7 +76,7 @@ export async function getProfile<TData = unknown>(
 /** Performs a request and returns the profile it produced. */
 export async function profileOf<TData = unknown>(
   app: INestApplication,
-  method: 'get' | 'post' | 'delete',
+  method: 'get' | 'post' | 'patch' | 'delete',
   path: string,
   body?: string | object,
 ): Promise<{ res: Response; profile: Profile<TData> }> {

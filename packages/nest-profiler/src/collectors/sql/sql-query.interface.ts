@@ -12,6 +12,16 @@ export interface QueryEntry {
   /** True for streaming reads (e.g. `QueryRunner.stream()` / `QueryBuilder.stream()`). */
   streaming?: boolean;
   /**
+   * Rows affected (writes) or returned (reads). Undefined when the driver does not
+   * expose it or for streaming reads — a suspicious `0` on `UPDATE`/`DELETE` is
+   * flagged by the `zero-rows` performance tag.
+   */
+  rowCount?: number;
+  /** Connection endpoint, host:port only (no credentials). e.g. `"localhost:5432"`. */
+  connection?: string;
+  /** Target database / schema name (or file path for sqlite). */
+  database?: string;
+  /**
    * Parameter-free normalized SQL, used by the performance-rule engine to group
    * repeated executions (the N+1 signal). Filled by the SQL collector.
    */

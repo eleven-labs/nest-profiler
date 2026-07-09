@@ -64,6 +64,17 @@ export class ProductService implements OnApplicationBootstrap {
     return product;
   }
 
+  async update(id: number, data: Partial<NewProduct>): Promise<number> {
+    this.logger.log(`Updating product #${id}`);
+    // No existence check on purpose: a non-matching id issues an UPDATE that affects 0 rows —
+    // a silent failure the profiler flags with the `zero-rows` tag.
+    const stop = this.profiler.startSpan('db.products.update');
+    const affected = await this.repo.update(id, data);
+    stop();
+    this.logger.log(`Product #${id} update affected ${affected} row(s)`);
+    return affected;
+  }
+
   async remove(id: number): Promise<void> {
     this.logger.log(`Deleting product #${id}`);
     await this.findOne(id);

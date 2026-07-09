@@ -1,6 +1,8 @@
 <%
   const queries = data || [];
   const totalDuration = queries.reduce((sum, q) => sum + q.duration, 0);
+  const rowsRead = queries.reduce((sum, q) => sum + (q.type === 'SELECT' && typeof q.rowCount === 'number' ? q.rowCount : 0), 0);
+  const hasRowsRead = queries.some(q => q.type === 'SELECT' && typeof q.rowCount === 'number');
   const hasTag = (q, id) => (q.tags || []).some(t => t.id === id);
   const slowCount = queries.filter(q => hasTag(q, 'slow')).length;
   const nPlusOneGroups = new Set(queries.filter(q => hasTag(q, 'n-plus-one') && q.fingerprint).map(q => q.fingerprint));
@@ -17,6 +19,9 @@
   <div class="flex items-center gap-4 text-xs text-foreground-muted">
     <span><strong class="text-foreground"><%= queries.length %></strong> quer<%= queries.length !== 1 ? 'ies' : 'y' %></span>
     <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% if (hasRowsRead) { %>
+      <span><strong class="text-foreground"><%= rowsRead %></strong> row<%= rowsRead !== 1 ? 's' : '' %> read</span>
+    <% } %>
     <% if (slowCount > 0) { %>
       <span class="text-danger"><strong><%= slowCount %></strong> slow</span>
     <% } %>
@@ -43,7 +48,7 @@
       </thead>
       <tbody class="divide-y divide-line-subtle">
         <% for (const q of queries) { %>
-          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one')) ? 'bg-warning-bg/30' : '' %>">
+          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one') || hasTag(q, 'zero-rows')) ? 'bg-warning-bg/30' : '' %>">
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= typeColors[q.type] || 'badge-default' %>"><%= q.type %></span>
               <% if (q.streaming) { %>
@@ -57,6 +62,13 @@
               </div>
               <% if (q.tags && q.tags.length > 0) { %>
                 <div class="mt-1.5 flex flex-wrap gap-1"><%- tagBadges(q.tags) %></div>
+              <% } %>
+              <% if (q.rowCount !== undefined || q.connection || q.database) { %>
+                <div class="mt-0.5 text-foreground-faint text-2xs">
+                  <% if (q.rowCount !== undefined) { %><span class="<%= (q.rowCount === 0 && (q.type === 'UPDATE' || q.type === 'DELETE')) ? 'text-amber-600 dark:text-amber-400 font-medium' : '' %>"><%= q.rowCount %> row<%= q.rowCount !== 1 ? 's' : '' %></span><% } %>
+                  <% if (q.connection) { %><span> @ <%= q.connection %></span><% } %>
+                  <% if (q.database) { %><span> / <%= q.database %></span><% } %>
+                </div>
               <% } %>
               <% if (q.parameters && q.parameters.length > 0) { %>
                 <div class="mt-2">

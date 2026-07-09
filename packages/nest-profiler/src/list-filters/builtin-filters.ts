@@ -79,7 +79,7 @@ const maxDurationFilter: ProfilerListFilter<number> = {
 
 /**
  * Filters profiles by a genuine performance tag applied by the rule engine —
- * `slow`, `n-plus-one`, `chatty` or `large-payload`. Failures are not performance
+ * `slow`, `n-plus-one`, `chatty`, `large-payload` or `zero-rows`. Failures are not performance
  * issues, so the `error` tag has its own checkbox ({@link errorFilter}). The value
  * is space-wrapped so a `contains` criterion matches a whole id in the summary's
  * space-delimited `tags` haystack (`slow` never matches `very-slow`). Custom tag
@@ -96,6 +96,7 @@ const tagFilter: ProfilerListFilter<string> = {
     { value: BUILTIN_TAG_IDS.nPlusOne, label: 'N+1' },
     { value: BUILTIN_TAG_IDS.chatty, label: 'Chatty' },
     { value: BUILTIN_TAG_IDS.largePayload, label: 'Large payload' },
+    { value: BUILTIN_TAG_IDS.zeroRows, label: 'No rows' },
   ],
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
   toCriterion: (value) => ({ field: 'tags', op: 'contains', value: ` ${value} ` }),

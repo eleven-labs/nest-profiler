@@ -54,7 +54,7 @@
       </thead>
       <tbody class="divide-y divide-line-subtle">
         <% for (const q of queries) { %>
-          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one')) ? 'bg-warning-bg/30' : '' %>">
+          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one') || hasTag(q, 'zero-rows')) ? 'bg-warning-bg/30' : '' %>">
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[q.operation] || 'badge-default' %>"><%= q.operation %></span>
               <% if (q.streaming) { %>
@@ -83,8 +83,12 @@
                   <span class="shrink-0"><%- copyBtn(q.command, 'Copy query') %></span>
                 <% } %>
               </div>
-              <% if (q.count !== undefined) { %>
-                <div class="mt-0.5 text-foreground-faint text-2xs"><%= q.count %> result<%= q.count !== 1 ? 's' : '' %></div>
+              <% if (q.count !== undefined || q.connection || q.database) { %>
+                <div class="mt-0.5 text-foreground-faint text-2xs">
+                  <% if (q.count !== undefined) { %><span class="<%= (q.count === 0 && /^(delete|update)/i.test(q.operation || '')) ? 'text-amber-600 dark:text-amber-400 font-medium' : '' %>"><%= q.count %> result<%= q.count !== 1 ? 's' : '' %></span><% } %>
+                  <% if (q.connection) { %><span> @ <%= q.connection %></span><% } %>
+                  <% if (q.database) { %><span> / <%= q.database %></span><% } %>
+                </div>
               <% } %>
               <% if (q.error) { %>
                 <div class="mt-1 text-danger text-2xs">Error: <%= q.error %></div>

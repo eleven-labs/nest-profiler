@@ -113,6 +113,7 @@ describe('MikroOrmLoggerPatch', () => {
       clsThrows?: boolean;
       queryEnabled?: boolean;
       hasLogger?: boolean;
+      configValues?: Record<string, unknown>;
     } = {},
   ): {
     logger: Logger;
@@ -130,7 +131,10 @@ describe('MikroOrmLoggerPatch', () => {
     } as unknown as Logger;
 
     const orm = {
-      config: { getLogger: () => (params.hasLogger === false ? undefined : logger) },
+      config: {
+        getLogger: () => (params.hasLogger === false ? undefined : logger),
+        get: (key: string) => params.configValues?.[key],
+      },
     } as unknown as MikroORM;
 
     const profile = params.profile === undefined ? makeProfile() : params.profile;
@@ -207,6 +211,40 @@ describe('MikroOrmLoggerPatch', () => {
     const { logger, profile } = setup({});
     logger.logQuery(ctx());
     expect(firstEntry(profile).streaming).toBeUndefined();
+  });
+
+  it('captures rowCount from the affected count for a write', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ query: 'update product set x = 1', ...({ affected: 0 } as object) }));
+    expect(firstEntry(profile).rowCount).toBe(0);
+  });
+
+  it('captures rowCount from the results count for a read', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ ...({ results: 7 } as object) }));
+    expect(firstEntry(profile).rowCount).toBe(7);
+  });
+
+  it('leaves rowCount undefined when the context carries neither affected nor results', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx());
+    expect(firstEntry(profile).rowCount).toBeUndefined();
+  });
+
+  it('captures connection and database from the ORM config', () => {
+    const { logger, profile } = setup({
+      configValues: { host: 'db.internal', port: 5433, dbName: 'shop' },
+    });
+    logger.logQuery(ctx());
+    const e = firstEntry(profile);
+    expect(e.connection).toBe('db.internal:5433');
+    expect(e.database).toBe('shop');
+  });
+
+  it('falls back to the context connection name when the config has no host/port', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ ...({ connection: { name: 'read-replica' } } as object) }));
+    expect(firstEntry(profile).connection).toBe('read-replica');
   });
 
   it('records a failure marker when the log level is error', () => {

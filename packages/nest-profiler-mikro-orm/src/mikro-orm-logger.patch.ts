@@ -14,6 +14,32 @@ import { detectQueryType, MIKRO_ORM_COLLECTOR_OPTIONS } from './mikro-orm-collec
 
 export const MIKRO_ORM_QUERIES_KEY = '__mikro_orm_queries';
 
+/** Connection metadata derived once from the ORM config, shared by every captured entry. */
+interface ConnectionMeta {
+  connection?: string;
+  database?: string;
+}
+
+/** Reads host:port / dbName from the MikroORM config, omitting anything absent (e.g. sqlite has no host). */
+function readConnectionMeta(orm: MikroORM): ConnectionMeta {
+  const get = (key: string): unknown => {
+    try {
+      return (orm.config as { get(k: string): unknown }).get(key);
+    } catch {
+      return undefined;
+    }
+  };
+  const host = typeof get('host') === 'string' ? (get('host') as string) : undefined;
+  const portValue = get('port');
+  const port =
+    typeof portValue === 'number' || typeof portValue === 'string' ? portValue : undefined;
+  const database = typeof get('dbName') === 'string' ? (get('dbName') as string) : undefined;
+  return {
+    connection: host && port != null ? `${host}:${port}` : undefined,
+    database,
+  };
+}
+
 /** Best-effort real error message from a MikroORM error-level log context, else a generic label. */
 function extractLogError(context: LogContext): string {
   const withError = context as { error?: unknown };
@@ -47,10 +73,10 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
     if (!this.cls || !orm) return;
     const logger = orm.config?.getLogger();
     if (!logger) return;
-    this.patchLogger(logger);
+    this.patchLogger(logger, readConnectionMeta(orm));
   }
 
-  private patchLogger(logger: Logger): void {
+  private patchLogger(logger: Logger, meta: ConnectionMeta): void {
     const guarded = logger as Logger & { __profilerPatched?: boolean };
     if (guarded.__profilerPatched) return;
 
@@ -86,6 +112,8 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
             // `took` is a streaming read. Flagged (with duration 0) for the UI; measuring the real
             // duration would require wrapping MikroORM's row generator (a per-row cost).
             const streaming = context.took === undefined && type === 'SELECT';
+            // `affected` is set for writes, `results` for reads; either is the row count.
+            const rowCount = context.affected ?? context.results;
             const entry: QueryEntry = {
               sql,
               parameters: redact(context.params ? [...context.params] : []),
@@ -94,6 +122,9 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
               startedAt: Date.now() - duration,
               error: context.level === 'error' ? extractLogError(context) : undefined,
               streaming: streaming || undefined,
+              rowCount: typeof rowCount === 'number' ? rowCount : undefined,
+              connection: meta.connection ?? context.connection?.name,
+              database: meta.database,
             };
             appendCollectorEntry<QueryEntry>(profile, MIKRO_ORM_QUERIES_KEY, entry);
           }

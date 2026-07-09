@@ -1,7 +1,18 @@
-import { Body, Controller, Delete, Get, Header, Param, ParseIntPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProductService } from '../application/product.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
+import { UpdateProductDto } from './dto/update-product.dto.js';
 import type { Product } from '../domain/product.js';
 
 @ApiTags('products')
@@ -45,6 +56,24 @@ export class ProductController {
   })
   create(@Body() dto: CreateProductDto): Promise<Product> {
     return this.products.create(dto);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary:
+      'Update a product by ID — a non-matching id affects 0 rows (silent failure, flagged by the zero-rows tag in /_profiler)',
+  })
+  @ApiParam({ name: 'id', type: Number, example: 1 })
+  @ApiResponse({
+    status: 200,
+    description: 'Number of rows updated (0 when the id does not exist)',
+  })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateProductDto,
+  ): Promise<{ updated: number }> {
+    const updated = await this.products.update(id, dto);
+    return { updated };
   }
 
   @Delete(':id')

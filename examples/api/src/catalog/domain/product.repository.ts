@@ -15,6 +15,12 @@ export abstract class ProductRepository {
   abstract streamCsv(): Promise<string>;
   abstract findById(id: number): Promise<Product | null>;
   abstract create(data: NewProduct): Promise<Product>;
+  /**
+   * Applies a partial update to the row matching `id` and returns the number of rows affected —
+   * deliberately without a prior existence check, so a non-matching id resolves to `0`. That
+   * silent zero-row write is the case the profiler's `zero-rows` tag surfaces.
+   */
+  abstract update(id: number, data: Partial<NewProduct>): Promise<number>;
   abstract delete(id: number): Promise<void>;
   abstract clear(): Promise<void>;
 }

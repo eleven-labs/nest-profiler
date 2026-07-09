@@ -45,6 +45,11 @@ export class TypeOrmProductRepository implements ProductRepository {
     return this.repo.save(this.repo.create(data));
   }
 
+  async update(id: number, data: Partial<NewProduct>): Promise<number> {
+    const result = await this.repo.update(id, data);
+    return result.affected ?? 0;
+  }
+
   async delete(id: number): Promise<void> {
     await this.repo.delete(id);
   }

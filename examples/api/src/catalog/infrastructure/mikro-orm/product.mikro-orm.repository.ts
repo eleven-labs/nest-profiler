@@ -58,6 +58,12 @@ export class MikroOrmProductRepository implements ProductRepository {
     return toDomain(product);
   }
 
+  async update(id: number, data: Partial<NewProduct>): Promise<number> {
+    // nativeUpdate issues a single UPDATE ... WHERE id and returns the affected-row count,
+    // without loading the entity first — so a non-matching id affects 0 rows.
+    return this.em.fork().nativeUpdate(ProductEntity, { id }, data);
+  }
+
   async delete(id: number): Promise<void> {
     const em = this.em.fork();
     const product = await em.findOne(ProductEntity, { id });

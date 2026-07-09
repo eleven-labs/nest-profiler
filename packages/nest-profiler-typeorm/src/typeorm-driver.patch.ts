@@ -12,6 +12,48 @@ import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interfac
 
 export const TYPEORM_QUERIES_KEY = '__typeorm_queries';
 
+/** Connection metadata derived once from the DataSource, shared by every captured entry. */
+interface ConnectionMeta {
+  connection?: string;
+  database?: string;
+}
+
+/**
+ * Best-effort row count from a raw driver result, without altering it: an array is a
+ * read result-set (or a write with `RETURNING`) so its length is the count; an object
+ * carrying `affected`/`rowCount`/`affectedRows`/`changes` covers TypeORM's `QueryResult`
+ * and the pg/mysql/better-sqlite3 write results. A write on a driver that exposes none of
+ * these yields `undefined` — never a spurious `0`.
+ */
+function deriveRowCount(result: unknown): number | undefined {
+  if (Array.isArray(result)) return result.length;
+  if (result && typeof result === 'object') {
+    const r = result as Record<string, unknown>;
+    for (const key of ['affected', 'rowCount', 'affectedRows', 'changes'] as const) {
+      const value = r[key];
+      if (typeof value === 'number') return value;
+    }
+  }
+  return undefined;
+}
+
+/** Reads host:port / database from the DataSource options, omitting anything absent (e.g. sqlite has no host). */
+function readConnectionMeta(dataSource: DataSource): ConnectionMeta {
+  const options = (dataSource.options ?? {}) as {
+    host?: unknown;
+    port?: unknown;
+    database?: unknown;
+  };
+  const host = typeof options.host === 'string' ? options.host : undefined;
+  const port =
+    typeof options.port === 'number' || typeof options.port === 'string' ? options.port : undefined;
+  const database = typeof options.database === 'string' ? options.database : undefined;
+  return {
+    connection: host && port != null ? `${host}:${port}` : undefined,
+    database,
+  };
+}
+
 type PatchableMethod = (...args: unknown[]) => Promise<unknown>;
 
 /** A patched `QueryRunner.query` tagged so a re-used runner is never wrapped twice. */
@@ -82,6 +124,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
 
   private patchCreateQueryRunner(dataSource: DataSource): void {
     const cls = this.cls;
+    const { connection, database } = readConnectionMeta(dataSource);
     const patchable = dataSource as DataSource & PatchableDataSource;
     if (patchable.createQueryRunner.__profilerPatched) return;
     const originalCreate = patchable.createQueryRunner.bind(dataSource);
@@ -102,8 +145,11 @@ export class TypeOrmDriverPatch implements OnModuleInit {
         const rest = args.slice(2);
         const startedAt = Date.now();
         let error: string | undefined;
+        let rowCount: number | undefined;
         try {
-          return await originalQuery(query, parameters, ...rest);
+          const result = await originalQuery(query, parameters, ...rest);
+          rowCount = deriveRowCount(result);
+          return result;
         } catch (err) {
           error = err instanceof Error ? err.message : String(err);
           throw err;
@@ -121,6 +167,9 @@ export class TypeOrmDriverPatch implements OnModuleInit {
                 type: detectQueryType(query),
                 startedAt,
                 error,
+                rowCount,
+                connection,
+                database,
               };
               appendCollectorEntry<QueryEntry>(profile, TYPEORM_QUERIES_KEY, entry);
             }
@@ -160,6 +209,8 @@ export class TypeOrmDriverPatch implements OnModuleInit {
               startedAt,
               streaming: true,
               error,
+              connection,
+              database,
             };
             appendCollectorEntry<QueryEntry>(profile, TYPEORM_QUERIES_KEY, entry);
           };

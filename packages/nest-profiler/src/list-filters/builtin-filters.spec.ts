@@ -208,6 +208,12 @@ describe('built-in list filters', () => {
     it('is inactive when no tag is selected', () => {
       expect(applies('tag', '', makeProfile({ tags: [tag('slow')] }))).toBe('inactive');
     });
+
+    it('offers zero-rows as a selectable option and matches it', () => {
+      const tagOptions = filter('tag').options?.map((o) => o.value) ?? [];
+      expect(tagOptions).toContain('zero-rows');
+      expect(applies('tag', 'zero-rows', makeProfile({ tags: [tag('zero-rows')] }))).toBe(true);
+    });
   });
 
   describe('error (checkbox, separate from the performance tag)', () => {

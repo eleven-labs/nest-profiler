@@ -12,7 +12,7 @@ This page is a **visual tour** of the panels and tabs. For the reference side �
 
 ## Profiles list
 
-The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it - the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload — plus a **With errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) - so each list is filtered independently. Global panels such as **Config** apply across the whole page.
+The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it - the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus a **With errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) - so each list is filtered independently. Global panels such as **Config** apply across the whole page.
 
 ![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
 
@@ -70,11 +70,11 @@ The **Timeline** collector displays spans created with `startSpan()` as synchron
 
 ![Timeline tab showing slow.step.fetch, slow.step.process, and slow.step.serialize spans](/screenshots/profiler/timeline.png)
 
-The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration.
+The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration, plus a metadata line per query — rows affected/returned and the connection (`42 rows @ localhost:5432 / shop`). A zero-row `UPDATE`/`DELETE` is highlighted and flagged with the `zero-rows` tag (a silent failure), and the panel header sums the rows read.
 
 ![Database tab showing a profiled SQL SELECT query](/screenshots/profiler/database.png)
 
-The **MongoDB** collector (requires [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)) shows Mongoose queries and aggregations with their operation, collection, duration, and result count.
+The **MongoDB** collector (requires [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)) shows Mongoose queries and aggregations with their operation, collection, duration, result/affected count, and connection.
 
 ![MongoDB tab showing a profiled Mongoose query with collection, operation and duration](/screenshots/profiler/mongodb.png)
 
