@@ -176,6 +176,18 @@ const TARGETS: Target[] = [
     preds: [(p) => httpGet(api('/products'))(p) && statusOf(p) === 200],
   },
   {
+    // A silent zero-row write — PATCH /products/:id with a non-matching id issues an
+    // UPDATE that affects 0 rows, flagged by the `zero-rows` tag. The Database panel
+    // shows the Performance banner ("No rows"), the amber `0 rows` metadata and the
+    // connection chip.
+    file: 'database-zero-rows.png',
+    tab: 'database',
+    preds: [
+      (p) => isHttp(p) && methodOf(p) === 'PATCH' && hasTag(p, 'zero-rows'),
+      (p) => hasTag(p, 'zero-rows'),
+    ],
+  },
+  {
     file: 'mongodb.png',
     tab: 'database',
     preds: [

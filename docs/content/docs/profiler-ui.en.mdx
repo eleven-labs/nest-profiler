@@ -70,9 +70,13 @@ The **Timeline** collector displays spans created with `startSpan()` as synchron
 
 ![Timeline tab showing slow.step.fetch, slow.step.process, and slow.step.serialize spans](/screenshots/profiler/timeline.png)
 
-The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration, plus a metadata line per query — rows affected/returned and the connection (`42 rows @ localhost:5432 / shop`). A zero-row `UPDATE`/`DELETE` is highlighted and flagged with the `zero-rows` tag (a silent failure), and the panel header sums the rows read.
+The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration, plus a metadata line per query — rows affected/returned and the connection, rendered as a chip (`localhost:5432 / shop`). The panel header sums the rows read.
 
 ![Database tab showing a profiled SQL SELECT query](/screenshots/profiler/database.png)
+
+A zero-row `UPDATE`/`DELETE` is a silent failure — the query ran but changed nothing (a mismatched `WHERE`). It is highlighted, its `0 rows` count turns amber, and the `zero-rows` tag lights the **Performance** banner and colours the Database tab:
+
+![Database tab of a PATCH that affected 0 rows, with a "Performance — 1 issue detected" banner reading "No rows" and the query showing 0 rows](/screenshots/profiler/database-zero-rows.png)
 
 The **MongoDB** collector (requires [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)) shows Mongoose queries and aggregations with their operation, collection, duration, result/affected count, and connection.
 

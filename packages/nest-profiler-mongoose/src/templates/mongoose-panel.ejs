@@ -84,10 +84,22 @@
                 <% } %>
               </div>
               <% if (q.count !== undefined || q.connection || q.database) { %>
-                <div class="mt-0.5 text-foreground-faint text-2xs">
-                  <% if (q.count !== undefined) { %><span class="<%= (q.count === 0 && /^(delete|update)/i.test(q.operation || '')) ? 'text-amber-600 dark:text-amber-400 font-medium' : '' %>"><%= q.count %> result<%= q.count !== 1 ? 's' : '' %></span><% } %>
-                  <% if (q.connection) { %><span> @ <%= q.connection %></span><% } %>
-                  <% if (q.database) { %><span> / <%= q.database %></span><% } %>
+                <div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs">
+                  <% if (q.count !== undefined) { %>
+                    <% const zeroWrite = q.count === 0 && /^(delete|update)/i.test(q.operation || ''); %>
+                    <span class="tabular-nums <%= zeroWrite ? 'text-amber-600 dark:text-amber-400' : 'text-foreground-muted' %>">
+                      <span class="font-semibold"><%= q.count %></span> result<%= q.count !== 1 ? 's' : '' %>
+                    </span>
+                  <% } %>
+                  <% if (q.connection || q.database) { %>
+                    <span class="inline-flex items-center gap-1 rounded border border-line-subtle px-1.5 py-0.5 text-foreground-faint" title="Connection">
+                      <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75" />
+                      </svg>
+                      <% if (q.connection) { %><span class="tabular-nums text-foreground-muted"><%= q.connection %></span><% } %>
+                      <% if (q.database) { %><% if (q.connection) { %><span class="text-line" aria-hidden="true">/</span><% } %><span class="text-foreground-muted font-medium"><%= q.database %></span><% } %>
+                    </span>
+                  <% } %>
                 </div>
               <% } %>
               <% if (q.error) { %>
