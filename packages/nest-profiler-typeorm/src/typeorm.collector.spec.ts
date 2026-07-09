@@ -186,6 +186,7 @@ describe('TypeOrmDriverPatch', () => {
       initialized?: boolean;
       profile?: Profile | null;
       clsThrows?: boolean;
+      options?: Record<string, unknown>;
     } = {},
   ): {
     dataSource: DataSource & { createQueryRunner: () => QueryRunnerLike };
@@ -196,6 +197,7 @@ describe('TypeOrmDriverPatch', () => {
     if (params.streamImpl) qr.stream = jest.fn(params.streamImpl);
     const dataSource = {
       isInitialized: params.initialized !== false,
+      options: params.options ?? { host: 'localhost', port: 5432, database: 'testdb' },
       createQueryRunner: jest.fn(() => qr),
     } as unknown as DataSource & { createQueryRunner: () => QueryRunnerLike };
 
@@ -248,6 +250,52 @@ describe('TypeOrmDriverPatch', () => {
     const { dataSource, profile } = setup({});
     await dataSource.createQueryRunner().query('UPDATE users SET x = 1');
     expect(firstEntry(profile).parameters).toEqual([]);
+  });
+
+  it('derives rowCount from an array result (a read result-set)', async () => {
+    const { dataSource, profile } = setup({
+      queryImpl: () => Promise.resolve([{ id: 1 }, { id: 2 }, { id: 3 }]),
+    });
+    await dataSource.createQueryRunner().query('SELECT * FROM users');
+    expect(firstEntry(profile).rowCount).toBe(3);
+  });
+
+  it('derives rowCount from a QueryResult-like affected count', async () => {
+    const { dataSource, profile } = setup({
+      queryImpl: () => Promise.resolve({ raw: [], records: [], affected: 0 }),
+    });
+    await dataSource.createQueryRunner().query('UPDATE users SET x = 1 WHERE id = 999');
+    expect(firstEntry(profile).rowCount).toBe(0);
+  });
+
+  it('derives rowCount from a better-sqlite3-style changes count', async () => {
+    const { dataSource, profile } = setup({
+      queryImpl: () => Promise.resolve({ changes: 2, lastInsertRowid: 5 }),
+    });
+    await dataSource.createQueryRunner().query('DELETE FROM users WHERE active = 0');
+    expect(firstEntry(profile).rowCount).toBe(2);
+  });
+
+  it('leaves rowCount undefined when the driver result exposes none', async () => {
+    const { dataSource, profile } = setup({ queryImpl: () => Promise.resolve(undefined) });
+    await dataSource.createQueryRunner().query('UPDATE users SET x = 1');
+    expect(firstEntry(profile).rowCount).toBeUndefined();
+  });
+
+  it('captures connection and database from the DataSource options', async () => {
+    const { dataSource, profile } = setup({});
+    await dataSource.createQueryRunner().query('SELECT 1');
+    const e = firstEntry(profile);
+    expect(e.connection).toBe('localhost:5432');
+    expect(e.database).toBe('testdb');
+  });
+
+  it('omits connection when the driver has no host/port (e.g. sqlite)', async () => {
+    const { dataSource, profile } = setup({ options: { database: '/tmp/app.sqlite' } });
+    await dataSource.createQueryRunner().query('SELECT 1');
+    const e = firstEntry(profile);
+    expect(e.connection).toBeUndefined();
+    expect(e.database).toBe('/tmp/app.sqlite');
   });
 
   it('records the error message and rethrows when a query fails', async () => {

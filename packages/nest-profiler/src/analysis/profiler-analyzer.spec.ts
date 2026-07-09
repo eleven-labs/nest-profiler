@@ -165,6 +165,54 @@ describe('analyzeProfile', () => {
     expect(ids(entry.tags)).not.toContain('large-payload');
   });
 
+  it('flags a zero-row UPDATE/DELETE and aggregates zero-rows onto the profile', () => {
+    const profile = makeProfile();
+    const entries: TaggableEntry[] = [
+      { duration: 5 },
+      { duration: 6 },
+      { duration: 7 },
+      { duration: 8 },
+    ];
+    Object.assign(entries[0]!, { type: 'UPDATE', rowCount: 0 });
+    Object.assign(entries[1]!, { type: 'DELETE', rowCount: 5 }); // affected rows → fine
+    Object.assign(entries[2]!, { type: 'SELECT', rowCount: 0 }); // empty read → legitimate
+    Object.assign(entries[3]!, { type: 'DELETE' }); // rowCount unknown → no false positive
+    const collector = makeCollector('typeorm', 'query', profile, entries);
+
+    analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+    expect(ids(entries[0]?.tags)).toContain('zero-rows');
+    expect(ids(entries[1]?.tags)).not.toContain('zero-rows');
+    expect(ids(entries[2]?.tags)).not.toContain('zero-rows');
+    expect(ids(entries[3]?.tags)).not.toContain('zero-rows');
+    expect(profile.tags?.map((t) => t.id)).toContain('zero-rows');
+  });
+
+  it('flags a zero-count Mongoose delete/update (silent-failure parity)', () => {
+    const profile = makeProfile();
+    const entries: TaggableEntry[] = [{ duration: 3 }, { duration: 4 }, { duration: 5 }];
+    Object.assign(entries[0]!, { operation: 'deleteMany', count: 0 });
+    Object.assign(entries[1]!, { operation: 'updateOne', count: 1 }); // matched → fine
+    Object.assign(entries[2]!, { operation: 'find', count: 0 }); // empty read → legitimate
+    const collector = makeCollector('mongoose', 'query', profile, entries);
+
+    analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+    expect(ids(entries[0]?.tags)).toContain('zero-rows');
+    expect(ids(entries[1]?.tags)).not.toContain('zero-rows');
+    expect(ids(entries[2]?.tags)).not.toContain('zero-rows');
+  });
+
+  it('does not flag zero-row writes outside the query domain', () => {
+    const profile = makeProfile();
+    const entry: TaggableEntry = { duration: 5 };
+    Object.assign(entry, { type: 'UPDATE', rowCount: 0 });
+    const collector = makeCollector('http-client', 'http', profile, [entry]);
+
+    analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+    expect(ids(entry.tags)).not.toContain('zero-rows');
+  });
+
   it('ignores non-taggable collectors', () => {
     const profile = makeProfile();
     const plain: IProfilerCollector = { name: 'logs', collect: () => [] };

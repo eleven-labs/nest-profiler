@@ -49,6 +49,13 @@ export class InMemoryProductRepository implements ProductRepository {
     return Promise.resolve(product);
   }
 
+  update(id: number, data: Partial<NewProduct>): Promise<number> {
+    const product = this.products.find((p) => p.id === id);
+    if (!product) return Promise.resolve(0);
+    Object.assign(product, data, { updatedAt: new Date() });
+    return Promise.resolve(1);
+  }
+
   delete(id: number): Promise<void> {
     this.products = this.products.filter((product) => product.id !== id);
     return Promise.resolve();

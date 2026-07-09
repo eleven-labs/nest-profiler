@@ -187,6 +187,47 @@ export const largePayloadRule: PerformanceRule = {
   },
 };
 
+/** Structural view of a query entry — the fields the zero-row rule reads. */
+interface QueryLikeEntry extends TaggableEntry {
+  type?: string;
+  rowCount?: number;
+  operation?: string;
+  count?: number;
+}
+
+/**
+ * Flags a write that changed nothing — a silent failure. Covers SQL `UPDATE`/`DELETE`
+ * with `rowCount === 0` and the Mongoose equivalent (`delete*`/`update*` with `count === 0`).
+ * A `SELECT`/`find` returning no rows is legitimate and never flagged; entries whose row
+ * count could not be captured (`undefined`) are skipped, so there are no false positives.
+ */
+export const zeroRowRule: PerformanceRule = {
+  id: BUILTIN_TAG_IDS.zeroRows,
+  evaluate(ctx) {
+    for (const { entries, domain } of ctx.collectors) {
+      if (domain !== 'query') continue;
+      for (const entry of entries) {
+        const q = entry as QueryLikeEntry;
+        const isSqlWrite = (q.type === 'UPDATE' || q.type === 'DELETE') && q.rowCount === 0;
+        const isMongoWrite =
+          typeof q.operation === 'string' && /^(delete|update)/i.test(q.operation) && q.count === 0;
+        if (!isSqlWrite && !isMongoWrite) continue;
+        ctx.tagEntry(entry, {
+          id: BUILTIN_TAG_IDS.zeroRows,
+          label: 'No rows',
+          severity: 'warning',
+          detail: 'Write affected 0 rows — possible silent failure',
+        });
+        ctx.tagProfile({
+          id: BUILTIN_TAG_IDS.zeroRows,
+          label: 'No rows',
+          severity: 'warning',
+        });
+      }
+    }
+  },
+};
+
 /**
  * The performance rules the core evaluates by default, in order. Consumers extend
  * this set via {@link ProfilerCoreService.registerPerformanceRule} or the
@@ -198,4 +239,5 @@ export const BUILTIN_PERFORMANCE_RULES: PerformanceRule[] = [
   errorRule,
   chattyRule,
   largePayloadRule,
+  zeroRowRule,
 ];

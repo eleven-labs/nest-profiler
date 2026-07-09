@@ -70,13 +70,15 @@ For each Mongoose query or aggregation executed during a request:
 | `filter`      | Query filter object (if applicable)                                  |
 | `duration`    | Execution time in ms                                                 |
 | `startedAt`   | Unix timestamp                                                       |
-| `count`       | Number of results returned (find queries only)                       |
+| `count`       | Documents returned (reads) or affected (writes)                      |
 | `error`       | Error message if the query failed                                    |
 | `streaming`   | `true` for streaming reads (`Query.cursor()` / `Aggregate.cursor()`) |
+| `connection`  | Connection endpoint `host:port` (no credentials)                     |
+| `database`    | Target database name                                                 |
 | `fingerprint` | `collection + operation + filter shape`, for N+1 grouping            |
 | `tags`        | Performance tags applied by the core rule engine                     |
 
-Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
+Slow queries, N+1 patterns and silent zero-count `delete`/`update`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

@@ -37,6 +37,7 @@ export const BUILTIN_TAG_IDS = {
   error: 'error',
   chatty: 'chatty',
   largePayload: 'large-payload',
+  zeroRows: 'zero-rows',
 } as const;
 
 export type BuiltinTagId = (typeof BUILTIN_TAG_IDS)[keyof typeof BUILTIN_TAG_IDS];

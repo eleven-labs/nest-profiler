@@ -53,6 +53,35 @@ interface MongooseBase {
   Model?: PatchableModel;
 }
 
+/** Connection metadata derived once from the mongoose Connection, shared by every captured entry. */
+interface ConnectionMeta {
+  connection?: string;
+  database?: string;
+}
+
+/** Reads host:port / database name off the mongoose Connection, omitting anything absent. */
+function readConnectionMeta(connection: Connection): ConnectionMeta {
+  const conn = connection as {
+    host?: unknown;
+    port?: unknown;
+    name?: unknown;
+    db?: { databaseName?: unknown };
+  };
+  const host = typeof conn.host === 'string' ? conn.host : undefined;
+  const port =
+    typeof conn.port === 'number' || typeof conn.port === 'string' ? conn.port : undefined;
+  const database =
+    typeof conn.name === 'string'
+      ? conn.name
+      : typeof conn.db?.databaseName === 'string'
+        ? conn.db.databaseName
+        : undefined;
+  return {
+    connection: host && port != null ? `${host}:${port}` : undefined,
+    database,
+  };
+}
+
 /** Reads a `collection.name` off a document (`this.constructor`) or a model (`this`). */
 function collectionNameOf(source: unknown): string {
   const holder = source as {
@@ -67,6 +96,7 @@ type PatchableConnection = Connection & { base: MongooseBase };
 @Injectable()
 export class MongooseConnectionPatch implements OnModuleInit {
   private cls: ClsService | undefined;
+  private connMeta: ConnectionMeta = {};
 
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -84,6 +114,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       getConnectionToken(this.options.connectionName),
     );
     if (!this.cls || !connection) return;
+    this.connMeta = readConnectionMeta(connection);
     const conn = connection as PatchableConnection;
     const mongoose = conn.base;
     if (mongoose?.Query?.prototype == null || mongoose?.Aggregate?.prototype == null) return;
@@ -104,6 +135,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     const model = mongoose.Model;
     if (!model) return;
     const cls = this.cls;
+    const meta = this.connMeta;
 
     const record = (
       operation: string,
@@ -122,6 +154,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
           duration,
           startedAt,
           count,
+          connection: meta.connection,
+          database: meta.database,
           error,
         });
       } catch {
@@ -193,6 +227,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
   private patchQueryExec(mongoose: MongooseBase): void {
     if (mongoose.Query.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
+    const meta = this.connMeta;
     const originalExec = mongoose.Query.prototype.exec;
 
     const patched: PatchableExec = async function (
@@ -232,6 +267,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
               startedAt,
               count: resultArray?.length,
               error,
+              connection: meta.connection,
+              database: meta.database,
             };
             appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, entry);
           }
@@ -248,6 +285,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
   private patchAggregateExec(mongoose: MongooseBase): void {
     if (mongoose.Aggregate.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
+    const meta = this.connMeta;
     const originalExec = mongoose.Aggregate.prototype.exec;
 
     const patched: PatchableExec = async function (
@@ -279,6 +317,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
               startedAt,
               count: resultArray?.length,
               error,
+              connection: meta.connection,
+              database: meta.database,
             };
             appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, entry);
           }
@@ -302,6 +342,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     const cursorFn = mongoose.Query.prototype.cursor;
     if (typeof cursorFn !== 'function' || cursorFn.__profilerPatched) return;
     const cls = this.cls;
+    const meta = this.connMeta;
     const originalCursor = cursorFn;
 
     const patched: PatchableCursor = function (this: PatchableQuery, ...args: unknown[]): unknown {
@@ -320,6 +361,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
         collection,
         operation,
         filter: filter ? redact(filter) : undefined,
+        connection: meta.connection,
+        database: meta.database,
       });
       return cursor;
     };
@@ -336,6 +379,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     const cursorFn = mongoose.Aggregate.prototype.cursor;
     if (typeof cursorFn !== 'function' || cursorFn.__profilerPatched) return;
     const cls = this.cls;
+    const meta = this.connMeta;
     const originalCursor = cursorFn;
 
     const patched: PatchableCursor = function (
@@ -351,6 +395,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
         collection,
         operation: 'aggregate',
         pipeline: pipeline ? redact(pipeline) : undefined,
+        connection: meta.connection,
+        database: meta.database,
       });
       return cursor;
     };
@@ -373,7 +419,10 @@ function recordCursorLifecycle(
   profile: Profile | undefined,
   cursor: unknown,
   startedAt: number,
-  meta: Pick<MongooseQueryEntry, 'collection' | 'operation' | 'filter' | 'pipeline'>,
+  meta: Pick<
+    MongooseQueryEntry,
+    'collection' | 'operation' | 'filter' | 'pipeline' | 'connection' | 'database'
+  >,
 ): void {
   if (!profile) return;
   const entry: MongooseQueryEntry = { ...meta, duration: 0, startedAt, streaming: true };

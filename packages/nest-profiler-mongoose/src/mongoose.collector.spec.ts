@@ -136,6 +136,7 @@ describe('MongooseConnectionPatch', () => {
       base?: unknown;
       profile?: Profile | null;
       clsThrows?: boolean;
+      connProps?: Record<string, unknown>;
     } = {},
   ): { base: FakeBase; profile: Profile | null; patch: MongooseConnectionPatch } {
     const queryExec = jest.fn(params.queryExec ?? (() => Promise.resolve([{ _id: 1 }]))) as ExecFn;
@@ -149,7 +150,7 @@ describe('MongooseConnectionPatch', () => {
           }
     ) as FakeBase;
 
-    const connection = { base } as unknown as Connection;
+    const connection = { base, ...params.connProps } as unknown as Connection;
     const profile = params.profile === undefined ? makeProfile() : params.profile;
     const cls = {
       get: jest.fn(() => {
@@ -487,6 +488,24 @@ describe('MongooseConnectionPatch', () => {
       expect(e.filter).toEqual({ status: 'active' });
       expect(e.count).toBe(1);
       expect(e.error).toBeUndefined();
+    });
+
+    it('captures connection and database from the mongoose Connection', async () => {
+      const { base, profile } = setup({
+        connProps: { host: 'localhost', port: 27017, name: 'shop' },
+      });
+      await base.Query.prototype.exec.call(queryCtx);
+      const e = firstEntry(profile);
+      expect(e.connection).toBe('localhost:27017');
+      expect(e.database).toBe('shop');
+    });
+
+    it('reads the database from db.databaseName when name is absent', async () => {
+      const { base, profile } = setup({
+        connProps: { host: 'h', port: 1, db: { databaseName: 'from-db' } },
+      });
+      await base.Query.prototype.exec.call(queryCtx);
+      expect(firstEntry(profile).database).toBe('from-db');
     });
 
     it('stamps a value-free fingerprint on the collected query', async () => {

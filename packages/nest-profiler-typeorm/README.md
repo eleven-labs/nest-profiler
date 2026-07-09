@@ -87,14 +87,19 @@ For each SQL query executed during a request:
 | `startedAt`   | Unix timestamp                                       |
 | `error`       | Error message if the query failed                    |
 | `streaming`   | `true` for streaming reads (`QueryBuilder.stream()`) |
+| `rowCount`    | Rows affected (writes) or returned (reads)           |
+| `connection`  | Connection endpoint `host:port` (no credentials)     |
+| `database`    | Target database name                                 |
 | `fingerprint` | Parameter-free normalized SQL, used to group N+1s    |
 | `tags`        | Performance tags applied by the core rule engine     |
 
-Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `duplicateThreshold`; see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
+Slow queries, N+1 patterns and silent zero-row `UPDATE`/`DELETE`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `duplicateThreshold`; see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 
 The toolbar badge shows: `{n}q` (e.g., `5q`). When slow queries are present: `5q (2 slow)`.
+
+`rowCount` is best-effort per driver: an array result yields its length; a `QueryResult`-style object yields its `affected` / `rowCount` / `affectedRows` / `changes`. A write on a driver that exposes none stays `undefined` (never a spurious `0`), and streamed reads never capture a row count. `connection` / `database` are read once from the DataSource options, and `connection` is omitted for drivers without a host/port (e.g. sqlite).
 
 ## How it works
 

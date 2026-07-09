@@ -10,7 +10,12 @@ export interface MongooseQueryEntry {
   pipeline?: unknown[];
   duration: number;
   startedAt: number;
+  /** Documents affected (writes) or returned (reads) — the MongoDB row-count analog. */
   count?: number;
+  /** Connection endpoint, host:port only (no credentials). e.g. `"localhost:27017"`. */
+  connection?: string;
+  /** Target database name. */
+  database?: string;
   error?: string;
   /** True for streaming reads (`Query.cursor()` / `Aggregate.cursor()`). */
   streaming?: boolean;

@@ -78,10 +78,13 @@ For each SQL query executed during a request:
 | `startedAt`   | Unix timestamp                                                      |
 | `error`       | Set when MikroORM reports the query at error level                  |
 | `streaming`   | `true` for streaming reads (`QueryBuilder.stream()`, `duration: 0`) |
+| `rowCount`    | Rows affected (`affected`) or returned (`results`), from the log    |
+| `connection`  | Connection endpoint `host:port`, else the log's connection name     |
+| `database`    | Target database name (`dbName`)                                     |
 | `fingerprint` | Parameter-free normalized SQL, used to group N+1s                   |
 | `tags`        | Performance tags applied by the core rule engine                    |
 
-Slow queries and N+1 patterns are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
+Slow queries, N+1 patterns and silent zero-row `UPDATE`/`DELETE`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

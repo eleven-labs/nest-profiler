@@ -110,6 +110,45 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     expect(invalid?.violations.map((v) => v.property)).toContain('price');
   });
 
+  it('PATCH /products/:id updates one row and records the affected rowCount', async () => {
+    const created = await profileOf(app, 'post', '/api/v1/products', {
+      name: 'Updatable product',
+      price: 10,
+    });
+    const id = (created.res.body as { id: number }).id;
+
+    const { res, profile } = await profileOf(app, 'patch', `/api/v1/products/${id}`, {
+      price: 12,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ updated: 1 });
+
+    const update = sqlEntries(profile.collectors).find((e) => e.type === 'UPDATE');
+    expect(update?.rowCount).toBe(1);
+    // Every captured query carries the connection metadata derived from the DataSource / ORM config.
+    const anyEntry = sqlEntries(profile.collectors)[0];
+    expect(anyEntry).toBeDefined();
+    expect('database' in anyEntry! || 'connection' in anyEntry!).toBe(true);
+    // A successful single-row update is not a silent failure.
+    expect((update?.tags ?? []).some((t) => t.id === 'zero-rows')).toBe(false);
+  });
+
+  it('PATCH /products/:id with an unknown id affects 0 rows and is flagged zero-rows', async () => {
+    const { res, profile } = await profileOf(app, 'patch', '/api/v1/products/999999', {
+      price: 99,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ updated: 0 });
+
+    const update = sqlEntries(profile.collectors).find((e) => e.type === 'UPDATE');
+    expect(update?.rowCount).toBe(0);
+    expect((update?.tags ?? []).some((t) => t.id === 'zero-rows')).toBe(true);
+    // The silent-failure tag also aggregates onto the profile (drives the list filter).
+    expect((profile.tags ?? []).some((t) => t.id === 'zero-rows')).toBe(true);
+  });
+
   it('DELETE /products/:id records the DELETE query', async () => {
     const created = await profileOf(app, 'post', '/api/v1/products', {
       name: 'Disposable product',
