@@ -1,6 +1,7 @@
-import { Injectable, OnApplicationBootstrap, RequestMethod } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import type { RouteInfo } from '../interfaces/profile.interface';
+import { scanHttpRoutes } from '../routes/scan-http-routes';
 
 /**
  * Compiles a route path (`/users/:id`, `/files/:id(\\d+)`) into an anchored RegExp: literal
@@ -28,40 +29,18 @@ export class RouteCollector implements OnApplicationBootstrap {
 
   // onApplicationBootstrap is called after ALL modules are initialized,
   // ensuring that controllers from consumer modules (e.g. AppModule) are
-  // registered in DiscoveryService before we scan them.
+  // registered in DiscoveryService before we scan them. The discovery walk is
+  // factored into scanHttpRoutes() and shared with the Routes panel's HTTP
+  // source, so there is a single pass over the controllers.
   onApplicationBootstrap(): void {
-    const controllers = this.discovery.getControllers();
-
-    for (const wrapper of controllers) {
-      if (!wrapper.instance || !wrapper.metatype) continue;
-      const instance = wrapper.instance as Record<string, unknown>;
-      const metatype = wrapper.metatype;
-      const prototype = Object.getPrototypeOf(instance) as object;
-      const controllerPath = (
-        (Reflect.getMetadata('path', metatype) as string | undefined) ?? ''
-      ).replace(/^\/|\/$/g, '');
-
-      this.metadataScanner.scanFromPrototype(instance, prototype, (methodName: string) => {
-        const methodRef = instance[methodName];
-        if (typeof methodRef !== 'function') return;
-
-        const httpMethod = Reflect.getMetadata('method', methodRef) as RequestMethod | undefined;
-        if (httpMethod === undefined) return;
-
-        const methodPath = (Reflect.getMetadata('path', methodRef) as string | undefined) ?? '';
-        const fullPath =
-          `/${[controllerPath, methodPath].filter(Boolean).join('/').replace(/\/+/g, '/')}`.replace(
-            /\/+$/,
-            '',
-          );
-
-        const key = `${RequestMethod[httpMethod]}:${fullPath}`;
-        this.routeMap.set(key, {
-          controller: metatype.name,
-          handler: methodName,
-          path: fullPath || '/',
-          method: RequestMethod[httpMethod],
-        });
+    for (const route of scanHttpRoutes(this.discovery, this.metadataScanner)) {
+      // Key on the raw path (empty for the root handler) to keep matching identical.
+      const key = `${route.method}:${route.path}`;
+      this.routeMap.set(key, {
+        controller: route.controller,
+        handler: route.handler,
+        path: route.path || '/',
+        method: route.method,
       });
     }
   }

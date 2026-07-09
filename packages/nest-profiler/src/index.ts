@@ -27,6 +27,16 @@ export type { CollectorPanelInfo, GlobalPanelInfo } from './collectors/collector
 export { ProfilerCollector } from './collectors/collector.decorator';
 export type { ProfilerCollectorMetadata } from './collectors/collector.decorator';
 export type { IProfilerCollector } from './collectors/collector.interface';
+export { scanHttpRoutes } from './routes/scan-http-routes';
+export type { ScannedHttpRoute } from './routes/scan-http-routes';
+export type {
+  ProfilerRouteSource,
+  RouteGroup,
+  RouteEntry,
+  RouteInputs,
+  RouteDtoInfo,
+  RouteDtoProperty,
+} from './routes/route-source.interface';
 export { TimelineCollector } from './collectors/timeline/timeline.collector';
 export { AbstractQueryCollector } from './collectors/abstract-query.collector';
 export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';

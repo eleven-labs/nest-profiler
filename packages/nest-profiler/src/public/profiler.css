@@ -3,6 +3,9 @@
 /* Scan templates and TS view helpers for class names — utility classes are
    emitted from both .ejs templates and .ts files (e.g. views/template-engine.ts). */
 @source "../**/*.{ejs,ts}";
+/* Also scan sibling collector packages' panel templates so their utility classes are emitted into
+   this single shipped stylesheet (the profiler serves only this CSS; sub-packages ship none). */
+@source "../../../nest-profiler-*/src/**/*.{ejs,ts}";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

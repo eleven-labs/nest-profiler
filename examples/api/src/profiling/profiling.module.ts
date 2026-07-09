@@ -10,6 +10,7 @@ import {
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
 
 /**
  * Resolves the storage-related profiler options from config. `sqlite` is opted into via
@@ -76,6 +77,7 @@ export class ProfilingModule {
           }),
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+        RoutesCollectorModule.forRoot(),
         ValidatorCollectorModule.forRoot({
           validationPipeOptions: { whitelist: true, transform: true },
         }),

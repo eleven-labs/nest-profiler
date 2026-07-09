@@ -15,7 +15,8 @@
       "@eleven-labs/nest-profiler-mongoose",
       "@eleven-labs/nest-profiler-typeorm",
       "@eleven-labs/nest-profiler-validator",
-      "@eleven-labs/nest-profiler-rabbitmq"
+      "@eleven-labs/nest-profiler-rabbitmq",
+      "@eleven-labs/nest-profiler-routes"
     ]
   ],
   "linked": [],
