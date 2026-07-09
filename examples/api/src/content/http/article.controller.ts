@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ArticleService } from '../application/article.service.js';
 import { CreateArticleDto } from './dto/create-article.dto.js';
-import type { Article } from '../domain/article.js';
+import type { Article, ForwardedArticle, TodoWithAssignee } from '../domain/article.js';
 
 @ApiTags('content')
 @Controller('articles')
@@ -12,10 +12,10 @@ export class ArticleController {
   @Get()
   @ApiOperation({
     summary:
-      'Fetch articles enriched with author info — demonstrates multiple concurrent axios calls + cache',
+      'Fetch articles enriched with author info — demonstrates multiple concurrent HTTP calls + cache',
     description:
       'First call: GET_MISS → fetches articles then resolves each author in parallel (N+1 HTTP calls) → SET. ' +
-      'Subsequent calls: GET_HIT, no axios call.',
+      'Subsequent calls: GET_HIT, no outgoing call.',
   })
   @ApiResponse({
     status: 200,
@@ -41,27 +41,14 @@ export class ArticleController {
   @Post('forward')
   @ApiOperation({
     summary:
-      'Forward an article to the external API via axios POST — shows request/response bodies in the HTTP Client panel',
+      'Forward an article to the external API via a POST — shows request/response bodies in the HTTP Client panel',
   })
   @ApiResponse({
     status: 201,
     description: 'Article forwarded — check the HTTP Client panel in /_profiler',
   })
-  forwardArticle(@Body() dto: CreateArticleDto): Promise<unknown> {
+  forwardArticle(@Body() dto: CreateArticleDto): Promise<ForwardedArticle> {
     return this.articles.forwardArticle(dto);
-  }
-
-  @Get('via-fetch')
-  @ApiOperation({
-    summary:
-      'Fetch an article with the native fetch API (no axios) — recorded via HttpProfilerRecorder, shown in the same HTTP Client panel',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Article fetched via native fetch — see the HTTP Client panel in /_profiler',
-  })
-  getViaFetch(): Promise<unknown> {
-    return this.articles.getViaFetch();
   }
 
   @Get('cache/clear')
@@ -73,11 +60,11 @@ export class ArticleController {
 
   @Get('todos/:id')
   @ApiOperation({
-    summary: 'Fetch a todo with its assignee — demonstrates two concurrent axios calls',
+    summary: 'Fetch a todo with its assignee — demonstrates two concurrent HTTP calls',
   })
-  @ApiParam({ name: 'id', example: '1' })
+  @ApiParam({ name: 'id', example: 1 })
   @ApiResponse({ status: 200, description: 'Todo enriched with assignee info' })
-  getTodo(@Param('id') id: string): Promise<unknown> {
+  getTodo(@Param('id', ParseIntPipe) id: number): Promise<TodoWithAssignee> {
     return this.articles.getTodo(id);
   }
 }

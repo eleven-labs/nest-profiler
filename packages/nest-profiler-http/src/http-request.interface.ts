@@ -1,11 +1,9 @@
-import type { AxiosInstance } from 'axios';
-
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the
  * shared "HTTP Client" panel.
  *
- * Client-agnostic by design: the bundled axios adapter produces these, but any
- * client (fetch, undici, got, a custom module…) can record the same shape via
+ * Client-agnostic by design: the bundled adapters (axios, fetch) produce these,
+ * but any client (undici, got, a custom module…) can record the same shape via
  * {@link HttpProfilerRecorder} or {@link appendHttpRequestEntry}.
  */
 export interface HttpRequestEntry {
@@ -83,20 +81,4 @@ export interface HttpCaptureOptions {
    * `x-api-key`, `x-auth-token`, `proxy-authorization`.
    */
   maskHeaders?: string[];
-
-  /**
-   * The axios instance(s) to instrument, i.e. `HttpService.axiosRef`. This package never imports
-   * `@nestjs/axios` (an optional dependency of your app, not of the profiler) — you provide the
-   * ref, typically via {@link HttpCollectorModule.forRootAsync}:
-   *
-   * ```ts
-   * HttpCollectorModule.forRootAsync({
-   *   inject: [HttpService],
-   *   useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
-   * });
-   * ```
-   *
-   * Pass an array to instrument several `HttpService` instances (per-feature `HttpModule`s).
-   */
-  axiosRef?: AxiosInstance | AxiosInstance[];
 }

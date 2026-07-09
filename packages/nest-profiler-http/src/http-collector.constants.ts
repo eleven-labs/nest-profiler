@@ -8,15 +8,17 @@ export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
   enabled?: boolean;
 
   /**
-   * Enable the built-in axios instrumentation. Default: `true`. It instruments the
-   * `axiosRef` you provide via `axiosRef` (see {@link HttpCollectorModuleAsyncOptions}); with no
-   * `axiosRef` it is a harmless no-op. This package never imports `@nestjs/axios`.
-   */
-  axios?: boolean;
-
-  /**
-   * Additional {@link HttpInstrumentation} providers to install (e.g. a custom
-   * fetch/got/undici adapter).
+   * The HTTP-client instrumentations to install. Nothing is instrumented unless a client is
+   * listed here — select each by importing its class from the matching subpath:
+   *
+   * ```ts
+   * import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+   * import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
+   *
+   * HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation, FetchInstrumentation] });
+   * ```
+   *
+   * Bring your own client by implementing {@link HttpInstrumentation} and adding it to the list.
    */
   instrumentations?: Type<HttpInstrumentation>[];
 }
@@ -26,9 +28,7 @@ export type HttpCollectorModuleAsyncOptions =
   ConfigurableModuleAsyncOptions<HttpCollectorModuleOptions> & {
     /** Synchronous enable flag (decided at module-build time, not by the factory). */
     enabled?: boolean;
-    /** Enable the built-in axios instrumentation. Default: `true`. */
-    axios?: boolean;
-    /** Additional instrumentation providers. */
+    /** The HTTP-client instrumentations to install (selected at module-build time). */
     instrumentations?: Type<HttpInstrumentation>[];
   };
 

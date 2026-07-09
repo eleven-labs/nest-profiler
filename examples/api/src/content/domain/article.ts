@@ -48,3 +48,16 @@ export interface ExternalTodo {
   title: string;
   completed: boolean;
 }
+
+/** The external API's response when an article is forwarded (echoes the payload with a new id). */
+export interface ForwardedArticle {
+  id: number;
+  title: string;
+  body: string;
+  userId: number;
+}
+
+/** A todo enriched with its assignee — the shape returned by the todo use case. */
+export interface TodoWithAssignee extends ExternalTodo {
+  assignee: Pick<ExternalAuthor, 'id' | 'name' | 'username' | 'email'>;
+}

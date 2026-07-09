@@ -11,13 +11,13 @@ interface SyncArticlesOptions {
 const CLI_CACHE_KEY = 'cli:articles';
 
 /**
- * Fetches articles from the external API (axios) and caches them — reusing the same
- * {@link ArticleService} as the REST controller. Running it produces a CLI profile that shows the
- * **Command**, **HTTP Client** and **Cache** panels together.
+ * Fetches articles from the external API (via the selected HTTP client) and caches them — reusing
+ * the same {@link ArticleService} as the REST controller. Running it produces a CLI profile that
+ * shows the **Command**, **HTTP Client** and **Cache** panels together.
  */
 @Command({
   name: 'content:sync',
-  description: 'Fetch articles from an external API (axios) and cache them',
+  description: 'Fetch articles from an external API and cache them',
 })
 export class SyncArticlesCommand extends CommandRunner {
   private readonly logger: LoggerService;

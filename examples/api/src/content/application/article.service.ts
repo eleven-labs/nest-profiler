@@ -4,16 +4,16 @@ import type { Cache } from 'cache-manager';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ArticleGateway } from '../domain/article-gateway.js';
-import type { Article, NewArticle } from '../domain/article.js';
+import type { Article, ForwardedArticle, NewArticle, TodoWithAssignee } from '../domain/article.js';
 
 const ARTICLES_CACHE_KEY = 'external:articles';
 const TODOS_CACHE_KEY = 'external:todos';
 
 /**
- * Content use cases. Depends only on the {@link ArticleGateway} port — raw HTTP (axios / native
- * fetch) lives in the adapter. Owns the caching, author enrichment and profiler spans so they
- * describe behaviour (`http.articles.*`). The same service backs the REST controller and the
- * `content:sync` CLI command.
+ * Content use cases. Depends only on the {@link ArticleGateway} port — the concrete HTTP client
+ * (axios or native fetch, chosen by `HTTP_CLIENT`) lives in the adapter. Owns the caching, author
+ * enrichment and profiler spans so they describe behaviour (`http.articles.*`). The same service
+ * backs the REST controller and the `content:sync` CLI command.
  */
 @Injectable()
 export class ArticleService {
@@ -90,8 +90,8 @@ export class ArticleService {
     };
   }
 
-  /** Forward an article to the external API via an axios POST. */
-  async forwardArticle(dto: NewArticle): Promise<unknown> {
+  /** Forward an article to the external API via the selected HTTP client. */
+  async forwardArticle(dto: NewArticle): Promise<ForwardedArticle> {
     this.logger?.info(`Forwarding article to external API: ${dto.title}`);
     const stop = this.profiler.startSpan('http.articles.forward');
     const result = await this.gateway.forwardArticle(dto);
@@ -99,16 +99,10 @@ export class ArticleService {
     return result;
   }
 
-  /** Fetch a single article via the native fetch API (recorded in the HTTP Client panel). */
-  getViaFetch(): Promise<unknown> {
-    this.logger?.info('Fetching article via native fetch');
-    return this.gateway.fetchFirstArticleViaNativeFetch();
-  }
-
   /** Fetch a todo with its assignee — two concurrent calls, cached. */
-  async getTodo(id: string): Promise<unknown> {
+  async getTodo(id: number): Promise<TodoWithAssignee> {
     const key = `${TODOS_CACHE_KEY}:${id}`;
-    const cached = await this.cache.get(key);
+    const cached = await this.cache.get<TodoWithAssignee>(key);
     if (cached) {
       this.logger?.info(`Todo #${id} served from cache (HIT)`);
       return cached;
@@ -118,11 +112,11 @@ export class ArticleService {
     const stop = this.profiler.startSpan('http.todo');
     const [todo, assignee] = await Promise.all([
       this.gateway.fetchTodo(id),
-      this.gateway.fetchAuthor(Number(id)),
+      this.gateway.fetchAuthor(id),
     ]);
     stop();
 
-    const enriched = {
+    const enriched: TodoWithAssignee = {
       ...todo,
       assignee: {
         id: assignee.id,

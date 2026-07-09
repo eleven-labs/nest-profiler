@@ -75,7 +75,7 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
     );
   });
 
-  it('profiles content:sync with the axios and cache collectors', async () => {
+  it('profiles content:sync with the HTTP client and cache collectors', async () => {
     mockJsonPlaceholder();
     lockNetwork();
     try {
@@ -86,8 +86,8 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
         success: true,
       });
 
-      const axios = profile.collectors['http-client'] as HttpRequestEntry[];
-      expect(axios).toEqual(
+      const http = profile.collectors['http-client'] as HttpRequestEntry[];
+      expect(http).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             method: 'GET',

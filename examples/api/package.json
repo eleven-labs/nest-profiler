@@ -19,6 +19,7 @@
     "test:e2e:file": "PROFILER_STORAGE_TYPE=file pnpm test:e2e",
     "test:e2e:sqlite": "PROFILER_STORAGE_TYPE=sqlite pnpm test:e2e",
     "test:e2e:storages": "pnpm test:e2e:file && pnpm test:e2e:sqlite",
+    "test:e2e:http-clients": "HTTP_CLIENT=axios pnpm test:e2e \"content|cli\" && HTTP_CLIENT=fetch pnpm test:e2e \"content|cli\"",
     "test:e2e:no-stress": "PROFILER_STRESS=false pnpm test:e2e",
     "typecheck": "tsc --noEmit --incremental false"
   },

@@ -48,6 +48,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 | Variable              | Default     | Description                                                                        |
 | --------------------- | ----------- | ---------------------------------------------------------------------------------- |
 | `SQL_ORM`             | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`               |
+| `HTTP_CLIENT`         | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                         |
 | `FEATURE_MONGOOSE`    | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                           |
 | `FEATURE_GRAPHQL`     | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)        |
 | `FEATURE_RABBITMQ`    | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`) |
@@ -56,12 +57,17 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 
 `SQL_ORM` selects which adapter backs the **catalog** context. `typeorm`/`mikro-orm` are mutually exclusive (they map the same Postgres `products` table); `in-memory` needs no database and is the default, so the catalog — and its GraphQL API — always runs. Contexts that depend on disabled infrastructure are simply not registered: no connection is attempted, no crash.
 
+`HTTP_CLIENT` selects which adapter backs the **content** context's `ArticleGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
+
 ```bash
 # Everything on (needs docker compose up -d)
 SQL_ORM=typeorm FEATURE_MONGOOSE=true FEATURE_RABBITMQ=true pnpm example:dev
 
 # Profile SQL queries through MikroORM instead of TypeORM
 SQL_ORM=mikro-orm FEATURE_MONGOOSE=true pnpm example:dev
+
+# Profile outgoing HTTP through native fetch instead of axios
+HTTP_CLIENT=fetch pnpm example:dev
 
 # Minimal, no infrastructure (Catalog in-memory + GraphQL, Content, Auth, Config, Validator)
 pnpm example:dev
@@ -90,7 +96,7 @@ commands and writes to the same `.profiler/` file storage as the HTTP app, so th
 ```bash
 pnpm --filter example-api build
 
-# Fetches articles via axios and caches them — profile shows Command + HTTP Client + Cache panels.
+# Fetches articles via the selected HTTP client and caches them — profile shows Command + HTTP Client + Cache panels.
 # Reuses the same ArticleService as the REST controller (no duplicated fetch logic).
 pnpm --filter example-api cli content:sync --limit 3
 
@@ -167,7 +173,9 @@ AppModule (no controller — only global forRoot + feature modules)
 │     ├── ProductTypeOrmModule   [SQL_ORM=typeorm]   → TypeOrmCollectorModule  (nest-profiler-typeorm)
 │     ├── ProductMikroOrmModule  [SQL_ORM=mikro-orm] → MikroOrmCollectorModule (nest-profiler-mikro-orm)
 │     └── CatalogGraphQLModule   [FEATURE_GRAPHQL]   → ProfilerGraphQLModule   (nest-profiler-graphql) + Apollo
-├── ContentModule            /api/v1/articles + content:sync CLI → HttpCollectorModule + CacheCollectorModule
+├── ContentModule            /api/v1/articles + content:sync CLI → CacheCollectorModule
+│     ├── ArticleAxiosModule    [HTTP_CLIENT=axios, default] → HttpCollectorModule (AxiosInstrumentation) + @nestjs/axios
+│     └── ArticleFetchModule    [HTTP_CLIENT=fetch]          → HttpCollectorModule (FetchInstrumentation)
 ├── AuthModule               → AuthCollectorModule (nest-profiler-auth)
 ├── HealthModule             → GET /health
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/error + demo:greet CLI
@@ -218,9 +226,11 @@ export class ProductMikroOrmModule {}
 
 The `in-memory` adapter is identical in shape but binds `InMemoryProductRepository` and wires no connection or collector — that is the path that keeps the catalog (REST + GraphQL) running with no infrastructure.
 
+`ContentModule` applies the exact same idiom to the outgoing HTTP client: it selects `ArticleAxiosModule` or `ArticleFetchModule` by `HTTP_CLIENT`, each binding a different `ArticleGateway` implementation and registering its matching `HttpCollectorModule` adapter (`AxiosInstrumentation` / `FetchInstrumentation`).
+
 ### Toggling the profiler: one bundle + `ProfilerNoopModule`
 
-`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `ProfilerService` (injected in `main.ts`, `ProductService`, the CLI commands, the axios gateway…) therefore stays resolvable even when profiling is off, at no runtime cost.
+`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `ProfilerService` (injected in `main.ts`, `ProductService`, the CLI commands, the content service…) therefore stays resolvable even when profiling is off, at no runtime cost.
 
 ```ts title="app.module.ts"
 ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
@@ -286,16 +296,15 @@ Seeded automatically at startup (4 products). REST and GraphQL share the same `P
 | `DELETE /api/v1/products/:id` | Delete product                               |
 | `POST /graphql`               | `products` / `product(id)` / `createProduct` |
 
-### Content (`ContentModule` → HTTP (axios + fetch) + Cache + Validator)
+### Content (`ContentModule` → HTTP (axios or fetch) + Cache + Validator)
 
-| Endpoint                           | Description                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| `GET /api/v1/articles`             | First call: GET_MISS + axios (N+1 authors) → SET. Subsequent: GET_HIT    |
-| `POST /api/v1/articles`            | Create with `CreateArticleDto` — valid/invalid via Validator panel       |
-| `POST /api/v1/articles/forward`    | Forward via axios POST — request/response body + headers in HTTP Client  |
-| `GET /api/v1/articles/via-fetch`   | Native `fetch` (no axios), recorded via `HttpProfilerRecorder.capture()` |
-| `GET /api/v1/articles/cache/clear` | Clear the articles cache (force next MISS)                               |
-| `GET /api/v1/articles/todos/:id`   | Per-item cached todo (two concurrent axios calls)                        |
+| Endpoint                           | Description                                                          |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `GET /api/v1/articles`             | First call: GET_MISS + HTTP (N+1 authors) → SET. Subsequent: GET_HIT |
+| `POST /api/v1/articles`            | Create with `CreateArticleDto` — valid/invalid via Validator panel   |
+| `POST /api/v1/articles/forward`    | Forward via a POST — request/response body + headers in HTTP Client  |
+| `GET /api/v1/articles/cache/clear` | Clear the articles cache (force next MISS)                           |
+| `GET /api/v1/articles/todos/:id`   | Per-item cached todo (two concurrent HTTP calls)                     |
 
 ### Reviews (`ReviewsModule` → Mongoose, `FEATURE_MONGOOSE=true`)
 
@@ -331,8 +340,8 @@ curl -X POST http://localhost:3000/api/v1/products -H "Content-Type: application
 ### Axios + Cache — HTTP Client and Cache tabs
 
 ```bash
-curl http://localhost:3000/api/v1/articles          # MISS + axios calls + SET
-curl http://localhost:3000/api/v1/articles          # HIT — no axios call
+curl http://localhost:3000/api/v1/articles          # MISS + HTTP calls + SET
+curl http://localhost:3000/api/v1/articles          # HIT — no outgoing call
 curl http://localhost:3000/api/v1/articles/cache/clear
 ```
 
