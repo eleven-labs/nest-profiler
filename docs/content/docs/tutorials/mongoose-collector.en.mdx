@@ -34,7 +34,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   imports: [
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
     ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({ slowQueryThreshold: 50 }), // queries > 50ms highlighted
+      MongooseCollectorModule.forRoot({ slowThreshold: 50 }), // queries > 50ms highlighted
       isProfilerEnabled,
     ),
   ],
@@ -91,7 +91,7 @@ You will see:
 - Collection name
 - Filter object
 - Duration per query
-- Slow queries highlighted in red
+- Slow queries and N+1 patterns flagged as performance tags
 - Result count for find queries
 
 ## Driving options from ConfigService
@@ -105,7 +105,7 @@ ConditionalModule.registerWhen(
   MongooseCollectorModule.forRootAsync({
     inject: [ConfigService],
     useFactory: (config: ConfigService) => ({
-      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
     }),
   }),
   isProfilerEnabled,

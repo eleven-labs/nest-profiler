@@ -51,6 +51,34 @@ const LOG_LEVEL_CLASSES: Record<string, string> = {
   fatal: 'badge-fatal',
 };
 
+/** Per-tag-id badge classes; custom tag ids fall back to a severity-based class. */
+const TAG_CLASSES: Record<string, string> = {
+  slow: 'badge-tag-slow',
+  'n-plus-one': 'badge-tag-n-plus-one',
+  error: 'badge-tag-error',
+  chatty: 'badge-tag-chatty',
+  'large-payload': 'badge-tag-large-payload',
+};
+
+/**
+ * Severity fallback classes for custom tag ids. Kept as literals (not interpolated)
+ * so Tailwind's content scan of this file emits them.
+ */
+const TAG_SEVERITY_CLASSES: Record<string, string> = {
+  info: 'badge-tag-info',
+  warning: 'badge-tag-warning',
+  danger: 'badge-tag-danger',
+};
+
+/** A structured performance tag as passed to {@link HELPERS.tagBadge}. */
+interface TagLike {
+  id: string;
+  label: string;
+  severity: 'info' | 'warning' | 'danger';
+  count?: number;
+  detail?: string;
+}
+
 const SQL_KEYWORDS =
   /\b(SELECT|FROM|WHERE|JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|OUTER\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|ON|AND|OR|NOT|IN|EXISTS|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|ORDER\s+BY|GROUP\s+BY|HAVING|LIMIT|OFFSET|AS|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|UNION|ALL|WITH|CREATE|TABLE|INDEX|DROP|ALTER|ADD|CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|REFERENCES|BEGIN|COMMIT|ROLLBACK|TRANSACTION|RETURNING)\b/gi;
 
@@ -84,6 +112,22 @@ export const HELPERS = {
     return 'badge-5xx';
   },
   logLevelClass: (level: string): string => LOG_LEVEL_CLASSES[level] ?? 'badge-default',
+  tagClass: (tag: TagLike): string =>
+    TAG_CLASSES[tag.id] ?? TAG_SEVERITY_CLASSES[tag.severity] ?? 'badge-default',
+  // Returns safe HTML — use <%- tagBadge(tag) %> in templates. Renders one performance-tag
+  // pill; `detail` becomes the hover tooltip.
+  tagBadge: (tag: TagLike): string => {
+    const cls = TAG_CLASSES[tag.id] ?? TAG_SEVERITY_CLASSES[tag.severity] ?? 'badge-default';
+    const title = tag.detail ? ` title="${escapeHtml(tag.detail)}"` : '';
+    return (
+      `<span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide ${cls}"${title}>` +
+      `${escapeHtml(tag.label)}</span>`
+    );
+  },
+  // Returns safe HTML — use <%- tagBadges(tags) %>. Renders a space-separated row of pills,
+  // or an empty string when there are none.
+  tagBadges: (tags: TagLike[] | undefined): string =>
+    (tags ?? []).map((tag) => HELPERS.tagBadge(tag)).join(' '),
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
   isoDate: (ts: number): string => new Date(ts).toISOString().replace('T', ' ').slice(0, 19),
   timeOnly: (ts: number): string => new Date(ts).toISOString().slice(11, 23),

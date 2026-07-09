@@ -1,8 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
 import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder';
+import { analyzeProfile } from '../analysis/profiler-analyzer';
+import { BUILTIN_PERFORMANCE_RULES } from '../analysis/builtin-rules';
+import type { PerformanceRule } from '../analysis/performance-rule.interface';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type {
@@ -25,6 +30,8 @@ const DEFAULT_FILTER_ORDER = 100;
 export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly contextAdapters: IContextAdapter[] = [];
   private readonly listFilters: ProfilerListFilter[] = [...BUILTIN_LIST_FILTERS];
+  /** Performance rules evaluated once per profile; seeded with the built-ins. */
+  private readonly performanceRules: PerformanceRule[] = [...BUILTIN_PERFORMANCE_RULES];
   private readonly listSections: ProfilerListSection[] = [];
   /** Registered entrypoint types, keyed by {@link ProfilerEntrypointType.type}. */
   private readonly entrypointTypes = new Map<string, ProfilerEntrypointType>();
@@ -38,6 +45,9 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     readonly storage: ProfilerStorageService,
     readonly collectorRegistry: CollectorRegistry,
     readonly routeCollector: RouteCollector,
+    @Optional()
+    @Inject(NEST_PROFILER_MODULE_OPTIONS)
+    options: ProfilerModuleOptions = {},
   ) {
     // Teach the storage in-memory fallback how to project kind-specific index
     // attributes. The closure reads the registry at call time, so entrypoint types
@@ -45,6 +55,10 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.storage.setIndexAttributesProvider((profile) => this.getIndexAttributes(profile));
     // Seed the built-in HTTP entrypoint — the catch-all for REST requests.
     this.registerEntrypointType(HTTP_ENTRYPOINT_TYPE_DEF);
+    // Seed any custom performance rules contributed via the module option.
+    for (const rule of options.performance?.rules ?? []) {
+      this.registerPerformanceRule(rule);
+    }
   }
 
   /**
@@ -65,7 +79,14 @@ export class ProfilerCoreService implements OnApplicationShutdown {
    * @param profile - The finalized profile to collect into and save.
    */
   schedulePersist(profile: Profile): void {
-    this.track(this.collectorRegistry.collectAll(profile).then(() => this.storage.save(profile)));
+    this.track(
+      this.collectorRegistry
+        .collectAll(profile)
+        .then(() =>
+          analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules),
+        )
+        .then(() => this.storage.save(profile)),
+    );
   }
 
   /**
@@ -221,6 +242,30 @@ export class ProfilerCoreService implements OnApplicationShutdown {
         // lost any `registerFilterOption` on such filters.
         return { ...filter, options: [...(filter.options ?? []), ...extra] };
       });
+  }
+
+  /**
+   * Registers a {@link PerformanceRule} so it is evaluated on every profile after
+   * collection. The core seeds the built-in rules (slow, N+1, error,
+   * chatty, large-payload); consumers add their own to flag domain-specific
+   * anti-patterns — either here (e.g. from a module's `onModuleInit`) or
+   * declaratively via the `performance.rules` module option.
+   *
+   * Registration is idempotent per {@link PerformanceRule.id}: a second rule with
+   * an already-registered id is ignored, so calling this from `onModuleInit` is
+   * safe across re-initialization.
+   *
+   * @param rule - The performance rule to register.
+   */
+  registerPerformanceRule(rule: PerformanceRule): void {
+    if (!this.performanceRules.some((r) => r.id === rule.id)) {
+      this.performanceRules.push(rule);
+    }
+  }
+
+  /** Returns all registered performance rules (built-in first, then contributed). */
+  getPerformanceRules(): PerformanceRule[] {
+    return [...this.performanceRules];
   }
 
   /**

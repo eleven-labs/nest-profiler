@@ -1,4 +1,4 @@
-import { buildMongoCommand } from './build-mongo-command';
+import { buildMongoCommand, buildMongoFingerprint } from './build-mongo-command';
 import type { MongooseQueryEntry } from './mongoose-collector.interface';
 
 function entry(overrides: Partial<MongooseQueryEntry>): MongooseQueryEntry {
@@ -6,7 +6,6 @@ function entry(overrides: Partial<MongooseQueryEntry>): MongooseQueryEntry {
     collection: 'users',
     operation: 'find',
     duration: 1,
-    isSlow: false,
     startedAt: 0,
     ...overrides,
   };
@@ -30,5 +29,28 @@ describe('buildMongoCommand', () => {
 
   it('falls back to an empty pipeline when none was captured', () => {
     expect(buildMongoCommand(entry({ operation: 'aggregate' }))).toBe('db.users.aggregate([])');
+  });
+});
+
+describe('buildMongoFingerprint', () => {
+  it('strips filter values so the same query shape shares a fingerprint', () => {
+    const a = buildMongoFingerprint(entry({ operation: 'findOne', filter: { email: 'a@b.c' } }));
+    const b = buildMongoFingerprint(entry({ operation: 'findOne', filter: { email: 'x@y.z' } }));
+    expect(a).toBe(b);
+    expect(a).toBe('findOne users {"email":"?"}');
+  });
+
+  it('keeps operators but not values, and is key-order independent', () => {
+    const a = buildMongoFingerprint(entry({ filter: { age: { $gt: 18 }, name: 'bob' } }));
+    const b = buildMongoFingerprint(entry({ filter: { name: 'alice', age: { $gt: 65 } } }));
+    expect(a).toBe(b);
+    expect(a).toBe('find users {"age":{"$gt":"?"},"name":"?"}');
+  });
+
+  it('uses the pipeline shape for aggregations', () => {
+    const fp = buildMongoFingerprint(
+      entry({ operation: 'aggregate', pipeline: [{ $match: { active: true } }] }),
+    );
+    expect(fp).toBe('aggregate users [{"$match":{"active":"?"}}]');
   });
 });

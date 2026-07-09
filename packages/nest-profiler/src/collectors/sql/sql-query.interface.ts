@@ -1,3 +1,5 @@
+import type { ProfilerTag } from '../../analysis/profiler-tag.interface';
+
 export type QueryType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'OTHER';
 
 export interface QueryEntry {
@@ -5,9 +7,15 @@ export interface QueryEntry {
   parameters?: unknown[];
   duration: number;
   type: QueryType;
-  isSlow: boolean;
   startedAt: number;
   error?: string;
+  /**
+   * Parameter-free normalized SQL, used by the performance-rule engine to group
+   * repeated executions (the N+1 signal). Filled by the SQL collector.
+   */
+  fingerprint?: string;
+  /** Performance tags applied by the rule engine (slow, N+1, error…). */
+  tags?: ProfilerTag[];
 }
 
 export function detectQueryType(sql: string): QueryType {

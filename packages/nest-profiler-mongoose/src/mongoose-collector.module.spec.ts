@@ -15,12 +15,12 @@ function optionsProvider(mod: DynamicModule): Provider | undefined {
 
 describe('MongooseCollectorModule.forRoot', () => {
   it('registers the connection patch, collector and the options token (useValue)', () => {
-    const mod = MongooseCollectorModule.forRoot({ slowQueryThreshold: 50 });
+    const mod = MongooseCollectorModule.forRoot({ slowThreshold: 50 });
     expect(mod.module).toBe(MongooseCollectorModule);
     expect(mod.providers).toEqual(
       expect.arrayContaining([MongooseConnectionPatch, MongooseCollector]),
     );
-    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowQueryThreshold: 50 });
+    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowThreshold: 50 });
   });
 
   it('returns an inert module when enabled is false', () => {
@@ -33,7 +33,7 @@ describe('MongooseCollectorModule.forRoot', () => {
 describe('MongooseCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}
-    const useFactory = (): { slowQueryThreshold: number } => ({ slowQueryThreshold: 25 });
+    const useFactory = (): { slowThreshold: number } => ({ slowThreshold: 25 });
     const mod = MongooseCollectorModule.forRootAsync({
       imports: [FakeImport],
       inject: ['CONFIG'],

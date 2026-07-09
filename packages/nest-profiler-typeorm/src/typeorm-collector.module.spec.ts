@@ -15,10 +15,10 @@ function optionsProvider(mod: DynamicModule): Provider | undefined {
 
 describe('TypeOrmCollectorModule.forRoot', () => {
   it('registers the driver patch, collector and the options token (useValue)', () => {
-    const mod = TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 });
+    const mod = TypeOrmCollectorModule.forRoot({ slowThreshold: 50 });
     expect(mod.module).toBe(TypeOrmCollectorModule);
     expect(mod.providers).toEqual(expect.arrayContaining([TypeOrmDriverPatch, TypeOrmCollector]));
-    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowQueryThreshold: 50 });
+    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowThreshold: 50 });
   });
 
   it('returns an inert module when enabled is false', () => {
@@ -31,7 +31,7 @@ describe('TypeOrmCollectorModule.forRoot', () => {
 describe('TypeOrmCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}
-    const useFactory = (): { slowQueryThreshold: number } => ({ slowQueryThreshold: 25 });
+    const useFactory = (): { slowThreshold: number } => ({ slowThreshold: 25 });
     const mod = TypeOrmCollectorModule.forRootAsync({
       imports: [FakeImport],
       inject: ['CONFIG'],

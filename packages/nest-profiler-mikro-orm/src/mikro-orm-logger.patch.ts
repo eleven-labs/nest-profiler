@@ -47,10 +47,10 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
     if (!this.cls || !orm) return;
     const logger = orm.config?.getLogger();
     if (!logger) return;
-    this.patchLogger(logger, this.options.slowQueryThreshold ?? 100);
+    this.patchLogger(logger);
   }
 
-  private patchLogger(logger: Logger, threshold: number): void {
+  private patchLogger(logger: Logger): void {
     const guarded = logger as Logger & { __profilerPatched?: boolean };
     if (guarded.__profilerPatched) return;
 
@@ -84,7 +84,6 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
               parameters: redact(context.params ? [...context.params] : []),
               duration,
               type: detectQueryType(sql),
-              isSlow: duration >= threshold,
               startedAt: Date.now() - duration,
               error: context.level === 'error' ? extractLogError(context) : undefined,
             };

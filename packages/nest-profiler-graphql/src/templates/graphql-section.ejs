@@ -30,9 +30,14 @@
           <td class="py-2.5 px-4">
             <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= gqlTypeClass(gql.operationType) %>"><%= gql.operationType.toUpperCase() %></span>
           </td>
-          <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs truncate" title="<%= gql.operationName || gql.fieldName %>">
-            <%= gql.operationName || gql.fieldName %>
-            <span class="text-foreground-faint ml-1 text-2xs">field:<%= gql.fieldName %></span>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs">
+            <div class="truncate" title="<%= gql.operationName || gql.fieldName %>">
+              <%= gql.operationName || gql.fieldName %>
+              <span class="text-foreground-faint ml-1 text-2xs">field:<%= gql.fieldName %></span>
+            </div>
+            <% if (p.tags && p.tags.length > 0) { %>
+              <div class="mt-1 flex flex-wrap gap-1"><%- tagBadges(p.tags) %></div>
+            <% } %>
           </td>
           <td class="py-2.5 px-4">
             <% if (p.response) { %>

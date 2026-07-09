@@ -7,6 +7,24 @@ export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
   /** Enable the collector. Default: `true`. */
   enabled?: boolean;
 
+  /** Outgoing calls at or above this duration (ms) are tagged `slow`. Default: 300 */
+  slowThreshold?: number;
+
+  /**
+   * Identical calls (same method + normalized URL) repeated at least this many times
+   * in one request are tagged `n-plus-one`. Default: 2
+   */
+  nPlusOneThreshold?: number;
+
+  /** A request making at least this many outgoing calls is tagged `chatty`. Default: 10 */
+  chattyThreshold?: number;
+
+  /**
+   * A call whose request/response payload reaches this size (bytes) is tagged
+   * `large-payload`. Default: 1048576 (1 MB). Set to `0` to disable.
+   */
+  largePayloadThreshold?: number;
+
   /**
    * The HTTP-client instrumentations to install. Nothing is instrumented unless a client is
    * listed here — select each by importing its class from the matching subpath:

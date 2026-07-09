@@ -8,17 +8,31 @@ import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
+import { TAG_SEVERITY_RANK } from '../analysis/profiler-tag.interface';
+import type { TagSeverity } from '../analysis/profiler-tag.interface';
 
 const GROUPED_PANEL_TEMPLATE = path.join(__dirname, '..', 'templates', 'grouped-panel.ejs');
 
 /** Default per-collector `collect()` timeout (ms); see {@link ProfilerModuleOptions.collectorTimeout}. */
 const DEFAULT_COLLECTOR_TIMEOUT_MS = 1000;
 
+/** The higher of two tag severities (either may be null/undefined). */
+function maxSeverity(
+  a: TagSeverity | null | undefined,
+  b: TagSeverity | null | undefined,
+): TagSeverity | null {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return TAG_SEVERITY_RANK[b] > TAG_SEVERITY_RANK[a] ? b : a;
+}
+
 export interface SubPanelInfo {
   name: string;
   label: string;
   icon?: string;
   templatePath?: string;
+  /** Worst performance-tag severity in this sub-panel, used to colour its sub-tab. */
+  severity?: TagSeverity | null;
 }
 
 export interface CollectorPanelInfo {
@@ -27,6 +41,8 @@ export interface CollectorPanelInfo {
   icon?: string;
   priority: number;
   badgeValue?: string | number | null;
+  /** Worst performance-tag severity in this panel, used to colour its nav tab. */
+  severity?: TagSeverity | null;
   templatePath?: string;
   isGroup?: boolean;
   subPanels?: SubPanelInfo[];
@@ -123,6 +139,7 @@ export class CollectorRegistry implements OnModuleInit {
           icon: meta.icon ?? instance.icon,
           priority: meta.priority ?? instance.priority ?? 100,
           badgeValue: instance.getBadgeValue ? instance.getBadgeValue(profile) : undefined,
+          severity: instance.getBadgeSeverity ? instance.getBadgeSeverity(profile) : null,
           templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
         });
         continue;
@@ -130,12 +147,14 @@ export class CollectorRegistry implements OnModuleInit {
 
       const badgeValue = instance.getBadgeValue ? instance.getBadgeValue(profile) : undefined;
       if (badgeValue === null) continue;
+      const severity = instance.getBadgeSeverity ? instance.getBadgeSeverity(profile) : null;
 
       const subPanel: SubPanelInfo = {
         name: meta.name,
         label: meta.label ?? instance.label ?? meta.name,
         icon: meta.icon ?? instance.icon,
         templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
+        severity,
       };
 
       if (seenGroups.has(group)) {
@@ -145,6 +164,7 @@ export class CollectorRegistry implements OnModuleInit {
           groupPanel.badgeValue =
             groupPanel.badgeValue != null ? `${groupPanel.badgeValue} · ${badgeValue}` : badgeValue;
         }
+        groupPanel.severity = maxSeverity(groupPanel.severity, severity);
       } else {
         const groupPanel: CollectorPanelInfo = {
           name: group,
@@ -157,6 +177,7 @@ export class CollectorRegistry implements OnModuleInit {
             instance.priority ??
             100,
           badgeValue,
+          severity,
           templatePath: GROUPED_PANEL_TEMPLATE,
           isGroup: true,
           subPanels: [subPanel],

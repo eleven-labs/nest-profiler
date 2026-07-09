@@ -115,7 +115,7 @@ import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
   imports: [
     TypeOrmModule.forFeature([Product]),
     ConditionalModule.registerWhen(
-      TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      TypeOrmCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
   ],
@@ -131,7 +131,7 @@ import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
   imports: [
     MikroOrmModule.forFeature([Product]),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
   ],

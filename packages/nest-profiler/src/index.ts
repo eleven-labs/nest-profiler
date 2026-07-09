@@ -35,6 +35,28 @@ export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface
 export { interpolateSql } from './collectors/sql/interpolate-sql';
 export { buildCurlCommand } from './views/copy/build-curl';
 export type { CurlInput } from './views/copy/build-curl';
+export { analyzeProfile } from './analysis/profiler-analyzer';
+export {
+  BUILTIN_TAG_IDS,
+  TAG_SEVERITY_RANK,
+  maxTagSeverity,
+  upsertTag,
+} from './analysis/profiler-tag.interface';
+export type { ProfilerTag, TagSeverity, BuiltinTagId } from './analysis/profiler-tag.interface';
+export { isTaggableCollector } from './analysis/taggable-collector.interface';
+export type {
+  TaggableCollector,
+  TaggableEntry,
+  TagConfig,
+} from './analysis/taggable-collector.interface';
+export type {
+  AnalyzedCollector,
+  PerformanceRule,
+  PerformanceRuleContext,
+} from './analysis/performance-rule.interface';
+export { BUILTIN_PERFORMANCE_RULES } from './analysis/builtin-rules';
+export { normalizeSqlFingerprint, normalizeHttpFingerprint } from './analysis/fingerprint.utils';
+export type { ProfilerPerformanceOptions } from './nest-profiler.builder';
 export { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
 export type {
   IProfilerStorageAdapter,

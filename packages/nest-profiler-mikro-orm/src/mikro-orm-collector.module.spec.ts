@@ -23,10 +23,10 @@ function optionsProvider(mod: DynamicModule): Provider | undefined {
 
 describe('MikroOrmCollectorModule.forRoot', () => {
   it('registers the logger patch, collector and the options token (useValue)', () => {
-    const mod = MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 });
+    const mod = MikroOrmCollectorModule.forRoot({ slowThreshold: 50 });
     expect(mod.module).toBe(MikroOrmCollectorModule);
     expect(mod.providers).toEqual(expect.arrayContaining([MikroOrmLoggerPatch, MikroOrmCollector]));
-    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowQueryThreshold: 50 });
+    expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowThreshold: 50 });
   });
 
   it('returns an inert module when enabled is false', () => {
@@ -39,7 +39,7 @@ describe('MikroOrmCollectorModule.forRoot', () => {
 describe('MikroOrmCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}
-    const useFactory = (): { slowQueryThreshold: number } => ({ slowQueryThreshold: 25 });
+    const useFactory = (): { slowThreshold: number } => ({ slowThreshold: 25 });
     const mod = MikroOrmCollectorModule.forRootAsync({
       imports: [FakeImport],
       inject: ['CONFIG'],

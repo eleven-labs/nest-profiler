@@ -47,6 +47,7 @@ const COLUMN_BY_FIELD: Record<string, string> = {
   statusCode: 'status_code',
   duration: 'duration',
   hasExceptions: 'has_exceptions',
+  tags: 'tags',
   search: 'search',
 };
 
@@ -108,8 +109,8 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     const isNew = !this.stmt('SELECT 1 FROM profiles WHERE token = ?').get(s.token);
     this.stmt(
       `INSERT OR REPLACE INTO profiles
-         (token, created_at, type, method, url, status_code, duration, has_exceptions, search, attributes, profile)
-         VALUES (@token, @createdAt, @type, @method, @url, @statusCode, @duration, @hasExceptions, @search, @attributes, @profile)`,
+         (token, created_at, type, method, url, status_code, duration, has_exceptions, tags, search, attributes, profile)
+         VALUES (@token, @createdAt, @type, @method, @url, @statusCode, @duration, @hasExceptions, @tags, @search, @attributes, @profile)`,
     ).run({
       token: s.token,
       createdAt: s.createdAt,
@@ -119,6 +120,7 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
       statusCode: s.statusCode ?? null,
       duration: s.duration,
       hasExceptions: s.hasExceptions ? 1 : 0,
+      tags: s.tags,
       search: s.search,
       attributes: JSON.stringify(s.attributes),
       profile: JSON.stringify(profile),
@@ -350,6 +352,7 @@ const SCHEMA = `
     status_code INTEGER,
     duration INTEGER NOT NULL DEFAULT 0,
     has_exceptions INTEGER NOT NULL DEFAULT 0,
+    tags TEXT NOT NULL DEFAULT '',
     search TEXT NOT NULL DEFAULT '',
     attributes TEXT NOT NULL DEFAULT '{}',
     profile TEXT NOT NULL

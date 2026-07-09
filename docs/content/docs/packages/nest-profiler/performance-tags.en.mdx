@@ -1,0 +1,77 @@
+---
+title: Performance tags (N+1, slow, error…)
+description: Detect N+1 queries, slow queries, failed HTTP calls, chatty endpoints and large payloads with the core rule-based tagging engine, and filter profiles by tag.
+seo:
+  description: 'The nest-profiler core runs a rule-based analysis pass once per profile that tags SQL, Mongo and outgoing HTTP calls with slow / N+1 / error / chatty / large-payload, surfaces them as pills, and makes them filterable on the list page. Add your own rules.'
+---
+
+The profiler runs a single **analysis pass** once per profile — after every collector, before the profile is persisted — that flags common performance anti-patterns and attaches structured **tags** to the offending queries and HTTP calls. Tags surface as coloured pills in the panels and on the list page, where a **Performance tag** filter narrows the profiles down to a given issue.
+
+Detection spans every query collector (`typeorm`, `mikro-orm`, `mongoose`) and the outgoing-HTTP collector (`http`). Grouping is done once in the core on a per-entry **fingerprint** each collector supplies (normalized SQL, `collection + operation + filter shape`, or `method + normalized URL`), so the same query executed with different bind values is recognised as a repeat.
+
+The detail page leads with a **Performance** banner summarising the issues, and colour-codes the affected collector tab (and its sub-tabs) by severity so a problematic panel stands out at a glance. Below, a GraphQL query that lists products and resolves each product's reviews from MongoDB (a classic N+1) is flagged `N+1 ×4`:
+
+![Profile detail — a Performance banner reading "1 issue detected" with an N+1 ×4 tag, above a Database panel whose MongoDB sub-tab is marked with a red severity dot](/screenshots/profiler/performance-tags-detail.png)
+
+## Built-in tags
+
+| Tag             | Applies to    | When                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slow`          | queries, HTTP | A single call's `duration` reaches the collector's `slowThreshold`.                                                                                                                                                                                                                                                        |
+| `n-plus-one`    | queries, HTTP | The same fingerprint runs `nPlusOneThreshold`+ times — the **N+1** anti-pattern (repeated queries or repeated HTTP calls); the pill reads `N+1 ×N`.                                                                                                                                                                        |
+| `error`         | queries, HTTP | An entry failed (an error, or an HTTP status ≥ 400), or the profile carries an unhandled exception.                                                                                                                                                                                                                        |
+| `chatty`        | profile       | A single request made a lot of calls to one backend — `chattyThreshold`+ SQL/Mongo queries or outgoing HTTP calls (default 20 queries, 10 HTTP). Unlike N+1, the calls need not be identical: it catches an endpoint that is "chatty" overall (many small round-trips), often a sign of missing batching or eager-loading. |
+| `large-payload` | HTTP          | A request/response payload reaches `largePayloadThreshold`.                                                                                                                                                                                                                                                                |
+
+Each tag is a `ProfilerTag` — `{ id, label, severity, count?, detail? }` — attached to the entry and aggregated (deduplicated) onto `profile.tags`.
+
+## Thresholds
+
+Thresholds live on each collector, so a Mongo slow query and a slow HTTP call can differ. Defaults:
+
+| Option                  | typeorm / mikro-orm / mongoose | http   |
+| ----------------------- | ------------------------------ | ------ |
+| `slowThreshold` (ms)    | `100`                          | `300`  |
+| `nPlusOneThreshold`     | `2`                            | `2`    |
+| `chattyThreshold`       | `20`                           | `10`   |
+| `largePayloadThreshold` | —                              | `1 MB` |
+
+```ts
+TypeOrmCollectorModule.forRoot({ slowThreshold: 50, nPlusOneThreshold: 2 });
+HttpCollectorModule.forRoot({ slowThreshold: 500, largePayloadThreshold: 512 * 1024 });
+```
+
+> **Migrating from `slowQueryThreshold`** — the option was renamed to `slowThreshold`, and the per-entry `isSlow` boolean was removed. "Slow" is now the `slow` tag, computed centrally by the engine (no longer at capture time); read it from `entry.tags` or `profile.tags`.
+
+## Filtering by tag
+
+The list page shows a **Performance tag** select (Slow / N+1 / Chatty / Large payload) that keeps only the profiles carrying that tag, with the tag pills rendered inline on each row. Failures are not performance issues, so the `error` tag has its own **With errors** checkbox (it replaces the former "With exceptions" filter and is broader — it also covers failed HTTP/query calls, not just unhandled exceptions).
+
+![Profiles list filtered by the N+1 performance tag, showing a single GraphQL products query row tagged N+1 ×4](/screenshots/profiler/performance-tags-filter.png)
+
+## Custom rules
+
+A rule inspects the collected entries and tags whatever it wants. Register one declaratively or programmatically:
+
+```ts
+import { PerformanceRule } from '@eleven-labs/nest-profiler';
+
+const seqScanRule: PerformanceRule = {
+  id: 'seq-scan',
+  evaluate(ctx) {
+    for (const { entries, domain } of ctx.collectors) {
+      if (domain !== 'query') continue;
+      for (const entry of entries) {
+        if (/seq scan/i.test((entry as { sql?: string }).sql ?? '')) {
+          ctx.tagEntry(entry, { id: 'seq-scan', label: 'Seq scan', severity: 'warning' });
+        }
+      }
+    }
+  },
+};
+
+ProfilerModule.forRoot({ performance: { rules: [seqScanRule] } });
+// …or, from a module's onModuleInit: core.registerPerformanceRule(seqScanRule);
+```
+
+A rule's `ctx.collectors` entries carry `duration`, `fingerprint` and the concrete collector fields (cast by `domain`); call `ctx.tagEntry(entry, tag)` or `ctx.tagProfile(tag)`. The emitted tag id becomes filterable — offer it in the list select with `core.registerFilterOption('tag', { value: 'seq-scan', label: 'Seq scan' })`.

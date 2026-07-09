@@ -28,6 +28,8 @@ function makeRequest(overrides: Partial<HttpRequestEntry> = {}): HttpRequestEntr
   };
 }
 
+const errorTag = { id: 'error', label: 'Error', severity: 'danger' as const };
+
 describe('HttpClientCollector', () => {
   let collector: HttpClientCollector;
 
@@ -35,11 +37,11 @@ describe('HttpClientCollector', () => {
     collector = new HttpClientCollector();
   });
 
-  it('collects requests and removes the internal key', () => {
+  it('collects requests, stamps a fingerprint and removes the internal key', () => {
     const r = makeRequest();
     const profile = makeProfile({ collectors: { [HTTP_CLIENT_REQUESTS_KEY]: [r] } });
     const result = collector.collect(profile);
-    expect(result).toEqual([r]);
+    expect(result).toEqual([{ ...r, fingerprint: 'GET api.example.com/data' }]);
     expect(profile.collectors[HTTP_CLIENT_REQUESTS_KEY]).toBeUndefined();
   });
 
@@ -58,13 +60,24 @@ describe('HttpClientCollector', () => {
     expect(collector.getBadgeValue(profile)).toBe('2');
   });
 
-  it('getBadgeValue includes error count for failed and 4xx/5xx requests', () => {
-    const err = makeRequest({ statusCode: 500 });
-    const failed = makeRequest({ statusCode: undefined, error: 'boom' });
+  it('getBadgeValue is a plain request count; getBadgeSeverity reflects the tags', () => {
+    const err = makeRequest({ statusCode: 500, tags: [errorTag] });
+    const failed = makeRequest({ statusCode: undefined, error: 'boom', tags: [errorTag] });
     const profile = makeProfile({
       collectors: { [HTTP_CLIENT_REQUESTS_KEY]: [makeRequest(), err, failed] },
     });
-    expect(collector.getBadgeValue(profile)).toBe('3 (2 err)');
+    expect(collector.getBadgeValue(profile)).toBe('3');
+    expect(collector.getBadgeSeverity(profile)).toBe('danger');
+  });
+
+  it('getTagConfig exposes the HTTP defaults and configured overrides', () => {
+    expect(new HttpClientCollector().getTagConfig()).toMatchObject({
+      slowThreshold: 300,
+      nPlusOneThreshold: 2,
+      chattyThreshold: 10,
+      largePayloadThreshold: 1_048_576,
+    });
+    expect(new HttpClientCollector({ slowThreshold: 750 }).getTagConfig().slowThreshold).toBe(750);
   });
 
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {

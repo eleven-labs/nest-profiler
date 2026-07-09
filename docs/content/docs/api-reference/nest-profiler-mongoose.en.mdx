@@ -42,7 +42,7 @@ import type {
 ```ts
 // In ReviewsModule (or any module that uses @nestjs/mongoose):
 MongooseCollectorModule.forRoot({
-  slowQueryThreshold: 50, // ms - queries above this are highlighted red
+  slowThreshold: 50, // ms — queries at/above this are tagged 'slow'
 });
 ```
 
@@ -62,7 +62,7 @@ ConditionalModule.registerWhen(
   MongooseCollectorModule.forRootAsync({
     inject: [ConfigService],
     useFactory: (config: ConfigService) => ({
-      slowQueryThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
+      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
     }),
   }),
   isProfilerEnabled,

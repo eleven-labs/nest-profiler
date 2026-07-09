@@ -46,7 +46,7 @@ describe('TypeOrmDriverPatch (real better-sqlite3 integration)', () => {
       get: (token: unknown) =>
         token === ClsService ? cls : token === getDataSourceToken() ? dataSource : undefined,
     } as unknown as ModuleRef;
-    new TypeOrmDriverPatch(patchModuleRef, { slowQueryThreshold: 100 }).onModuleInit();
+    new TypeOrmDriverPatch(patchModuleRef, { slowThreshold: 100 }).onModuleInit();
 
     await dataSource
       .createQueryRunner()
@@ -79,7 +79,6 @@ describe('TypeOrmDriverPatch (real better-sqlite3 integration)', () => {
     expect(select?.error).toBeUndefined();
     for (const e of entries) {
       expect(e.duration).toBeGreaterThanOrEqual(0);
-      expect(e.isSlow).toBe(false);
       expect(typeof e.startedAt).toBe('number');
     }
   });

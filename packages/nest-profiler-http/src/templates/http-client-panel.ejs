@@ -1,12 +1,19 @@
 <%
   const requests = data || [];
   const totalDuration = requests.reduce((sum, r) => sum + r.duration, 0);
+  const hasTag = (r, id) => (r.tags || []).some(t => t.id === id);
+  const errCount = requests.filter(r => hasTag(r, 'error')).length;
+  const slowCount = requests.filter(r => hasTag(r, 'slow')).length;
+  const dupGroups = new Set(requests.filter(r => hasTag(r, 'n-plus-one') && r.fingerprint).map(r => r.fingerprint));
 %>
 
 <div class="flex items-center justify-between mb-4">
   <div class="flex items-center gap-4 text-xs text-foreground-muted">
     <span><strong class="text-foreground"><%= requests.length %></strong> request<%= requests.length !== 1 ? 's' : '' %></span>
     <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% if (errCount > 0) { %><span class="text-danger"><strong><%= errCount %></strong> err</span><% } %>
+    <% if (slowCount > 0) { %><span class="text-danger"><strong><%= slowCount %></strong> slow</span><% } %>
+    <% if (dupGroups.size > 0) { %><span class="text-danger"><strong><%= dupGroups.size %></strong> N+1</span><% } %>
   </div>
 </div>
 
@@ -62,6 +69,9 @@
                 <span class="min-w-0">
                   <%= r.url %>
                   <% if (r.error) { %><span class="block text-danger text-2xs mt-0.5"><%= r.error %></span><% } %>
+                  <% if (r.tags && r.tags.length > 0) { %>
+                    <span class="mt-1 flex flex-wrap gap-1"><%- tagBadges(r.tags) %></span>
+                  <% } %>
                 </span>
                 <span class="shrink-0"><%- copyBtn(buildCurl({ method: r.method, url: r.url, headers: r.requestHeaders, body: r.requestBody }), 'Copy as cURL') %></span>
               </div>
@@ -73,7 +83,7 @@
                 <span class="text-foreground-faint text-xs">—</span>
               <% } %>
             </td>
-            <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= r.duration %>ms</td>
+            <td class="py-2 px-4 text-right text-xs tabular-nums <%= hasTag(r, 'slow') ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= r.duration %>ms</td>
             <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
           </tr>
 

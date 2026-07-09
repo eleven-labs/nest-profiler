@@ -144,6 +144,8 @@ describe('ProfilerController (unit)', () => {
     await controller.getProfileDetail(profile.token, 'database');
 
     expect(rendered[0]?.ctx.activeTab).toBe('database');
+    // No `subtab` query → the grouped panel falls back to its first sub-tab.
+    expect(rendered[0]?.ctx.activeSubTab).toBeNull();
     expect(rendered[0]?.ctx.collectorData).toEqual({
       subPanels: [
         { name: 'typeorm', label: 'TypeORM', templatePath: '/tmp/sql.ejs', data: typeormEntries },
@@ -155,6 +157,15 @@ describe('ProfilerController (unit)', () => {
         },
       ],
     });
+  });
+
+  it('forwards the ?subtab query to the view so a grouped sub-panel is linkable', async () => {
+    const profile = makeProfile();
+    const { controller, rendered } = setup({ profiles: [profile] });
+
+    await controller.getProfileDetail(profile.token, 'database', 'mongoose');
+
+    expect(rendered[0]?.ctx.activeSubTab).toBe('mongoose');
   });
 
   it('keeps a badgeless entrypoint tab active (undefined, not null) so it is never dimmed', async () => {

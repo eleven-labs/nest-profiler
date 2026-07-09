@@ -213,7 +213,7 @@ describe('ProfilerController (e2e)', () => {
       expect(byClass.text).not.toContain(short(okToken));
     });
 
-    it('narrows the HTTP list by global search and by exceptions', async () => {
+    it('narrows the HTTP list by global search and by the errors checkbox', async () => {
       const helloToken = await createProfile('/hello', 'get');
       const errToken = await createProfile('/boom', 'get');
 
@@ -221,11 +221,11 @@ describe('ProfilerController (e2e)', () => {
       expect(bySearch.text).toContain(short(helloToken));
       expect(bySearch.text).not.toContain(short(errToken));
 
-      const byException = await request(server())
-        .get('/_profiler')
-        .query({ http_hasExceptions: '1' });
-      expect(byException.text).toContain(short(errToken));
-      expect(byException.text).not.toContain(short(helloToken));
+      // The rule engine tags a profile carrying an unhandled exception `error`; the
+      // dedicated "errors" checkbox replaces the former "exceptions" filter.
+      const byError = await request(server()).get('/_profiler').query({ http_error: '1' });
+      expect(byError.text).toContain(short(errToken));
+      expect(byError.text).not.toContain(short(helloToken));
     });
 
     it('ignores non-numeric filter values instead of hiding all profiles', async () => {

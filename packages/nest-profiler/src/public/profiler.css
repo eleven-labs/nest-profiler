@@ -173,6 +173,32 @@
   .badge-default {
     @apply bg-slate-100   text-slate-600   dark:bg-slate-700      dark:text-slate-200;
   }
+  /* ── Performance tags ───────────────────────────── */
+  .badge-tag-slow {
+    @apply bg-amber-100   text-amber-700   dark:bg-amber-900/40   dark:text-amber-300;
+  }
+  .badge-tag-n-plus-one {
+    @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;
+  }
+  .badge-tag-error {
+    @apply bg-red-200     text-red-800     dark:bg-red-950        dark:text-red-300;
+  }
+  .badge-tag-chatty {
+    @apply bg-purple-100  text-purple-700  dark:bg-purple-900/40  dark:text-purple-300;
+  }
+  .badge-tag-large-payload {
+    @apply bg-orange-100  text-orange-700  dark:bg-orange-900/40  dark:text-orange-300;
+  }
+  /* Severity fallbacks for custom tag ids. */
+  .badge-tag-info {
+    @apply bg-sky-100     text-sky-700     dark:bg-sky-900/40     dark:text-sky-300;
+  }
+  .badge-tag-warning {
+    @apply bg-amber-100   text-amber-700   dark:bg-amber-900/40   dark:text-amber-300;
+  }
+  .badge-tag-danger {
+    @apply bg-red-100     text-red-700     dark:bg-red-900/40     dark:text-red-300;
+  }
   /* ── Duration ───────────────────────────────────── */
   .dur-fast {
     @apply text-emerald-600 dark:text-emerald-400;

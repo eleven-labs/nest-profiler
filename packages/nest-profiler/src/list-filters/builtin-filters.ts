@@ -1,5 +1,6 @@
 import type { ProfilerListFilter } from './profiler-list-filter.interface';
 import { parseLenientInt } from './list-filter.utils';
+import { BUILTIN_TAG_IDS } from '../analysis/profiler-tag.interface';
 
 /** Free-text search across URL, GraphQL operation/field name and command name. */
 const searchFilter: ProfilerListFilter<string> = {
@@ -76,23 +77,53 @@ const maxDurationFilter: ProfilerListFilter<number> = {
   toCriterion: (value) => ({ field: 'duration', op: 'lte', value }),
 };
 
-const hasExceptionsFilter: ProfilerListFilter<boolean> = {
-  key: 'hasExceptions',
-  label: 'With exceptions',
-  control: 'checkbox',
+/**
+ * Filters profiles by a genuine performance tag applied by the rule engine —
+ * `slow`, `n-plus-one`, `chatty` or `large-payload`. Failures are not performance
+ * issues, so the `error` tag has its own checkbox ({@link errorFilter}). The value
+ * is space-wrapped so a `contains` criterion matches a whole id in the summary's
+ * space-delimited `tags` haystack (`slow` never matches `very-slow`). Custom tag
+ * ids can be offered via {@link ProfilerCoreService.registerFilterOption}(`'tag'`, …).
+ */
+const tagFilter: ProfilerListFilter<string> = {
+  key: 'tag',
+  label: 'Performance tag',
+  control: 'select',
   order: 80,
+  options: [
+    { value: '', label: 'All' },
+    { value: BUILTIN_TAG_IDS.slow, label: 'Slow' },
+    { value: BUILTIN_TAG_IDS.nPlusOne, label: 'N+1' },
+    { value: BUILTIN_TAG_IDS.chatty, label: 'Chatty' },
+    { value: BUILTIN_TAG_IDS.largePayload, label: 'Large payload' },
+  ],
+  parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
+  toCriterion: (value) => ({ field: 'tags', op: 'contains', value: ` ${value} ` }),
+};
+
+/**
+ * Keeps only profiles that carry the `error` tag — a failed call (an entry error or
+ * an HTTP status ≥ 400) or an unhandled exception. Kept separate from the performance
+ * tag select since an error is a failure, not a performance issue; replaces the former
+ * "with exceptions" checkbox (now broader: it also covers failed HTTP/query calls).
+ */
+const errorFilter: ProfilerListFilter<boolean> = {
+  key: 'error',
+  label: 'With errors',
+  control: 'checkbox',
+  order: 85,
   // Checked boxes submit '1'; unchecked submit nothing — undefined keeps the filter inactive.
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? true : undefined),
-  toCriterion: () => ({ field: 'hasExceptions', op: 'truthy' }),
+  toCriterion: () => ({ field: 'tags', op: 'contains', value: ` ${BUILTIN_TAG_IDS.error} ` }),
 };
 
 /**
  * The filters the core registers by default (in display order). Most are
- * universal — search, duration and exceptions apply to every list — while the
- * HTTP-status pair (`status`, `statusClass`) is scoped via `forType` to the
- * response-producing kinds ({@link HTTP_RESPONSE_TYPES}). Kind-specific filters
- * (HTTP method, GraphQL operation type, RabbitMQ delivery…) are contributed by
- * each entrypoint type and shown only above its own list.
+ * universal — search, duration and the performance tag apply to every list —
+ * while the HTTP-status pair (`status`, `statusClass`) is scoped via `forType`
+ * to the response-producing kinds ({@link HTTP_RESPONSE_TYPES}). Kind-specific
+ * filters (HTTP method, GraphQL operation type, RabbitMQ delivery…) are
+ * contributed by each entrypoint type and shown only above its own list.
  */
 export const BUILTIN_LIST_FILTERS: ProfilerListFilter[] = [
   searchFilter,
@@ -100,5 +131,6 @@ export const BUILTIN_LIST_FILTERS: ProfilerListFilter[] = [
   statusClassFilter,
   minDurationFilter,
   maxDurationFilter,
-  hasExceptionsFilter,
+  tagFilter,
+  errorFilter,
 ];

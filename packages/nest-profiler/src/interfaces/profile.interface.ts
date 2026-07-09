@@ -1,3 +1,5 @@
+import type { ProfilerTag } from '../analysis/profiler-tag.interface';
+
 export type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
 
 export interface LogEntry {
@@ -123,4 +125,10 @@ export interface Profile<TData = unknown> {
   spans?: TimelineSpan[];
   events?: EventEntry[];
   security?: SecurityContext;
+  /**
+   * Performance tags aggregated by the rule engine ({@link analyzeProfile}) from
+   * the collected entries and the profile itself — the deduplicated set surfaced
+   * in the profile header, the list-page pills and the `tags` list filter.
+   */
+  tags?: ProfilerTag[];
 }

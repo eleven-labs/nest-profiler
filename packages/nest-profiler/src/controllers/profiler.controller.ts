@@ -281,6 +281,7 @@ export class ProfilerController {
   async getProfileDetail(
     @Param('token') token: string,
     @Query('tab') tab?: string,
+    @Query('subtab') subtab?: string,
   ): Promise<string> {
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
@@ -338,6 +339,9 @@ export class ProfilerController {
       summary,
       collectorPanels,
       collectorData,
+      // Which sub-tab of a grouped collector panel (e.g. `mongoose` within Database)
+      // is initially active; honoured server-side so a sub-panel is linkable/screenshot-able.
+      activeSubTab: subtab ?? null,
     });
   }
 }

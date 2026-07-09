@@ -73,13 +73,12 @@ export class MongooseConnectionPatch implements OnModuleInit {
       getConnectionToken(this.options.connectionName),
     );
     if (!this.cls || !connection) return;
-    const threshold = this.options.slowQueryThreshold ?? 100;
     const conn = connection as PatchableConnection;
     const mongoose = conn.base;
     if (mongoose?.Query?.prototype == null || mongoose?.Aggregate?.prototype == null) return;
-    this.patchQueryExec(mongoose, threshold);
-    this.patchAggregateExec(mongoose, threshold);
-    this.patchWrites(mongoose, threshold);
+    this.patchQueryExec(mongoose);
+    this.patchAggregateExec(mongoose);
+    this.patchWrites(mongoose);
   }
 
   /**
@@ -88,7 +87,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
    * no longer invisible in the MongoDB panel. Each is guarded/idempotent and no-ops when the
    * underlying mongoose build does not expose it.
    */
-  private patchWrites(mongoose: MongooseBase, threshold: number): void {
+  private patchWrites(mongoose: MongooseBase): void {
     const model = mongoose.Model;
     if (!model) return;
     const cls = this.cls;
@@ -108,7 +107,6 @@ export class MongooseConnectionPatch implements OnModuleInit {
           collection,
           operation,
           duration,
-          isSlow: duration >= threshold,
           startedAt,
           count,
           error,
@@ -179,7 +177,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     }
   }
 
-  private patchQueryExec(mongoose: MongooseBase, threshold: number): void {
+  private patchQueryExec(mongoose: MongooseBase): void {
     if (mongoose.Query.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
     const originalExec = mongoose.Query.prototype.exec;
@@ -218,7 +216,6 @@ export class MongooseConnectionPatch implements OnModuleInit {
               // password or a token field) before persisting/displaying it.
               filter: filter ? redact(filter) : undefined,
               duration,
-              isSlow: duration >= threshold,
               startedAt,
               count: resultArray?.length,
               error,
@@ -235,7 +232,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
     mongoose.Query.prototype.exec = patched;
   }
 
-  private patchAggregateExec(mongoose: MongooseBase, threshold: number): void {
+  private patchAggregateExec(mongoose: MongooseBase): void {
     if (mongoose.Aggregate.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
     const originalExec = mongoose.Aggregate.prototype.exec;
@@ -266,7 +263,6 @@ export class MongooseConnectionPatch implements OnModuleInit {
               operation: 'aggregate',
               pipeline: pipeline ? redact(pipeline) : undefined,
               duration,
-              isSlow: duration >= threshold,
               startedAt,
               count: resultArray?.length,
               error,

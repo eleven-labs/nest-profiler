@@ -36,11 +36,12 @@ function makeQuery(overrides: Partial<QueryEntry> = {}): QueryEntry {
     sql: 'select * from product',
     duration: 10,
     type: 'SELECT',
-    isSlow: false,
     startedAt: Date.now(),
     ...overrides,
   };
 }
+
+const slowTag = { id: 'slow', label: 'Slow', severity: 'warning' as const };
 
 describe('MikroOrmCollector', () => {
   let collector: MikroOrmCollector;
@@ -57,15 +58,24 @@ describe('MikroOrmCollector', () => {
   it('returns the private queries key entries and removes them from collectors', () => {
     const q = makeQuery();
     const profile = makeProfile({ collectors: { [MIKRO_ORM_QUERIES_KEY]: [q] } });
-    expect(collector.collect(profile)).toEqual([q]);
+    expect(collector.collect(profile)).toEqual([{ ...q, fingerprint: 'select * from product' }]);
     expect(profile.collectors[MIKRO_ORM_QUERIES_KEY]).toBeUndefined();
   });
 
-  it('getBadgeValue includes slow count when present', () => {
-    const slow = makeQuery({ isSlow: true });
+  it('getBadgeValue is a plain query count; getBadgeSeverity reflects the tags', () => {
+    const slow = makeQuery({ tags: [slowTag] });
     const fast = makeQuery();
     const profile = makeProfile({ collectors: { [MIKRO_ORM_QUERIES_KEY]: [slow, fast] } });
-    expect(collector.getBadgeValue(profile)).toBe('2q (1 slow)');
+    expect(collector.getBadgeValue(profile)).toBe('2q');
+    expect(collector.getBadgeSeverity(profile)).toBe('warning');
+  });
+
+  it('getTagConfig returns defaults, and the configured thresholds when provided', () => {
+    expect(new MikroOrmCollector().getTagConfig()).toMatchObject({
+      slowThreshold: 100,
+      nPlusOneThreshold: 2,
+    });
+    expect(new MikroOrmCollector({ slowThreshold: 15 }).getTagConfig().slowThreshold).toBe(15);
   });
 
   it('getTemplatePath returns an absolute path ending with sql-panel.ejs', () => {
@@ -99,7 +109,6 @@ describe('MikroOrmCollectorModule.forRoot', () => {
 describe('MikroOrmLoggerPatch', () => {
   function setup(
     params: {
-      threshold?: number;
       profile?: Profile | null;
       clsThrows?: boolean;
       queryEnabled?: boolean;
@@ -132,9 +141,7 @@ describe('MikroOrmLoggerPatch', () => {
       }),
     } as unknown as ClsService;
 
-    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {
-      slowQueryThreshold: params.threshold,
-    });
+    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {});
     patch.onModuleInit();
     return { logger, logQuerySpy, profile };
   }
@@ -159,14 +166,13 @@ describe('MikroOrmLoggerPatch', () => {
   });
 
   it('captures sql, parameters, type and duration for a query', () => {
-    const { logger, profile } = setup({ threshold: 100 });
+    const { logger, profile } = setup({});
     logger.logQuery(ctx());
     const e = firstEntry(profile);
     expect(e.sql).toBe('select * from product');
     expect(e.parameters).toEqual([1]);
     expect(e.type).toBe('SELECT');
     expect(e.duration).toBe(5);
-    expect(e.isSlow).toBe(false);
   });
 
   it('defaults parameters to an empty array and duration to 0 when absent', () => {
@@ -175,12 +181,6 @@ describe('MikroOrmLoggerPatch', () => {
     const e = firstEntry(profile);
     expect(e.parameters).toEqual([]);
     expect(e.duration).toBe(0);
-  });
-
-  it('flags slow queries when the duration meets the threshold', () => {
-    const { logger, profile } = setup({ threshold: 5 });
-    logger.logQuery(ctx({ took: 5 }));
-    expect(firstEntry(profile).isSlow).toBe(true);
   });
 
   it('records a failure marker when the log level is error', () => {
@@ -235,27 +235,6 @@ describe('MikroOrmLoggerPatch', () => {
     expect(disabled.logQuerySpy).not.toHaveBeenCalled();
   });
 
-  it('uses the default threshold when no options are provided', () => {
-    const logQuerySpy = jest.fn();
-    const logger = {
-      logQuery: logQuerySpy,
-      isEnabled: jest.fn(() => false),
-      log: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      setDebugMode: jest.fn(),
-    } as unknown as Logger;
-    const orm = { config: { getLogger: () => logger } } as unknown as MikroORM;
-    const profile = makeProfile();
-    const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    // Third argument omitted → exercises the default `options = {}` parameter.
-    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {});
-    patch.onModuleInit();
-
-    logger.logQuery(ctx({ took: 50 }));
-    expect(firstEntry(profile).isSlow).toBe(false);
-  });
-
   it('does not double-wrap the logger when onModuleInit runs twice', () => {
     const logQuerySpy = jest.fn();
     const logger = {
@@ -269,7 +248,7 @@ describe('MikroOrmLoggerPatch', () => {
     const orm = { config: { getLogger: () => logger } } as unknown as MikroORM;
     const profile = makeProfile();
     const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
-    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), { slowQueryThreshold: 100 });
+    const patch = new MikroOrmLoggerPatch(mikroModuleRef(cls, orm), {});
     patch.onModuleInit();
     patch.onModuleInit(); // second init must be a no-op (idempotency guard)
 

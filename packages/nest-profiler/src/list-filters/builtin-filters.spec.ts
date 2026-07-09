@@ -8,6 +8,7 @@ import type {
   ProfileEntrypoint,
   Profile,
 } from '../interfaces/profile.interface';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface';
 
 /** Shape of the generic `command` entrypoint a protocol package would register. */
 interface CommandData {
@@ -25,6 +26,7 @@ function makeProfile(overrides: {
   graphql?: Partial<GraphQLInfo>;
   command?: Partial<CommandData>;
   exceptions?: ExceptionEntry[];
+  tags?: ProfilerTag[];
 }): Profile {
   // Each kind is matched generically by its `entrypoint.type`: a command profile
   // is `command`, a GraphQL operation is `graphql` (its own kind, carried on HTTP),
@@ -76,8 +78,11 @@ function makeProfile(overrides: {
     logs: [],
     exceptions: overrides.exceptions ?? [],
     collectors: {},
+    tags: overrides.tags,
   };
 }
+
+const tag = (id: string): ProfilerTag => ({ id, label: id, severity: 'warning' });
 
 function filter(key: string): ProfilerListFilter {
   const found = BUILTIN_LIST_FILTERS.find((f) => f.key === key);
@@ -108,8 +113,8 @@ describe('built-in list filters', () => {
     expect(keys).not.toContain('method');
   });
 
-  it('keeps search, duration and exceptions universal but scopes the HTTP-status filters', () => {
-    const universal = ['q', 'minDuration', 'maxDuration', 'hasExceptions'];
+  it('keeps search, duration and the performance tag universal but scopes the HTTP-status filters', () => {
+    const universal = ['q', 'minDuration', 'maxDuration', 'tag'];
     for (const key of universal) {
       expect(BUILTIN_LIST_FILTERS.find((f) => f.key === key)?.forType).toBeUndefined();
     }
@@ -188,18 +193,37 @@ describe('built-in list filters', () => {
     });
   });
 
-  describe('hasExceptions', () => {
-    const withException = makeProfile({
-      exceptions: [{ name: 'Error', message: 'boom', timestamp: 0 }],
+  describe('tag (performance tag)', () => {
+    it('matches only profiles carrying the selected tag id', () => {
+      expect(applies('tag', 'slow', makeProfile({ tags: [tag('slow')] }))).toBe(true);
+      expect(applies('tag', 'slow', makeProfile({ tags: [tag('n-plus-one')] }))).toBe(false);
+      expect(applies('tag', 'slow', makeProfile({}))).toBe(false);
     });
 
-    it('matches only profiles that captured an exception when checked', () => {
-      expect(applies('hasExceptions', '1', withException)).toBe(true);
-      expect(applies('hasExceptions', '1', makeProfile({}))).toBe(false);
+    it('matches a whole tag id, not a partial one', () => {
+      // ' very-slow ' must not satisfy a `slow` filter (space-wrapped contains).
+      expect(applies('tag', 'slow', makeProfile({ tags: [tag('very-slow')] }))).toBe(false);
     });
 
-    it('is inactive when unchecked (no value submitted)', () => {
-      expect(applies('hasExceptions', undefined, withException)).toBe('inactive');
+    it('is inactive when no tag is selected', () => {
+      expect(applies('tag', '', makeProfile({ tags: [tag('slow')] }))).toBe('inactive');
+    });
+  });
+
+  describe('error (checkbox, separate from the performance tag)', () => {
+    it('matches only profiles carrying the error tag when checked', () => {
+      expect(applies('error', '1', makeProfile({ tags: [tag('error')] }))).toBe(true);
+      expect(applies('error', '1', makeProfile({ tags: [tag('slow')] }))).toBe(false);
+      expect(applies('error', '1', makeProfile({}))).toBe(false);
+    });
+
+    it('is inactive when unchecked', () => {
+      expect(applies('error', undefined, makeProfile({ tags: [tag('error')] }))).toBe('inactive');
+    });
+
+    it('is not offered as a performance-tag select option', () => {
+      const tagOptions = filter('tag').options?.map((o) => o.value) ?? [];
+      expect(tagOptions).not.toContain('error');
     });
   });
 });

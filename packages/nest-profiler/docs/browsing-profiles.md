@@ -31,14 +31,15 @@ GET /_profiler?http_method=GET&http_minDuration=100&http_q=/api&http_statusClass
 
 The **universal** filters (available on every list) are:
 
-| Parameter       | Description                                                |
-| --------------- | ---------------------------------------------------------- |
-| `q`             | Search across URL, GraphQL operation name and command name |
-| `status`        | Exact response status code                                 |
-| `statusClass`   | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)       |
-| `minDuration`   | Minimum duration in ms                                     |
-| `maxDuration`   | Maximum duration in ms                                     |
-| `hasExceptions` | When set, only profiles that captured an exception         |
+| Parameter     | Description                                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`           | Search across URL, GraphQL operation name and command name                                                                                                              |
+| `status`      | Exact response status code                                                                                                                                              |
+| `statusClass` | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)                                                                                                                    |
+| `minDuration` | Minimum duration in ms                                                                                                                                                  |
+| `maxDuration` | Maximum duration in ms                                                                                                                                                  |
+| `tag`         | Keep only profiles carrying a performance tag (`slow`, `n-plus-one`, `chatty`, `large-payload`) — see [Performance tags](/docs/packages/nest-profiler/performance-tags) |
+| `error`       | Checkbox — keep only profiles with a failed call or unhandled exception (the `error` tag)                                                                               |
 
 Each entrypoint kind also contributes **scoped** filters, shown only above its own
 list — e.g. `method` (HTTP), `operationType` (GraphQL, via

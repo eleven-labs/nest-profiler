@@ -7,8 +7,8 @@ import type { Profile } from '@eleven-labs/nest-profiler';
 import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { QueryEntry } from './typeorm-collector.interface';
 import { detectQueryType } from './typeorm-collector.interface';
-import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.module';
-import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.module';
+import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
+import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface';
 
 export const TYPEORM_QUERIES_KEY = '__typeorm_queries';
 
@@ -69,10 +69,10 @@ export class TypeOrmDriverPatch implements OnModuleInit {
       );
       return;
     }
-    this.patchCreateQueryRunner(dataSource, this.options.slowQueryThreshold ?? 100);
+    this.patchCreateQueryRunner(dataSource);
   }
 
-  private patchCreateQueryRunner(dataSource: DataSource, threshold: number): void {
+  private patchCreateQueryRunner(dataSource: DataSource): void {
     const cls = this.cls;
     const patchable = dataSource as DataSource & PatchableDataSource;
     if (patchable.createQueryRunner.__profilerPatched) return;
@@ -111,7 +111,6 @@ export class TypeOrmDriverPatch implements OnModuleInit {
                 parameters: redact(parameters ?? []),
                 duration,
                 type: detectQueryType(query),
-                isSlow: duration >= threshold,
                 startedAt,
                 error,
               };
