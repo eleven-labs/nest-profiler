@@ -11,6 +11,7 @@
     "nest-profiler-commander",
     "nest-profiler-auth",
     "nest-profiler-config",
+    "nest-profiler-routes",
     "nest-profiler-validator",
     "nest-profiler-graphql",
     "nest-profiler-rabbitmq",

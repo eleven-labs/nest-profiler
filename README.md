@@ -49,6 +49,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
+- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Routes panel (REST + GraphQL / RabbitMQ / CLI)
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 - [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
 - [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
