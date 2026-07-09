@@ -12,6 +12,8 @@ export interface MongooseQueryEntry {
   startedAt: number;
   count?: number;
   error?: string;
+  /** True for streaming reads (`Query.cursor()` / `Aggregate.cursor()`). */
+  streaming?: boolean;
   /** Runnable mongosh command, precomputed by the collector for the UI copy button. */
   command?: string;
   /**

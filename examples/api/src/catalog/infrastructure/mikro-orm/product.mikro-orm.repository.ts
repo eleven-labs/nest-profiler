@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/core';
+import type { EntityManager as SqlEntityManager } from '@mikro-orm/postgresql';
 import { ProductRepository } from '../../domain/product.repository.js';
 import type { NewProduct, Product } from '../../domain/product.js';
 import { ProductEntity } from './product.mikro-orm.entity.js';
+import { toCsvRow } from '../../../shared/csv.util.js';
 
 /** Maps the MikroORM entity (nullable columns) to the domain model (optional fields). */
 function toDomain(entity: ProductEntity): Product {
@@ -30,6 +32,18 @@ export class MikroOrmProductRepository implements ProductRepository {
       .fork()
       .find(ProductEntity, {}, { orderBy: { createdAt: 'DESC' } });
     return products.map(toDomain);
+  }
+
+  // Exports rows through MikroORM's QueryBuilder.stream(). The SQL EntityManager exposes
+  // createQueryBuilder (absent from the core EntityManager type), so the fork is cast.
+  async streamCsv(): Promise<string> {
+    const em = this.em.fork() as unknown as SqlEntityManager;
+    const qb = em.createQueryBuilder(ProductEntity).orderBy({ createdAt: 'DESC' });
+    const lines: string[] = ['id,name,price'];
+    for await (const p of qb.stream()) {
+      lines.push(toCsvRow([p.id, p.name, p.price]));
+    }
+    return lines.join('\n');
   }
 
   async findById(id: number): Promise<Product | null> {

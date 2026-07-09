@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ProductRepository } from '../../domain/product.repository.js';
 import type { NewProduct, Product } from '../../domain/product.js';
+import { toCsvRow } from '../../../shared/csv.util.js';
 
 /**
  * Zero-infrastructure adapter — the default when `SQL_ORM=in-memory`. Lets the catalog (REST +
@@ -16,6 +17,17 @@ export class InMemoryProductRepository implements ProductRepository {
     return Promise.resolve(
       [...this.products].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     );
+  }
+
+  streamCsv(): Promise<string> {
+    // No real stream without a database; format the in-memory rows so the endpoint still responds.
+    const lines = ['id,name,price'];
+    for (const p of [...this.products].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    )) {
+      lines.push(toCsvRow([p.id, p.name, p.price]));
+    }
+    return Promise.resolve(lines.join('\n'));
   }
 
   findById(id: number): Promise<Product | null> {

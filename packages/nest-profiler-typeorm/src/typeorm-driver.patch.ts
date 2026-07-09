@@ -17,6 +17,14 @@ type PatchableMethod = (...args: unknown[]) => Promise<unknown>;
 /** A patched `QueryRunner.query` tagged so a re-used runner is never wrapped twice. */
 type PatchedQuery = PatchableMethod & { __profilerPatched?: boolean };
 
+/** A patched `QueryRunner.stream` tagged so a re-used runner is never wrapped twice. */
+type PatchedStream = PatchableMethod & { __profilerPatched?: boolean };
+
+/** Minimal Node stream surface used to time a streamed read without touching its data. */
+interface LifecycleStream {
+  once(event: string, listener: (...args: unknown[]) => void): unknown;
+}
+
 /** A patched `createQueryRunner` tagged so re-initialisation cannot re-wrap it. */
 type PatchedCreateQueryRunner = ((...args: unknown[]) => QueryRunner) & {
   __profilerPatched?: boolean;
@@ -124,6 +132,56 @@ export class TypeOrmDriverPatch implements OnModuleInit {
 
       patchedQuery.__profilerPatched = true;
       Reflect.set(qr, 'query', patchedQuery);
+
+      // Streaming reads bypass `query()` entirely — `Repository.stream()` /
+      // `QueryBuilder.stream()` go through `QueryRunner.stream()`, which resolves a Node
+      // ReadStream. Time it from the terminal lifecycle events only (never a `data` listener,
+      // which would force flowing mode and steal rows from the caller); row count is not
+      // captured for the same reason. Skipped when the driver does not expose `stream`.
+      const streamFn = (qr as { stream?: PatchableMethod }).stream;
+      if (typeof streamFn === 'function' && !(streamFn as PatchedStream).__profilerPatched) {
+        const originalStream = streamFn.bind(qr);
+
+        const patchedStream: PatchedStream = async function (...args: unknown[]): Promise<unknown> {
+          const query = String(args[0]);
+          const parameters = Array.isArray(args[1]) ? args[1] : undefined;
+          // Capture the profile synchronously, before awaiting, so we stay in the CLS context.
+          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const startedAt = Date.now();
+          let recorded = false;
+          const record = (error?: string): void => {
+            if (recorded || !profile) return;
+            recorded = true;
+            const entry: QueryEntry = {
+              sql: query,
+              parameters: redact(parameters ?? []),
+              duration: Date.now() - startedAt,
+              type: detectQueryType(query),
+              startedAt,
+              streaming: true,
+              error,
+            };
+            appendCollectorEntry<QueryEntry>(profile, TYPEORM_QUERIES_KEY, entry);
+          };
+          let stream: LifecycleStream;
+          try {
+            stream = (await originalStream(...args)) as LifecycleStream;
+          } catch (err) {
+            record(err instanceof Error ? err.message : String(err));
+            throw err;
+          }
+          stream.once('end', () => record());
+          stream.once('close', () => record());
+          stream.once('error', (err: unknown) =>
+            record(err instanceof Error ? err.message : String(err)),
+          );
+          return stream;
+        };
+
+        patchedStream.__profilerPatched = true;
+        Reflect.set(qr, 'stream', patchedStream);
+      }
+
       return qr;
     };
 

@@ -183,6 +183,32 @@ describe('MikroOrmLoggerPatch', () => {
     expect(e.duration).toBe(0);
   });
 
+  it('flags a streaming read (SELECT logged without `took`) with streaming:true and duration 0', () => {
+    // MikroORM's `AbstractSqlConnection.stream()` calls `logQuery` at stream start, before rows are
+    // consumed, so a streamed SELECT carries no `took`. It is captured and flagged `streaming`;
+    // duration stays 0 (documented) because measuring it would require wrapping the row stream.
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ took: undefined }));
+    const e = firstEntry(profile);
+    expect(e.sql).toBe('select * from product');
+    expect(e.type).toBe('SELECT');
+    expect(e.duration).toBe(0);
+    expect(e.streaming).toBe(true);
+    expect(e.error).toBeUndefined();
+  });
+
+  it('does not flag transaction/savepoint control (type OTHER without `took`) as streaming', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx({ query: 'SAVEPOINT trx1', took: undefined }));
+    expect(firstEntry(profile).streaming).toBeUndefined();
+  });
+
+  it('does not flag a normal SELECT (with `took`) as streaming', () => {
+    const { logger, profile } = setup({});
+    logger.logQuery(ctx());
+    expect(firstEntry(profile).streaming).toBeUndefined();
+  });
+
   it('records a failure marker when the log level is error', () => {
     const { logger, profile } = setup({});
     logger.logQuery(ctx({ level: 'error' }));

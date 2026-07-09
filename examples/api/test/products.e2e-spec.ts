@@ -39,6 +39,26 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     expect(phases).toContain('db.products.findAll');
   });
 
+  it('GET /products/export streams every row into a CSV and records the streaming read', async () => {
+    // Anti-regression: every row must reach the CSV — no rows lost to the streaming instrumentation.
+    const list = await profileOf(app, 'get', '/api/v1/products');
+    const expected = (list.res.body as unknown[]).length;
+
+    const { res, profile } = await profileOf(app, 'get', '/api/v1/products/export');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    const lines = res.text.trim().split('\n');
+    expect(lines[0]).toBe('id,name,price');
+    expect(lines).toHaveLength(expected + 1); // header + one line per row
+
+    // Both ORMs flag the streamed SELECT: TypeORM via QueryRunner.stream(), MikroORM via a SELECT
+    // logged without `took`. TypeORM measures the duration; MikroORM keeps it at 0 (documented).
+    const streamed = sqlEntries(profile.collectors).find((e) => e.streaming === true);
+    expect(streamed?.type).toBe('SELECT');
+    if (ormKey === 'mikro-orm') expect(streamed?.duration).toBe(0);
+  });
+
   it('GET /products/:id records the lookup query', async () => {
     const list = await profileOf(app, 'get', '/api/v1/products');
     const firstId = (list.res.body as Array<{ id: number }>)[0]!.id;

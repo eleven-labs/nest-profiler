@@ -9,6 +9,8 @@ export interface QueryEntry {
   type: QueryType;
   startedAt: number;
   error?: string;
+  /** True for streaming reads (e.g. `QueryRunner.stream()` / `QueryBuilder.stream()`). */
+  streaming?: boolean;
   /**
    * Parameter-free normalized SQL, used by the performance-rule engine to group
    * repeated executions (the N+1 signal). Filled by the SQL collector.

@@ -79,13 +79,21 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
           const profile = cls?.get<Profile | undefined>('profiler.profile');
           if (profile) {
             const duration = context.took ?? 0;
+            const type = detectQueryType(sql);
+            // MikroORM's SQL connection logs streaming reads (`QueryBuilder.stream()`) at stream
+            // start, before rows are consumed, so their context carries no `took`. A normal query
+            // always has `took`; transaction/savepoint control is type OTHER — so a SELECT without
+            // `took` is a streaming read. Flagged (with duration 0) for the UI; measuring the real
+            // duration would require wrapping MikroORM's row generator (a per-row cost).
+            const streaming = context.took === undefined && type === 'SELECT';
             const entry: QueryEntry = {
               sql,
               parameters: redact(context.params ? [...context.params] : []),
               duration,
-              type: detectQueryType(sql),
+              type,
               startedAt: Date.now() - duration,
               error: context.level === 'error' ? extractLogError(context) : undefined,
+              streaming: streaming || undefined,
             };
             appendCollectorEntry<QueryEntry>(profile, MIKRO_ORM_QUERIES_KEY, entry);
           }
