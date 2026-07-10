@@ -2,9 +2,10 @@
 '@eleven-labs/nest-profiler': minor
 ---
 
-Harden the SQLite storage backend for cheaper saves and a more resilient open path.
+Back the SQLite storage adapter with `@libsql/client` so one adapter serves a local file, an ephemeral `:memory:` database, or a **remote SQLite database** (`url` + optional `authToken`) — ideal for serverless hosts, with no second adapter.
 
-- **Memoized prepared statements**: every query is compiled once per SQL shape and reused, instead of re-preparing (notably the per-save `INSERT`) on every call.
-- **Counter-derived eviction**: an in-memory row count (kept exact across re-saves, re-synced from `COUNT(*)` to absorb writes by another process) gates trimming, so a save no longer sorts the whole table below the cap. The TTL sweep is amortized — reads already enforce the TTL — while the overflow trim stays synchronous and only fires once actually over `maxProfiles`.
-- **Resilient open path**: open failures are wrapped in an actionable, `cause`-chained error naming the resolved path. New `onCorruption: 'recreate' | 'throw'` option (default `'recreate'`) moves a corrupt file aside to `<path>.corrupt-<timestamp>` (sidecars included) and starts fresh, or rethrows.
-- **New `busyTimeout` option** (default `5000` ms) tunes how long a write waits on a concurrent writer of the same file database.
+- **`@libsql/client` optional peer dependency** replaces `better-sqlite3`; memory/file users still pull nothing extra (the core never imports the driver).
+- **New `url` / `authToken` options** point the adapter at a remote SQLite database and take precedence over `path`. `path` (local file, parent directory auto-created) and `':memory:'` keep working; a local file stays cross-process via WAL.
+- **BREAKING** — `SqliteStorageAdapter` is now fully async: `save` / `findOne` / `findAll` / `query` / `distinct` / `clear` / `close` return promises. The `IProfilerStorageAdapter` contract already allowed this and the profiler awaits them, so only code calling the adapter directly needs to `await`.
+- **BREAKING** — removed the `better-sqlite3`-specific `busyTimeout` and `onCorruption` options (and the corrupt-file move-aside path); they have no `@libsql/client` equivalent.
+- **Counter-derived eviction** is preserved: an in-memory row count (kept exact across re-saves, re-synced from `COUNT(*)` to absorb writes by another process) gates trimming, so a save never sorts the whole table below the cap; the TTL sweep stays amortized.

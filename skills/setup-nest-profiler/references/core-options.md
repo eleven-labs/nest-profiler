@@ -34,7 +34,7 @@ Three options, in precedence order:
 
 ### SQLite
 
-The core never imports `better-sqlite3`. Opt in by passing the adapter from the `/sqlite` subpath (peer dependency `better-sqlite3 >=11`, install it alongside):
+The core never imports `@libsql/client`. Opt in by passing the adapter from the `/sqlite` subpath (optional peer dependency `@libsql/client`, install it alongside). One adapter serves a local file, `:memory:`, or a remote SQLite database:
 
 ```ts
 import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
@@ -43,16 +43,26 @@ ProfilerModule.forRootAsync({
   isGlobal: true,
   inject: [ConfigService],
   useFactory: (config: ConfigService) => ({
-    storage: new SqliteStorageAdapter({
-      path: config.get<string>('profiler.storagePath') ?? '.profiler/profiler.db',
-      maxProfiles: config.get<number>('profiler.maxProfiles'),
-      ttl: config.get<number>('profiler.ttl'),
-    }),
+    storage: new SqliteStorageAdapter(
+      // A remote SQLite URL takes precedence over the local file path.
+      config.get<string>('profiler.storageUrl')
+        ? {
+            url: config.get<string>('profiler.storageUrl'),
+            authToken: config.get<string>('profiler.storageAuthToken'),
+            maxProfiles: config.get<number>('profiler.maxProfiles'),
+            ttl: config.get<number>('profiler.ttl'),
+          }
+        : {
+            path: config.get<string>('profiler.storagePath') ?? '.profiler/profiler.db',
+            maxProfiles: config.get<number>('profiler.maxProfiles'),
+            ttl: config.get<number>('profiler.ttl'),
+          },
+    ),
   }),
 });
 ```
 
-Add the storage path (`.profiler/`) to `.gitignore` for both `file` and `sqlite`. The repo's `examples/api/src/profiling/profiling.module.ts` shows a `resolveStorageOptions(config)` helper that switches between the three from config.
+Add the storage path (`.profiler/`) to `.gitignore` for both `file` and a local `sqlite` (a remote `url` needs no local file). The repo's `examples/api/src/profiling/profiling.module.ts` shows a `resolveStorageOptions(config)` helper that switches between the three from config.
 
 ## Environment variables
 

@@ -31,31 +31,42 @@ The file adapter keeps an in-memory index of each profile's queryable summary (t
 
 For fast repeated reads, parsed profiles are also cached in memory and validated against each file's mtime, so steady-state memory grows with `maxProfiles × average profile size` — keep `maxProfiles` reasonable when `collectBody` is enabled. Profiles returned by the storage are shared with this cache: treat them as read-only.
 
-## SQLite
+## SQLite (local file, `:memory:` or remote)
 
-For a persistent store that filters and paginates **in the database** — ideal once you keep many profiles — the package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath. It is opt-in: `better-sqlite3` is an **optional peer dependency**, so memory/file users pull no native module.
+For a persistent store that filters and paginates **in the database** — ideal once you keep many profiles — the package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath, backed by `@libsql/client`. It is opt-in: `@libsql/client` is an **optional peer dependency**, so memory/file users pull nothing extra.
 
 ```bash
-pnpm add better-sqlite3
+pnpm add @libsql/client
 ```
+
+The same adapter targets three backends via one option set:
 
 ```ts
 import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
 
+// Local file (default) — relative to cwd; parent directory created automatically.
 ProfilerModule.forRoot({
   storage: new SqliteStorageAdapter({
-    path: '.profiler/profiler.db', // relative to cwd; ':memory:' for an ephemeral DB
+    path: '.profiler/profiler.db', // or ':memory:' for an ephemeral DB
     maxProfiles: 500,
     ttl: 3600,
-    busyTimeout: 5000, // ms a write waits on a concurrent writer before giving up
-    onCorruption: 'recreate', // corrupt file → move aside and start fresh; or 'throw'
+  }),
+});
+
+// Remote SQLite database (e.g. on a serverless host) — no separate adapter needed.
+ProfilerModule.forRoot({
+  storage: new SqliteStorageAdapter({
+    url: process.env.PROFILER_STORAGE_URL!, // libsql://… endpoint — takes precedence over `path`
+    authToken: process.env.PROFILER_STORAGE_AUTH_TOKEN, // if the server requires one
+    maxProfiles: 500,
+    ttl: 3600,
   }),
 });
 ```
 
-Pass it through the `storage` option (not `storageType`) so the core module never imports the driver. Each profile is stored as a row with indexed summary columns (type, method, status, duration, exceptions, a search column and its kind-specific attributes as JSON) plus the full profile; list queries run as `WHERE … ORDER BY created_at LIMIT/OFFSET` with a `COUNT(*)` total, and never load the whole store. A file database is cross-process (WAL); `:memory:` is single-connection.
+Pass it through the `storage` option (not `storageType`) so the core module never imports the driver. Each profile is stored as a row with indexed summary columns (type, method, status, duration, exceptions, a search column and its kind-specific attributes as JSON) plus the full profile; list queries run as `WHERE … ORDER BY created_at LIMIT/OFFSET` with a `COUNT(*)` total, and never load the whole store.
 
-`busyTimeout` (default `5000` ms) sets how long a write waits on a concurrent writer of the same file database before failing. `onCorruption` controls what happens when the database file cannot be opened because it is corrupt: `'recreate'` (default) moves the corrupt file aside to `<path>.corrupt-<timestamp>` (sidecars included) and starts a fresh database, while `'throw'` surfaces an actionable error and leaves the file untouched. Any other open failure (e.g. a permission error) always throws, with the resolved path and the underlying driver error attached as `cause`.
+A local file database is cross-process (WAL) and its parent directory is created for you; `:memory:` is single-connection and lost on restart; a `url` points at a remote SQLite database (cross-process, managed by the server). When `url` is set it takes precedence over `path`.
 
 ## Custom adapter
 

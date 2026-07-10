@@ -9,6 +9,6 @@
   },
   {
     "query": "How do I persist profiles to disk instead of keeping them in memory, and what should I not forget?",
-    "expected_behavior": "Must read references/core-options.md. Answer: set storageType: 'file' (default storagePath is '.profiler', resolved from process.cwd()), or use SQLite via storage: new SqliteStorageAdapter(...) from '@eleven-labs/nest-profiler/sqlite' (peer better-sqlite3). Remind to add .profiler/ to .gitignore. 'file'/sqlite is what multi-process setups like the commander collector require."
+    "expected_behavior": "Must read references/core-options.md. Answer: set storageType: 'file' (default storagePath is '.profiler', resolved from process.cwd()), or use SQLite via storage: new SqliteStorageAdapter(...) from '@eleven-labs/nest-profiler/sqlite' (optional peer @libsql/client; local file, ':memory:', or remote SQLite via url/authToken). Remind to add .profiler/ to .gitignore. 'file'/sqlite is what multi-process setups like the commander collector require."
   }
 ]

@@ -88,12 +88,12 @@ ProfilerModule.forRoot({
 
 ## SQLite storage
 
-When you keep many profiles, filtering and paginating them in memory adds up. The package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath that pushes filtering, sorting and pagination down to the database (`WHERE … ORDER BY … LIMIT/OFFSET` with a `COUNT(*)` total), so a list render never loads the whole store. Like file storage it survives restarts and is cross-process (WAL), so CLI command profiles show up in the web profiler.
+When you keep many profiles, filtering and paginating them in memory adds up. The package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath (backed by `@libsql/client`) that pushes filtering, sorting and pagination down to the database (`WHERE … ORDER BY … LIMIT/OFFSET` with a `COUNT(*)` total), so a list render never loads the whole store. Like file storage it survives restarts and is cross-process (WAL), so CLI command profiles show up in the web profiler. The same adapter also points at a remote SQLite database (`url` + optional `authToken`) — handy on serverless hosts.
 
-It is opt-in: `better-sqlite3` is an optional peer dependency, so memory/file users pull no native module.
+It is opt-in: `@libsql/client` is an optional peer dependency, so memory/file users pull nothing extra.
 
 ```bash
-pnpm add better-sqlite3
+pnpm add @libsql/client
 ```
 
 Pass it through the `storage` option (not `storageType`) so the core module never imports the driver:
@@ -118,7 +118,18 @@ import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
 export class AppModule {}
 ```
 
-Each profile becomes a row with indexed summary columns (type, method, status, duration, exceptions, a search column and kind-specific attributes as JSON) plus the full profile document. A file database is cross-process; `:memory:` is single-connection. Add the database file to `.gitignore` (`*.db`, `*.db-wal`, `*.db-shm`) — it holds captured request data.
+To store profiles in a remote SQLite database instead — no separate adapter — pass `url` (and an optional `authToken`); it takes precedence over `path`:
+
+```ts
+storage: new SqliteStorageAdapter({
+  url: process.env.PROFILER_STORAGE_URL!, // libsql://… endpoint
+  authToken: process.env.PROFILER_STORAGE_AUTH_TOKEN, // if the server requires one
+  maxProfiles: 500,
+  ttl: 3600,
+}),
+```
+
+Each profile becomes a row with indexed summary columns (type, method, status, duration, exceptions, a search column and kind-specific attributes as JSON) plus the full profile document. A local file database is cross-process (WAL); `:memory:` is single-connection; a `url` is a remote, cross-process database. For a local file, add it to `.gitignore` (`*.db`, `*.db-wal`, `*.db-shm`) — it holds captured request data.
 
 ## Custom storage adapter
 

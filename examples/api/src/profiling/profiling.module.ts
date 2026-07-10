@@ -17,17 +17,22 @@ import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
 
 /**
  * Resolves the storage-related profiler options from config. `sqlite` is opted into via
- * the `storage` adapter instance (the core module never imports `better-sqlite3`); `file`
- * and `memory` go through the built-in `storageType`.
+ * the `storage` adapter instance (the core module never imports `@libsql/client`); `file`
+ * and `memory` go through the built-in `storageType`. The one SQLite adapter serves both a
+ * local file and a remote SQLite database — pass `PROFILER_STORAGE_URL` to target the latter.
  */
 function resolveStorageOptions(config: ConfigService): Partial<ProfilerModuleOptions> {
   const storageType = config.get<'memory' | 'file' | 'sqlite'>('profiler.storageType');
   const maxProfiles = config.get<number>('profiler.maxProfiles');
 
   if (storageType === 'sqlite') {
+    const storageUrl = config.get<string>('profiler.storageUrl');
     return {
       storage: new SqliteStorageAdapter({
-        path: config.get<string>('profiler.storagePath'),
+        // A remote SQLite URL takes precedence over the local file path.
+        ...(storageUrl
+          ? { url: storageUrl, authToken: config.get<string>('profiler.storageAuthToken') }
+          : { path: config.get<string>('profiler.storagePath') }),
         maxProfiles,
         ttl: config.get<number>('profiler.ttl'),
       }),

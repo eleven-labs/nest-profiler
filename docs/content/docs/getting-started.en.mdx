@@ -283,13 +283,23 @@ ProfilerModule.forRoot({ storageType: 'file', storagePath: '.profiler' });
 
 Add `.profiler/` to `.gitignore` when using file storage.
 
-For a persistent store that filters and paginates **in the database** — useful once you keep many profiles — a first-party SQLite adapter ships under the `@eleven-labs/nest-profiler/sqlite` subpath (opt-in: `better-sqlite3` is an optional peer dependency). Pass it through the `storage` option:
+For a persistent store that filters and paginates **in the database** — useful once you keep many profiles — a first-party SQLite adapter ships under the `@eleven-labs/nest-profiler/sqlite` subpath (opt-in: `@libsql/client` is an optional peer dependency). One adapter targets a local file, `:memory:`, or a remote SQLite database. Pass it through the `storage` option:
 
 ```ts
 import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
 
+// Local file
 ProfilerModule.forRoot({
   storage: new SqliteStorageAdapter({ path: '.profiler/profiler.db', maxProfiles: 500 }),
+});
+
+// Remote SQLite database
+ProfilerModule.forRoot({
+  storage: new SqliteStorageAdapter({
+    url: process.env.PROFILER_STORAGE_URL!,
+    authToken: process.env.PROFILER_STORAGE_AUTH_TOKEN,
+    maxProfiles: 500,
+  }),
 });
 ```
 
