@@ -22,7 +22,7 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; expanding a route reveals its path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules).
+`@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules).
 
 ## Installation
 
@@ -54,6 +54,7 @@ At application startup, the panel discovers every registered route and groups it
 
 Each REST route is introspected from its decorator metadata:
 
+- **Guards** — the guard classes from `@UseGuards()` on the controller and/or handler (e.g. an authentication guard); guarded routes show a lock. Only route-level guards are visible — a global `APP_GUARD` is not attached per handler.
 - **Path params** — from the route path (`/users/:id` → `id`).
 - **Query params** — from `@Query('name')` and whole-object `@Query()` DTOs.
 - **Headers** — from `@Headers('name')`.

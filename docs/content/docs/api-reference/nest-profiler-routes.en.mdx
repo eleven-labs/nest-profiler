@@ -24,6 +24,8 @@ At application startup the panel discovers every registered route, grouped by tr
 - **RabbitMQ** — every `@RabbitSubscribe` consumer with its exchange, routing key and handler ([`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)).
 - **Commands** — every nest-commander `@Command()` with its name and `--option` flags ([`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)).
 
+A REST route also shows the **guards** protecting it — the classes from `@UseGuards()` on the controller and/or handler (e.g. an authentication guard) — with a lock marking guarded routes. Only route-level guards are reflected; a global `APP_GUARD` is not attached per handler.
+
 For a REST route, each `@Body()` DTO is introspected to its top-level decorated properties: the property name, its TypeScript type and, when `class-validator` is installed, the validation rules. Introspection is top-level only — a property that is itself a DTO surfaces as its class name rather than being expanded.
 
 ## Public exports

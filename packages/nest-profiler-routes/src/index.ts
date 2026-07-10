@@ -7,3 +7,4 @@ export { RoutesCollector } from './routes.collector';
 export type { RoutesCollectorData } from './routes.collector';
 export { HttpRouteSource } from './http-route-source';
 export { describeHandlerParams, handlerHasRouteArgs } from './describe-handler-params';
+export { readRouteGuards } from './route-guards';

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, Injectable, Logger, Post, UseGuards } from '@nestjs/common';
+import type { CanActivate } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { HttpRouteSource } from './http-route-source';
@@ -7,6 +8,13 @@ import { HttpRouteSource } from './http-route-source';
 class CreatePetDto {
   @IsString()
   name!: string;
+}
+
+@Injectable()
+class AuthGuard implements CanActivate {
+  canActivate(): boolean {
+    return true;
+  }
 }
 
 @Controller('pets')
@@ -72,6 +80,25 @@ describe('HttpRouteSource', () => {
   it('returns an empty group before bootstrap', () => {
     const { source } = buildSource([petsWrapper]);
     expect(source.collect().routes).toEqual([]);
+  });
+
+  it('surfaces the guards protecting a route', () => {
+    @UseGuards(AuthGuard)
+    @Controller('secure')
+    class SecureController {
+      @Get()
+      list(): void {}
+    }
+    const { source } = buildSource([
+      { instance: new SecureController(), metatype: SecureController },
+    ]);
+    source.onApplicationBootstrap();
+
+    expect(source.collect().routes[0]?.guards).toEqual(['AuthGuard']);
+    // Unguarded REST routes carry no `guards` key.
+    const { source: pets } = buildSource([petsWrapper]);
+    pets.onApplicationBootstrap();
+    expect(pets.collect().routes.every((r) => r.guards === undefined)).toBe(true);
   });
 
   it('normalises the root path to "/" and orders same-path routes by method', () => {

@@ -51,6 +51,12 @@ export interface RouteEntry {
   handler: string;
   /** Introspected handler inputs, when any were discovered. */
   inputs?: RouteInputs;
+  /**
+   * Guard class names protecting the route (from `@UseGuards()` on the controller and/or the
+   * handler) — e.g. an authentication guard. Absent/empty means no route-level guard was found;
+   * note a global `APP_GUARD` is not attached per handler, so it is not reflected here.
+   */
+  guards?: string[];
 }
 
 /** One group of routes contributed by a single source (transport). */

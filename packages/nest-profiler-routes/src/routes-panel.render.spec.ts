@@ -49,6 +49,7 @@ describe('routes-panel template', () => {
               path: '/users/:id',
               controller: 'UsersController',
               handler: 'create',
+              guards: ['JwtAuthGuard'],
               inputs: {
                 params: ['id'],
                 query: ['page'],
@@ -75,6 +76,9 @@ describe('routes-panel template', () => {
     expect(html).toContain('String');
     expect(html).toContain('isEmail');
     expect(html).toContain('1 routes');
+    // A guarded route surfaces its guard names and a "Protected by …" lock affordance.
+    expect(html).toContain('JwtAuthGuard');
+    expect(html).toContain('Protected by JwtAuthGuard');
   });
 
   it('HTML-escapes every attacker-influenced field', async () => {
@@ -90,6 +94,7 @@ describe('routes-panel template', () => {
               path: `/evil/${SCRIPT}`,
               controller: `Ctrl${SCRIPT}`,
               handler: `h${SCRIPT}`,
+              guards: [`Guard${SCRIPT}`],
               inputs: {
                 query: [`q${SCRIPT}`],
                 headers: [`x${ATTR_BREAKOUT}`],
