@@ -1,0 +1,14 @@
+[
+  {
+    "query": "How do I confirm the profiler is capturing a request, and what path is the UI on by default?",
+    "expected_behavior": "Must read references/core-options.md. Answer: the default UI path is /_profiler. Every profiled response carries X-Debug-Token and X-Debug-Token-Link headers (unless emitDebugHeaders: false) — curl -i a route to see them, then open /_profiler to browse. To secure the UI, use the `security` option (an `authorize` predicate and/or NestJS `guards`) — the profiler is open by default and there is no built-in token/PROFILER_TOKEN option."
+  },
+  {
+    "query": "What are the default values for maxProfiles and collectorTimeout?",
+    "expected_behavior": "Must read references/core-options.md. Answer: maxProfiles defaults to 100 (LRU eviction) and collectorTimeout defaults to 1000 ms (a collector exceeding it is abandoned; 0 or negative disables the timeout)."
+  },
+  {
+    "query": "How do I persist profiles to disk instead of keeping them in memory, and what should I not forget?",
+    "expected_behavior": "Must read references/core-options.md. Answer: set storageType: 'file' (default storagePath is '.profiler', resolved from process.cwd()), or use SQLite via storage: new SqliteStorageAdapter(...) from '@eleven-labs/nest-profiler/sqlite' (peer better-sqlite3). Remind to add .profiler/ to .gitignore. 'file'/sqlite is what multi-process setups like the commander collector require."
+  }
+]

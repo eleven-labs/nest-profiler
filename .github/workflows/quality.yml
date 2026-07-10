@@ -48,3 +48,29 @@ jobs:
 
       - name: Validate type resolution (attw)
         run: pnpm attw
+
+  skill-references:
+    name: Skill references in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The add-nest-profiler-collector skill bundles generated copies of the
+      # collectors-*.md references. Fail if they drift from their single source
+      # (setup-nest-profiler/references) — run `pnpm sync:skill-refs` to fix.
+      - name: Verify skill references are in sync
+        run: pnpm sync:skill-refs:check

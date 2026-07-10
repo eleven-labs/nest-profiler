@@ -1,6 +1,6 @@
 # Evals
 
-Manual evaluations for the `add-nest-profiler-collector` skill. `skill.json` covers the add-collector workflow (confirm the base setup, match the existing enable strategy, redirect when the core is missing, never invent a package); `collectors.json` maps to `references/collectors.md` (placement and per-collector gotchas).
+Manual evaluations for the `add-nest-profiler-collector` skill. `skill.json` covers the add-collector workflow (confirm the base setup, match the existing enable strategy, redirect when the core is missing, never invent a package); `collectors.json` maps to the `references/collectors-*.md` family (placement and per-collector gotchas).
 
 ## Format
 
@@ -18,7 +18,7 @@ Each eval file is a JSON array:
 | File              | Maps to                                                                                     |
 | ----------------- | ------------------------------------------------------------------------------------------- |
 | `skill.json`      | `../SKILL.md` — base-setup check, strategy matching, routing to setup, no invented packages |
-| `collectors.json` | `../references/collectors.md` — placement and per-collector gotchas                         |
+| `collectors.json` | the `../references/collectors-*.md` family — placement and per-collector gotchas            |
 
 ## Running Evals
 

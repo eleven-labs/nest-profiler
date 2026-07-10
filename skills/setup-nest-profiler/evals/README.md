@@ -15,12 +15,12 @@ Each eval file is a JSON array:
 ]
 ```
 
-| File                     | Maps to                                                                                        |
-| ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `skill.json`             | `../SKILL.md` — introspect-first, setup vs add-collector routing, non-Nest guard, multi-select |
-| `enable-strategies.json` | `../references/enable-strategies.md` — Approach A vs B, no-op fallback                         |
-| `collectors.json`        | `../references/collectors.md` — detection, placement, per-collector gotchas                    |
-| `options.json`           | `../references/options.md` — options, env vars, headers, storage                               |
+| File                     | Maps to                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `skill.json`             | `../SKILL.md` — introspect-first, setup vs add-collector routing, non-Nest guard, multi-select                                      |
+| `enable-strategies.json` | `../references/enable-strategies.md` — Approach A always first (even without @nestjs/config), AskUserQuestion rules, no-op fallback |
+| `collectors.json`        | the `../references/collectors-*.md` family — detection, placement, per-collector gotchas (feed the family file matching each query) |
+| `core-options.json`      | `../references/core-options.md` — options, storage backends (incl. sqlite), env vars, headers                                       |
 
 ## Running Evals
 

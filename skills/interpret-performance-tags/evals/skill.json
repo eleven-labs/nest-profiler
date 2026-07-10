@@ -1,0 +1,14 @@
+[
+  {
+    "query": "My /orders profile is tagged n-plus-one on the TypeORM panel. What does that mean and how do I fix it?",
+    "expected_behavior": "Explain n-plus-one = the same query ran >= nPlusOneThreshold (default 2) times. Fix by eager-loading / joining / batching (relations, DataLoader) or a single IN (...) query. May mention tuning nPlusOneThreshold on TypeOrmCollectorModule if the repetition is acceptable."
+  },
+  {
+    "query": "Everything gets tagged slow in dev because my local DB is slow. Can I change the cutoff?",
+    "expected_behavior": "Explain slowThreshold is per collector (ORM default 100 ms, HTTP 300 ms), passed to the collector's forRoot/forRootAsync (drive from ConfigService for env control). Show raising it, and note this is a threshold change, not a fix."
+  },
+  {
+    "query": "I want to flag any request that fires more than 5 write queries as a custom warning.",
+    "expected_behavior": "Guide adding a custom PerformanceRule via the core performance.rules option (or registerPerformanceRule): an { id, evaluate(ctx) } that reads ctx.collectors and calls ctx.tagProfile/tagEntry. Note rules run synchronously and must not throw, and that a custom collector must implement TaggableCollector to be analyzable."
+  }
+]

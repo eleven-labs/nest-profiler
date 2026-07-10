@@ -29,6 +29,8 @@
     "example:dev": "turbo run start:dev --filter=example-api",
     "example:start": "turbo run build && pnpm --filter=example-api start",
     "screenshots": "tsx scripts/generate-profiler-screenshots.ts",
+    "sync:skill-refs": "tsx scripts/sync-skill-references.ts",
+    "sync:skill-refs:check": "tsx scripts/sync-skill-references.ts --check",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:reset": "docker compose down -v",

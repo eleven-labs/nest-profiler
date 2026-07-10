@@ -14,13 +14,13 @@ export const labeledCondition = (label: string, predicate: EnvCondition): EnvCon
   return condition;
 };
 
-/** On only when the variable is exactly `'true'` (opt-in; default off). */
-export const enabledWhenTrue = (varName: string): EnvCondition =>
-  labeledCondition(varName, (env) => env[varName] === 'true');
+/** Enabled when the variable is truthy and not equal to `'false'`; otherwise falls back to `defaultValue`. */
+export const enabled = (variableName: string, defaultValue = false): EnvCondition =>
+  labeledCondition(variableName, (environment) => {
+    const value = environment[variableName] ?? defaultValue;
 
-/** On unless the variable is exactly `'false'` (opt-out; default on). */
-export const enabledUnlessFalse = (varName: string): EnvCondition =>
-  labeledCondition(varName, (env) => env[varName] !== 'false');
+    return value !== 'false' && Boolean(value);
+  });
 
 /** Negates a condition, keeping a readable label (`!LABEL`). */
 export const not = (condition: EnvCondition): EnvCondition =>
