@@ -20,6 +20,10 @@ export default registerAs('profiler', () => {
       ttl: parseInt(process.env['PROFILER_TTL'] ?? '3600', 10),
     }),
     maxProfiles: parseInt(process.env['PROFILER_MAX_PROFILES'] ?? '200', 10),
+    // Remote SQLite database for `sqlite` storage. When `storageUrl` is set, the SQLite adapter
+    // targets it instead of the local `storagePath` file — same adapter, no code change.
+    storageUrl: process.env['PROFILER_STORAGE_URL'] ?? '',
+    storageAuthToken: process.env['PROFILER_STORAGE_AUTH_TOKEN'] ?? '',
     // Collector options driven from config to showcase the collectors' `forRootAsync`
     // (see AuthModule and ProductTypeOrmModule).
     maskUserFields: (process.env['PROFILER_MASK_USER_FIELDS'] ?? 'password,refreshToken')

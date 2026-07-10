@@ -48,7 +48,7 @@ Then **ship the `env-condition` helpers** (`src/config/env-condition.ts` + `isPr
 
 ## Install and configure the core
 
-1. `<pm> add @eleven-labs/nest-profiler nestjs-cls` — `nestjs-cls` powers per-request context and is the one peer a Nest app doesn't already provide. Add `better-sqlite3` too only if the user picks SQLite storage.
+1. `<pm> add @eleven-labs/nest-profiler nestjs-cls` — `nestjs-cls` powers per-request context and is the one peer a Nest app doesn't already provide. Add `@libsql/client` too only if the user picks SQLite storage (local file, `:memory:`, or a remote SQLite database).
 2. **Ask the core config questions that matter** (balanced — apply and state documented defaults for the rest): storage backend (`memory` / `file` / `sqlite`; use file or sqlite for CLI/multi-process), **access control** (the `security` option — the profiler is **open by default**, so ask whether to lock the UI down now and how: reuse an app guard via `security.guards`, or an `authorize` predicate — see [references/core-options.md](references/core-options.md)), whether to `collectBody` (default `false`, sensitive), and `sampleRate`. Leave `maxProfiles`, `ttl`, `ignorePaths`, `maskHeaders`, `emitDebugHeaders`, `maxBodySize`, `listPageSize` at their defaults unless the user has a reason.
 3. Add the gated import(s) to the composition root per the chosen strategy, with `isGlobal: true`. When options come from `ConfigService`, use `forRootAsync` (`isGlobal`/`enabled` stay top-level). Consider the `ProfilingModule.forWeb()` bundle to keep the root to two profiler entries.
 4. Enable log capture in `main.ts`: create the app with `{ bufferLogs: true }`, then `app.useLogger(app.get(ProfilerService).createLogger(new ConsoleLogger('App')))`.
