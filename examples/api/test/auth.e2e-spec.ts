@@ -61,7 +61,7 @@ describe('Auth endpoints (e2e) — auth collector / security panel', () => {
     expect(profile.exceptions).toHaveLength(1);
     expect(profile.exceptions[0]).toMatchObject({
       name: 'UnauthorizedException',
-      message: 'Missing Bearer token — get one from GET /auth/token',
+      message: 'Missing JWT — get one from GET /auth/token (cookie or Bearer)',
     });
   });
 
