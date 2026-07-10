@@ -118,3 +118,21 @@ The collector patches TypeORM's `createQueryRunner()` to time every query and re
   Never use `synchronize: true` in production. It auto-migrates the schema on startup and can cause
   data loss. Use TypeORM migrations instead.
 </Callout>
+
+## Inspect the schema
+
+Alongside the per-request Database panel, the package ships `TypeOrmSchemaCollectorModule` — a global collector that adds a **Schema · TypeORM** panel to the profiler home page. It introspects the DataSource **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
+
+Register it next to the query collector, gated the same way:
+
+```ts title="app.module.ts"
+import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+```
+
+Open `/_profiler` and expand the **Schema · TypeORM** panel:
+
+![Schema panel — TypeORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema.png)
+
+The panel is introspection-only (it never touches data), honours a `connectionName` option for named DataSources, redacts secrets embedded in column defaults, and simply does not appear when no DataSource is wired.

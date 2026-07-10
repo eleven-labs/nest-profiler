@@ -6,3 +6,9 @@ export type {
   QueryEntry,
   QueryType,
 } from './mikro-orm-collector.interface.js';
+export { MikroOrmSchemaCollectorModule } from './mikro-orm-schema-collector.module.js';
+export { MikroOrmSchemaCollector } from './mikro-orm-schema.collector.js';
+export type {
+  MikroOrmSchemaCollectorModuleOptions,
+  MikroOrmSchemaCollectorModuleAsyncOptions,
+} from './mikro-orm-schema-collector.interface.js';

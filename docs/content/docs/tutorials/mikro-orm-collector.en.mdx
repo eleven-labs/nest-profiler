@@ -122,3 +122,21 @@ At module initialization the collector wraps MikroORM's `Logger.logQuery` to rec
   shape (provided by the core `AbstractSqlQueryCollector`), so the UI is identical whichever SQL ORM
   you use.
 </Callout>
+
+## Inspect the schema
+
+Alongside the per-request Database panel, the package ships `MikroOrmSchemaCollectorModule` — a global collector that adds a **Schema · MikroORM** panel to the profiler home page. It introspects the ORM metadata **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
+
+Register it next to the query collector, gated the same way:
+
+```ts title="app.module.ts"
+import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+```
+
+Open `/_profiler` and expand the **Schema · MikroORM** panel:
+
+![Schema panel — MikroORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mikro-orm.png)
+
+The panel is introspection-only (it never touches data), honours a `connectionName` option for named contexts, redacts secrets embedded in column defaults, and simply does not appear when no MikroORM context is wired.

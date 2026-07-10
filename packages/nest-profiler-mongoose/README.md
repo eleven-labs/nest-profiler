@@ -90,6 +90,20 @@ At module initialization, the collector patches `mongoose.Query.prototype.exec` 
 
 **Streaming reads** — `Query.cursor()` and `Aggregate.cursor()` bypass `exec()`, so they are patched too. The read is recorded (with `streaming: true`) at cursor creation, so it is captured whatever the consumption pattern. Its `duration` is finalized from the cursor's terminal `close`/`end`/`error` events when they fire — which they do for flowing / `pipe()` / explicit `close()` consumption, but **not** for `for await` or `eachAsync()` on a Mongoose cursor (they emit no terminal event); those keep `duration: 0` and are labelled `not timed (stream)` in the panel's Duration column. Measuring their duration would require wrapping the row iterator, a per-document cost we avoid. Streamed row counts are not captured.
 
+## Schema panel
+
+`MongooseSchemaCollectorModule` adds a global **Schema · Mongoose** panel to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, columns, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
+
+![Schema panel — Mongoose models with their fields, types, `_id` and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mongoose.png)
+
+```ts title="app.module.ts"
+import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+
+ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
+```
+
+Pass `connectionName` to introspect a named connection (omit it for the default), and `enabled: false` to disable per environment. The panel reads each model's `schema.paths` and `schema.indexes()` and never touches data; path defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no Mongoose connection is wired.
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

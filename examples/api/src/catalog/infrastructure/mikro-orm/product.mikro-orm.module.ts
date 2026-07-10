@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
-import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+import {
+  MikroOrmCollectorModule,
+  MikroOrmSchemaCollectorModule,
+} from '@eleven-labs/nest-profiler-mikro-orm';
 import databaseConfig from '../../../config/database.config.js';
 import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import { ProductRepository } from '../../domain/product.repository.js';
@@ -37,6 +40,8 @@ import { MikroOrmSchemaInitializer } from './product.mikro-orm.schema-initialize
       MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
+    // Global-scope "Schema · MikroORM" home-page panel listing the registered entities.
+    ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [
     MikroOrmSchemaInitializer,

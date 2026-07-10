@@ -44,6 +44,18 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.text).toContain(short(graphqlToken));
     });
 
+    // The global-scope Schema collector renders one home-page panel per wired ORM, listing the
+    // registered entities and their columns/relations/indexes.
+    it('renders the global Schema panel for the active ORM', async () => {
+      const res = await request(server(app)).get('/_profiler');
+      const label = activeSqlOrm() === 'mikro-orm' ? 'Schema · MikroORM' : 'Schema · TypeORM';
+
+      expect(res.text).toContain(label);
+      // The Product entity and its backing table appear inside the expanded panel.
+      expect(res.text).toContain('Product');
+      expect(res.text).toContain('products');
+    });
+
     // Each list has its own filter bar, so filter params are namespaced by the
     // section key (`http_…` for the HTTP list, `graphql_…` for the GraphQL list).
     it('filters by HTTP method', async () => {

@@ -107,6 +107,20 @@ The collector patches `dataSource.createQueryRunner()` at module initialization 
 
 **Streaming reads** — `Repository.stream()` / `QueryBuilder.stream()` go through `QueryRunner.stream()`, a separate path from `query()`. The collector also wraps `stream()`: it measures duration across the returned stream's lifetime by listening only to its terminal `end`/`close`/`error` events — never a `data` listener, so no rows are consumed or diverted from the caller — and records the entry with `streaming: true`. Streamed row counts are not captured (that would require tapping the data).
 
+## Schema panel
+
+`TypeOrmSchemaCollectorModule` adds a global **Schema · TypeORM** panel to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
+
+![Schema panel — TypeORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema.png)
+
+```ts title="app.module.ts"
+import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+
+ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+```
+
+Pass `connectionName` to introspect a named DataSource (omit it for the default connection), and `enabled: false` to disable per environment. The panel reads `dataSource.entityMetadatas` and never touches data; column defaults are passed through the profiler's `redactString`, so a default embedding a secret (e.g. a DSN) is masked. The panel no-ops (does not appear) when no DataSource is wired or none is initialized.
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

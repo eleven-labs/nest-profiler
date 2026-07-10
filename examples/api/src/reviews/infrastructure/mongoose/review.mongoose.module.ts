@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+import {
+  MongooseCollectorModule,
+  MongooseSchemaCollectorModule,
+} from '@eleven-labs/nest-profiler-mongoose';
 import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import mongodbConfig from '../../../config/mongodb.config.js';
 import { ReviewRepository } from '../../domain/review.repository.js';
@@ -25,6 +28,8 @@ import { MongooseReviewRepository } from './review.mongoose.repository.js';
       MongooseCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
+    // Global-scope "Schema · Mongoose" home-page panel listing the registered models.
+    ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [{ provide: ReviewRepository, useClass: MongooseReviewRepository }],
   exports: [ReviewRepository],
