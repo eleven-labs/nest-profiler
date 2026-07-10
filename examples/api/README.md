@@ -45,20 +45,25 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 The app uses flags to conditionally load infrastructure-dependent contexts. All infra-backed features are **off by default**, so a bare run needs no database or broker. Set them in `.env`:
 
-| Variable              | Default     | Description                                                                        |
-| --------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `SQL_ORM`             | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`               |
-| `HTTP_CLIENT`         | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                         |
-| `FEATURE_MONGOOSE`    | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                           |
-| `FEATURE_GRAPHQL`     | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)        |
-| `FEATURE_RABBITMQ`    | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`) |
-| `FEATURE_PINO_LOGGER` | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                |
-| `PROFILER_ENABLED`    | `true`      | Enable the profiler UI and all collectors                                          |
-| `PROFILER_AUTH`       | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`          |
+| Variable                | Default     | Description                                                                        |
+| ----------------------- | ----------- | ---------------------------------------------------------------------------------- |
+| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`               |
+| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                         |
+| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                           |
+| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)        |
+| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`) |
+| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                |
+| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                          |
+| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                           |
+| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`          |
 
 `PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
+`PROFILER_STORAGE_TYPE=sqlite` uses the built-in libSQL-backed `SqliteStorageAdapter`. It targets a local file by default (`PROFILER_STORAGE_PATH`); set `PROFILER_STORAGE_URL` (+ `PROFILER_STORAGE_AUTH_TOKEN`) to point the same adapter at a remote SQLite database such as Turso Cloud — required on serverless hosts like Vercel, where the filesystem is read-only. On Vercel these fall back to the Turso integration's `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`.
+
 `SQL_ORM` selects which adapter backs the **catalog** context. `typeorm`/`mikro-orm` are mutually exclusive (they map the same Postgres `products` table); `in-memory` needs no database and is the default, so the catalog — and its GraphQL API — always runs. Contexts that depend on disabled infrastructure are simply not registered: no connection is attempted, no crash.
+
+PostgreSQL can be configured with the app-specific `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_NAME` variables. Hosted Vercel Neon integrations also work without aliases: the app falls back to `POSTGRES_*` and `PG*` variables, and enables SSL when `DATABASE_SSL=true` or `PGSSLMODE=require`. The demo ships no migrations, so the ORM creates the `products` table automatically on boot; the destructive drop-and-recreate only runs outside production, so a deployed database keeps its structure across cold starts.
 
 `HTTP_CLIENT` selects which adapter backs the **content** context's `ArticleGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
 

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
 import type { PlatformRequest, ProfilerModuleOptions } from '@eleven-labs/nest-profiler';
 import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';
-import { getProfilerAuth } from '../config/features.config.js';
+import type { ProfilerAuth } from '../config/features.config.js';
 import { JwtAuthGuard } from '../auth/http/jwt-auth.guard.js';
 import {
   ignoreGraphQLPlayground,
@@ -22,19 +22,19 @@ import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
  * local file and a remote SQLite database — pass `PROFILER_STORAGE_URL` to target the latter.
  */
 function resolveStorageOptions(config: ConfigService): Partial<ProfilerModuleOptions> {
-  const storageType = config.get<'memory' | 'file' | 'sqlite'>('profiler.storageType');
-  const maxProfiles = config.get<number>('profiler.maxProfiles');
+  const storageType = config.get<'memory' | 'file' | 'sqlite'>('profiler.storage.type');
+  const maxProfiles = config.get<number>('profiler.storage.maxProfiles');
 
   if (storageType === 'sqlite') {
-    const storageUrl = config.get<string>('profiler.storageUrl');
+    const storageUrl = config.get<string>('profiler.storage.url');
     return {
       storage: new SqliteStorageAdapter({
         // A remote SQLite URL takes precedence over the local file path.
         ...(storageUrl
-          ? { url: storageUrl, authToken: config.get<string>('profiler.storageAuthToken') }
-          : { path: config.get<string>('profiler.storagePath') }),
+          ? { url: storageUrl, authToken: config.get<string>('profiler.storage.authToken') }
+          : { path: config.get<string>('profiler.storage.path') }),
         maxProfiles,
-        ttl: config.get<number>('profiler.ttl'),
+        ttl: config.get<number>('profiler.storage.ttl'),
       }),
       maxProfiles,
     };
@@ -43,8 +43,8 @@ function resolveStorageOptions(config: ConfigService): Partial<ProfilerModuleOpt
   return {
     storageType,
     ...(storageType === 'file' && {
-      storagePath: config.get<string>('profiler.storagePath'),
-      ttl: config.get<number>('profiler.ttl'),
+      storagePath: config.get<string>('profiler.storage.path'),
+      ttl: config.get<number>('profiler.storage.ttl'),
     }),
     maxProfiles,
   };
@@ -105,21 +105,21 @@ function tokenQuerySecurity(expected: string): ProfilerSecurity {
 
 /**
  * Demo access control for /_profiler, selected by `PROFILER_AUTH` (mirrors how `SQL_ORM` picks an
- * adapter) — see {@link getProfilerAuth}. Credentials come from the `profiler` config namespace
- * (see profiler.config.ts). Disabled by default (`none`): the dashboard is open. `cookie` reuses the
+ * adapter) — see {@link ProfilerAuth}. The strategy and its credentials come from the `profiler`
+ * config namespace's `security` object (see profiler.config.ts). Disabled by default (`none`): the dashboard is open. `cookie` reuses the
  * app's own `JwtAuthGuard` through the profiler's `security.guards`; the guard reads the JWT from the
  * `profiler_jwt` cookie (set by `GET /api/v1/auth/token`) so the dashboard is browser-navigable, and
  * still accepts a Bearer header for API clients.
  */
 function resolveProfilerSecurity(config: ConfigService): ProfilerSecurity {
-  switch (getProfilerAuth(process.env)) {
+  switch (config.get<ProfilerAuth>('profiler.security.auth') ?? 'none') {
     case 'basic':
       return basicAuthSecurity(
-        config.get<string>('profiler.basicAuth.user') ?? 'admin',
-        config.get<string>('profiler.basicAuth.password') ?? '',
+        config.get<string>('profiler.security.basicAuth.user') ?? 'admin',
+        config.get<string>('profiler.security.basicAuth.password') ?? '',
       );
     case 'token':
-      return tokenQuerySecurity(config.get<string>('profiler.token') ?? '');
+      return tokenQuerySecurity(config.get<string>('profiler.security.token') ?? '');
     case 'cookie':
       return { guards: [JwtAuthGuard] };
     case 'none':
