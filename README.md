@@ -68,8 +68,8 @@ Full guides and API reference live on the documentation site (`pnpm docs:dev`, t
 | **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
 | ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
 | **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
-| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           |                                                                  |
-| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             |                                                                  |
+| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Routes panel](docs/public/screenshots/profiler/routes.png)     |
+| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Routes** (REST/GraphQL/RabbitMQ/CLI)                           |
 
 ## Quickstart
 

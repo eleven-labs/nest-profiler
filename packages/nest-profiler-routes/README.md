@@ -24,6 +24,8 @@
 
 `@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules).
 
+![Routes panel — the application routing table grouped by transport (REST, GraphQL, RabbitMQ, Commands), with per-route inputs, body DTOs and a lock on guarded routes](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/routes.png)
+
 ## Installation
 
 ```bash
