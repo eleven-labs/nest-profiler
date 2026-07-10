@@ -75,6 +75,16 @@
       - any-glob-to-any-file:
           - 'packages/nest-profiler-mongoose/**'
 
+'package: nest-profiler-rabbitmq':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-rabbitmq/**'
+
+'package: nest-profiler-routes':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-routes/**'
+
 'package: nest-profiler-typeorm':
   - changed-files:
       - any-glob-to-any-file:
