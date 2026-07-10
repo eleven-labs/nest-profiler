@@ -347,6 +347,48 @@ async function captureSection(
   capture(filename, `file://${file}`);
 }
 
+/**
+ * Keep only the top-level list-page `<details>` panel whose summary holds `label`, dropping
+ * the sibling panels and section tables. Unlike {@link captureSection}'s non-greedy regex,
+ * this tracks `<details>`/`</details>` depth so a panel that itself contains nested
+ * disclosures (e.g. the Schema panel's per-entity `<details>`) is kept whole.
+ */
+function isolatePanel(html: string, label: string): string {
+  const tokenRe = /<details\b|<\/details>/g;
+  const drop: Array<[number, number]> = [];
+  let depth = 0;
+  let blockStart = -1;
+  let match: RegExpExecArray | null;
+  while ((match = tokenRe.exec(html)) !== null) {
+    if (match[0] === '</details>') {
+      depth -= 1;
+      if (depth === 0 && blockStart !== -1) {
+        const end = tokenRe.lastIndex;
+        if (!html.slice(blockStart, end).includes(`>${label}<`)) drop.push([blockStart, end]);
+        blockStart = -1;
+      }
+    } else {
+      if (depth === 0) blockStart = match.index;
+      depth += 1;
+    }
+  }
+  // Splice the non-matching sibling blocks out from the end so earlier indices stay valid.
+  return drop.reduceRight((acc, [s, e]) => acc.slice(0, s) + acc.slice(e), html);
+}
+
+/**
+ * Capture a single global list-page panel (Config-style) on its own: isolate it from its
+ * siblings and force every `<details>` open (headless Chrome cannot toggle a disclosure).
+ * Used for the Schema panels, which render as collapsed global panels on the home page.
+ */
+async function captureGlobalPanel(filename: string, label: string, workDir: string): Promise<void> {
+  const page = await (await fetch(PROFILER_URL)).text();
+  const html = withBase(isolatePanel(page, label).replace(/<details/g, '<details open'));
+  const file = join(workDir, filename.replace(/\.png$/, '.html'));
+  writeFileSync(file, html);
+  capture(filename, `file://${file}`);
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 async function waitForProfiler(child: ChildProcess, logFile: string): Promise<void> {
@@ -521,16 +563,28 @@ async function main(): Promise<void> {
       capture('config.png', `file://${configHtml}`);
     }
 
+    // Schema panels — global, collapsed-by-default home-page panels (one per wired ORM). The
+    // main pass runs TypeORM + Mongoose, so both are on this page; MikroORM is captured on its
+    // own reboot below. Each is isolated from the sibling panels and forced open.
+    if (wanted('schema.png')) {
+      console.log('  • schema.png');
+      await captureGlobalPanel('schema.png', 'Schema · TypeORM', workDir);
+    }
+    if (wanted('schema-mongoose.png')) {
+      console.log('  • schema-mongoose.png');
+      await captureGlobalPanel('schema-mongoose.png', 'Schema · Mongoose', workDir);
+    }
+
     // The next two passes reboot the app with different feature flags, so they
     // only run when this script manages the app (not under SKIP_APP) and when their
     // views are wanted (an ONLY run for other files skips these costly reboots).
-    if (!skip('SKIP_APP') && wanted('mikro-orm.png')) {
-      // 8. MikroORM Database panel — the catalog binds exactly one SQL adapter
-      //    per boot, so the MikroORM query panel needs its own run
-      //    (SQL_ORM=mikro-orm) against fresh storage. Drive one GET /products
-      //    and shoot the Database tab as `mikro-orm.png` (mirrors database.png,
-      //    which the TypeORM main pass produces).
-      console.log('  • mikro-orm.png (SQL_ORM=mikro-orm pass)');
+    if (!skip('SKIP_APP') && (wanted('mikro-orm.png') || wanted('schema-mikro-orm.png'))) {
+      // 8. MikroORM Database + Schema panels — the catalog binds exactly one SQL
+      //    adapter per boot, so MikroORM needs its own run (SQL_ORM=mikro-orm)
+      //    against fresh storage. Drive one GET /products, shoot the Database tab
+      //    as `mikro-orm.png` (mirrors database.png) and the global Schema panel
+      //    as `schema-mikro-orm.png`.
+      console.log('  • mikro-orm.png / schema-mikro-orm.png (SQL_ORM=mikro-orm pass)');
       stopApp(app);
       app = undefined;
       const mikroDir = mkdtempSync(join(tmpdir(), 'profiler-mikro-'));
@@ -541,15 +595,20 @@ async function main(): Promise<void> {
           FEATURE_GRAPHQL: 'false',
           FEATURE_PINO_LOGGER: 'false',
         });
-        await fetch(`${API_URL}${api('/products')}`);
-        const mikro = await waitForProfileIn(
-          mikroDir,
-          (p) => httpGet(api('/products'))(p) && hasCollector(p, 'mikro-orm'),
-        );
-        capture('mikro-orm.png', `${PROFILER_URL}/${mikro.token}?tab=database`);
+        if (wanted('mikro-orm.png')) {
+          await fetch(`${API_URL}${api('/products')}`);
+          const mikro = await waitForProfileIn(
+            mikroDir,
+            (p) => httpGet(api('/products'))(p) && hasCollector(p, 'mikro-orm'),
+          );
+          capture('mikro-orm.png', `${PROFILER_URL}/${mikro.token}?tab=database`);
+        }
+        if (wanted('schema-mikro-orm.png')) {
+          await captureGlobalPanel('schema-mikro-orm.png', 'Schema · MikroORM', workDir);
+        }
       } catch (error) {
         console.warn(
-          `  ⚠ SKIPPED mikro-orm.png (${error instanceof Error ? error.message : String(error)})`,
+          `  ⚠ SKIPPED MikroORM pass (${error instanceof Error ? error.message : String(error)})`,
         );
       } finally {
         stopApp(app);

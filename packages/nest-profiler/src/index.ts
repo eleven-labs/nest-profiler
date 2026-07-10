@@ -30,6 +30,17 @@ export type { IProfilerCollector } from './collectors/collector.interface';
 export { TimelineCollector } from './collectors/timeline/timeline.collector';
 export { AbstractQueryCollector } from './collectors/abstract-query.collector';
 export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';
+export {
+  AbstractSchemaCollector,
+  SCHEMA_ICON,
+} from './collectors/schema/abstract-schema.collector';
+export type {
+  ColumnInfo,
+  RelationInfo,
+  IndexInfo,
+  EntitySchema,
+  SchemaCollectorData,
+} from './collectors/schema/schema.interface';
 export { detectQueryType } from './collectors/sql/sql-query.interface';
 export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface';
 export { interpolateSql } from './collectors/sql/interpolate-sql';

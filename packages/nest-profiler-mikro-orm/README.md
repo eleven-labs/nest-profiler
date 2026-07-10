@@ -103,6 +103,20 @@ This captures all queries issued through the `EntityManager`, repositories and t
 
 **Streaming reads** — `QueryBuilder.stream()` is captured too, since MikroORM's SQL connection calls `logQuery` for it like any other query. It is logged at stream start (before rows are consumed) with no `took`; a `SELECT` logged without `took` is therefore detected as a streaming read and flagged `streaming: true` (a normal query always carries `took`, and transaction/savepoint control is type `OTHER`). Its `duration` stays `0` — measuring the real value would require intrusively wrapping MikroORM's internal row generator, so it is left as a documented limitation. The panel labels such rows `not timed (stream)`.
 
+## Schema panel
+
+`MikroOrmSchemaCollectorModule` adds a global **Schema · MikroORM** panel to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
+
+![Schema panel — MikroORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mikro-orm.png)
+
+```ts title="app.module.ts"
+import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+
+ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+```
+
+Pass `connectionName` to introspect a named MikroORM context (omit it for the default), and `enabled: false` to disable per environment. The panel reads `orm.getMetadata()` and never touches data; column defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no MikroORM context is wired.
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

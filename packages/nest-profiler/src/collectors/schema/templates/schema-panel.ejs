@@ -1,0 +1,159 @@
+<%
+  const entities = (data && Array.isArray(data.entities)) ? data.entities : [];
+  const entityCount = (data && typeof data.entityCount === 'number') ? data.entityCount : entities.length;
+
+  function relationArrow(kind) {
+    return (kind || '').replace(/-/g, ' ');
+  }
+%>
+
+<% if (entityCount === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg space-y-3 px-6">
+    <p class="text-foreground-muted text-sm font-medium">No registered entities to display.</p>
+    <p class="text-foreground-faint text-xs leading-relaxed">
+      This panel introspects the ORM connection at startup. It appears once at least one entity or
+      model is registered on the profiled connection.
+    </p>
+  </div>
+<% } else { %>
+  <div class="flex items-center gap-2 mb-3">
+    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Registered entities</h3>
+    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= entityCount %> entities</span>
+  </div>
+
+  <!-- One collapsible section per entity: columns, relations and indexes. -->
+  <% for (const entity of entities) { %>
+    <% const columns = Array.isArray(entity.columns) ? entity.columns : []; %>
+    <% const relations = Array.isArray(entity.relations) ? entity.relations : []; %>
+    <% const indexes = Array.isArray(entity.indexes) ? entity.indexes : []; %>
+    <details class="group mb-3 rounded-lg border border-line overflow-hidden" open>
+      <summary class="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+        <div class="flex items-center gap-2 min-w-0">
+          <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="text-xs font-semibold text-foreground font-mono truncate"><%= entity.name %></span>
+          <% if (entity.tableName && entity.tableName !== entity.name) { %>
+            <span class="text-2xs text-foreground-faint font-mono truncate">→ <%= entity.tableName %></span>
+          <% } %>
+        </div>
+        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface border border-line text-foreground-faint tabular-nums shrink-0"><%= columns.length %> columns</span>
+      </summary>
+      <div class="border-t border-line p-4 space-y-4">
+
+        <!-- ── Columns ─────────────────────────────────────────────── -->
+        <div>
+          <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Columns</h4>
+          <div class="rounded-lg border border-line overflow-hidden">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-line">
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Name</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Type</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Nullable</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">PK</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Generated</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Default</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line-subtle">
+                <% for (const column of columns) { %>
+                  <tr class="hover:bg-surface-muted transition-colors">
+                    <td class="py-2 px-4 text-xs font-mono align-top">
+                      <span class="text-foreground"><%= column.name %></span>
+                      <% if (column.databaseName && column.databaseName !== column.name) { %>
+                        <span class="text-foreground-faint">(<%= column.databaseName %>)</span>
+                      <% } %>
+                    </td>
+                    <td class="py-2 px-4 text-xs font-mono align-top text-foreground-secondary">
+                      <%= column.type %><% if (column.length) { %><span class="text-foreground-faint">(<%= column.length %>)</span><% } %>
+                    </td>
+                    <td class="py-2 px-4 text-xs align-top">
+                      <% if (column.nullable) { %><span class="text-foreground-faint font-mono">yes</span><% } else { %><span class="text-foreground-muted font-mono">no</span><% } %>
+                    </td>
+                    <td class="py-2 px-4 text-xs align-top">
+                      <% if (column.primary) { %><span class="text-success font-mono font-bold">PK</span><% } else { %><span class="text-foreground-faint">—</span><% } %>
+                    </td>
+                    <td class="py-2 px-4 text-xs align-top">
+                      <% if (column.generated) { %><span class="text-foreground-muted font-mono">auto</span><% } else { %><span class="text-foreground-faint">—</span><% } %>
+                    </td>
+                    <td class="py-2 px-4 text-xs font-mono align-top">
+                      <% if (column.default === undefined || column.default === null) { %>
+                        <span class="text-foreground-faint">—</span>
+                      <% } else if (column.default === '[REDACTED]') { %>
+                        <span class="text-foreground-faint"><%= column.default %></span>
+                      <% } else { %>
+                        <span class="text-foreground break-all"><%= column.default %></span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Relations ───────────────────────────────────────────── -->
+        <% if (relations.length > 0) { %>
+          <div>
+            <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Relations</h4>
+            <div class="rounded-lg border border-line overflow-hidden">
+              <table class="w-full">
+                <thead>
+                  <tr class="border-b border-line">
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Property</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Kind</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Target</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-line-subtle">
+                  <% for (const relation of relations) { %>
+                    <tr class="hover:bg-surface-muted transition-colors">
+                      <td class="py-2 px-4 text-xs font-mono align-top text-foreground"><%= relation.property %></td>
+                      <td class="py-2 px-4 text-xs align-top">
+                        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint"><%= relationArrow(relation.kind) %></span>
+                      </td>
+                      <td class="py-2 px-4 text-xs font-mono align-top text-foreground-secondary break-all"><%= relation.target %></td>
+                    </tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+        <!-- ── Indexes ─────────────────────────────────────────────── -->
+        <% if (indexes.length > 0) { %>
+          <div>
+            <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Indexes</h4>
+            <div class="rounded-lg border border-line overflow-hidden">
+              <table class="w-full">
+                <thead>
+                  <tr class="border-b border-line">
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Name</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Columns</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Unique</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-line-subtle">
+                  <% for (const index of indexes) { %>
+                    <tr class="hover:bg-surface-muted transition-colors">
+                      <td class="py-2 px-4 text-xs font-mono align-top">
+                        <% if (index.name) { %><span class="text-foreground"><%= index.name %></span><% } else { %><span class="text-foreground-faint">—</span><% } %>
+                      </td>
+                      <td class="py-2 px-4 text-xs font-mono align-top text-foreground-secondary break-all"><%= (index.columns || []).join(', ') %></td>
+                      <td class="py-2 px-4 text-xs align-top">
+                        <% if (index.unique) { %><span class="text-success font-mono font-bold">yes</span><% } else { %><span class="text-foreground-faint">—</span><% } %>
+                      </td>
+                    </tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+      </div>
+    </details>
+  <% } %>
+<% } %>
