@@ -11,10 +11,12 @@ import {
   Injectable,
   Post,
 } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import type { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
+import type { ProfilerSecurityOptions } from '../nest-profiler.builder';
+import type { PlatformRequest } from '../types/http';
 import { ProfilerService } from '../services/nest-profiler.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
 import { ProfilerCoreService } from '../services/profiler-core.service';
@@ -511,44 +513,86 @@ describe('ProfilerController (e2e)', () => {
     });
   });
 
-  describe('ProfilerGuard (PROFILER_TOKEN set)', () => {
+  describe('security (pluggable ProfilerGuard)', () => {
     const SECRET = 's3cret';
+    let secApp: INestApplication;
+    const secServer = (): Server => secApp.getHttpServer() as Server;
 
-    beforeEach(() => {
-      process.env['PROFILER_TOKEN'] = SECRET;
+    /** Reads a bearer token from the header (API/CLI) or the `?token=` query (browser). */
+    const credentialOf = (req: PlatformRequest): string | undefined => {
+      const auth = req.headers['authorization'];
+      if (typeof auth === 'string' && auth.startsWith('Bearer ')) return auth.slice(7);
+      const q = req.query?.['token'];
+      return Array.isArray(q) ? q[0] : q;
+    };
+
+    async function bootWith(security: ProfilerSecurityOptions): Promise<void> {
+      const moduleRef = await Test.createTestingModule({
+        imports: [ProfilerModule.forRoot({ security })],
+      }).compile();
+      secApp = moduleRef.createNestApplication();
+      await secApp.init();
+    }
+
+    afterEach(async () => {
+      if (secApp) await secApp.close();
     });
 
-    afterEach(() => {
-      delete process.env['PROFILER_TOKEN'];
+    describe('authorize predicate (bearer + ?token=)', () => {
+      beforeEach(() =>
+        bootWith({
+          authorize: ({ request, response }) => {
+            if (credentialOf(request) === SECRET) return true;
+            response.setHeader('WWW-Authenticate', 'Bearer realm="Profiler"');
+            return false;
+          },
+        }),
+      );
+
+      it('rejects requests without a credential and sends a challenge', async () => {
+        const res = await request(secServer()).get('/_profiler');
+        expect(res.status).toBe(401);
+        expect(res.headers['www-authenticate']).toBe('Bearer realm="Profiler"');
+      });
+
+      it('allows requests with the correct bearer token', async () => {
+        const res = await request(secServer())
+          .get('/_profiler')
+          .set('Authorization', `Bearer ${SECRET}`);
+        expect(res.status).toBe(200);
+      });
+
+      it('allows browser navigation via the ?token= query parameter', async () => {
+        const res = await request(secServer()).get('/_profiler').query({ token: SECRET });
+        expect(res.status).toBe(200);
+      });
+
+      it('rejects a wrong ?token= query parameter', async () => {
+        const res = await request(secServer()).get('/_profiler').query({ token: 'nope' });
+        expect(res.status).toBe(401);
+      });
+
+      it('serves static assets without a credential so the UI can load (asset exemption)', async () => {
+        // A browser cannot set Authorization on <link>/<script>; assets must stay reachable.
+        // 404 (allowlist), NOT 401 — the guard did not block the asset route.
+        const res = await request(secServer()).get('/_profiler/__assets/styles/secret.css');
+        expect(res.status).toBe(404);
+      });
     });
 
-    it('rejects requests without a valid bearer token', async () => {
-      const res = await request(server()).get('/_profiler');
-      expect(res.status).toBe(401);
+    it('applies a provided NestJS guard instance (denies then allows)', async () => {
+      const guard: CanActivate = {
+        canActivate: (ctx: ExecutionContext) =>
+          ctx.switchToHttp().getRequest<PlatformRequest>().headers['x-admin'] === 'yes',
+      };
+      await bootWith({ guards: [guard] });
+      expect((await request(secServer()).get('/_profiler')).status).toBe(401);
+      expect((await request(secServer()).get('/_profiler').set('x-admin', 'yes')).status).toBe(200);
     });
 
-    it('allows requests with the correct bearer token', async () => {
-      const res = await request(server())
-        .get('/_profiler')
-        .set('Authorization', `Bearer ${SECRET}`);
-      expect(res.status).toBe(200);
-    });
-
-    it('allows browser navigation via the ?token= query parameter', async () => {
-      const res = await request(server()).get('/_profiler').query({ token: SECRET });
-      expect(res.status).toBe(200);
-    });
-
-    it('rejects a wrong ?token= query parameter', async () => {
-      const res = await request(server()).get('/_profiler').query({ token: 'nope' });
-      expect(res.status).toBe(401);
-    });
-
-    it('serves static assets without a token so the UI can load (asset exemption)', async () => {
-      // A browser cannot set Authorization on <link>/<script>; assets must stay reachable.
-      const res = await request(server()).get('/_profiler/__assets/styles/secret.css');
-      // 404 (allowlist), NOT 401 — the guard did not block the asset route.
-      expect(res.status).toBe(404);
+    it('is open by default when no strategy is configured', async () => {
+      await bootWith({});
+      expect((await request(secServer()).get('/_profiler')).status).toBe(200);
     });
   });
 });

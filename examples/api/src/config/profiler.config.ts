@@ -27,5 +27,13 @@ export default registerAs('profiler', () => {
       .map((field) => field.trim())
       .filter(Boolean),
     slowThreshold: parseInt(process.env['PROFILER_SLOW_QUERY_MS'] ?? '50', 10),
+    // Demo access-control credentials, consumed by `resolveProfilerSecurity` (profiling.module.ts)
+    // according to the `PROFILER_AUTH` strategy. `basic` uses the user/password pair; `token` uses
+    // the token. Empty values leave the dashboard open.
+    basicAuth: {
+      user: process.env['PROFILER_BASIC_USER'] ?? 'admin',
+      password: process.env['PROFILER_BASIC_PASSWORD'] ?? '',
+    },
+    token: process.env['PROFILER_TOKEN'] ?? '',
   };
 });

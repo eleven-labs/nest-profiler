@@ -26,6 +26,24 @@ Options passed to `ProfilerModule.forRootAsync()`.
   name="ProfilerModuleAsyncOptions"
 />
 
+### ProfilerSecurityOptions
+
+Pluggable access control for the profiler UI/API, passed as the `security` option. Provide an `authorize` predicate and/or NestJS `guards` (all must pass); omit it to leave the profiler open. See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui).
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/nest-profiler.builder.ts"
+  name="ProfilerSecurityOptions"
+/>
+
+### ProfilerAuthContext
+
+The context passed to a `ProfilerAuthorize` predicate. `ProfilerAuthorize` is `(context: ProfilerAuthContext) => boolean | Promise<boolean>` — return `false` to deny (the guard throws `401`).
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/nest-profiler.builder.ts"
+  name="ProfilerAuthContext"
+/>
+
 ## Profile structure
 
 ### Profile

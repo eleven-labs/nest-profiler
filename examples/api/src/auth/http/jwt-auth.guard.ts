@@ -1,10 +1,15 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { IncomingMessage } from 'node:http';
 
+/** Cookie carrying the demo JWT so the profiler's `cookie` auth strategy is browser-navigable. */
+export const PROFILER_JWT_COOKIE = 'profiler_jwt';
+
 /**
- * Decodes a JWT from the Authorization header and populates request.user.
- * Does NOT verify the signature — display purposes only for profiler demo.
- * Rejects with 401 when the Bearer token is missing or malformed.
+ * Decodes a JWT from the `profiler_jwt` cookie (browser-navigable — sent automatically on every
+ * link) or, failing that, the `Authorization: Bearer` header (API/CLI), and populates request.user.
+ * Does NOT verify the signature — display purposes only for profiler demo. Rejects with 401 when the
+ * JWT is missing or malformed. Reused as-is by the profiler's `cookie` security strategy via
+ * `security.guards`.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -16,11 +21,15 @@ export class JwtAuthGuard implements CanActivate {
       >();
 
     const authHeader = request.headers['authorization'];
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing Bearer token — get one from GET /auth/token');
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const jwt = readCookie(request.headers['cookie'], PROFILER_JWT_COOKIE) ?? bearer;
+    if (!jwt) {
+      throw new UnauthorizedException(
+        'Missing JWT — get one from GET /auth/token (cookie or Bearer)',
+      );
     }
 
-    const payload = parseJwtPayload(authHeader.slice(7));
+    const payload = parseJwtPayload(jwt);
     if (!payload) {
       throw new UnauthorizedException('Malformed JWT payload');
     }
@@ -30,7 +39,19 @@ export class JwtAuthGuard implements CanActivate {
   }
 }
 
-function parseJwtPayload(token: string): object | undefined {
+/** Reads a named cookie from the raw `Cookie` header (no cookie-parser dependency needed). */
+function readCookie(header: string | undefined, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq !== -1 && part.slice(0, eq).trim() === name) {
+      return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+export function parseJwtPayload(token: string): object | undefined {
   const parts = token.split('.');
   if (parts.length !== 3) return undefined;
   try {

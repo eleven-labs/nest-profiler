@@ -1,6 +1,14 @@
 export { NEST_PROFILER_MODULE_OPTIONS } from './nest-profiler.builder';
-export type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
+export type {
+  ProfilerModuleAsyncOptions,
+  ProfilerModuleOptions,
+  ProfilerSecurityOptions,
+  ProfilerAuthorize,
+  ProfilerAuthContext,
+} from './nest-profiler.builder';
 export { ProfilerModule } from './nest-profiler.module';
+export { ProfilerGuard } from './guards/profiler.guard';
+export type { PlatformRequest, PlatformResponse } from './types/http';
 export { ProfilerNoopModule } from './nest-profiler-noop.module';
 export { buildCollectorModule } from './collector-module.builder';
 export type { CollectorModuleShape } from './collector-module.builder';

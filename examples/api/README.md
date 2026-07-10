@@ -54,6 +54,9 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 | `FEATURE_RABBITMQ`    | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`) |
 | `FEATURE_PINO_LOGGER` | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                |
 | `PROFILER_ENABLED`    | `true`      | Enable the profiler UI and all collectors                                          |
+| `PROFILER_AUTH`       | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`          |
+
+`PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
 `SQL_ORM` selects which adapter backs the **catalog** context. `typeorm`/`mikro-orm` are mutually exclusive (they map the same Postgres `products` table); `in-memory` needs no database and is the default, so the catalog — and its GraphQL API — always runs. Contexts that depend on disabled infrastructure are simply not registered: no connection is attempted, no crash.
 

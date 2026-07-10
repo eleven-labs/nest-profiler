@@ -30,7 +30,7 @@
           %>
           <tr class="hover:bg-surface-muted transition-colors">
             <td class="py-2.5 px-4">
-              <a href="<%= profilerPath %>/<%= p.token %>"
+              <a href="<%= link(profilerPath + '/' + p.token) %>"
                  class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
                 <%= p.token.slice(0, 8) %>
               </a>

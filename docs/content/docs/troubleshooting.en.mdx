@@ -52,7 +52,7 @@ The Database (or MongoDB) tab is empty for a request that clearly hit the databa
 
 Access to the UI is protected.
 
-- A `token` option or the `PROFILER_TOKEN` environment variable is set. Send `Authorization: Bearer <token>` with your request, or unset it for local development. See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui).
+- A `security` strategy (`authorize` predicate and/or `guards`) is configured and denied the request. Send the credential it expects (e.g. `Authorization: Bearer <token>`, a session cookie, or Basic auth), or remove the `security` option for local development. See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui).
 
 ## CLI command profiles don't appear next to HTTP requests
 

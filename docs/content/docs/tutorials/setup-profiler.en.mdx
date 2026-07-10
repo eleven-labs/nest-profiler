@@ -89,17 +89,23 @@ Open `http://localhost:3000/_profiler` in your browser to see the list of recent
 
 ## Step 5 - Secure the profiler (optional)
 
-Set `PROFILER_TOKEN` in your environment to restrict access to `/_profiler/*`:
+The profiler is open by default. Restrict `/_profiler/*` by providing your own `security` strategy — an `authorize` predicate and/or NestJS `guards`. A minimal bearer-token check:
+
+```ts title="app.module.ts"
+ProfilerModule.forRoot({
+  security: {
+    authorize: ({ request }) =>
+      request.headers['authorization'] === `Bearer ${process.env.PROFILER_TOKEN}`,
+  },
+});
+```
 
 ```bash
 PROFILER_TOKEN=my-dev-secret pnpm start:dev
-```
-
-Then access the profiler with:
-
-```bash
 curl -H "Authorization: Bearer my-dev-secret" http://localhost:3000/_profiler
 ```
+
+See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui) for basic-auth, cookie/session and DI-guard recipes.
 
 <Callout type="warn" title="Production warning">
   Never enable the profiler in production. It exposes internal request data including headers, query

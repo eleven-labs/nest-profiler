@@ -20,11 +20,18 @@ export class TemplateRendererService {
 
   async render(name: string, data: Record<string, unknown>): Promise<string> {
     const templatePath = this.resolve(name);
-    // `assetVersion(key)` is a global so every template (and its includes, e.g. _head) can
-    // cache-bust an asset URL by its own content digest; an explicit value in `data` still wins.
+    // `assetVersion(key)` and `link(href)` are globals so every template (and its includes,
+    // e.g. _head/_nav) can cache-bust an asset URL and thread a `security.linkQuery`
+    // credential onto links. Both default to no-ops here; an explicit value in `data` wins.
     return ejs.renderFile(
       templatePath,
-      { ...HELPERS, assetVersion: this.assetVersion, ...data } as ejs.Data,
+      {
+        ...HELPERS,
+        assetVersion: this.assetVersion,
+        link: (href: string) => href,
+        linkQueryPairs: [],
+        ...data,
+      } as ejs.Data,
       { views: this.dirs },
     );
   }

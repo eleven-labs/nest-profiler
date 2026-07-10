@@ -41,7 +41,7 @@
 
     <!-- ── Breadcrumb ────────────────────────────────────────────────────── -->
     <nav class="flex items-center gap-2 text-xs mb-6 flex-wrap">
-      <a href="<%= profilerPath %>" class="text-foreground-muted hover:text-foreground transition-colors">Profiles</a>
+      <a href="<%= link(profilerPath) %>" class="text-foreground-muted hover:text-foreground transition-colors">Profiles</a>
       <span class="text-foreground-faint">/</span>
       <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= summary.badgeClass || 'badge-default' %>"><%= summary.badge %></span>
       <span class="text-foreground-secondary truncate max-w-xs"><%= summary.text %></span>
@@ -51,7 +51,7 @@
         <span class="text-foreground-faint">·</span>
         <span class="text-foreground-faint"><%= profile.route.controller %>::<%= profile.route.handler %></span>
       <% } %>
-      <a href="<%= profilerPath %>/<%= profile.token %>/data"
+      <a href="<%= link(profilerPath + '/' + profile.token + '/data') %>"
          download="profile-<%= profile.token.slice(0, 8) %>.json"
          class="ml-auto flex items-center gap-1 px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors text-2xs">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -104,7 +104,7 @@
               const badge = bt.badge ?? null;
               const isEmpty = bt.badge === null;
             %>
-            <a href="<%= profilerPath %>/<%= profile.token %>?tab=<%= bt.name %>"
+            <a href="<%= link(profilerPath + '/' + profile.token + '?tab=' + bt.name) %>"
                class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2
                  <%= isActive
                    ? 'border-nest text-nest bg-surface-active'
@@ -141,7 +141,7 @@
                 const sev = panel.severity || null;
                 const sevDot = sev === 'danger' ? 'bg-red-500' : sev === 'warning' ? 'bg-amber-500' : null;
               %>
-              <a href="<%= profilerPath %>/<%= profile.token %>?tab=<%= panel.name %>"
+              <a href="<%= link(profilerPath + '/' + profile.token + '?tab=' + panel.name) %>"
                  class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2
                    <%= isActive
                      ? 'border-nest text-nest bg-surface-active'

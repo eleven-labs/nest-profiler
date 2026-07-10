@@ -6,6 +6,12 @@ import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerQuery } from '../storage/profiler-query';
 import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
+import type { PlatformRequest } from '../types/http';
+
+/** Minimal platform request for the `@Req()` param of the controller handlers. */
+function mockReq(overrides: Partial<PlatformRequest> = {}): PlatformRequest {
+  return { headers: {}, query: {}, ...overrides } as unknown as PlatformRequest;
+}
 
 function makeProfile(token = 'tok-123456789', createdAt = Date.now()): Profile {
   return {
@@ -45,7 +51,13 @@ function fakeStorage(profiles: Profile[]) {
   };
 }
 
-function setup(options: { listPageSize?: number; profiles?: Profile[] } = {}): {
+function setup(
+  options: {
+    listPageSize?: number;
+    profiles?: Profile[];
+    security?: { linkQuery?: (request: PlatformRequest) => string };
+  } = {},
+): {
   controller: ProfilerController;
   rendered: RenderArgs[];
   core: jest.Mocked<Pick<ProfilerCoreService, never>> & Record<string, unknown>;
@@ -103,13 +115,42 @@ type RenderedSection = {
 describe('ProfilerController (unit)', () => {
   it('renders with the profiler path /_profiler', async () => {
     const { controller, rendered } = setup();
-    await controller.listProfiles({});
+    await controller.listProfiles({}, mockReq());
     expect(rendered[0]?.ctx.profilerPath).toBe('/_profiler');
+  });
+
+  describe('security.linkQuery threading', () => {
+    it('defaults to an identity link helper and no query pairs when unset', async () => {
+      const { controller, rendered } = setup();
+      await controller.listProfiles({}, mockReq());
+      const link = rendered[0]?.ctx.link as (href: string) => string;
+      expect(link('/_profiler')).toBe('/_profiler');
+      expect(rendered[0]?.ctx.linkQueryPairs).toEqual([]);
+    });
+
+    it('appends the configured link query to list links (and the export) and exposes hidden pairs', async () => {
+      const { controller, rendered } = setup({ security: { linkQuery: () => '?token=abc' } });
+      await controller.listProfiles({}, mockReq());
+      const link = rendered[0]?.ctx.link as (href: string) => string;
+      expect(link('/_profiler')).toBe('/_profiler?token=abc');
+      expect(link('/_profiler/tok/data')).toBe('/_profiler/tok/data?token=abc');
+      expect(link('/_profiler/tok?tab=logs')).toBe('/_profiler/tok?tab=logs&token=abc');
+      expect(rendered[0]?.ctx.linkQueryPairs).toEqual([{ name: 'token', value: 'abc' }]);
+    });
+
+    it('passes the request to linkQuery so the credential can be read from it', async () => {
+      const linkQuery = jest.fn((req: PlatformRequest) => `?token=${String(req.query?.['token'])}`);
+      const { controller, rendered } = setup({ security: { linkQuery } });
+      await controller.getProfileDetail(mockReq({ query: { token: 'xyz' } }), 'tok-123456789');
+      const link = rendered[0]?.ctx.link as (href: string) => string;
+      expect(link('/_profiler')).toBe('/_profiler?token=xyz');
+      expect(linkQuery).toHaveBeenCalled();
+    });
   });
 
   it('falls back to the performance tab when the entrypoint type has no detail tabs', async () => {
     const { controller, rendered } = setup();
-    await controller.getProfileDetail('tok-123456789');
+    await controller.getProfileDetail(mockReq(), 'tok-123456789');
     expect(rendered[0]?.template).toBe('detail');
     expect(rendered[0]?.ctx.activeTab).toBe('performance');
     expect(rendered[0]?.ctx.entrypointTabs).toEqual([]);
@@ -141,7 +182,7 @@ describe('ProfilerController (unit)', () => {
       },
     ]);
 
-    await controller.getProfileDetail(profile.token, 'database');
+    await controller.getProfileDetail(mockReq(), profile.token, 'database');
 
     expect(rendered[0]?.ctx.activeTab).toBe('database');
     // No `subtab` query → the grouped panel falls back to its first sub-tab.
@@ -163,7 +204,7 @@ describe('ProfilerController (unit)', () => {
     const profile = makeProfile();
     const { controller, rendered } = setup({ profiles: [profile] });
 
-    await controller.getProfileDetail(profile.token, 'database', 'mongoose');
+    await controller.getProfileDetail(mockReq(), profile.token, 'database', 'mongoose');
 
     expect(rendered[0]?.ctx.activeSubTab).toBe('mongoose');
   });
@@ -191,7 +232,7 @@ describe('ProfilerController (unit)', () => {
         },
       ],
     });
-    await controller.getProfileDetail('tok-123456789');
+    await controller.getProfileDetail(mockReq(), 'tok-123456789');
     expect(rendered[0]?.ctx.entrypointTabs).toEqual([
       { name: 'request', label: 'Request', icon: undefined, badge: undefined },
       { name: 'response', label: 'Response', icon: undefined, badge: null },
@@ -203,7 +244,7 @@ describe('ProfilerController (unit)', () => {
     const { controller, rendered } = setup();
     // `''` (empty string) and `[]` (no first element) both fail the keep test,
     // so the only section's reset link carries no query string.
-    await controller.listProfiles({ other_a: '', other_b: [] });
+    await controller.listProfiles({ other_a: '', other_b: [] }, mockReq());
     const sections = rendered[0]?.ctx.sections as { resetHref: string }[];
     expect(sections[0]?.resetHref).toBe('/_profiler');
   });
@@ -216,7 +257,7 @@ describe('ProfilerController (unit)', () => {
 
     it('slices a section to one page and reports the total + range', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({});
+      await controller.listProfiles({}, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.profiles).toHaveLength(25);
       expect(section.profiles[0]?.token).toBe('tok-0');
@@ -235,7 +276,7 @@ describe('ProfilerController (unit)', () => {
 
     it('serves the requested page and builds prev/next links preserving other params', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({ http_page: '2', other_x: 'keep' });
+      await controller.listProfiles({ http_page: '2', other_x: 'keep' }, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.profiles[0]?.token).toBe('tok-25');
       expect(section.pagination).toMatchObject({
@@ -251,7 +292,7 @@ describe('ProfilerController (unit)', () => {
 
     it('clamps an out-of-range page to the last page', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({ http_page: '999' });
+      await controller.listProfiles({ http_page: '999' }, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.pagination).toMatchObject({
         page: 3,
@@ -265,7 +306,7 @@ describe('ProfilerController (unit)', () => {
 
     it('defaults the page size to 25 when no listPageSize option is given', async () => {
       const { controller, rendered } = setup({ profiles: manyProfiles(30) });
-      await controller.listProfiles({});
+      await controller.listProfiles({}, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.pagination.pageSize).toBe(25);
       expect(section.profiles).toHaveLength(25);

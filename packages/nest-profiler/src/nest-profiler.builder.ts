@@ -1,8 +1,68 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
-import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import type { CanActivate, ConfigurableModuleAsyncOptions, Type } from '@nestjs/common';
 import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
 import type { ProfilerRequestFilter } from './filters';
 import type { PerformanceRule } from './analysis/performance-rule.interface';
+import type { PlatformRequest, PlatformResponse } from './types/http';
+
+/**
+ * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the
+ * response are the platform-agnostic surfaces shared by the Express and Fastify adapters.
+ */
+export interface ProfilerAuthContext {
+  /** Incoming request — read cookies, headers, session or query to make the decision. */
+  request: PlatformRequest;
+  /**
+   * Outgoing response. Set a `WWW-Authenticate` header here before returning `false` to
+   * trigger a browser Basic-auth challenge (e.g. `response.setHeader('WWW-Authenticate',
+   * 'Basic realm="Profiler"')`).
+   */
+  response: PlatformResponse;
+}
+
+/**
+ * Access-control predicate for the profiler UI/API. Return `true` to allow the request,
+ * `false` to deny it (the guard then throws `401 Unauthorized`). May be async.
+ */
+export type ProfilerAuthorize = (context: ProfilerAuthContext) => boolean | Promise<boolean>;
+
+/**
+ * Pluggable security for the profiler UI/API. Every strategy you provide runs on each
+ * profiler route (static assets under `__assets/*` are always exempt so the UI can load its
+ * CSS/JS); when several are provided **all must pass**. With none provided the profiler is
+ * open (local-dev default).
+ *
+ * Browser caveat: the UI is navigated through plain `<a>` links, which only carry the
+ * credentials the browser attaches automatically — cookies, sessions and HTTP Basic auth.
+ * Those propagate to every page (including the `/:token/data` export) with no extra work. A
+ * bare `Authorization` header or a `?token=` query cannot ride a link click: header schemes
+ * suit API/CLI clients (curl), and query schemes need {@link linkQuery} to be threaded
+ * through the UI links.
+ */
+export interface ProfilerSecurityOptions {
+  /**
+   * Predicate deciding whether a request may access the profiler. Combined with
+   * {@link guards} (all must pass). Resolve services through `forRootAsync` + `useFactory`
+   * to close over them here.
+   */
+  authorize?: ProfilerAuthorize;
+
+  /**
+   * NestJS guard(s) applied to the profiler routes — a class resolved through DI (reuse an
+   * existing app guard such as `JwtAuthGuard`) or a ready instance. A guard class's
+   * dependencies must be resolvable from the profiler module's context (globally-provided or
+   * registered as a provider). Combined with {@link authorize} (all must pass).
+   */
+  guards?: (Type<CanActivate> | CanActivate)[];
+
+  /**
+   * Returns a query string (e.g. `?token=abc`) appended to every link the profiler UI
+   * renders — navigation, tabs, pagination and the JSON export — so a query-param credential
+   * survives browser navigation. Return `''` (or omit the option) to append nothing. Not
+   * needed for cookie/session/Basic auth, which the browser propagates on its own.
+   */
+  linkQuery?: (request: PlatformRequest) => string;
+}
 
 export interface ProfilerModuleOptions {
   /**
@@ -11,21 +71,19 @@ export interface ProfilerModuleOptions {
    * This is a synchronous bootstrap decision: when `false`, only the inert
    * {@link ProfilerService} is registered (no middleware, interceptor,
    * controller, storage or collectors). The host application decides per
-   * environment. (Two small, documented exceptions read `process.env` directly:
-   * the guard falls back to `PROFILER_TOKEN`, and the config collector reads
-   * `NODE_ENV` for display.)
+   * environment. (One small, documented exception reads `process.env`
+   * directly: the config collector reads `NODE_ENV` for display.)
    */
   enabled?: boolean;
 
   /**
-   * Token required to access the profiler UI. When set, requests must present it either as
-   * `Authorization: Bearer <token>` (API clients) or as a `?token=<token>` query parameter
-   * (browser navigation — a browser cannot set an `Authorization` header when following a
-   * link). Static assets under `__assets/*` are exempt so the UI can load its CSS/JS. When
-   * omitted, the guard falls back to the `PROFILER_TOKEN` environment variable; if neither is
-   * set, the profiler is open (intended for local development only).
+   * Pluggable access control for the profiler UI/API. By default the profiler is **open**
+   * (no authentication) — intended for local development. Provide your own strategy to lock
+   * it down: a {@link ProfilerSecurityOptions.authorize | authorize} predicate, one or more
+   * NestJS {@link ProfilerSecurityOptions.guards | guards}, or both (all must pass). See
+   * {@link ProfilerSecurityOptions} for the browser-navigation caveats and `linkQuery`.
    */
-  token?: string;
+  security?: ProfilerSecurityOptions;
 
   /** Maximum number of profiles kept (LRU eviction). Default: 100. Set to `0` (or negative) for no cap. */
   maxProfiles?: number;

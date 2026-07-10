@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { readFileSync } from 'fs';
@@ -18,6 +19,8 @@ import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
+import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
+import type { PlatformRequest } from '../types/http';
 import type { Profile } from '../interfaces/profile.interface';
 import {
   buildCriteria,
@@ -61,6 +64,8 @@ export class ProfilerController {
   private readonly profilerPath = PROFILER_BASE_PATH;
   /** Profiles shown per page in each list section (see `listPageSize`). */
   private readonly pageSize: number;
+  /** Optional hook returning a query string appended to UI links (query-param auth). */
+  private readonly linkQueryFn?: (request: PlatformRequest) => string;
 
   constructor(
     private readonly core: ProfilerCoreService,
@@ -69,6 +74,16 @@ export class ProfilerController {
     @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions,
   ) {
     this.pageSize = options.listPageSize ?? DEFAULT_LIST_PAGE_SIZE;
+    this.linkQueryFn = options.security?.linkQuery;
+  }
+
+  /**
+   * The credential query string (e.g. `?token=abc`) to thread through the UI's links so a
+   * query-param auth scheme survives browser navigation. Empty unless `security.linkQuery`
+   * is configured (cookie/session/Basic auth needs nothing here — the browser propagates it).
+   */
+  private resolveLinkQuery(req: PlatformRequest): string {
+    return this.linkQueryFn?.(req) ?? '';
   }
 
   @Get(`${PROFILER_BASE_PATH}/__assets/styles/:file`)
@@ -109,7 +124,9 @@ export class ProfilerController {
   @Header('Content-Security-Policy', PROFILER_CSP)
   async listProfiles(
     @Query() query: Record<string, string | string[] | undefined>,
+    @Req() req: PlatformRequest,
   ): Promise<string> {
+    const linkQuery = this.resolveLinkQuery(req);
     const allSections = this.core.getListSections();
 
     // Fetch only the 30 most-recent profiles for the heap trend — never the whole store.
@@ -138,6 +155,8 @@ export class ProfilerController {
     return this.templateRenderer.render('list', {
       title: 'Profiles',
       profilerPath: this.profilerPath,
+      link: (href: string) => appendLinkQuery(href, linkQuery),
+      linkQueryPairs: linkQueryPairs(linkQuery),
       clientScripts: this.clientAssets.list(),
       sections,
       globalPanels,
@@ -279,10 +298,12 @@ export class ProfilerController {
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Content-Security-Policy', PROFILER_CSP)
   async getProfileDetail(
+    @Req() req: PlatformRequest,
     @Param('token') token: string,
     @Query('tab') tab?: string,
     @Query('subtab') subtab?: string,
   ): Promise<string> {
+    const linkQuery = this.resolveLinkQuery(req);
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
 
@@ -330,6 +351,7 @@ export class ProfilerController {
     return this.templateRenderer.render('detail', {
       title: `Profile ${profile.token.slice(0, 8)}`,
       profilerPath: this.profilerPath,
+      link: (href: string) => appendLinkQuery(href, linkQuery),
       clientScripts: this.clientAssets.list(),
       token: profile.token,
       profile,

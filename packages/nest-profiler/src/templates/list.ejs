@@ -80,12 +80,14 @@
       // the universal filters plus the filters scoped to that kind, with form
       // fields namespaced by the section key so a section filters only itself.
       const sectionBuckets = typeof sections !== 'undefined' && sections ? sections : [];
-      const sectionHelpers = { profilerPath, methodClass, gqlTypeClass, statusClass, isoDate, toJson, timeOnly, tagBadges };
+      const sectionHelpers = { profilerPath, link, methodClass, gqlTypeClass, statusClass, isoDate, toJson, timeOnly, tagBadges };
       const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
     %>
 
     <%# One form wraps every section so submitting any bar preserves the others. %>
     <form data-profiler-filters method="GET" action="<%= profilerPath %>">
+      <%# Preserve a query-param credential (security.linkQuery) across a filter submit. %>
+      <% linkQueryPairs.forEach((p) => { %><input type="hidden" name="<%= p.name %>" value="<%= p.value %>"><% }) %>
       <% sectionBuckets.forEach((section) => { %>
         <% if (section.isDefault || section.total > 0) { %>
           <%
