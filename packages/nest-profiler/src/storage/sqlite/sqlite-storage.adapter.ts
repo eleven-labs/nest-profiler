@@ -300,11 +300,11 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
       case 'eq':
         if (typeof value === 'string') return { sql: `LOWER(${expr}) = LOWER(?)`, params: [value] };
         if (typeof value === 'boolean') return { sql: `${expr} = ?`, params: [value ? 1 : 0] };
-        return { sql: `${expr} = ?`, params: [toSqlValue(value)] };
+        return { sql: `${expr} = ?`, params: [value as InValue] };
       case 'gte':
-        return { sql: `${expr} >= ?`, params: [toSqlValue(value)] };
+        return { sql: `${expr} >= ?`, params: [value as InValue] };
       case 'lte':
-        return { sql: `${expr} <= ?`, params: [toSqlValue(value)] };
+        return { sql: `${expr} <= ?`, params: [value as InValue] };
       case 'range': {
         const [min, max] = value as [number, number];
         return { sql: `${expr} BETWEEN ? AND ?`, params: [min, max] };
@@ -380,29 +380,8 @@ function numberColumn(row: Row | undefined, column: string): number {
   return typeof value === 'bigint' ? Number(value) : Number(value ?? 0);
 }
 
+// `distinct` filters out NULL / '' in SQL and only reads text/number columns, so a value is always a
+// bound summary primitive (libSQL returns integers as numbers under its default int mode).
 function summaryColumn(row: Row, column: string): SummaryPrimitive {
-  const value = row[column];
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'bigint') return Number(value);
-  return '';
-}
-
-function toSqlValue(value: unknown): InValue {
-  if (value === null || value === undefined) return null;
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'bigint' ||
-    typeof value === 'boolean' ||
-    value instanceof ArrayBuffer ||
-    value instanceof Uint8Array ||
-    value instanceof Date
-  ) {
-    return value;
-  }
-  // Filters only ever bind SummaryPrimitives; anything else is unexpected, so JSON-encode it
-  // rather than risk libSQL rejecting the bind or coercing it to '[object Object]'.
-  return JSON.stringify(value);
+  return row[column] as SummaryPrimitive;
 }

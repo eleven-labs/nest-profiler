@@ -188,6 +188,24 @@ describe('SqliteStorageAdapter', () => {
       expect(withExc.items.map((p) => p.token)).toEqual(['d']);
     });
 
+    it('matches eq on a numeric field and escapes LIKE wildcards in contains', async () => {
+      await seed();
+      const byStatus = await adapter.query({
+        filters: [{ field: 'statusCode', op: 'eq', value: 200 }],
+        page: 1,
+        pageSize: 10,
+      });
+      expect(byStatus.items.map((p) => p.token).sort()).toEqual(['a', 'c']);
+
+      // A `%` in the value is escaped, so it matches literally (nothing here) rather than as a wildcard.
+      const wildcard = await adapter.query({
+        filters: [{ field: 'search', op: 'contains', value: 'a%' }],
+        page: 1,
+        pageSize: 10,
+      });
+      expect(wildcard.items).toEqual([]);
+    });
+
     it('filters by an indexed performance tag (whole-id contains)', async () => {
       await adapter.save(makeProfile('slow-one', { tags: ['slow', 'n-plus-one'] }));
       await adapter.save(makeProfile('very-slow', { tags: ['very-slow'] }));
