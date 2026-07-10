@@ -216,6 +216,6 @@ security: {
 }
 ```
 
-### Migrating from the `token` option
+### See it in action
 
-The former `token` option and its `PROFILER_TOKEN` fallback have been removed. Reproduce a bearer check with an `authorize` predicate (see the Token recipe above) for API/CLI clients — or, to actually browse the UI behind auth, prefer Basic auth or a cookie/session, which the browser propagates to every link on its own. The [example app's `resolveProfilerSecurity`](https://github.com/eleven-labs/nest-profiler/blob/main/examples/api/src/profiling/profiling.module.ts) ships every seam side by side, selected by a `PROFILER_AUTH` env var (`basic`, `token`, `cookie`) exactly like its `SQL_ORM` adapter switch — off by default. `cookie` reuses a NestJS guard through `security.guards` and reads the JWT from a cookie, so it stays browser-navigable while also accepting a Bearer header for API clients.
+The [example app's `resolveProfilerSecurity`](https://github.com/eleven-labs/nest-profiler/blob/main/examples/api/src/profiling/profiling.module.ts) wires every seam side by side, selected by a `PROFILER_AUTH` env var (`basic`, `token`, `cookie`) exactly like its `SQL_ORM` adapter switch — off by default. `cookie` reuses a NestJS guard through `security.guards` and reads the JWT from a cookie, so it stays browser-navigable while also accepting a Bearer header for API clients.

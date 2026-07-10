@@ -1,23 +1,11 @@
 ---
-'@eleven-labs/nest-profiler': major
+'@eleven-labs/nest-profiler': minor
 ---
 
-Replace the built-in profiler token with a pluggable `security` option so consumers can enforce **any** authentication on the UI/API.
+Add a pluggable `security` option to protect the profiler UI/API, so consumers can enforce **any** authentication (or none — the profiler is **open by default**).
 
-**BREAKING:** the `token` option and its `PROFILER_TOKEN` environment fallback are removed. Reproduce them with a `security.authorize` predicate (see the migration snippet below).
+- `security.authorize` — a `(ctx) => boolean | Promise<boolean>` predicate over the platform-agnostic `request`/`response` (set a `WWW-Authenticate` header for a Basic challenge). Covers token, Basic, cookie/session, custom header, external calls…
+- `security.guards` — one or more NestJS `CanActivate` guards (a class resolved through DI, or a ready instance) to reuse an existing app guard.
+- `security.linkQuery` — threads a query-param credential (`?token=`) across the UI links so query-param schemes survive browser navigation (cookies/sessions/Basic auth propagate natively).
 
-- **Removed** (breaking): the `token` option and its `PROFILER_TOKEN` environment fallback. The profiler stays **open by default** (no authentication).
-- **Added**: `security` on `ProfilerModuleOptions`, combining `authorize` (a `(ctx) => boolean | Promise<boolean>` predicate over the platform-agnostic `request`/`response`), `guards` (NestJS `CanActivate` classes resolved through DI, or ready instances), and `linkQuery` (threads a query-param credential through the UI links). Providing several strategies requires **all** to pass; providing none keeps the profiler open. Static assets stay exempt.
-- **Fixed**: the JSON export link (`/:token/data`) and UI navigation now carry the visitor's credential — cookies/sessions/Basic auth propagate natively, and query-param schemes propagate via `linkQuery`.
-- New exports: `ProfilerSecurityOptions`, `ProfilerAuthorize`, `ProfilerAuthContext`, `ProfilerGuard`, `PlatformRequest`, `PlatformResponse`.
-
-Migration — replace `token: process.env.PROFILER_TOKEN` with an `authorize` predicate:
-
-```ts
-ProfilerModule.forRoot({
-  security: {
-    authorize: ({ request }) =>
-      request.headers['authorization'] === `Bearer ${process.env.PROFILER_TOKEN}`,
-  },
-});
-```
+Providing several strategies requires **all** to pass; providing none keeps the profiler open. Static assets stay exempt. The JSON export link and UI navigation carry the visitor's credential. New exports: `ProfilerSecurityOptions`, `ProfilerAuthorize`, `ProfilerAuthContext`, `ProfilerGuard`, `PlatformRequest`, `PlatformResponse`.
