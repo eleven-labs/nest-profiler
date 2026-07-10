@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-routes",
-  "version": "1.0.0-alpha.7",
+  "version": "1.0.0-alpha.8",
   "description": "Routes panel for @eleven-labs/nest-profiler — a Symfony-Routing-style view of the application routing table",
   "keywords": [
     "nestjs",
