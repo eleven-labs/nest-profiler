@@ -5,7 +5,7 @@
   },
   {
     "query": "app.module.ts registers the profiler with the enabled flag (Approach B):\n  ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }),\nThe app uses mongoose + @nestjs/mongoose with MongooseModule.forRoot(...).\n\nUser: Add MongoDB query profiling.",
-    "expected_behavior": "Confirm the base setup and note the existing strategy is the enabled flag (Approach B). Install @eleven-labs/nest-profiler-mongoose and register MongooseCollectorModule.forRoot({ slowQueryThreshold: 100 }). Must MATCH Approach B — do NOT introduce ConditionalModule.registerWhen (that would be a second, inconsistent pattern)."
+    "expected_behavior": "Confirm the base setup and note the existing strategy is the enabled flag (Approach B). Install @eleven-labs/nest-profiler-mongoose and register MongooseCollectorModule.forRoot({ slowThreshold: 100 }) (slowThreshold, NOT slowQueryThreshold), optionally MongooseSchemaCollectorModule for the model panel. Must MATCH Approach B — do NOT introduce ConditionalModule.registerWhen (that would be a second, inconsistent pattern)."
   },
   {
     "query": "package.json has @nestjs/common, @nestjs/core, typeorm, @nestjs/typeorm but NO @eleven-labs/nest-profiler dependency, and no ProfilerModule anywhere in the codebase.\n\nUser: Add the TypeORM profiler collector.",

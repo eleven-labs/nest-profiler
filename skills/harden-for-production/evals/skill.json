@@ -1,0 +1,14 @@
+[
+  {
+    "query": "Our nest-profiler is wired up and I want to turn it on in our production API. Make it safe.",
+    "expected_behavior": "Must NOT refuse. State that off-in-prod is the default stance AND that the profiler is open by default so a `security` strategy is required, confirm intent, then apply the checklist: provide `security` (reuse an app guard via `security.guards`, or an `authorize` predicate; all provided must pass) as the real access control, keep collectBody: false, add masking (maskHeaders/maskCookies + per-collector maskKeys/maskUserFields), lower sampleRate and cap maxProfiles/ttl, add ignorePaths/ignoreRequest for sensitive routes, and ensure file/sqlite storagePath is not web-served and is gitignored. Should verify unauthenticated /_profiler access is 401. Must NOT reference a built-in `token`/`PROFILER_TOKEN` option (removed)."
+  },
+  {
+    "query": "I don't have the profiler installed yet but I want it locked down for prod from the start.",
+    "expected_behavior": "Recognize the core is not set up and route to setup-nest-profiler first (this skill hardens an existing setup), then return to the hardening checklist."
+  },
+  {
+    "query": "Is putting the profiler behind a non-default path (path: '/__debug') enough to secure it?",
+    "expected_behavior": "Clarify that the path is not security — an unguessable path is not access control. The actual gate is the `security` option (an `authorize` predicate and/or NestJS `guards`; the profiler is open when none is provided). Recommend adding a security strategy and the rest of the checklist. Must NOT cite a built-in token."
+  }
+]

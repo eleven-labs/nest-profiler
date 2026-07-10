@@ -1,8 +1,8 @@
 import { registerAs } from '@nestjs/config';
-import { enabledUnlessFalse } from './env-condition.js';
+import { enabled } from './env-condition.js';
 
 // Profiler on by default; disable with PROFILER_ENABLED=false.
-export const isProfilerEnabled = enabledUnlessFalse('PROFILER_ENABLED');
+export const isProfilerEnabled = enabled('PROFILER_ENABLED', true);
 
 export default registerAs('profiler', () => {
   const storageType = (process.env['PROFILER_STORAGE_TYPE'] ?? 'file') as

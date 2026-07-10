@@ -1,0 +1,14 @@
+[
+  {
+    "query": "I use a payment SDK that has no nest-profiler package. I want a profiler panel showing each charge call.",
+    "expected_behavior": "Do NOT invent a @eleven-labs/nest-profiler-* package. Guide implementing a custom collector: an @Injectable @ProfilerCollector() provider implementing IProfilerCollector (name/label, collect()), recording entries via appendCollectorEntry and reading them with getCollectorEntries, gated the same way as the core. Should not reach for a context adapter (this is a panel, not a new protocol)."
+  },
+  {
+    "query": "I want the profiler to profile my gRPC handlers like it does HTTP requests.",
+    "expected_behavior": "Recognize this is a non-HTTP protocol → a context adapter, not a collector. Guide implementing IContextAdapter (contextType: 'rpc', recoverProfile, enrichProfile) and registering it imperatively from onModuleInit via ProfilerCoreService.registerContextAdapter, resolving the core with moduleRef.get(ProfilerCoreService, { strict: false })."
+  },
+  {
+    "query": "There's no @eleven-labs/nest-profiler-prisma package. Can you add Prisma profiling by publishing one?",
+    "expected_behavior": "Do not invent/publish a package. Explain that no official collector exists and implement a custom collector in the consumer app (extend AbstractQueryCollector / AbstractSqlQueryCollector for query-style data), optionally TaggableCollector to feed the performance engine."
+  }
+]

@@ -1,10 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import {
-  enabledUnlessFalse,
-  enabledWhenTrue,
-  labeledCondition,
-  type EnvCondition,
-} from './env-condition.js';
+import { enabled, labeledCondition, type EnvCondition } from './env-condition.js';
 
 /**
  * Persistence backing the catalog context. `typeorm`/`mikro-orm` share the same Postgres table;
@@ -63,12 +58,12 @@ export const getProfilerAuth = (env: NodeJS.ProcessEnv): ProfilerAuth => {
 // All infrastructure-dependent features are opt-in (=== 'true') so a bare deploy with no
 // database/broker (Vercel) still boots on the minimal set: catalog (in-memory), content (HTTP),
 // auth, health, diagnostics and GraphQL. Local dev / e2e turn the flags on explicitly.
-export const isMongooseEnabled = enabledWhenTrue('FEATURE_MONGOOSE');
+export const isMongooseEnabled = enabled('FEATURE_MONGOOSE');
 // GraphQL needs no infrastructure (served over the in-memory catalog), so it is on by default.
-export const isGraphQLEnabled = enabledUnlessFalse('FEATURE_GRAPHQL');
-export const isPinoLoggerEnabled = enabledWhenTrue('FEATURE_PINO_LOGGER');
+export const isGraphQLEnabled = enabled('FEATURE_GRAPHQL', true);
+export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER');
 // Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
-export const isRabbitMqEnabled = enabledWhenTrue('FEATURE_RABBITMQ');
+export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
 
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),

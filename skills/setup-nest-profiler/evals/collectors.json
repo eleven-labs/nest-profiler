@@ -1,30 +1,30 @@
 [
   {
     "query": "package.json:\n{\n  \"type\": \"module\",\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/config\": \"^4.0.0\",\n    \"@mikro-orm/core\": \"^7.0.0\",\n    \"@mikro-orm/nestjs\": \"^7.0.0\"\n  }\n}\n\nUser: Set up the profiler and profile my database queries.",
-    "expected_behavior": "Must read references/collectors.md. Approach A (has @nestjs/config). Offer nest-profiler-mikro-orm and flag the ESM-only gotcha: it is ESM-only and must be imported AFTER MikroOrmModule; register MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 100 }) — no dataSource needed (it wraps the ORM logger)."
+    "expected_behavior": "Must read collectors-matrix.md then collectors-orm.md. Approach A (has @nestjs/config). Offer nest-profiler-mikro-orm and flag the ESM-only gotcha: it is the only ESM-only collector, imported AFTER MikroOrmModule; register MikroOrmCollectorModule.forRoot({ slowThreshold: 100 }) (slowThreshold, NOT slowQueryThreshold) — no dataSource needed. Should offer the MikroOrmSchemaCollectorModule entity panel too."
   },
   {
     "query": "package.json includes @nestjs/config, @nestjs/axios and axios.\n\nUser: I want to see the outgoing HTTP calls my app makes.",
-    "expected_behavior": "Must read references/collectors.md. Offer nest-profiler-http and apply the 'bring your own client' gotcha: HttpCollectorModule.forRoot() is a no-op unless HttpModule (@nestjs/axios) is imported in the SAME module. Do not present it as automatic without the HttpModule import."
+    "expected_behavior": "Must read collectors-http.md. Offer nest-profiler-http and apply the central gotcha: NOTHING is captured unless an instrumentation is listed — HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }) with AxiosInstrumentation imported from '@eleven-labs/nest-profiler-http/axios', and HttpModule imported in the SAME module. Must NOT claim capture is automatic with an empty instrumentations array."
   },
   {
     "query": "package.json includes @nestjs/config, class-validator and class-transformer. main.ts already contains app.useGlobalPipes(new ValidationPipe({ whitelist: true })).\n\nUser: Add DTO validation profiling.",
-    "expected_behavior": "Must read references/collectors.md. Offer nest-profiler-validator at the ROOT (global APP_PIPE). WARN that the existing separate global ValidationPipe must be removed — ProfilerValidationPipe already wraps a validation pipe (only one global validator). Fold its options into ValidatorCollectorModule.forRoot({ validationPipeOptions: { whitelist: true, transform: true } }). Note DTOs need value imports (not 'import type')."
+    "expected_behavior": "Must read collectors-validator.md. Offer nest-profiler-validator at the ROOT (global APP_PIPE). WARN that the existing separate global ValidationPipe must be removed — only one global validator. Fold its options into ValidatorCollectorModule.forRoot({ validationPipeOptions: { whitelist: true, transform: true } }). Note DTOs need value imports (not 'import type')."
   },
   {
     "query": "package.json includes @nestjs/config and nest-commander. The app has both an HTTP server (main.ts) and a CLI entrypoint (cli.ts using CommandFactory.run).\n\nUser: I want to profile my CLI commands and see them in the profiler UI.",
-    "expected_behavior": "Must read references/collectors.md. Offer nest-profiler-commander and apply the cross-process gotcha: CLI and HTTP are separate processes, so set storageType: 'file' on the core module; register CommanderCollectorModule.forRoot() in the module bootstrapped by CommandFactory.run AND import it in the HTTP app. Recommend adding .profiler/ to .gitignore."
+    "expected_behavior": "Must read collectors-simple.md. Offer nest-profiler-commander and apply the cross-process gotcha: CLI and HTTP are separate processes, so set storageType: 'file' (or sqlite) on the core; register CommanderCollectorModule.forRoot() in the module bootstrapped by CommandFactory.run AND import it in the HTTP app. Recommend adding .profiler/ to .gitignore."
   },
   {
     "query": "package.json includes @nestjs/config, @nestjs/graphql, @nestjs/apollo and graphql.\n\nUser: Add GraphQL profiling.",
-    "expected_behavior": "Must read references/collectors.md. Offer nest-profiler-graphql with ProfilerGraphQLModule.forRoot() alongside GraphQLModule. Apply the gotcha: the GraphQLModule context MUST expose the request — for Apollo, context: ({ req }) => ({ req }). May suggest composing the core ignoreRequest with combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection)."
+    "expected_behavior": "Must read collectors-simple.md. Offer nest-profiler-graphql with GraphQLCollectorModule.forRoot() (the module is GraphQLCollectorModule, NOT ProfilerGraphQLModule) alongside GraphQLModule. Apply the gotcha: the GraphQLModule context MUST expose the request — for Apollo, context: ({ req }) => ({ req }). May suggest composing the core ignoreRequest with combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection)."
   },
   {
-    "query": "Why does the TypeORM collector use forRootAsync instead of forRoot?",
-    "expected_behavior": "Must read references/collectors.md. Answer: because the DataSource is not available at module declaration time — register TypeOrmCollectorModule.forRootAsync({ inject: [DataSource], useFactory: (dataSource) => ({ dataSource, slowQueryThreshold: 100 }) }), placed after TypeOrmModule."
+    "query": "Does the TypeORM collector need inject: [DataSource]?",
+    "expected_behavior": "Must read collectors-orm.md. Answer: NO. TypeOrmCollectorModule self-resolves the DataSource via getDataSourceToken(connectionName), so forRoot() works with no inject. Use forRootAsync only to drive options (e.g. slowThreshold) from ConfigService, and pass connectionName for a non-default DataSource. Place it after TypeOrmModule."
   },
   {
     "query": "Should the config and validator collectors go in the root module or a feature module?",
-    "expected_behavior": "Must read references/collectors.md. Answer: at the root — they install global providers (APP_PIPE for validator, a bootstrap snapshot for config). Infra-scoped collectors (database, http, cache, rabbitmq, graphql transport) stay co-located in the feature module that owns their infrastructure."
+    "expected_behavior": "Must read collectors-matrix.md. Answer: at the root — they install global providers (APP_PIPE for validator, a bootstrap snapshot for config); routes and commander are root-level too. Infra-scoped collectors (database, http, cache, rabbitmq, graphql transport) stay co-located in the feature module that owns their infrastructure."
   }
 ]

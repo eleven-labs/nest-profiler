@@ -1,18 +1,22 @@
 [
   {
     "query": "Which enable strategy is recommended and what does it require?",
-    "expected_behavior": "Must read references/enable-strategies.md. Answer: Approach A — gate ProfilerModule with ConditionalModule.registerWhen(..., isProfilerEnabled) and pair it with ProfilerNoopModule as the fallback, so the active module is never loaded when off. It requires @nestjs/config, because ConditionalModule lives there. Both approaches keep ProfilerService injectable."
+    "expected_behavior": "Must read references/enable-strategies.md. Answer: Approach A — gate ProfilerModule with ConditionalModule.registerWhen(..., isProfilerEnabled) and pair it with ProfilerNoopModule via not(isProfilerEnabled), so the active module is never loaded when off. It requires @nestjs/config (where ConditionalModule lives). Both approaches keep ProfilerService injectable."
   },
   {
     "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/platform-express\": \"^11.0.0\"\n  }\n}\nLockfile present: package-lock.json\n\nUser: Add nest-profiler.",
-    "expected_behavior": "Detect that @nestjs/config is NOT present, so ConditionalModule (Approach A) is unavailable. Either offer to install @nestjs/config to unlock Approach A, or use Approach B: ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }). Must NOT silently use ConditionalModule.registerWhen without @nestjs/config. Install core with npm (package-lock.json detected): 'npm install @eleven-labs/nest-profiler nestjs-cls'."
+    "expected_behavior": "@nestjs/config is absent, but Approach A must STILL be the default/recommended option, presented FIRST — @nestjs/config is a first-party package installable solely for ConditionalModule without adopting ConfigModule. Present both via AskUserQuestion in fixed order (A first with '(recommended)' on the label, B second), let the user pick, and do NOT silently fall back to B. Install core with npm (package-lock.json): 'npm install @eleven-labs/nest-profiler nestjs-cls'."
   },
   {
-    "query": "I don't use @nestjs/config. How can I still turn the profiler off in production?",
-    "expected_behavior": "Must read references/enable-strategies.md. Answer: use Approach B, the synchronous top-level 'enabled' flag: ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }). When enabled is false the core registers only an inert no-op layer. Note: enabled is NOT resolved inside a forRootAsync useFactory — it stays a top-level key."
+    "query": "You are presenting the enable-strategy choice. Show me the AskUserQuestion options.",
+    "expected_behavior": "Must read references/enable-strategies.md. Fixed order: option 1 = Approach A labeled '@nestjs/config + ConditionalModule (recommended)', option 2 = Approach B labeled 'enabled flag (alternative)'. Recommendation is on the LABEL not the description; header <= 12 chars; descriptions are concrete (A installs @nestjs/config, ProfilerModule never instantiated when off, ProfilerNoopModule supplies the no-op; B adds no dependency, module stays loaded but inert when off). Never reorder to put B first."
+  },
+  {
+    "query": "I don't use @nestjs/config and I don't want to add it. How can I still turn the profiler off in production?",
+    "expected_behavior": "Must read references/enable-strategies.md. Respect declining @nestjs/config and use Approach B, the synchronous top-level 'enabled' flag, off by default (e.g. enabled('PROFILER_ENABLED')(process.env) or a NODE_ENV check). When enabled is false the core registers only an inert no-op layer. Note: enabled is NOT resolved inside a forRootAsync useFactory — it stays a top-level key."
   },
   {
     "query": "Do I need a no-op module for each optional collector like I do for the core?",
-    "expected_behavior": "Must read references/enable-strategies.md. Answer: No. Only the core needs the ProfilerNoopModule fallback. Collectors need no no-op counterpart — they self-register through discovery and do nothing when the active profiler is absent; just gate them with the same condition."
+    "expected_behavior": "Must read references/enable-strategies.md. Answer: No. Only the core needs the ProfilerNoopModule fallback. Collectors need no no-op counterpart — they self-register through discovery and do nothing when the active profiler is absent; just gate them with the same isProfilerEnabled condition."
   }
 ]

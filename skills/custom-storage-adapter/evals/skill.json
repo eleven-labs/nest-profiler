@@ -1,0 +1,14 @@
+[
+  {
+    "query": "We run several instances behind a load balancer and profiles are scattered per-instance. I want them in Redis so any instance can serve /_profiler.",
+    "expected_behavior": "Guide implementing IProfilerStorageAdapter (save/findAll/findOne/clear), set crossProcess: true (shared store), and wire it via the storage option (precedence over storageType), built async from ConfigService. Should recommend implementing query()/distinct() for scalable list filtering and close() for the Redis handle."
+  },
+  {
+    "query": "Do I have to reimplement filtering and pagination for my Postgres profiler store?",
+    "expected_behavior": "Explain query() is optional: implement it for native, scalable filter/sort/pagination; if omitted, the service falls back to findAll + in-memory filtering (correct but not scalable). Mention setIndexAttributesProvider if persisting a ProfileSummary for native query/distinct."
+  },
+  {
+    "query": "Is a custom adapter the right call if I just want profiles to survive a restart on a single box?",
+    "expected_behavior": "Point out the built-in file or sqlite backend already gives persistence on a single box (no custom adapter needed); a custom adapter is for shared/remote stores. Only proceed with a custom adapter if the user has that need."
+  }
+]
