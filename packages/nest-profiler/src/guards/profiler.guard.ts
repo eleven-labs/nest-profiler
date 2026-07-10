@@ -6,51 +6,73 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
-import { timingSafeEqual } from 'crypto';
+import type { Type } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { PlatformRequest } from '../types/http';
+import type { PlatformRequest, PlatformResponse } from '../types/http';
 
-/** Constant-time string comparison that first guards against length leaks. */
-function tokensMatch(provided: string, expected: string): boolean {
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+/** Narrows an already-instantiated guard from a guard class. */
+function isGuardInstance(entry: Type<CanActivate> | CanActivate): entry is CanActivate {
+  return typeof (entry as CanActivate).canActivate === 'function';
 }
 
+/**
+ * Enforces the pluggable {@link ProfilerModuleOptions.security} strategy on every profiler
+ * route. With no strategy configured the profiler is open (local-dev default). When an
+ * `authorize` predicate and/or `guards` are provided, **all** must pass; the first that
+ * denies throws `401`. Static assets (`__assets/*`) are always exempt so the UI's CSS/JS can
+ * load even behind auth (a `<link>`/`<script>` cannot send credentials).
+ */
 @Injectable()
 export class ProfilerGuard implements CanActivate {
   constructor(
+    private readonly moduleRef: ModuleRef,
     @Optional()
     @Inject(NEST_PROFILER_MODULE_OPTIONS)
     private readonly options: ProfilerModuleOptions = {},
   ) {}
 
-  canActivate(ctx: ExecutionContext): boolean {
-    const token = this.options.token ?? process.env['PROFILER_TOKEN'];
-    if (!token) return true;
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const http = ctx.switchToHttp();
+    const req = http.getRequest<PlatformRequest>();
 
-    const req = ctx.switchToHttp().getRequest<PlatformRequest>();
-
-    // Static assets (CSS/JS) carry no sensitive data and cannot send an Authorization header
-    // when loaded via <link>/<script>. Exempt them so the UI (and the injected toolbar on host
-    // pages) can always load its stylesheet and scripts even when a token is configured.
+    // Static assets (CSS/JS) carry no sensitive data and cannot send credentials when loaded
+    // via <link>/<script>. Exempt them so the UI (and the injected toolbar on host pages) can
+    // always load its stylesheet and scripts even when a security strategy is configured.
     const url = req.originalUrl ?? req.url ?? '';
     if (url.includes('/__assets/')) return true;
 
-    // Accept the token from the Authorization header (API clients) or the `?token=` query
-    // parameter (browser navigation — a browser cannot set headers when following a link).
-    const auth = req.headers['authorization'];
-    const bearer =
-      typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7) : undefined;
-    const queryToken = req.query?.['token'];
-    const fromQuery = Array.isArray(queryToken) ? queryToken[0] : queryToken;
-    const provided = bearer ?? (typeof fromQuery === 'string' ? fromQuery : undefined);
+    const security = this.options.security;
+    if (!security) return true;
 
-    if (provided === undefined || !tokensMatch(provided, token)) {
-      throw new UnauthorizedException('Access to the profiler requires a valid PROFILER_TOKEN.');
+    const res = http.getResponse<PlatformResponse>();
+
+    if (security.authorize) {
+      const allowed = await security.authorize({ request: req, response: res });
+      if (!allowed) throw new UnauthorizedException('Access to the profiler is not authorized.');
     }
+
+    for (const entry of security.guards ?? []) {
+      const guard = await this.resolveGuard(entry);
+      const allowed = await guard.canActivate(ctx);
+      if (!allowed) throw new UnauthorizedException('Access to the profiler is not authorized.');
+    }
+
     return true;
+  }
+
+  /**
+   * Resolves a configured guard: a ready instance is used as-is; a class is fetched from the
+   * DI container when it is a registered singleton, otherwise instantiated with its
+   * dependencies resolved from the module context.
+   */
+  private async resolveGuard(entry: Type<CanActivate> | CanActivate): Promise<CanActivate> {
+    if (isGuardInstance(entry)) return entry;
+    try {
+      return this.moduleRef.get(entry, { strict: false });
+    } catch {
+      return this.moduleRef.create(entry);
+    }
   }
 }

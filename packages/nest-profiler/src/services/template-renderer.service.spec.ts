@@ -103,6 +103,15 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('<!DOCTYPE html>');
   });
 
+  it('threads security.linkQuery onto the JSON export and navigation links', async () => {
+    const link = (href: string): string => `${href}${href.includes('?') ? '&' : '?'}token=x`;
+    const html = await service.render('detail', { ...MINIMAL_DETAIL_DATA, link });
+    // The `/data` export download carries the credential (the historical 401 fix)…
+    expect(html).toContain('/_profiler/abc12345678/data?token=x');
+    // …and so do the breadcrumb/nav links back to the list.
+    expect(html).toContain('href="/_profiler?token=x"');
+  });
+
   it('references local same-origin assets instead of external CDNs', async () => {
     const html = await service.render('list', MINIMAL_LIST_DATA);
 

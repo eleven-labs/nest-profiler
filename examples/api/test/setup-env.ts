@@ -34,7 +34,8 @@ process.env['PROFILER_STORAGE_PATH'] ??=
 // Long TTL so the recorded profiles stay browsable well after the run (server default is 1h).
 process.env['PROFILER_TTL'] = '86400';
 
-// Keep the /_profiler UI open in tests.
+// Keep the /_profiler UI open in tests, whatever a local `.env` selects.
+process.env['PROFILER_AUTH'] = 'none';
 delete process.env['PROFILER_TOKEN'];
 
 // Infra defaults match docker-compose.yml and the CI service containers; `??=` keeps them

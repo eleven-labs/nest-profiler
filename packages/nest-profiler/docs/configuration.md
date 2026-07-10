@@ -1,4 +1,4 @@
-`ProfilerModule` is configured once, in the root module of the application. This page covers the synchronous and asynchronous registration styles, the full options reference, and how to protect the profiler UI with a token.
+`ProfilerModule` is configured once, in the root module of the application. This page covers the synchronous and asynchronous registration styles, the full options reference, and how to protect the profiler UI with a pluggable security strategy.
 
 ## Module registration
 
@@ -115,50 +115,107 @@ Note `enabled` is a **synchronous, top-level** bootstrap flag — with `forRootA
 
 ## Options
 
-| Option                  | Type                      | Default     | Description                                                                                                                                                                                                                                          |
-| ----------------------- | ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`               | `boolean`                 | `true`      | Enable or disable the profiler.                                                                                                                                                                                                                      |
-| `token`                 | `string`                  | —           | Token required to access the profiler UI, as `Authorization: Bearer <token>` (API) or a `?token=` query parameter (browser). Static assets are exempt. Takes precedence over `PROFILER_TOKEN`; when neither is set, the UI is open (local dev only). |
-| `maxProfiles`           | `number`                  | `100`       | Maximum profiles kept (LRU eviction). `0` or negative: no cap.                                                                                                                                                                                       |
-| `listPageSize`          | `number`                  | `25`        | Profiles shown per page in each dashboard list section (HTTP, GraphQL, RabbitMQ, Commands…). Each section paginates independently.                                                                                                                   |
-| `ttl`                   | `number`                  | `3600`      | Profile time-to-live in seconds. `0` or negative: never expire.                                                                                                                                                                                      |
-| `isGlobal`              | `boolean`                 | `false`     | Register the module as a global NestJS module.                                                                                                                                                                                                       |
-| `storageType`           | `'memory' \| 'file'`      | `'memory'`  | Built-in storage backend.                                                                                                                                                                                                                            |
-| `storagePath`           | `string`                  | `.profiler` | Directory for file storage (relative or absolute).                                                                                                                                                                                                   |
-| `storage`               | `IProfilerStorageAdapter` | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                                                                |
-| `collectBody`           | `boolean`                 | `false`     | Capture request/response bodies (use with caution).                                                                                                                                                                                                  |
-| `maxBodySize`           | `number`                  | `65536`     | Max serialized size (chars) of a captured body before it is truncated to a placeholder. `0` disables truncation.                                                                                                                                     |
-| `maskCookies`           | `string[]`                | `[]`        | Cookie names whose value is replaced with `[REDACTED]` in the captured request.                                                                                                                                                                      |
-| `maskHeaders`           | `string[]`                | sensitive   | Request header names whose value is replaced with `[REDACTED]` at capture. Defaults to `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`.                                                                  |
-| `emitDebugHeaders`      | `boolean`                 | `true`      | Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses. Turn off in shared/staging environments.                                                                                                                     |
-| `collectorTimeout`      | `number`                  | `1000`      | Max ms a single collector may run before it is abandoned (`0` disables).                                                                                                                                                                             |
-| `sampleRate`            | `number`                  | `1.0`       | Fraction of requests to profile (0.0–1.0).                                                                                                                                                                                                           |
-| `ignorePaths`           | `(string \| RegExp)[]`    | `[]`        | Paths to skip profiling (prefix string or RegExp), merged after the defaults.                                                                                                                                                                        |
-| `useDefaultIgnorePaths` | `boolean`                 | `true`      | Skip noisy browser/tooling requests by default (favicon, robots.txt, the Chrome DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe, apple-touch-icon).                                                                               |
-| `ignoreRequest`         | `ProfilerRequestFilter`   | —           | Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose several conditions with `combineFilters`.                                                                    |
+| Option                  | Type                      | Default     | Description                                                                                                                                                                                            |
+| ----------------------- | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`               | `boolean`                 | `true`      | Enable or disable the profiler.                                                                                                                                                                        |
+| `security`              | `ProfilerSecurityOptions` | —           | Pluggable access control for the UI/API (`authorize` predicate and/or NestJS `guards`, plus `linkQuery`). When omitted the profiler is open (local dev only). See [Securing the UI](#securing-the-ui). |
+| `maxProfiles`           | `number`                  | `100`       | Maximum profiles kept (LRU eviction). `0` or negative: no cap.                                                                                                                                         |
+| `listPageSize`          | `number`                  | `25`        | Profiles shown per page in each dashboard list section (HTTP, GraphQL, RabbitMQ, Commands…). Each section paginates independently.                                                                     |
+| `ttl`                   | `number`                  | `3600`      | Profile time-to-live in seconds. `0` or negative: never expire.                                                                                                                                        |
+| `isGlobal`              | `boolean`                 | `false`     | Register the module as a global NestJS module.                                                                                                                                                         |
+| `storageType`           | `'memory' \| 'file'`      | `'memory'`  | Built-in storage backend.                                                                                                                                                                              |
+| `storagePath`           | `string`                  | `.profiler` | Directory for file storage (relative or absolute).                                                                                                                                                     |
+| `storage`               | `IProfilerStorageAdapter` | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                  |
+| `collectBody`           | `boolean`                 | `false`     | Capture request/response bodies (use with caution).                                                                                                                                                    |
+| `maxBodySize`           | `number`                  | `65536`     | Max serialized size (chars) of a captured body before it is truncated to a placeholder. `0` disables truncation.                                                                                       |
+| `maskCookies`           | `string[]`                | `[]`        | Cookie names whose value is replaced with `[REDACTED]` in the captured request.                                                                                                                        |
+| `maskHeaders`           | `string[]`                | sensitive   | Request header names whose value is replaced with `[REDACTED]` at capture. Defaults to `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`.                    |
+| `emitDebugHeaders`      | `boolean`                 | `true`      | Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses. Turn off in shared/staging environments.                                                                       |
+| `collectorTimeout`      | `number`                  | `1000`      | Max ms a single collector may run before it is abandoned (`0` disables).                                                                                                                               |
+| `sampleRate`            | `number`                  | `1.0`       | Fraction of requests to profile (0.0–1.0).                                                                                                                                                             |
+| `ignorePaths`           | `(string \| RegExp)[]`    | `[]`        | Paths to skip profiling (prefix string or RegExp), merged after the defaults.                                                                                                                          |
+| `useDefaultIgnorePaths` | `boolean`                 | `true`      | Skip noisy browser/tooling requests by default (favicon, robots.txt, the Chrome DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe, apple-touch-icon).                                 |
+| `ignoreRequest`         | `ProfilerRequestFilter`   | —           | Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose several conditions with `combineFilters`.                      |
 
 The storage-related options (`storageType`, `storagePath`, `storage`, `maxProfiles`, `ttl`) are detailed on the [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage) page.
 
 ## Securing the UI
 
-Protect `/_profiler/*` with a Bearer token in one of two ways. Both are equivalent; the `token` option takes precedence over the environment variable.
+The profiler ships **open** — no authentication by default (intended for local development). To lock `/_profiler/*` down, provide your own strategy through the `security` option. You bring the authentication; the profiler just enforces it. Two building blocks, usable alone or together (when both are set, **all must pass**):
 
-The `token` option, when the value comes from your config layer:
+- `authorize` — a predicate `(ctx) => boolean | Promise<boolean>` deciding access. `ctx.request` and `ctx.response` are the platform-agnostic Express/Fastify surfaces. Return `false` to deny (the guard throws `401`).
+- `guards` — one or more NestJS `CanActivate` guards (a class resolved through DI, so you can reuse an existing app guard, or a ready instance).
+
+Static assets under `/_profiler/__assets/*` are always exempt so the UI's CSS/JS load even behind auth.
+
+### Token (bearer, for API/CLI clients)
 
 ```ts title="app.module.ts"
-ProfilerModule.forRoot({ token: process.env.PROFILER_TOKEN });
+ProfilerModule.forRoot({
+  security: {
+    authorize: ({ request }) =>
+      request.headers['authorization'] === `Bearer ${process.env.PROFILER_TOKEN}`,
+  },
+});
 ```
-
-Or the `PROFILER_TOKEN` environment variable, read automatically when the `token` option is omitted:
-
-```bash
-PROFILER_TOKEN=your-secret-token
-```
-
-Then access the profiler with:
 
 ```bash
 curl -H "Authorization: Bearer your-secret-token" http://localhost:3000/_profiler
 ```
 
-When neither the `token` option nor `PROFILER_TOKEN` is set, the profiler UI is publicly accessible (suitable for local development only).
+### Basic auth (browser challenge)
+
+Set a `WWW-Authenticate` header before denying so the browser prompts for credentials:
+
+```ts
+security: {
+  authorize: ({ request, response }) => {
+    const header = request.headers['authorization'] ?? '';
+    const [user, pass] = Buffer.from(header.replace('Basic ', ''), 'base64').toString().split(':');
+    if (user === 'admin' && pass === process.env.PROFILER_PASSWORD) return true;
+    response.setHeader('WWW-Authenticate', 'Basic realm="Profiler"');
+    return false;
+  },
+}
+```
+
+### Cookie / session
+
+The browser sends cookies and sessions automatically on every request, so this works across all UI navigation with nothing else to wire:
+
+```ts
+security: {
+  authorize: ({ request }) => Boolean(request.session?.isAdmin),
+}
+```
+
+### Reuse a NestJS guard (with DI)
+
+Resolve services through `forRootAsync`, or hand the profiler an existing guard class:
+
+```ts
+ProfilerModule.forRoot({ security: { guards: [JwtAuthGuard, AdminGuard] } });
+
+// or inject services into the decision:
+ProfilerModule.forRootAsync({
+  inject: [AuthService],
+  useFactory: (auth: AuthService) => ({
+    security: { authorize: ({ request }) => auth.isProfilerAdmin(request) },
+  }),
+});
+```
+
+### Browser navigation & `linkQuery`
+
+The UI is navigated through plain `<a>` links. A browser only attaches the credentials it holds itself — **cookies, sessions and HTTP Basic auth** — so those schemes propagate to every page (including the `/:token/data` JSON export) with no extra work. A bare `Authorization` header or a `?token=` query cannot ride a link click: header auth therefore suits API/CLI clients (curl), while a query-param scheme needs `linkQuery` to thread the credential through the UI's links:
+
+```ts
+security: {
+  authorize: ({ request }) => request.query?.token === process.env.PROFILER_TOKEN,
+  linkQuery: (request) => (request.query?.token ? `?token=${request.query.token}` : ''),
+}
+```
+
+### Migrating from the `token` option
+
+The former `token` option and its `PROFILER_TOKEN` fallback have been removed. Reproduce a bearer check with an `authorize` predicate (see the Token recipe above) for API/CLI clients — or, to actually browse the UI behind auth, prefer Basic auth or a cookie/session, which the browser propagates to every link on its own. The [example app's `resolveProfilerSecurity`](https://github.com/eleven-labs/nest-profiler/blob/main/examples/api/src/profiling/profiling.module.ts) ships every seam side by side, selected by a `PROFILER_AUTH` env var (`basic`, `token`, `cookie`) exactly like its `SQL_ORM` adapter switch — off by default. `cookie` reuses a NestJS guard through `security.guards` and reads the JWT from a cookie, so it stays browser-navigable while also accepting a Bearer header for API clients.

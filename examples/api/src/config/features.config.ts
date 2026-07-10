@@ -42,6 +42,24 @@ export const getHttpClient = (env: NodeJS.ProcessEnv): HttpClient => {
 export const isHttpClient = (client: HttpClient): EnvCondition =>
   labeledCondition(`HTTP_CLIENT=${client}`, (env) => getHttpClient(env) === client);
 
+/**
+ * Access control guarding the profiler dashboard — selected by env exactly like {@link getSqlOrm},
+ * to showcase the pluggable `security` option. `none` (default) leaves /_profiler open; `basic` uses
+ * HTTP Basic auth; `token` accepts a bearer or `?token=` credential; and `cookie` reuses the app's
+ * `JwtAuthGuard` through the profiler's `security.guards` — the guard reads the JWT from a cookie the
+ * browser sends on every link (or a Bearer header for API clients), so the whole UI is navigable.
+ * `basic`/`token` read the secret from `PROFILER_BASIC_*` / `PROFILER_TOKEN`. Off by default so the
+ * demo dashboard runs open.
+ */
+export type ProfilerAuth = 'none' | 'basic' | 'token' | 'cookie';
+
+const PROFILER_AUTHS: ProfilerAuth[] = ['none', 'basic', 'token', 'cookie'];
+
+export const getProfilerAuth = (env: NodeJS.ProcessEnv): ProfilerAuth => {
+  const value = (env['PROFILER_AUTH'] ?? 'none') as ProfilerAuth;
+  return PROFILER_AUTHS.includes(value) ? value : 'none';
+};
+
 // All infrastructure-dependent features are opt-in (=== 'true') so a bare deploy with no
 // database/broker (Vercel) still boots on the minimal set: catalog (in-memory), content (HTTP),
 // auth, health, diagnostics and GraphQL. Local dev / e2e turn the flags on explicitly.
@@ -55,6 +73,7 @@ export const isRabbitMqEnabled = enabledWhenTrue('FEATURE_RABBITMQ');
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),
   httpClient: getHttpClient(process.env),
+  profilerAuth: getProfilerAuth(process.env),
   mongoose: isMongooseEnabled(process.env),
   graphql: isGraphQLEnabled(process.env),
   pinoLogger: isPinoLoggerEnabled(process.env),
