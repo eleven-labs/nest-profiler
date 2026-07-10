@@ -3,6 +3,7 @@ export type { CommanderCollectorModuleOptions } from './commander-collector.modu
 export { CommandProfiler } from './command-profiler.service';
 export type { CommandProfileMeta } from './command-profiler.service';
 export { CommandProfilerExplorer } from './command-profiler.explorer';
+export { CommanderRouteSource } from './commander-route-source';
 export { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 export type { CommandInfo } from './commander-collector.interface';
 export { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';

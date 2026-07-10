@@ -3,6 +3,7 @@ import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
+import { GraphqlRouteSource } from './graphql-route-source';
 import { GRAPHQL_ENTRYPOINT_TYPE_DEF } from './graphql-entrypoint';
 
 export interface GraphQLCollectorModuleOptions {
@@ -16,6 +17,7 @@ export class GraphQLCollectorModule implements OnModuleInit {
     private readonly moduleRef: ModuleRef,
     // @Optional() so the module does not throw when forRoot({ enabled: false }) omits providers
     @Optional() private readonly adapter: GraphQLContextAdapter,
+    @Optional() private readonly routeSource: GraphqlRouteSource,
   ) {}
 
   onModuleInit(): void {
@@ -28,6 +30,8 @@ export class GraphQLCollectorModule implements OnModuleInit {
       // Render GraphQL operations in their own list table and detail tab, and add
       // the "GraphQL" option to the list page's "Type" filter.
       core.registerEntrypointType(GRAPHQL_ENTRYPOINT_TYPE_DEF);
+      // Contribute a GraphQL group to the Routes panel (rendered only if that package is installed).
+      if (this.routeSource) core.registerRouteSource(this.routeSource);
     } catch {
       // ProfilerCoreService unavailable — profiler may not be configured.
     }
@@ -39,7 +43,7 @@ export class GraphQLCollectorModule implements OnModuleInit {
       module: GraphQLCollectorModule,
       // The adapter registers itself with the core in onModuleInit via
       // registerContextAdapter() — that is the single, supported registration mechanism.
-      providers: [GraphQLContextAdapter],
+      providers: [GraphQLContextAdapter, GraphqlRouteSource],
     };
   }
 }

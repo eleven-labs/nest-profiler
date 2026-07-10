@@ -36,6 +36,7 @@
     "@eleven-labs/nest-profiler-mikro-orm": "workspace:*",
     "@eleven-labs/nest-profiler-mongoose": "workspace:*",
     "@eleven-labs/nest-profiler-rabbitmq": "workspace:*",
+    "@eleven-labs/nest-profiler-routes": "workspace:*",
     "@eleven-labs/nest-profiler-typeorm": "workspace:*",
     "@eleven-labs/nest-profiler-validator": "workspace:*",
     "@golevelup/nestjs-rabbitmq": "^9.0.2",

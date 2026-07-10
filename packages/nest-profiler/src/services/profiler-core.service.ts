@@ -18,6 +18,7 @@ import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
 import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
 import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
+import type { ProfilerRouteSource } from '../routes/route-source.interface';
 import { HTTP_ENTRYPOINT_TYPE_DEF } from '../entrypoints/builtin-http-entrypoint';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import type { SummaryPrimitive } from '../storage/profile-summary';
@@ -35,6 +36,8 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly listSections: ProfilerListSection[] = [];
   /** Registered entrypoint types, keyed by {@link ProfilerEntrypointType.type}. */
   private readonly entrypointTypes = new Map<string, ProfilerEntrypointType>();
+  /** Registered route sources for the Routes panel, keyed by {@link ProfilerRouteSource.type}. */
+  private readonly routeSources = new Map<string, ProfilerRouteSource>();
   /** Options contributed to an existing `'select'` filter, keyed by filter key. */
   private readonly filterOptions = new Map<string, ProfilerFilterOption[]>();
   /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
@@ -347,5 +350,25 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   /** Returns every registered entrypoint type. */
   getEntrypointTypes(): ProfilerEntrypointType[] {
     return [...this.entrypointTypes.values()];
+  }
+
+  /**
+   * Registers a {@link ProfilerRouteSource} contributing to the Routes panel — the core seeds the
+   * built-in HTTP source and protocol packages add their own (GraphQL, RabbitMQ, CLI). Registration
+   * is idempotent per {@link ProfilerRouteSource.type}, so calling it from a package's lifecycle
+   * hook is safe across re-initialization. Packages resolve the core via
+   * `ModuleRef.get(ProfilerCoreService, { strict: false })` since a DI multi-token does not
+   * aggregate across dynamic module boundaries.
+   *
+   * @param source - The route source to register.
+   */
+  registerRouteSource(source: ProfilerRouteSource): void {
+    if (this.routeSources.has(source.type)) return;
+    this.routeSources.set(source.type, source);
+  }
+
+  /** Returns every registered route source, for the Routes panel to aggregate. */
+  getRouteSources(): ProfilerRouteSource[] {
+    return [...this.routeSources.values()];
   }
 }

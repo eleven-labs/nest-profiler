@@ -61,6 +61,14 @@ describe('RouteCollector', () => {
       expect(collector.match('GET', '/health')?.path).toBe('/health');
     });
 
+    it('collapses a leading slash in the method path (no "//") and still matches', () => {
+      const ctrl = makeController('', { list: { path: '/_profiler', method: RequestMethod.GET } });
+      const collector = buildCollector([ctrl]);
+      expect(collector.match('GET', '/_profiler')?.path).toBe('/_profiler');
+      // The buggy `//_profiler` key must not be produced.
+      expect(collector.match('GET', '//_profiler')).toBeUndefined();
+    });
+
     it('handles nested controller path', () => {
       const ctrl = makeController('api/v1', { list: { path: 'items', method: RequestMethod.GET } });
       const collector = buildCollector([ctrl]);

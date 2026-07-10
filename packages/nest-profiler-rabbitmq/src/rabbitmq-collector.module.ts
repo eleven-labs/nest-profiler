@@ -1,8 +1,9 @@
 import { DynamicModule, Module, OnModuleInit, Optional } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
+import { DiscoveryModule, ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
+import { RabbitMqRouteSource } from './rabbitmq-route-source';
 import {
   ConfigurableModuleClass,
   type RabbitMqCollectorModuleOptions,
@@ -11,8 +12,12 @@ import {
 import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
 
 // The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
-// the single, supported registration mechanism.
-const SHAPE: CollectorModuleShape = { providers: [RabbitMqContextAdapter] };
+// the single, supported registration mechanism. The route source self-registers at bootstrap and
+// needs DiscoveryModule (DiscoveryService + MetadataScanner) to scan @RabbitSubscribe handlers.
+const SHAPE: CollectorModuleShape = {
+  imports: [DiscoveryModule],
+  providers: [RabbitMqContextAdapter, RabbitMqRouteSource],
+};
 
 /**
  * Captures RabbitMQ messages consumed via `@RabbitSubscribe`

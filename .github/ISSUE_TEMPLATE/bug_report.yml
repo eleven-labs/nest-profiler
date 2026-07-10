@@ -19,6 +19,8 @@ body:
         - '@eleven-labs/nest-profiler-graphql'
         - '@eleven-labs/nest-profiler-mikro-orm'
         - '@eleven-labs/nest-profiler-commander'
+        - '@eleven-labs/nest-profiler-rabbitmq'
+        - '@eleven-labs/nest-profiler-routes'
         - 'example-api'
         - 'Documentation'
         - 'Other'

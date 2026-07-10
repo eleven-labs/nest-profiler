@@ -324,6 +324,33 @@ const withBase = (html: string): string =>
   html.replace('<head>', `<head><base href="${API_URL}/">`);
 
 /**
+ * Returns the balanced `<details>` block whose own summary contains `>${title}<`, nested-safe
+ * (the Routes/Config global panels nest group and row disclosures inside the panel block). Empty
+ * string when no such panel is present.
+ */
+function extractDetailsBlock(html: string, title: string): string {
+  const tag = /<(\/?)details\b/g;
+  let depth = 0;
+  let start = -1;
+  let m: RegExpExecArray | null;
+  while ((m = tag.exec(html)) !== null) {
+    if (m[1] === '') {
+      if (depth === 0) start = m.index;
+      depth += 1;
+    } else if (depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start !== -1) {
+        const block = html.slice(start, html.indexOf('>', tag.lastIndex) + 1);
+        const summaryEnd = block.indexOf('</summary>');
+        if (summaryEnd !== -1 && block.slice(0, summaryEnd).includes(`>${title}<`)) return block;
+        start = -1;
+      }
+    }
+  }
+  return '';
+}
+
+/**
  * Capture a single list-page section on its own. The list renders every section
  * (and the global panels) as sibling, non-nested `<details>` blocks, so we fetch
  * the page, drop every block except the one whose summary holds `title`, force it
@@ -573,6 +600,31 @@ async function main(): Promise<void> {
     if (wanted('schema-mongoose.png')) {
       console.log('  • schema-mongoose.png');
       await captureGlobalPanel('schema-mongoose.png', 'Schema · Mongoose', workDir);
+    }
+
+    // 7b. Routes — a collapsed-by-default global panel with nested group/row disclosures. Isolate
+    //     its <details> block, open the panel and its transport groups (but leave the route rows
+    //     collapsed for a clean overview), and reuse the page <head> so it renders as in the app.
+    if (wanted('routes.png')) {
+      console.log('  • routes.png');
+      const page = await (await fetch(PROFILER_URL)).text();
+      const head = /<head[\s\S]*?<\/head>/.exec(page)?.[0] ?? '<head></head>';
+      const bodyOpen = /<body[^>]*>/.exec(page)?.[0] ?? '<body>';
+      // `group mb-4` is the panel, `group mb-3` the transport groups; `group/route` rows stay closed.
+      const block = extractDetailsBlock(page, 'Routes').replace(
+        /<details class="group mb-/g,
+        '<details open class="group mb-',
+      );
+      // `min-height:100vh` makes the reconstructed page fill the capture window, so the shot keeps
+      // the fixed WIDTH×HEIGHT like every other screenshot instead of being cropped to the panel
+      // (headless Chrome fits the image to the content when the page is shorter than the window).
+      const html = withBase(
+        `<!doctype html><html>${head}${bodyOpen}<div style="min-height:100vh" class="p-6">` +
+          `<div class="max-w-5xl mx-auto">${block}</div></div></body></html>`,
+      );
+      const routesHtml = join(workDir, 'routes.html');
+      writeFileSync(routesHtml, html);
+      capture('routes.png', `file://${routesHtml}`);
     }
 
     // The next two passes reboot the app with different feature flags, so they

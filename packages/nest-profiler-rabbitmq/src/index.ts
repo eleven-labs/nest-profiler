@@ -1,5 +1,6 @@
 export { RabbitMqCollectorModule } from './rabbitmq-collector.module';
 export { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
+export { RabbitMqRouteSource } from './rabbitmq-route-source';
 export { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 export type {
   RabbitMqInfo,

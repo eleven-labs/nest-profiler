@@ -49,6 +49,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
+- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Routes panel (REST + GraphQL / RabbitMQ / CLI)
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 - [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
 - [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
@@ -67,8 +68,8 @@ Full guides and API reference live on the documentation site (`pnpm docs:dev`, t
 | **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
 | ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
 | **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
-| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           |                                                                  |
-| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             |                                                                  |
+| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Routes panel](docs/public/screenshots/profiler/routes.png)     |
+| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Routes** (REST/GraphQL/RabbitMQ/CLI)                           |
 
 ## Quickstart
 
