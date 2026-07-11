@@ -80,6 +80,22 @@ describe('HttpClientCollector', () => {
     expect(new HttpClientCollector({ slowThreshold: 750 }).getTagConfig().slowThreshold).toBe(750);
   });
 
+  it('getTagConfig passes configured severities through', () => {
+    expect(
+      new HttpClientCollector({
+        slowSeverity: 'danger',
+        nPlusOneSeverity: 'warning',
+        chattySeverity: 'info',
+        largePayloadSeverity: 'danger',
+      }).getTagConfig(),
+    ).toMatchObject({
+      slowSeverity: 'danger',
+      nPlusOneSeverity: 'warning',
+      chattySeverity: 'info',
+      largePayloadSeverity: 'danger',
+    });
+  });
+
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {
     const r = makeRequest();
     const profile = makeProfile({ collectors: { [HTTP_CLIENT_REQUESTS_KEY]: [r, r] } });

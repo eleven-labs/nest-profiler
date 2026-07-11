@@ -1,6 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ProfilerTag } from '@eleven-labs/nest-profiler';
+import type { ProfilerTag, TagSeverity } from '@eleven-labs/nest-profiler';
 
 export interface MongooseQueryEntry {
   collection: string;
@@ -43,6 +43,14 @@ export interface MongooseCollectorModuleOptions {
   nPlusOneThreshold?: number;
   /** A request running at least this many operations is tagged `chatty`. Default: 20 */
   chattyThreshold?: number;
+  /** Severity of the `slow` tag. Default: `warning`. */
+  slowSeverity?: TagSeverity;
+  /** Severity of the `n-plus-one` tag. Default: `danger`. */
+  nPlusOneSeverity?: TagSeverity;
+  /** Severity of the `chatty` tag. Default: `warning`. */
+  chattySeverity?: TagSeverity;
+  /** Severity of the `zero-rows` tag (a write affecting 0 documents). Default: `warning`. */
+  zeroRowsSeverity?: TagSeverity;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
   /**

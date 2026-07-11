@@ -1,5 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import type { TagSeverity } from '@eleven-labs/nest-profiler';
 
 // SQL query types are shared across ORM collectors and live in the core package.
 // Re-exported here to keep this package's public API self-contained.
@@ -16,6 +17,14 @@ export interface MikroOrmCollectorModuleOptions {
   nPlusOneThreshold?: number;
   /** A request running at least this many queries is tagged `chatty`. Default: 20 */
   chattyThreshold?: number;
+  /** Severity of the `slow` tag. Default: `warning`. */
+  slowSeverity?: TagSeverity;
+  /** Severity of the `n-plus-one` tag. Default: `danger`. */
+  nPlusOneSeverity?: TagSeverity;
+  /** Severity of the `chatty` tag. Default: `warning`. */
+  chattySeverity?: TagSeverity;
+  /** Severity of the `zero-rows` tag (a write affecting 0 rows). Default: `warning`. */
+  zeroRowsSeverity?: TagSeverity;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
   /**

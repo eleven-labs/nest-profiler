@@ -51,7 +51,8 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       TypeOrmCollectorModule.forRoot({
         dataSource, // your DataSource instance
         slowThreshold: 100, // ms — queries at/above this are tagged `slow` (default: 100)
-        duplicateThreshold: 2, // identical queries repeated ≥ N are tagged `duplicate` / N+1 (default: 2)
+        nPlusOneThreshold: 2, // identical queries repeated ≥ N are tagged `n-plus-one` / N+1 (default: 2)
+        slowSeverity: 'warning', // severity of the `slow` tag — 'info' | 'warning' | 'danger' (default: warning)
       }),
       isProfilerEnabled,
     ),
@@ -93,7 +94,7 @@ For each SQL query executed during a request:
 | `fingerprint` | Parameter-free normalized SQL, used to group N+1s    |
 | `tags`        | Performance tags applied by the core rule engine     |
 
-Slow queries, N+1 patterns and silent zero-row `UPDATE`/`DELETE`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `duplicateThreshold`; see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
+Slow queries, N+1 patterns and silent zero-row `UPDATE`/`DELETE`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills in the panel (and filterable on the list page). Configure the thresholds with `slowThreshold` / `nPlusOneThreshold` / `chattyThreshold`, and each tag's severity with `slowSeverity` / `nPlusOneSeverity` / `chattySeverity` / `zeroRowsSeverity` (`'info' | 'warning' | 'danger'`); see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
 
 ## Toolbar badge
 

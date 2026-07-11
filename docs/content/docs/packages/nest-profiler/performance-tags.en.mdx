@@ -44,6 +44,25 @@ HttpCollectorModule.forRoot({ slowThreshold: 500, largePayloadThreshold: 512 * 1
 
 > **Migrating from `slowQueryThreshold`** — the option was renamed to `slowThreshold`, and the per-entry `isSlow` boolean was removed. "Slow" is now the `slow` tag, computed centrally by the engine (no longer at capture time); read it from `entry.tags` or `profile.tags`.
 
+## Configuring severity
+
+Each tag carries a **severity** (`'info' | 'warning' | 'danger'`) that drives its colour everywhere in the UI — the pill, the duration text, the summary counts, the row highlight and the Performance banner. Every threshold-based tag's severity is configurable per collector, as a flat option next to its threshold:
+
+| Option                 | Applies to                     | Default   |
+| ---------------------- | ------------------------------ | --------- |
+| `slowSeverity`         | queries, http                  | `warning` |
+| `nPlusOneSeverity`     | queries, http                  | `danger`  |
+| `chattySeverity`       | queries, http                  | `warning` |
+| `largePayloadSeverity` | http                           | `warning` |
+| `zeroRowsSeverity`     | typeorm / mikro-orm / mongoose | `warning` |
+
+```ts
+// Treat a slow query as a hard failure in this app — the pill, duration, count and banner all turn red.
+TypeOrmCollectorModule.forRoot({ slowThreshold: 50, slowSeverity: 'danger' });
+```
+
+The `error` tag is always `danger` and is not configurable — a failed call is not a tunable performance threshold. A custom rule sets its own severity directly on the tag it emits (see below).
+
 ## Filtering by tag
 
 The list page shows a **Performance tag** select (Slow / N+1 / Chatty / Large payload / No rows) that keeps only the profiles carrying that tag, with the tag pills rendered inline on each row. Failures are not performance issues, so the `error` tag has its own **With errors** checkbox (it replaces the former "With exceptions" filter and is broader — it also covers failed HTTP/query calls, not just unhandled exceptions).
