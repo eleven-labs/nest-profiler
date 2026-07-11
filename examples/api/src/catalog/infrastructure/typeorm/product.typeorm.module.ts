@@ -47,6 +47,10 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
           slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
           nPlusOneThreshold: config.get<number>('profiler.performance.nPlusOneThreshold'),
           chattyThreshold: config.get<number>('profiler.performance.chattyThreshold'),
+          // Severity is configurable per collector, alongside the thresholds.
+          slowSeverity: config.get<'info' | 'warning' | 'danger'>(
+            'profiler.performance.slowSeverity',
+          ),
         }),
       }),
       isProfilerEnabled,

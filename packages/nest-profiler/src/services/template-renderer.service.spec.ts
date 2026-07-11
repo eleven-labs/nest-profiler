@@ -103,6 +103,27 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('<!DOCTYPE html>');
   });
 
+  it('colours a slow query by its tag severity, not a hardcoded red', async () => {
+    service.registerDir(path.join(TEMPLATES_DIR, '..', 'collectors', 'sql', 'templates'));
+    const query = (severity: 'warning' | 'danger') => ({
+      type: 'SELECT',
+      sql: 'SELECT 1',
+      duration: 250,
+      startedAt: Date.now(),
+      tags: [{ id: 'slow', label: 'Slow', severity }],
+    });
+
+    // Default severity (warning) → amber, never the old hardcoded red.
+    const warn = await service.render('sql-panel', { data: [query('warning')] });
+    expect(warn).toContain('text-warning');
+    expect(warn).not.toContain('text-danger');
+
+    // Overridden to danger → the duration/count follow it and turn red.
+    const danger = await service.render('sql-panel', { data: [query('danger')] });
+    expect(danger).toContain('text-danger');
+    expect(danger).not.toContain('text-warning');
+  });
+
   it('threads security.linkQuery onto the JSON export and navigation links', async () => {
     const link = (href: string): string => `${href}${href.includes('?') ? '&' : '?'}token=x`;
     const html = await service.render('detail', { ...MINIMAL_DETAIL_DATA, link });

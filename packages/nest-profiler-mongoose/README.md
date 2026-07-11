@@ -47,7 +47,11 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   imports: [
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
     ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({ slowThreshold: 100, duplicateThreshold: 2 }), // slow/N+1 tagging
+      MongooseCollectorModule.forRoot({
+        slowThreshold: 100,
+        nPlusOneThreshold: 2,
+        slowSeverity: 'warning',
+      }), // slow/N+1 tagging + severity
       isProfilerEnabled,
     ),
   ],

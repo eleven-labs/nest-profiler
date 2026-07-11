@@ -145,8 +145,11 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     const update = sqlEntries(profile.collectors).find((e) => e.type === 'UPDATE');
     expect(update?.rowCount).toBe(0);
     expect((update?.tags ?? []).some((t) => t.id === 'zero-rows')).toBe(true);
+    // The tag carries its (default) severity, which drives the UI colouring.
+    expect((update?.tags ?? []).find((t) => t.id === 'zero-rows')?.severity).toBe('warning');
     // The silent-failure tag also aggregates onto the profile (drives the list filter).
     expect((profile.tags ?? []).some((t) => t.id === 'zero-rows')).toBe(true);
+    expect((profile.tags ?? []).find((t) => t.id === 'zero-rows')?.severity).toBe('warning');
   });
 
   it('DELETE /products/:id records the DELETE query', async () => {

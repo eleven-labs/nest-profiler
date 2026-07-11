@@ -92,6 +92,22 @@ describe('MongooseCollector', () => {
     expect(new MongooseCollector({ slowThreshold: 40 }).getTagConfig().slowThreshold).toBe(40);
   });
 
+  it('getTagConfig passes configured severities through', () => {
+    expect(
+      new MongooseCollector({
+        slowSeverity: 'danger',
+        nPlusOneSeverity: 'warning',
+        chattySeverity: 'info',
+        zeroRowsSeverity: 'danger',
+      }).getTagConfig(),
+    ).toMatchObject({
+      slowSeverity: 'danger',
+      nPlusOneSeverity: 'warning',
+      chattySeverity: 'info',
+      zeroRowsSeverity: 'danger',
+    });
+  });
+
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {
     const q = makeQuery();
     const profile = makeProfile({ collectors: { [MONGOOSE_QUERIES_KEY]: [q, q] } });

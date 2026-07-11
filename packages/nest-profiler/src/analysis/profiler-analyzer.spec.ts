@@ -221,6 +221,96 @@ describe('analyzeProfile', () => {
     expect(profile.tags).toEqual([]);
   });
 
+  describe('configurable severity', () => {
+    const sevOf = (tags: TaggableEntry['tags'], id: string): string | undefined =>
+      (tags ?? []).find((t) => t.id === id)?.severity;
+
+    it('emits each built-in tag with its default severity', () => {
+      const profile = makeProfile();
+      const entries: TaggableEntry[] = [
+        { duration: 250, fingerprint: 'q1' },
+        { duration: 250, fingerprint: 'q1' },
+        { duration: 250, fingerprint: 'q1' },
+        { duration: 250, fingerprint: 'q1' },
+        { duration: 250, fingerprint: 'q1' },
+      ];
+      Object.assign(entries[0]!, { type: 'DELETE', rowCount: 0 });
+      const collector = makeCollector('typeorm', 'query', profile, entries);
+
+      analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+      expect(sevOf(entries[0]?.tags, 'slow')).toBe('warning');
+      expect(sevOf(entries[0]?.tags, 'n-plus-one')).toBe('danger');
+      expect(sevOf(entries[0]?.tags, 'zero-rows')).toBe('warning');
+      expect(sevOf(profile.tags, 'n-plus-one')).toBe('danger');
+      expect(sevOf(profile.tags, 'chatty')).toBe('warning');
+      expect(sevOf(profile.tags, 'zero-rows')).toBe('warning');
+    });
+
+    it('applies the default large-payload severity (warning)', () => {
+      const profile = makeProfile();
+      const entry: TaggableEntry = { duration: 5 };
+      (entry as { responseHeaders?: Record<string, string> }).responseHeaders = {
+        'content-length': '2048',
+      };
+      const collector = makeCollector('http-client', 'http', profile, [entry]);
+
+      analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+      expect(sevOf(entry.tags, 'large-payload')).toBe('warning');
+    });
+
+    it('overrides slow / chatty / zero-rows severity from the collector config', () => {
+      const profile = makeProfile();
+      const entries: TaggableEntry[] = Array.from({ length: 5 }, () => ({ duration: 250 }));
+      Object.assign(entries[0]!, { type: 'UPDATE', rowCount: 0 });
+      const collector = makeCollector('typeorm', 'query', profile, entries, {
+        ...CONFIG,
+        slowSeverity: 'danger',
+        chattySeverity: 'danger',
+        zeroRowsSeverity: 'info',
+      });
+
+      analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+      expect(sevOf(entries[0]?.tags, 'slow')).toBe('danger');
+      expect(sevOf(entries[0]?.tags, 'zero-rows')).toBe('info');
+      expect(sevOf(profile.tags, 'chatty')).toBe('danger');
+      expect(sevOf(profile.tags, 'zero-rows')).toBe('info');
+    });
+
+    it('overrides n-plus-one severity on both the entry and the profile tag', () => {
+      const profile = makeProfile();
+      const entries: TaggableEntry[] = [
+        { duration: 5, fingerprint: 'q1' },
+        { duration: 6, fingerprint: 'q1' },
+      ];
+      const collector = makeCollector('typeorm', 'query', profile, entries, {
+        ...CONFIG,
+        nPlusOneSeverity: 'info',
+      });
+
+      analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+      expect(sevOf(entries[0]?.tags, 'n-plus-one')).toBe('info');
+      expect(sevOf(profile.tags, 'n-plus-one')).toBe('info');
+    });
+
+    it('overrides large-payload severity from the collector config', () => {
+      const profile = makeProfile();
+      const entry: TaggableEntry = { duration: 5 };
+      (entry as { responseHeaders?: Record<string, string> }).responseHeaders = {
+        'content-length': '2048',
+      };
+      const collector = makeCollector('http-client', 'http', profile, [entry], {
+        ...CONFIG,
+        largePayloadSeverity: 'danger',
+      });
+
+      analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+      expect(sevOf(entry.tags, 'large-payload')).toBe('danger');
+    });
+  });
+
   it('isolates a throwing rule and still applies the others', () => {
     const profile = makeProfile();
     const entries: TaggableEntry[] = [{ duration: 250 }];

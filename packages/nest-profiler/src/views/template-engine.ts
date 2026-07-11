@@ -61,13 +61,43 @@ const TAG_CLASSES: Record<string, string> = {
 };
 
 /**
- * Severity fallback classes for custom tag ids. Kept as literals (not interpolated)
- * so Tailwind's content scan of this file emits them.
+ * Severity fallback classes for custom tag ids — and for a built-in tag whose
+ * severity has been overridden away from its default (see {@link TAG_DEFAULT_SEVERITY}).
+ * Kept as literals (not interpolated) so Tailwind's content scan of this file emits them.
  */
 const TAG_SEVERITY_CLASSES: Record<string, string> = {
   info: 'badge-tag-info',
   warning: 'badge-tag-warning',
   danger: 'badge-tag-danger',
+};
+
+/**
+ * The default severity each built-in tag id ships with. A built-in pill keeps its
+ * distinct identity hue ({@link TAG_CLASSES}) only while it carries this severity;
+ * once a consumer overrides the severity, the pill switches to the severity colour
+ * so pill, duration text, counts and banner all agree.
+ */
+const TAG_DEFAULT_SEVERITY: Record<string, TagLike['severity']> = {
+  slow: 'warning',
+  'n-plus-one': 'danger',
+  error: 'danger',
+  chatty: 'warning',
+  'large-payload': 'warning',
+  'zero-rows': 'warning',
+};
+
+/** Severity → text-colour class. Literals so Tailwind's content scan emits them. */
+const SEV_TEXT_CLASSES: Record<string, string> = {
+  info: 'text-info',
+  warning: 'text-warning',
+  danger: 'text-danger',
+};
+
+/** Severity → subtle row-background class. Literals so Tailwind's content scan emits them. */
+const SEV_BG_CLASSES: Record<string, string> = {
+  info: 'bg-info-bg/30',
+  warning: 'bg-warning-bg/30',
+  danger: 'bg-danger-bg/30',
 };
 
 /** A structured performance tag as passed to {@link HELPERS.tagBadge}. */
@@ -112,12 +142,37 @@ export const HELPERS = {
     return 'badge-5xx';
   },
   logLevelClass: (level: string): string => LOG_LEVEL_CLASSES[level] ?? 'badge-default',
-  tagClass: (tag: TagLike): string =>
-    TAG_CLASSES[tag.id] ?? TAG_SEVERITY_CLASSES[tag.severity] ?? 'badge-default',
+  // A built-in pill keeps its identity hue only while it carries that id's default
+  // severity; an overridden severity falls back to the severity-coloured class so the
+  // pill agrees with the duration text, counts and banner.
+  tagClass: (tag: TagLike): string => {
+    const idClass = TAG_CLASSES[tag.id];
+    if (idClass && tag.severity === TAG_DEFAULT_SEVERITY[tag.id]) return idClass;
+    return TAG_SEVERITY_CLASSES[tag.severity] ?? idClass ?? 'badge-default';
+  },
+  // Severity → text-colour / row-background class, for coloring duration text, summary
+  // counts and row highlights consistently with the pills.
+  sevTextClass: (severity: TagLike['severity'] | null | undefined): string =>
+    (severity ? SEV_TEXT_CLASSES[severity] : undefined) ?? 'text-foreground-secondary',
+  sevBgClass: (severity: TagLike['severity'] | null | undefined): string =>
+    (severity ? SEV_BG_CLASSES[severity] : undefined) ?? '',
+  // The severity of the first tag with `id` across `entries`, or null. Tags of one id
+  // within a collector share a severity, so the first match is representative.
+  sevOfTag: (
+    entries: ReadonlyArray<{ tags?: TagLike[] }> | undefined,
+    id: string,
+  ): TagLike['severity'] | null => {
+    for (const entry of entries ?? []) {
+      for (const tag of entry.tags ?? []) {
+        if (tag.id === id) return tag.severity;
+      }
+    }
+    return null;
+  },
   // Returns safe HTML — use <%- tagBadge(tag) %> in templates. Renders one performance-tag
   // pill; `detail` becomes the hover tooltip.
   tagBadge: (tag: TagLike): string => {
-    const cls = TAG_CLASSES[tag.id] ?? TAG_SEVERITY_CLASSES[tag.severity] ?? 'badge-default';
+    const cls = HELPERS.tagClass(tag);
     const title = tag.detail ? ` title="${escapeHtml(tag.detail)}"` : '';
     return (
       `<span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide ${cls}"${title}>` +

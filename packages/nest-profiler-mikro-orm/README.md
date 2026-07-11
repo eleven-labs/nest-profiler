@@ -55,7 +55,11 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       // ...your connection options
     }),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowThreshold: 100, duplicateThreshold: 2 }), // slow/N+1 tagging
+      MikroOrmCollectorModule.forRoot({
+        slowThreshold: 100,
+        nPlusOneThreshold: 2,
+        slowSeverity: 'warning',
+      }), // slow/N+1 tagging + severity
       isProfilerEnabled,
     ),
   ],

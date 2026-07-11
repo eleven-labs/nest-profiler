@@ -78,6 +78,22 @@ describe('MikroOrmCollector', () => {
     expect(new MikroOrmCollector({ slowThreshold: 15 }).getTagConfig().slowThreshold).toBe(15);
   });
 
+  it('getTagConfig passes configured severities through', () => {
+    expect(
+      new MikroOrmCollector({
+        slowSeverity: 'danger',
+        nPlusOneSeverity: 'warning',
+        chattySeverity: 'info',
+        zeroRowsSeverity: 'danger',
+      }).getTagConfig(),
+    ).toMatchObject({
+      slowSeverity: 'danger',
+      nPlusOneSeverity: 'warning',
+      chattySeverity: 'info',
+      zeroRowsSeverity: 'danger',
+    });
+  });
+
   it('getTemplatePath returns an absolute path ending with sql-panel.ejs', () => {
     const p = collector.getTemplatePath();
     expect(p).toMatch(/sql-panel\.ejs$/);

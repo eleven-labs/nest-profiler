@@ -4,6 +4,17 @@
   const hasTag = (q, id) => (q.tags || []).some(t => t.id === id);
   const slowCount = queries.filter(q => hasTag(q, 'slow')).length;
   const nPlusOneGroups = new Set(queries.filter(q => hasTag(q, 'n-plus-one') && q.fingerprint).map(q => q.fingerprint));
+  const slowSev = sevOfTag(queries, 'slow');
+  const nPlusOneSev = sevOfTag(queries, 'n-plus-one');
+  // Worst severity among a row's performance tags (excluding `error`, surfaced separately) — tints the row.
+  const rowSev = (q) => {
+    let best = null;
+    for (const t of (q.tags || [])) {
+      if (t.id === 'error') continue;
+      if (best === null || (t.severity === 'danger') || (t.severity === 'warning' && best === 'info')) best = t.severity;
+    }
+    return best;
+  };
   const opColors = {
     find: 'badge-get',
     findOne: 'badge-get',
@@ -28,10 +39,10 @@
     <span><strong class="text-foreground"><%= queries.length %></strong> quer<%= queries.length !== 1 ? 'ies' : 'y' %></span>
     <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
     <% if (slowCount > 0) { %>
-      <span class="text-danger"><strong><%= slowCount %></strong> slow</span>
+      <span class="<%= sevTextClass(slowSev) %>"><strong><%= slowCount %></strong> slow</span>
     <% } %>
     <% if (nPlusOneGroups.size > 0) { %>
-      <span class="text-danger"><strong><%= nPlusOneGroups.size %></strong> N+1</span>
+      <span class="<%= sevTextClass(nPlusOneSev) %>"><strong><%= nPlusOneGroups.size %></strong> N+1</span>
     <% } %>
   </div>
 </div>
@@ -54,7 +65,7 @@
       </thead>
       <tbody class="divide-y divide-line-subtle">
         <% for (const q of queries) { %>
-          <tr class="hover:bg-surface-muted transition-colors <%= (hasTag(q, 'slow') || hasTag(q, 'n-plus-one') || hasTag(q, 'zero-rows')) ? 'bg-warning-bg/30' : '' %>">
+          <tr class="hover:bg-surface-muted transition-colors <%= sevBgClass(rowSev(q)) %>">
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[q.operation] || 'badge-default' %>"><%= q.operation %></span>
               <% if (q.streaming) { %>
@@ -110,9 +121,10 @@
               <% } %>
             </td>
             <td class="py-2 px-4 text-right align-top">
-              <span class="text-xs tabular-nums <%= hasTag(q, 'slow') ? 'text-danger font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
-              <% if (hasTag(q, 'slow')) { %>
-                <span class="block text-2xs text-danger/70">slow</span>
+              <% const slowTag = (q.tags || []).find(t => t.id === 'slow'); %>
+              <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
+              <% if (slowTag) { %>
+                <span class="block text-2xs opacity-70 <%= sevTextClass(slowTag.severity) %>">slow</span>
               <% } else if (q.streaming && q.duration === 0) { %>
                 <span class="block text-2xs text-foreground-faint" title="Duration is not measured for this streaming read (cursor consumed via for-await / eachAsync).">not timed (stream)</span>
               <% } %>

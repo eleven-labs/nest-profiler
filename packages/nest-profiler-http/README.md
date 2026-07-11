@@ -151,14 +151,22 @@ Use `record(entry)` instead of `capture(input)` if you have already built a fina
 
 `HttpCollectorModule.forRoot(options)` accepts:
 
-| Option                   | Default | Description                                                                                                         |
-| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `instrumentations`       | `[]`    | The adapters to install (`AxiosInstrumentation`, `FetchInstrumentation`, …). Nothing is instrumented unless listed. |
-| `captureRequestHeaders`  | `true`  | Capture (and mask) outgoing request headers.                                                                        |
-| `captureRequestBody`     | `false` | Capture request body for non-GET/HEAD requests.                                                                     |
-| `captureResponseHeaders` | `true`  | Capture (and mask) response headers.                                                                                |
-| `captureResponseBody`    | `false` | Capture response body — can be large.                                                                               |
-| `maskHeaders`            | `[]`    | Extra header names to redact (merged with the defaults).                                                            |
+| Option                   | Default   | Description                                                                                                         |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `instrumentations`       | `[]`      | The adapters to install (`AxiosInstrumentation`, `FetchInstrumentation`, …). Nothing is instrumented unless listed. |
+| `slowThreshold`          | `300`     | Calls at/above this duration (ms) are tagged `slow`.                                                                |
+| `nPlusOneThreshold`      | `2`       | Identical calls repeated ≥ N in one request are tagged `n-plus-one`.                                                |
+| `chattyThreshold`        | `10`      | A request making ≥ N outgoing calls is tagged `chatty`.                                                             |
+| `largePayloadThreshold`  | `1048576` | A call whose payload reaches this size (bytes) is tagged `large-payload`. `0` disables.                             |
+| `slowSeverity`           | `warning` | Severity of the `slow` tag (`'info' \| 'warning' \| 'danger'`).                                                     |
+| `nPlusOneSeverity`       | `danger`  | Severity of the `n-plus-one` tag.                                                                                   |
+| `chattySeverity`         | `warning` | Severity of the `chatty` tag.                                                                                       |
+| `largePayloadSeverity`   | `warning` | Severity of the `large-payload` tag.                                                                                |
+| `captureRequestHeaders`  | `true`    | Capture (and mask) outgoing request headers.                                                                        |
+| `captureRequestBody`     | `false`   | Capture request body for non-GET/HEAD requests.                                                                     |
+| `captureResponseHeaders` | `true`    | Capture (and mask) response headers.                                                                                |
+| `captureResponseBody`    | `false`   | Capture response body — can be large.                                                                               |
+| `maskHeaders`            | `[]`      | Extra header names to redact (merged with the defaults).                                                            |
 
 ## What it collects
 

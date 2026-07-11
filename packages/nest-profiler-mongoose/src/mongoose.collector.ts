@@ -60,6 +60,10 @@ export class MongooseCollector extends AbstractQueryCollector<MongooseQueryEntry
       slowThreshold: this.options.slowThreshold ?? 100,
       nPlusOneThreshold: this.options.nPlusOneThreshold ?? 2,
       chattyThreshold: this.options.chattyThreshold ?? 20,
+      slowSeverity: this.options.slowSeverity,
+      nPlusOneSeverity: this.options.nPlusOneSeverity,
+      chattySeverity: this.options.chattySeverity,
+      zeroRowsSeverity: this.options.zeroRowsSeverity,
     };
   }
 }

@@ -86,6 +86,10 @@ export class HttpClientCollector implements IProfilerCollector, TaggableCollecto
       nPlusOneThreshold: this.options.nPlusOneThreshold ?? 2,
       chattyThreshold: this.options.chattyThreshold ?? 10,
       largePayloadThreshold: this.options.largePayloadThreshold ?? 1_048_576,
+      slowSeverity: this.options.slowSeverity,
+      nPlusOneSeverity: this.options.nPlusOneSeverity,
+      chattySeverity: this.options.chattySeverity,
+      largePayloadSeverity: this.options.largePayloadSeverity,
     };
   }
 }

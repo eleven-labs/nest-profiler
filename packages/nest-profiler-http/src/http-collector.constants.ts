@@ -1,5 +1,6 @@
 import { ConfigurableModuleBuilder, Type } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import type { TagSeverity } from '@eleven-labs/nest-profiler';
 import type { HttpCaptureOptions } from './http-request.interface';
 import type { HttpInstrumentation } from './http-instrumentation.interface';
 
@@ -24,6 +25,18 @@ export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
    * `large-payload`. Default: 1048576 (1 MB). Set to `0` to disable.
    */
   largePayloadThreshold?: number;
+
+  /** Severity of the `slow` tag. Default: `warning`. */
+  slowSeverity?: TagSeverity;
+
+  /** Severity of the `n-plus-one` tag. Default: `danger`. */
+  nPlusOneSeverity?: TagSeverity;
+
+  /** Severity of the `chatty` tag. Default: `warning`. */
+  chattySeverity?: TagSeverity;
+
+  /** Severity of the `large-payload` tag. Default: `warning`. */
+  largePayloadSeverity?: TagSeverity;
 
   /**
    * The HTTP-client instrumentations to install. Nothing is instrumented unless a client is

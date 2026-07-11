@@ -25,7 +25,7 @@ export const slowRule: PerformanceRule = {
           ctx.tagEntry(entry, {
             id: BUILTIN_TAG_IDS.slow,
             label: 'Slow',
-            severity: 'warning',
+            severity: config.slowSeverity ?? 'warning',
             detail: `${entry.duration}ms ≥ ${config.slowThreshold}ms threshold`,
           });
         }
@@ -54,6 +54,7 @@ export const nPlusOneRule: PerformanceRule = {
       // Repeated identical calls are the N+1 anti-pattern in every domain — same label
       // for SQL/Mongo queries and outgoing HTTP calls ("N+1 API calls").
       const subject = domain === 'http' ? 'request' : 'query';
+      const severity = config.nPlusOneSeverity ?? 'danger';
       for (const group of groups.values()) {
         if (group.length < threshold) continue;
         const label = `N+1 ×${group.length}`;
@@ -62,7 +63,7 @@ export const nPlusOneRule: PerformanceRule = {
           ctx.tagEntry(entry, {
             id: BUILTIN_TAG_IDS.nPlusOne,
             label,
-            severity: 'danger',
+            severity,
             count: group.length,
             detail,
           });
@@ -70,7 +71,7 @@ export const nPlusOneRule: PerformanceRule = {
         ctx.tagProfile({
           id: BUILTIN_TAG_IDS.nPlusOne,
           label: 'N+1',
-          severity: 'danger',
+          severity,
           count: group.length,
         });
       }
@@ -122,7 +123,7 @@ export const chattyRule: PerformanceRule = {
         ctx.tagProfile({
           id: BUILTIN_TAG_IDS.chatty,
           label: 'Chatty',
-          severity: 'warning',
+          severity: config.chattySeverity ?? 'warning',
           count: entries.length,
           detail: `${entries.length} ${domain} calls in one request`,
         });
@@ -177,7 +178,7 @@ export const largePayloadRule: PerformanceRule = {
           ctx.tagEntry(entry, {
             id: BUILTIN_TAG_IDS.largePayload,
             label: 'Large payload',
-            severity: 'warning',
+            severity: config.largePayloadSeverity ?? 'warning',
             count: size,
             detail: `${formatBytes(size)} payload ≥ ${formatBytes(threshold)}`,
           });
@@ -204,8 +205,9 @@ interface QueryLikeEntry extends TaggableEntry {
 export const zeroRowRule: PerformanceRule = {
   id: BUILTIN_TAG_IDS.zeroRows,
   evaluate(ctx) {
-    for (const { entries, domain } of ctx.collectors) {
+    for (const { entries, config, domain } of ctx.collectors) {
       if (domain !== 'query') continue;
+      const severity = config.zeroRowsSeverity ?? 'warning';
       for (const entry of entries) {
         const q = entry as QueryLikeEntry;
         const isSqlWrite = (q.type === 'UPDATE' || q.type === 'DELETE') && q.rowCount === 0;
@@ -215,13 +217,13 @@ export const zeroRowRule: PerformanceRule = {
         ctx.tagEntry(entry, {
           id: BUILTIN_TAG_IDS.zeroRows,
           label: 'No rows',
-          severity: 'warning',
+          severity,
           detail: 'Write affected 0 rows — possible silent failure',
         });
         ctx.tagProfile({
           id: BUILTIN_TAG_IDS.zeroRows,
           label: 'No rows',
-          severity: 'warning',
+          severity,
         });
       }
     }

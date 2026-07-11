@@ -82,6 +82,70 @@ describe('template-engine HELPERS', () => {
     });
   });
 
+  describe('tagClass', () => {
+    it('keeps a built-in pill identity hue at its default severity', () => {
+      expect(HELPERS.tagClass({ id: 'slow', label: 'Slow', severity: 'warning' })).toBe(
+        'badge-tag-slow',
+      );
+      expect(HELPERS.tagClass({ id: 'n-plus-one', label: 'N+1', severity: 'danger' })).toBe(
+        'badge-tag-n-plus-one',
+      );
+    });
+
+    it('switches a built-in pill to the severity class when the severity is overridden', () => {
+      expect(HELPERS.tagClass({ id: 'slow', label: 'Slow', severity: 'danger' })).toBe(
+        'badge-tag-danger',
+      );
+      expect(HELPERS.tagClass({ id: 'chatty', label: 'Chatty', severity: 'info' })).toBe(
+        'badge-tag-info',
+      );
+    });
+
+    it('falls back to the severity class for a custom tag id', () => {
+      expect(HELPERS.tagClass({ id: 'custom', label: 'X', severity: 'warning' })).toBe(
+        'badge-tag-warning',
+      );
+    });
+  });
+
+  describe('sevTextClass', () => {
+    it('maps each severity to its text-colour class', () => {
+      expect(HELPERS.sevTextClass('info')).toBe('text-info');
+      expect(HELPERS.sevTextClass('warning')).toBe('text-warning');
+      expect(HELPERS.sevTextClass('danger')).toBe('text-danger');
+    });
+
+    it('falls back to a neutral class for null/undefined', () => {
+      expect(HELPERS.sevTextClass(null)).toBe('text-foreground-secondary');
+      expect(HELPERS.sevTextClass(undefined)).toBe('text-foreground-secondary');
+    });
+  });
+
+  describe('sevBgClass', () => {
+    it('maps each severity to its subtle background class, empty when none', () => {
+      expect(HELPERS.sevBgClass('warning')).toBe('bg-warning-bg/30');
+      expect(HELPERS.sevBgClass('danger')).toBe('bg-danger-bg/30');
+      expect(HELPERS.sevBgClass(null)).toBe('');
+    });
+  });
+
+  describe('sevOfTag', () => {
+    const entries = [
+      { tags: [{ id: 'slow', label: 'Slow', severity: 'danger' as const }] },
+      { tags: [{ id: 'n-plus-one', label: 'N+1', severity: 'warning' as const }] },
+    ];
+
+    it('returns the severity of the first entry carrying the tag id', () => {
+      expect(HELPERS.sevOfTag(entries, 'slow')).toBe('danger');
+      expect(HELPERS.sevOfTag(entries, 'n-plus-one')).toBe('warning');
+    });
+
+    it('returns null when no entry carries the tag id', () => {
+      expect(HELPERS.sevOfTag(entries, 'error')).toBeNull();
+      expect(HELPERS.sevOfTag(undefined, 'slow')).toBeNull();
+    });
+  });
+
   describe('kvTable', () => {
     it('renders an "Empty" placeholder for an empty object', () => {
       expect(HELPERS.kvTable({})).toContain('Empty');

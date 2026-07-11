@@ -1,6 +1,6 @@
 import type { IProfilerCollector } from '../collectors/collector.interface';
 import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerTag } from './profiler-tag.interface';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
 
 /**
  * The minimal shape every entry exposed to the performance-rule engine shares:
@@ -34,6 +34,16 @@ export interface TagConfig {
   chattyThreshold?: number;
   /** A request/response body at or above this size (bytes) is tagged `large-payload`. */
   largePayloadThreshold?: number;
+  /** Severity of the `slow` tag. Default: `warning`. */
+  slowSeverity?: TagSeverity;
+  /** Severity of the `n-plus-one` tag. Default: `danger`. */
+  nPlusOneSeverity?: TagSeverity;
+  /** Severity of the `chatty` tag. Default: `warning`. */
+  chattySeverity?: TagSeverity;
+  /** Severity of the `large-payload` tag. Default: `warning`. */
+  largePayloadSeverity?: TagSeverity;
+  /** Severity of the `zero-rows` tag. Default: `warning`. Severity-only — the zero-row rule has no numeric threshold. */
+  zeroRowsSeverity?: TagSeverity;
 }
 
 /**

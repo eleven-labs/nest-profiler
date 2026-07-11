@@ -60,6 +60,8 @@ export default registerAs('profiler', () => {
       nPlusOneThreshold: parseInt(process.env['PROFILER_N_PLUS_ONE_THRESHOLD'] ?? '2', 10),
       // A request running at least this many queries is tagged `chatty`.
       chattyThreshold: parseInt(process.env['PROFILER_CHATTY_THRESHOLD'] ?? '20', 10),
+      // Severity of the `slow` tag — drives the pill / duration / banner colour ('info' | 'warning' | 'danger').
+      slowSeverity: process.env['PROFILER_SLOW_SEVERITY'] ?? 'warning',
     },
     // Collector option driven from config to showcase the collectors' `forRootAsync` (see AuthModule).
     maskUserFields: (process.env['PROFILER_MASK_USER_FIELDS'] ?? 'password,refreshToken')
