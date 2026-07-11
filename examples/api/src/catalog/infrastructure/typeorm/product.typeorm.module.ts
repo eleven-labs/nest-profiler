@@ -28,11 +28,13 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
         username: config.get<string>('database.username'),
         password: config.get<string>('database.password'),
         database: config.get<string>('database.name'),
+        ssl: config.get<boolean>('database.ssl') ? true : undefined,
         entities: [ProductEntity],
-        // Recreate the schema from scratch outside production so switching SQL_ORM against the
-        // shared `products` table always starts clean (the ORMs map columns differently).
-        synchronize: config.get<string>('app.env') !== 'production',
-        dropSchema: config.get<string>('app.env') !== 'production',
+        // Schema management is config-driven (see database.config.ts): outside production it
+        // creates + drops-and-recreates the shared `products` table so switching SQL_ORM starts
+        // clean; a hosted deploy sets DATABASE_SYNCHRONIZE=true to create the schema without the drop.
+        synchronize: config.get<boolean>('database.synchronize'),
+        dropSchema: config.get<boolean>('database.dropSchema'),
         logging: false,
       }),
     }),
@@ -42,7 +44,9 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
       TypeOrmCollectorModule.forRootAsync({
         inject: [ConfigService],
         useFactory: (config: ConfigService) => ({
-          slowThreshold: config.get<number>('profiler.slowThreshold') ?? 50,
+          slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
+          nPlusOneThreshold: config.get<number>('profiler.performance.nPlusOneThreshold'),
+          chattyThreshold: config.get<number>('profiler.performance.chattyThreshold'),
         }),
       }),
       isProfilerEnabled,
