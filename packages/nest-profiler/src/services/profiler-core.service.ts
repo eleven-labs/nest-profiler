@@ -69,9 +69,20 @@ export class ProfilerCoreService implements OnApplicationShutdown {
    * {@link ProfilerEntrypointType.indexAttributes} projection, or `{}` when the type
    * is unregistered or contributes none. Exposed to storage adapters so they can
    * index and query facets like a GraphQL `operationType` or a RabbitMQ `exchange`.
+   *
+   * For **non-HTTP** kinds it also carries a display descriptor (`endpoint` + `endpointBadge`,
+   * from the entrypoint's own breadcrumb {@link ProfilerEntrypointType.summary}), so an
+   * aggregation that only sees the lightweight {@link ProfileSummary} — the home Summary — can
+   * label a command, a consumed message or a GraphQL operation instead of a blank HTTP row.
+   * HTTP is left untouched: it labels endpoints from its `route`/`method`/`url` columns.
    */
   getIndexAttributes(profile: Profile): Record<string, SummaryPrimitive> {
-    return this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
+    const type = this.getEntrypointType(profile.entrypoint.type);
+    const attributes = type.indexAttributes?.(profile) ?? {};
+    if (profile.entrypoint.type === HTTP_ENTRYPOINT_TYPE) return attributes;
+    const summary = type.summary(profile);
+    // A real indexed facet of the same name wins over the display descriptor.
+    return { endpoint: summary.text, endpointBadge: summary.badge, ...attributes };
   }
 
   /**

@@ -35,7 +35,7 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
 
   describe('GET /_profiler (list page)', () => {
     it('renders the recent profiles', async () => {
-      const res = await request(server(app)).get('/_profiler');
+      const res = await request(server(app)).get('/_profiler').query({ view: 'profiling' });
 
       expect(res.status).toBe(200);
       expect(res.text).toContain('<!DOCTYPE html>');
@@ -44,14 +44,32 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.text).toContain(short(graphqlToken));
     });
 
-    // The global-scope Schema collector renders one home-page panel per wired ORM, listing the
-    // registered entities and their columns/relations/indexes.
-    it('renders the global Schema panel for the active ORM', async () => {
+    it('defaults to the Summary view with an aggregated overview', async () => {
       const res = await request(server(app)).get('/_profiler');
-      const label = activeSqlOrm() === 'mikro-orm' ? 'Schema · MikroORM' : 'Schema · TypeORM';
 
+      expect(res.status).toBe(200);
+      // The sidebar lists Summary (default) and Profiling; the Summary pane shows its cards.
+      expect(res.text).toContain('>Summary<');
+      expect(res.text).toContain('>Profiling<');
+      expect(res.text).toContain('Error rate');
+      expect(res.text).toContain('slowest endpoints');
+    });
+
+    // The global-scope Schema collector contributes its own sidebar view; the home page
+    // lists it, and the view renders the registered entities and their columns/relations.
+    it('renders the global Schema panel in its sidebar view for the active ORM', async () => {
+      const isMikro = activeSqlOrm() === 'mikro-orm';
+      const label = isMikro ? 'Schema · MikroORM' : 'Schema · TypeORM';
+      const viewKey = isMikro ? 'mikro-orm-schema' : 'typeorm-schema';
+
+      // The sidebar on the home page links to the Schema view.
+      const home = await request(server(app)).get('/_profiler');
+      expect(home.text).toContain(label);
+      expect(home.text).toContain(`view=${viewKey}`);
+
+      // The view itself renders the panel: the Product entity and its backing table.
+      const res = await request(server(app)).get('/_profiler').query({ view: viewKey });
       expect(res.text).toContain(label);
-      // The Product entity and its backing table appear inside the expanded panel.
       expect(res.text).toContain('Product');
       expect(res.text).toContain('products');
     });
@@ -59,24 +77,32 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     // Each list has its own filter bar, so filter params are namespaced by the
     // section key (`http_…` for the HTTP list, `graphql_…` for the GraphQL list).
     it('filters by HTTP method', async () => {
-      const res = await request(server(app)).get('/_profiler').query({ http_method: 'POST' });
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_method: 'POST' });
 
       expect(res.text).toContain(short(createToken));
       expect(res.text).not.toContain(short(healthToken));
     });
 
     it('filters by status code and status class', async () => {
-      const byExact = await request(server(app)).get('/_profiler').query({ http_status: '400' });
+      const byExact = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_status: '400' });
       expect(byExact.text).toContain(short(errorToken));
       expect(byExact.text).not.toContain(short(healthToken));
 
-      const byClass = await request(server(app)).get('/_profiler').query({ http_statusClass: '4' });
+      const byClass = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_statusClass: '4' });
       expect(byClass.text).toContain(short(errorToken));
       expect(byClass.text).not.toContain(short(productsToken));
     });
 
     it('filters by free-text search', async () => {
-      const res = await request(server(app)).get('/_profiler').query({ http_q: 'health' });
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_q: 'health' });
 
       expect(res.text).toContain(short(healthToken));
       expect(res.text).not.toContain(short(errorToken));
@@ -85,7 +111,9 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     it('filters by the errors checkbox', async () => {
       // The engine tags a profile carrying an unhandled exception `error`; the dedicated
       // "errors" checkbox replaces the former "exceptions" filter.
-      const res = await request(server(app)).get('/_profiler').query({ http_error: '1' });
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_error: '1' });
 
       expect(res.text).toContain(short(errorToken));
       expect(res.text).not.toContain(short(healthToken));
@@ -93,21 +121,25 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
 
     it('filters by minimum duration', async () => {
       // /slow sleeps 60ms — /health responds in a few ms.
-      const res = await request(server(app)).get('/_profiler').query({ http_minDuration: '55' });
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_minDuration: '55' });
 
       expect(res.text).toContain(short(slowToken));
       expect(res.text).not.toContain(short(healthToken));
     });
 
     it('lists each entrypoint kind in its own section with independent filters', async () => {
-      // Both kinds show on the unfiltered page, each in its own section.
-      const all = await request(server(app)).get('/_profiler');
+      // Both kinds show on the unfiltered Profiling view, each in its own section.
+      const all = await request(server(app)).get('/_profiler').query({ view: 'profiling' });
       expect(all.text).toContain(short(healthToken));
       expect(all.text).toContain(short(graphqlToken));
 
       // Filters are scoped to a single section: narrowing the HTTP list to POST
       // drops the GET health profile while leaving the GraphQL section untouched.
-      const httpPost = await request(server(app)).get('/_profiler').query({ http_method: 'POST' });
+      const httpPost = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'profiling', http_method: 'POST' });
       expect(httpPost.text).toContain(short(graphqlToken));
       expect(httpPost.text).not.toContain(short(healthToken));
     });

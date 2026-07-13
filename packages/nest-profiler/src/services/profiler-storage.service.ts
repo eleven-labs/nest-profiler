@@ -8,9 +8,13 @@ import type {
   StorageFindOptions,
 } from '../storage/storage-adapter.interface';
 import { MemoryStorageAdapter } from '../storage/memory-storage.adapter';
-import type { IndexAttributesProvider, SummaryPrimitive } from '../storage/profile-summary';
+import type {
+  IndexAttributesProvider,
+  ProfileSummary,
+  SummaryPrimitive,
+} from '../storage/profile-summary';
 import type { ProfilerPage, ProfilerQuery } from '../storage/profiler-query';
-import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
+import { applyQueryInMemory, distinctInMemory, summariesInMemory } from '../storage/profiler-query';
 
 @Injectable()
 export class ProfilerStorageService {
@@ -84,6 +88,17 @@ export class ProfilerStorageService {
   async query(query: ProfilerQuery): Promise<ProfilerPage> {
     if (this.adapter.query) return this.adapter.query(query);
     return applyQueryInMemory(await this.adapter.findAll(), query, this.indexAttributes);
+  }
+
+  /**
+   * Runs a structured query returning only the lightweight {@link ProfileSummary} rows of the
+   * matching page — for aggregation views (the home Summary) that never need the full documents.
+   * Delegates to the adapter's native {@link IProfilerStorageAdapter.querySummaries} when present
+   * (an index-only read), otherwise summarizes {@link findAll} in memory.
+   */
+  async querySummaries(query: ProfilerQuery): Promise<ProfileSummary[]> {
+    if (this.adapter.querySummaries) return this.adapter.querySummaries(query);
+    return summariesInMemory(await this.adapter.findAll(), query, this.indexAttributes);
   }
 
   /** Distinct values of a summary field — native when the adapter supports it, else in-memory. */

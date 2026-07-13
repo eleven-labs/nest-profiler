@@ -1,6 +1,6 @@
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerPage, ProfilerQuery } from './profiler-query';
-import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary';
+import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from './profile-summary';
 
 export const PROFILER_STORAGE_ADAPTER = Symbol('PROFILER_STORAGE_ADAPTER');
 
@@ -41,6 +41,14 @@ export interface IProfilerStorageAdapter {
    * but not scalable, fine for the in-memory adapter.
    */
   query?(query: ProfilerQuery): Promise<ProfilerPage> | ProfilerPage;
+
+  /**
+   * Optional: run a structured query returning only the lightweight {@link ProfileSummary} rows of
+   * the matching page — never full documents. The pushdown-friendly access aggregation views (the
+   * home Summary) use; a store that indexes summaries serves it without parsing a profile blob. When
+   * omitted, {@link ProfilerStorageService} falls back to summarizing {@link findAll} in memory.
+   */
+  querySummaries?(query: ProfilerQuery): Promise<ProfileSummary[]> | ProfileSummary[];
 
   /**
    * Optional: return the distinct, non-empty values of a summary `field` (optionally

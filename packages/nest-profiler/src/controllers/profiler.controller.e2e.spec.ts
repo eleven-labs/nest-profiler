@@ -187,7 +187,7 @@ describe('ProfilerController (e2e)', () => {
 
     it('lists a profile after a profiled request', async () => {
       const token = await createProfile('/hello');
-      const res = await request(server()).get('/_profiler');
+      const res = await request(server()).get('/_profiler').query({ view: 'profiling' });
       expect(res.text).toContain(token.slice(0, 8));
     });
 
@@ -197,7 +197,9 @@ describe('ProfilerController (e2e)', () => {
       const getToken = await createProfile('/hello', 'get');
       const postToken = await createProfile('/widgets', 'post');
 
-      const res = await request(server()).get('/_profiler').query({ http_method: 'POST' });
+      const res = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_method: 'POST' });
       expect(res.text).toContain(short(postToken));
       expect(res.text).not.toContain(short(getToken));
     });
@@ -206,11 +208,15 @@ describe('ProfilerController (e2e)', () => {
       const okToken = await createProfile('/hello', 'get'); // 200
       const errToken = await createProfile('/boom', 'get'); // 400
 
-      const byExact = await request(server()).get('/_profiler').query({ http_status: '400' });
+      const byExact = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_status: '400' });
       expect(byExact.text).toContain(short(errToken));
       expect(byExact.text).not.toContain(short(okToken));
 
-      const byClass = await request(server()).get('/_profiler').query({ http_statusClass: '4' });
+      const byClass = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_statusClass: '4' });
       expect(byClass.text).toContain(short(errToken));
       expect(byClass.text).not.toContain(short(okToken));
     });
@@ -219,13 +225,17 @@ describe('ProfilerController (e2e)', () => {
       const helloToken = await createProfile('/hello', 'get');
       const errToken = await createProfile('/boom', 'get');
 
-      const bySearch = await request(server()).get('/_profiler').query({ http_q: 'hello' });
+      const bySearch = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_q: 'hello' });
       expect(bySearch.text).toContain(short(helloToken));
       expect(bySearch.text).not.toContain(short(errToken));
 
       // The rule engine tags a profile carrying an unhandled exception `error`; the
       // dedicated "errors" checkbox replaces the former "exceptions" filter.
-      const byError = await request(server()).get('/_profiler').query({ http_error: '1' });
+      const byError = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_error: '1' });
       expect(byError.text).toContain(short(errToken));
       expect(byError.text).not.toContain(short(helloToken));
     });
@@ -234,7 +244,7 @@ describe('ProfilerController (e2e)', () => {
       const token = await createProfile('/hello');
       const res = await request(server())
         .get('/_profiler')
-        .query({ http_status: 'not-a-number', http_minDuration: 'abc' });
+        .query({ view: 'profiling', http_status: 'not-a-number', http_minDuration: 'abc' });
       expect(res.status).toBe(200);
       // Invalid numeric filters are dropped, so the profile is still listed.
       expect(res.text).toContain(token.slice(0, 8));
@@ -246,7 +256,7 @@ describe('ProfilerController (e2e)', () => {
       await createProfile('/hello');
       const res = await request(server())
         .get('/_profiler')
-        .query('command_status=failed&command_status=success');
+        .query('view=profiling&command_status=failed&command_status=success');
       expect(res.status).toBe(200);
       // The HTTP section's Reset link drops its own params but keeps command_status=failed.
       expect(res.text).toContain('command_status=failed');
@@ -285,7 +295,7 @@ describe('ProfilerController (e2e)', () => {
       const oldest = tokens[0]!; // pg-e2e-0 — falls onto page 2
 
       // Page 1: pager present with a next link; the newest token is shown, the oldest is not.
-      const page1 = await request(server()).get('/_profiler');
+      const page1 = await request(server()).get('/_profiler').query({ view: 'profiling' });
       expect(page1.status).toBe(200);
       expect(page1.text).toContain('Page 1 /');
       expect(page1.text).toContain('http_page=2');
@@ -293,7 +303,9 @@ describe('ProfilerController (e2e)', () => {
       expect(page1.text).not.toContain(`/_profiler/${oldest}`);
 
       // Page 2: the slice flips — the oldest token is now shown, the newest is not.
-      const page2 = await request(server()).get('/_profiler').query({ http_page: '2' });
+      const page2 = await request(server())
+        .get('/_profiler')
+        .query({ view: 'profiling', http_page: '2' });
       expect(page2.status).toBe(200);
       expect(page2.text).toContain('Page 2 /');
       expect(page2.text).toContain(`/_profiler/${oldest}`);
@@ -314,6 +326,21 @@ describe('ProfilerController (e2e)', () => {
     it('returns 404 for an unknown token', async () => {
       const res = await request(server()).get('/_profiler/does-not-exist/data');
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /_profiler/summary.json', () => {
+    it('returns the aggregated summary as JSON (no collision with the :token route)', async () => {
+      await createProfile('/hello');
+      const res = await request(server()).get('/_profiler/summary.json');
+      // The literal `summary.json` segment must win over `:token` (declared first).
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('application/json');
+      // A well-formed ProfilerSummary shape (the exact counts depend on the ~30s cache state).
+      const body = res.body as { sampled: number; duration: { p95: number }; errors: unknown };
+      expect(typeof body.sampled).toBe('number');
+      expect(typeof body.duration.p95).toBe('number');
+      expect(body.errors).toBeDefined();
     });
   });
 
@@ -419,7 +446,7 @@ describe('ProfilerController (e2e)', () => {
 
     it('lists commands in a dedicated table on the list page', async () => {
       await saveCommandProfile();
-      const res = await request(server()).get('/_profiler');
+      const res = await request(server()).get('/_profiler').query({ view: 'profiling' });
       expect(res.status).toBe(200);
       expect(res.text).toContain('>Commands<');
       expect(res.text).toContain('demo:greet');

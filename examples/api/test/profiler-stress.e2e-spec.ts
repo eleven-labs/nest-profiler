@@ -57,9 +57,9 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
     const profiles = await Promise.all(tokens.map((t) => getProfile(app, t)));
     expect(profiles).toHaveLength(CONCURRENT_BURST * 2);
 
-    // …and the list page shows the whole burst, none lost to storage races.
+    // …and the Profiling list shows the whole burst, none lost to storage races.
     await app.get(ProfilerService).flush();
-    const list = await request(server(app)).get('/_profiler');
+    const list = await request(server(app)).get('/_profiler').query({ view: 'profiling' });
     expect(list.status).toBe(200);
     for (const token of tokens) {
       expect(list.text).toContain(short(token));
@@ -73,17 +73,17 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
     }
 
     await app.get(ProfilerService).flush();
-    const list = await request(server(app)).get('/_profiler');
+    const list = await request(server(app)).get('/_profiler').query({ view: 'profiling' });
     for (const token of tokens) {
       expect(list.text).toContain(short(token));
     }
   });
 
   it('renders the warm list page quickly once profiles are cached', async () => {
-    await request(server(app)).get('/_profiler'); // warm the profile cache
+    await request(server(app)).get('/_profiler').query({ view: 'profiling' }); // warm the cache
 
     const startedAt = Date.now();
-    const res = await request(server(app)).get('/_profiler');
+    const res = await request(server(app)).get('/_profiler').query({ view: 'profiling' });
     const elapsedMs = Date.now() - startedAt;
 
     expect(res.status).toBe(200);

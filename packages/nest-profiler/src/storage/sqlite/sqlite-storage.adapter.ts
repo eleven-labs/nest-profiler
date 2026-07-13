@@ -4,7 +4,7 @@ import { createClient, type Client, type InValue, type Row } from '@libsql/clien
 import type { Profile } from '../../interfaces/profile.interface';
 import type { IProfilerStorageAdapter, StorageFindOptions } from '../storage-adapter.interface';
 import { applyProfileFilters } from '../storage-filters';
-import type { IndexAttributesProvider, SummaryPrimitive } from '../profile-summary';
+import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from '../profile-summary';
 import { summarizeProfile } from '../profile-summary';
 import type { FilterCriterion, ProfilerPage, ProfilerQuery } from '../profiler-query';
 
@@ -41,11 +41,16 @@ const COLUMN_BY_FIELD: Record<string, string> = {
   method: 'method',
   url: 'url',
   statusCode: 'status_code',
+  route: 'route',
   duration: 'duration',
   hasExceptions: 'has_exceptions',
   tags: 'tags',
   search: 'search',
 };
+
+/** The indexed summary columns selected by `querySummaries` (never the `profile` blob). */
+const SUMMARY_COLUMNS =
+  'token, created_at, type, method, url, status_code, route, duration, heap_used, has_exceptions, tags, search, attributes';
 
 /**
  * A libSQL-backed {@link IProfilerStorageAdapter} that pushes filtering, sorting and pagination
@@ -130,8 +135,8 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     });
     await this.client.execute({
       sql: `INSERT OR REPLACE INTO profiles
-         (token, created_at, type, method, url, status_code, duration, has_exceptions, tags, search, attributes, profile)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (token, created_at, type, method, url, status_code, route, duration, heap_used, has_exceptions, tags, search, attributes, profile)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         s.token,
         s.createdAt,
@@ -139,7 +144,9 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
         s.method ?? null,
         s.url ?? null,
         s.statusCode ?? null,
+        s.route ?? null,
         s.duration,
+        s.heapUsed,
         s.hasExceptions ? 1 : 0,
         s.tags,
         s.search,
@@ -195,6 +202,20 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     };
   }
 
+  async querySummaries(query: ProfilerQuery): Promise<ProfileSummary[]> {
+    await this.ready;
+    const { clause, params } = this.buildWhere(query);
+    const direction = query.sort?.direction === 'asc' ? 'ASC' : 'DESC';
+    const offset = Math.max(0, (query.page - 1) * query.pageSize);
+    // Select only the indexed summary columns — never the `profile` blob — so an aggregation
+    // scans lightweight rows without JSON-parsing a single full document.
+    const result = await this.client.execute({
+      sql: `SELECT ${SUMMARY_COLUMNS} FROM profiles ${clause} ORDER BY created_at ${direction}, token ${direction} LIMIT ? OFFSET ?`,
+      args: [...params, query.pageSize, offset],
+    });
+    return result.rows.map(rowToSummary);
+  }
+
   async distinct(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> {
     await this.ready;
     const expr = this.fieldExpr(field);
@@ -231,6 +252,13 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     // local file. It is meaningless for `:memory:` and managed by the server for remote libSQL.
     if (this.localFile) await this.client.execute('PRAGMA journal_mode = WAL');
     await this.client.executeMultiple(SCHEMA);
+    // Migrate databases created before the `route` summary column existed. `CREATE TABLE IF NOT
+    // EXISTS` never adds a column to an existing table, so add it idempotently — ignoring the
+    // "duplicate column" error a fresh (already-migrated) database raises.
+    await this.client.execute('ALTER TABLE profiles ADD COLUMN route TEXT').catch(() => undefined);
+    await this.client
+      .execute('ALTER TABLE profiles ADD COLUMN heap_used INTEGER NOT NULL DEFAULT 0')
+      .catch(() => undefined);
     this.rowCount = await this.countRows();
   }
 
@@ -355,7 +383,9 @@ const SCHEMA = `
     method TEXT,
     url TEXT,
     status_code INTEGER,
+    route TEXT,
     duration INTEGER NOT NULL DEFAULT 0,
+    heap_used INTEGER NOT NULL DEFAULT 0,
     has_exceptions INTEGER NOT NULL DEFAULT 0,
     tags TEXT NOT NULL DEFAULT '',
     search TEXT NOT NULL DEFAULT '',
@@ -384,4 +414,30 @@ function numberColumn(row: Row | undefined, column: string): number {
 // bound summary primitive (libSQL returns integers as numbers under its default int mode).
 function summaryColumn(row: Row, column: string): SummaryPrimitive {
   return row[column] as SummaryPrimitive;
+}
+
+/** A nullable string column: returns the text, or `undefined` for SQL NULL. */
+function optionalString(row: Row, column: string): string | undefined {
+  const value = row[column];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** Reconstructs a {@link ProfileSummary} from an indexed row (no `profile` blob involved). */
+function rowToSummary(row: Row): ProfileSummary {
+  const attributes = optionalString(row, 'attributes');
+  return {
+    token: stringColumn(row, 'token'),
+    createdAt: numberColumn(row, 'created_at'),
+    type: stringColumn(row, 'type'),
+    method: optionalString(row, 'method'),
+    url: optionalString(row, 'url'),
+    statusCode: row['status_code'] == null ? undefined : numberColumn(row, 'status_code'),
+    route: optionalString(row, 'route'),
+    duration: numberColumn(row, 'duration'),
+    heapUsed: numberColumn(row, 'heap_used'),
+    hasExceptions: numberColumn(row, 'has_exceptions') !== 0,
+    tags: stringColumn(row, 'tags'),
+    search: stringColumn(row, 'search'),
+    attributes: attributes ? (JSON.parse(attributes) as Record<string, SummaryPrimitive>) : {},
+  };
 }

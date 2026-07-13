@@ -24,4 +24,13 @@ export abstract class AbstractSqlQueryCollector extends AbstractQueryCollector<Q
       fingerprint: normalizeSqlFingerprint(query.sql),
     }));
   }
+
+  /** The Summary "slowest queries" table shows the SQL text, syntax-highlighted. */
+  protected describeEntry(query: QueryEntry): string {
+    return query.sql;
+  }
+
+  protected get summaryHighlight(): boolean {
+    return true;
+  }
 }

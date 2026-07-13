@@ -1,0 +1,40 @@
+<%
+  /* A query collector's slowest operations. `data.entries` is [{ label, duration, token }] sorted
+     desc; when `data.highlight` is set the label is SQL and syntax-highlighted, else shown verbatim. */
+  const entries = (data && data.entries) || [];
+  const highlight = data && data.highlight;
+  const limit = (data && data.limit) || entries.length;
+  // The detail-page query param opening the owning collector's tab (and sub-tab when grouped).
+  const tabQuery = data && data.tab ? '?tab=' + data.tab + (data.subtab ? '&subtab=' + data.subtab : '') : '';
+%>
+<% if (entries.length === 0) { %>
+  <p class="text-foreground-faint text-xs italic">No queries in this window.</p>
+<% } else { %>
+  <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Top <%= limit %> slowest queries</p>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full table-fixed">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2 px-3 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Query</th>
+          <th class="text-right py-2 px-3 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (const e of entries) { %>
+          <tr class="hover:bg-surface-muted transition-colors">
+            <td class="py-2 px-3 align-top">
+              <% if (e.token && typeof link === 'function') { %>
+                <a href="<%= link(profilerPath + '/' + e.token + tabQuery) %>" class="block group" title="Open the profile that ran this query">
+                  <pre class="text-xs text-code-text leading-relaxed m-0 whitespace-pre-wrap break-words group-hover:underline"><code class="language-sql"><% if (highlight) { %><%- highlightSql(e.label) %><% } else { %><%= e.label %><% } %></code></pre>
+                </a>
+              <% } else { %>
+                <pre class="text-xs text-code-text leading-relaxed m-0 whitespace-pre-wrap break-words"><code class="language-sql"><% if (highlight) { %><%- highlightSql(e.label) %><% } else { %><%= e.label %><% } %></code></pre>
+              <% } %>
+            </td>
+            <td class="py-2 px-3 text-right align-top text-xs tabular-nums whitespace-nowrap <%= e.duration >= 500 ? 'dur-slow' : e.duration >= 100 ? 'dur-medium' : 'dur-fast' %>"><%= Math.round(e.duration) %> ms</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

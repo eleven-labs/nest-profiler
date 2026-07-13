@@ -2,6 +2,7 @@ import { ProfilerController } from './profiler.controller';
 import type { ProfilerCoreService } from '../services/profiler-core.service';
 import type { TemplateRendererService } from '../services/template-renderer.service';
 import type { ClientAssetRegistry } from '../services/client-asset-registry.service';
+import type { SummaryService } from '../services/summary.service';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerQuery } from '../storage/profiler-query';
@@ -61,6 +62,7 @@ function setup(
   controller: ProfilerController;
   rendered: RenderArgs[];
   core: jest.Mocked<Pick<ProfilerCoreService, never>> & Record<string, unknown>;
+  summary: { getSummary: jest.Mock };
 } {
   const rendered: RenderArgs[] = [];
   const renderer = {
@@ -74,6 +76,8 @@ function setup(
     storage: fakeStorage(options.profiles ?? []),
     collectorRegistry: {
       buildGlobalPanels: jest.fn().mockResolvedValue([]),
+      listGlobalPanelDescriptors: jest.fn().mockReturnValue([]),
+      buildGlobalPanel: jest.fn().mockResolvedValue(undefined),
       buildPanels: jest.fn().mockReturnValue([]),
     },
     getListFilters: jest.fn().mockReturnValue([]),
@@ -91,9 +95,24 @@ function setup(
     resolve: jest.fn(),
   } as unknown as ClientAssetRegistry;
 
-  const controller = new ProfilerController(core, renderer, clientAssets, options);
+  const emptySummary = {
+    sampled: 0,
+    duration: { avg: 0, p50: 0, p95: 0, p99: 0 },
+    errors: { count: 0, rate: 0 },
+    byMethod: {},
+    byStatusClass: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
+    issues: {},
+    topSlowEndpoints: [],
+    recentErrors: [],
+  };
+  const summary = {
+    getSummary: jest.fn().mockResolvedValue(emptySummary),
+    getDomainSections: jest.fn().mockResolvedValue([]),
+  } as unknown as SummaryService;
 
-  return { controller, rendered, core: core as never };
+  const controller = new ProfilerController(core, renderer, clientAssets, summary, options);
+
+  return { controller, rendered, core: core as never, summary: summary as never };
 }
 
 /** First (and only) rendered section from a `listProfiles` call. */
@@ -145,6 +164,83 @@ describe('ProfilerController (unit)', () => {
       const link = rendered[0]?.ctx.link as (href: string) => string;
       expect(link('/_profiler')).toBe('/_profiler?token=xyz');
       expect(linkQuery).toHaveBeenCalled();
+    });
+  });
+
+  describe('home sidebar views (?view=)', () => {
+    it('defaults to the Summary view and lists Summary then Profiling in the sidebar', async () => {
+      const { controller, rendered, summary, core } = setup();
+      await controller.listProfiles({}, mockReq());
+      expect(rendered[0]?.template).toBe('list');
+      expect(rendered[0]?.ctx.activeView).toBe('summary');
+      expect(rendered[0]?.ctx.views).toEqual([
+        { key: 'summary', label: 'Summary' },
+        { key: 'profiling', label: 'Profiling' },
+      ]);
+      // The Summary view aggregates via SummaryService and skips the list-section queries.
+      expect(summary.getSummary).toHaveBeenCalledTimes(1);
+      expect(rendered[0]?.ctx.summary).toBeDefined();
+      expect(rendered[0]?.ctx.sections).toEqual([]);
+      expect((core.storage as { query: jest.Mock }).query).not.toHaveBeenCalled();
+    });
+
+    it('honours a known ?view= value', async () => {
+      const { controller, rendered } = setup();
+      await controller.listProfiles({ view: 'profiling' }, mockReq());
+      expect(rendered[0]?.ctx.activeView).toBe('profiling');
+    });
+
+    it('falls back to the default (Summary) view for an unknown ?view=', async () => {
+      const { controller, rendered } = setup();
+      await controller.listProfiles({ view: 'does-not-exist' }, mockReq());
+      expect(rendered[0]?.ctx.activeView).toBe('summary');
+    });
+
+    it('adds one sidebar view per registered global panel and lazily builds only the active one', async () => {
+      const { controller, rendered, core } = setup();
+      const registry = core.collectorRegistry as {
+        listGlobalPanelDescriptors: jest.Mock;
+        buildGlobalPanel: jest.Mock;
+      };
+      registry.listGlobalPanelDescriptors.mockReturnValue([
+        { name: 'config', label: 'Config', icon: '<svg/>' },
+      ]);
+      registry.buildGlobalPanel.mockResolvedValue({
+        name: 'config',
+        label: 'Config',
+        data: { foo: 1 },
+        templatePath: '/tmp/config.ejs',
+      });
+
+      await controller.listProfiles({ view: 'config' }, mockReq());
+
+      expect(rendered[0]?.ctx.activeView).toBe('config');
+      expect(rendered[0]?.ctx.views).toEqual([
+        { key: 'summary', label: 'Summary' },
+        { key: 'profiling', label: 'Profiling' },
+        { key: 'config', label: 'Config', icon: '<svg/>' },
+      ]);
+      expect(registry.buildGlobalPanel).toHaveBeenCalledWith('config');
+      expect(rendered[0]?.ctx.activeGlobalPanel).toMatchObject({ name: 'config' });
+      // Lazy: the Profiling-only work (heap query + list sections) is skipped for a global view.
+      expect(rendered[0]?.ctx.sections).toEqual([]);
+      expect((core.storage as { query: jest.Mock }).query).not.toHaveBeenCalled();
+    });
+
+    it('exposes the aggregated summary as JSON via getSummaryData', async () => {
+      const { controller, summary } = setup();
+      const result = await controller.getSummaryData();
+      expect(summary.getSummary).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ sampled: 0, errors: { count: 0 } });
+    });
+
+    it('builds the list sections and no summary/global panel on the Profiling view', async () => {
+      const { controller, rendered, summary, core } = setup({ profiles: [] });
+      const registry = core.collectorRegistry as { buildGlobalPanel: jest.Mock };
+      await controller.listProfiles({ view: 'profiling' }, mockReq());
+      expect(rendered[0]?.ctx.sections).toHaveLength(1);
+      expect(summary.getSummary).not.toHaveBeenCalled();
+      expect(registry.buildGlobalPanel).not.toHaveBeenCalled();
     });
   });
 
@@ -209,6 +305,59 @@ describe('ProfilerController (unit)', () => {
     expect(rendered[0]?.ctx.activeSubTab).toBe('mongoose');
   });
 
+  it('resolves ?tag to the tab (and grouped sub-tab) whose entries carry that tag', async () => {
+    const profile = makeProfile();
+    profile.collectors = {
+      typeorm: [{ sql: 'SELECT 1', duration: 2, tags: [] }],
+      mongoose: [
+        {
+          collection: 'r',
+          operation: 'find',
+          duration: 3,
+          tags: [{ id: 'n-plus-one', severity: 'warning' }],
+        },
+      ],
+    };
+    const { controller, rendered, core } = setup({ profiles: [profile] });
+    (core.collectorRegistry as { buildPanels: jest.Mock }).buildPanels.mockReturnValue([
+      {
+        name: 'database',
+        label: 'Database',
+        priority: 10,
+        isGroup: true,
+        templatePath: '/tmp/g.ejs',
+        subPanels: [
+          { name: 'typeorm', label: 'TypeORM', templatePath: '/tmp/sql.ejs' },
+          { name: 'mongoose', label: 'MongoDB', templatePath: '/tmp/mongo.ejs' },
+        ],
+      },
+    ]);
+
+    await controller.getProfileDetail(mockReq(), profile.token, undefined, undefined, 'n-plus-one');
+
+    expect(rendered[0]?.ctx.activeTab).toBe('database');
+    expect(rendered[0]?.ctx.activeSubTab).toBe('mongoose');
+  });
+
+  it('lets an explicit ?tab win over ?tag, and keeps the default tab for an unknown tag', async () => {
+    const profile = makeProfile();
+    profile.collectors = { http: [{ url: '/x', tags: [{ id: 'slow', severity: 'warning' }] }] };
+    const { controller, rendered, core } = setup({ profiles: [profile] });
+    (core.collectorRegistry as { buildPanels: jest.Mock }).buildPanels.mockReturnValue([
+      { name: 'http', label: 'HTTP', priority: 10 },
+    ]);
+
+    // A matching tag opens its collector tab…
+    await controller.getProfileDetail(mockReq(), profile.token, undefined, undefined, 'slow');
+    expect(rendered[0]?.ctx.activeTab).toBe('http');
+    // …an explicit tab always wins…
+    await controller.getProfileDetail(mockReq(), profile.token, 'performance', undefined, 'slow');
+    expect(rendered[1]?.ctx.activeTab).toBe('performance');
+    // …and an unknown tag keeps the default (no entry carries it).
+    await controller.getProfileDetail(mockReq(), profile.token, undefined, undefined, 'nope');
+    expect(rendered[2]?.ctx.activeTab).toBe('performance');
+  });
+
   it('keeps a badgeless entrypoint tab active (undefined, not null) so it is never dimmed', async () => {
     const { controller, rendered, core } = setup();
     (core.getEntrypointType as jest.Mock).mockReturnValue({
@@ -244,9 +393,10 @@ describe('ProfilerController (unit)', () => {
     const { controller, rendered } = setup();
     // `''` (empty string) and `[]` (no first element) both fail the keep test,
     // so the only section's reset link carries no query string.
-    await controller.listProfiles({ other_a: '', other_b: [] }, mockReq());
+    await controller.listProfiles({ view: 'profiling', other_a: '', other_b: [] }, mockReq());
     const sections = rendered[0]?.ctx.sections as { resetHref: string }[];
-    expect(sections[0]?.resetHref).toBe('/_profiler');
+    // The reset link keeps the active view but drops the empty foreign params.
+    expect(sections[0]?.resetHref).toBe('/_profiler?view=profiling');
   });
 
   describe('pagination', () => {
@@ -257,7 +407,7 @@ describe('ProfilerController (unit)', () => {
 
     it('slices a section to one page and reports the total + range', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({}, mockReq());
+      await controller.listProfiles({ view: 'profiling' }, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.profiles).toHaveLength(25);
       expect(section.profiles[0]?.token).toBe('tok-0');
@@ -270,29 +420,33 @@ describe('ProfilerController (unit)', () => {
         rangeStart: 1,
         rangeEnd: 25,
         prevHref: null,
-        nextHref: '/_profiler?http_page=2',
+        // The pager preserves the active view so paging never bounces back to the default.
+        nextHref: '/_profiler?view=profiling&http_page=2',
       });
     });
 
     it('serves the requested page and builds prev/next links preserving other params', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({ http_page: '2', other_x: 'keep' }, mockReq());
+      await controller.listProfiles(
+        { view: 'profiling', http_page: '2', other_x: 'keep' },
+        mockReq(),
+      );
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.profiles[0]?.token).toBe('tok-25');
       expect(section.pagination).toMatchObject({
         page: 2,
         rangeStart: 26,
         rangeEnd: 50,
-        // page 1 omits the `_page` param; both links carry the foreign `other_x`.
+        // page 1 omits the `_page` param; both links carry the active view and foreign `other_x`.
         // The refreshed `_page` is appended last, after the preserved params.
-        prevHref: '/_profiler?other_x=keep',
-        nextHref: '/_profiler?other_x=keep&http_page=3',
+        prevHref: '/_profiler?view=profiling&other_x=keep',
+        nextHref: '/_profiler?view=profiling&other_x=keep&http_page=3',
       });
     });
 
     it('clamps an out-of-range page to the last page', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
-      await controller.listProfiles({ http_page: '999' }, mockReq());
+      await controller.listProfiles({ view: 'profiling', http_page: '999' }, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.pagination).toMatchObject({
         page: 3,
@@ -306,7 +460,7 @@ describe('ProfilerController (unit)', () => {
 
     it('defaults the page size to 25 when no listPageSize option is given', async () => {
       const { controller, rendered } = setup({ profiles: manyProfiles(30) });
-      await controller.listProfiles({}, mockReq());
+      await controller.listProfiles({ view: 'profiling' }, mockReq());
       const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
       expect(section.pagination.pageSize).toBe(25);
       expect(section.profiles).toHaveLength(25);

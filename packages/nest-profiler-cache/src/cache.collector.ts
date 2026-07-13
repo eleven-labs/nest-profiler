@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
 import { ProfilerCollector } from '@eleven-labs/nest-profiler';
-import type { IProfilerCollector, Profile } from '@eleven-labs/nest-profiler';
+import type {
+  CollectorSummarySection,
+  IProfilerCollector,
+  Profile,
+} from '@eleven-labs/nest-profiler';
 import { getCollectorEntries } from '@eleven-labs/nest-profiler';
 import type { CacheOperationEntry } from './cache-collector.interface';
 import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
@@ -35,5 +39,39 @@ export class CacheCollector implements IProfilerCollector {
     const ops = getCollectorEntries<CacheOperationEntry>(profile, CACHE_OPERATIONS_KEY);
     delete profile.collectors[CACHE_OPERATIONS_KEY];
     return ops;
+  }
+
+  /** Contributes a **Cache** section to the home Summary: hit rate, hits, misses over the window. */
+  buildSummary(profiles: Profile[]): CollectorSummarySection | undefined {
+    let hits = 0;
+    let misses = 0;
+    let ops = 0;
+    for (const profile of profiles) {
+      const entries = profile.collectors[this.name] as CacheOperationEntry[] | undefined;
+      if (!entries?.length) continue;
+      ops += entries.length;
+      for (const op of entries) {
+        if (op.operation === 'GET_HIT') hits++;
+        else if (op.operation === 'GET_MISS') misses++;
+      }
+    }
+    if (ops === 0) return undefined;
+    const lookups = hits + misses;
+    const rate = lookups === 0 ? null : hits / lookups;
+    return {
+      name: this.name,
+      label: this.label,
+      icon: this.icon,
+      tiles: [
+        {
+          label: 'Hit rate',
+          value: rate === null ? '—' : `${Math.round(rate * 100)}%`,
+          severity: rate !== null && rate < 0.5 ? 'warning' : null,
+        },
+        { label: 'Hits', value: String(hits) },
+        { label: 'Misses', value: String(misses) },
+        { label: 'Operations', value: String(ops) },
+      ],
+    };
   }
 }

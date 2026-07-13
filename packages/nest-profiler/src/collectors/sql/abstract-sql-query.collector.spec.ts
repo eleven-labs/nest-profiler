@@ -86,6 +86,50 @@ describe('AbstractSqlQueryCollector', () => {
     expect(p).toMatch(/sql-panel\.ejs$/);
     expect(path.isAbsolute(p)).toBe(true);
   });
+
+  describe('buildSummary', () => {
+    it('contributes DB tiles and a highlighted slowest-queries table linked to the profile', () => {
+      const p1 = makeProfile({
+        token: 'sql-p1',
+        collectors: {
+          'test-sql': [
+            makeQuery({ duration: 20 }),
+            makeQuery({ duration: 150, sql: 'SELECT slow' }),
+          ],
+        },
+      });
+      const p2 = makeProfile({
+        token: 'sql-p2',
+        collectors: { 'test-sql': [makeQuery({ duration: 5 })] },
+      });
+      const section = collector.buildSummary([p1, p2]);
+      expect(section?.name).toBe('test-sql');
+      // 3 queries; mean duration (20+150+5)/3 = 58.3ms; one query ≥100ms is slow.
+      expect(section?.tiles).toEqual([
+        { label: 'Queries', value: '3' },
+        { label: 'Avg time', value: '58.3 ms' },
+        { label: 'Slow queries', value: '1', hint: '≥ 100 ms', severity: 'warning' },
+      ]);
+      // The shared query-summary table, SQL highlighting on, with each row's profile token.
+      expect(section?.templatePath).toMatch(/query-summary\.ejs$/);
+      const data = section?.data as {
+        highlight: boolean;
+        tab: string;
+        subtab?: string;
+        entries: { label: string; duration: number; token: string }[];
+      };
+      expect(data.highlight).toBe(true);
+      // Ungrouped collector → the tab is its own name, no sub-tab.
+      expect(data.tab).toBe('test-sql');
+      expect(data.subtab).toBeUndefined();
+      expect(data.entries).toHaveLength(3);
+      expect(data.entries[0]).toEqual({ label: 'SELECT slow', duration: 150, token: 'sql-p1' });
+    });
+
+    it('contributes nothing when the window ran no queries', () => {
+      expect(collector.buildSummary([makeProfile()])).toBeUndefined();
+    });
+  });
 });
 
 describe('detectQueryType', () => {

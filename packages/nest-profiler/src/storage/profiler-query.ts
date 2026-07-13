@@ -163,6 +163,24 @@ export function applyQueryInMemory(
 }
 
 /**
+ * The shared in-memory fallback for `querySummaries`: summarizes, filters, sorts by
+ * `createdAt` and slices the requested page, returning just the lightweight
+ * {@link ProfileSummary} rows (not the full profiles) for aggregation. Adapters that
+ * maintain a native summary index (file, SQLite) override this with an index-only read.
+ */
+export function summariesInMemory(
+  profiles: Profile[],
+  query: ProfilerQuery,
+  getAttributes?: IndexAttributesProvider,
+): ProfileSummary[] {
+  const entries = profiles.map((profile) => {
+    const summary = summarizeProfile(profile, getAttributes);
+    return { summary, value: summary };
+  });
+  return selectPage(entries, query).items;
+}
+
+/**
  * The shared in-memory fallback for {@link IProfilerStorageAdapter.distinct}:
  * returns the distinct, non-empty values of `field` across the profiles (optionally
  * restricted to `typeIn`), used to populate a filter's dynamic `select` options.

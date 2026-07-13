@@ -23,8 +23,16 @@ export interface ProfileSummary {
   /** HTTP request URL. Absent for non-HTTP kinds. */
   readonly url?: string;
   readonly statusCode?: number;
+  /**
+   * The matched route pattern (`/users/:id`), from `Profile.route.path`; absent for a 404 or kinds
+   * without routing. Distinct from {@link url} (`/users/42`): analytics group on `route` to avoid one
+   * bucket per id, falling back to `method`+`url`.
+   */
+  readonly route?: string;
   /** Request duration in ms; `0` when not yet measured (so min/max filters treat it as fast). */
   readonly duration: number;
+  /** Process-wide V8 `heapUsed` (bytes) at request start — the same signal as the heap trend. */
+  readonly heapUsed: number;
   readonly hasExceptions: boolean;
   /**
    * Space-delimited performance-tag ids (e.g. `' slow n-plus-one '`) aggregated by the
@@ -83,7 +91,9 @@ export function summarizeProfile(
     method: typeof http?.method === 'string' ? http.method.toUpperCase() : undefined,
     url: typeof http?.url === 'string' ? http.url : undefined,
     statusCode: profile.response?.statusCode,
+    route: profile.route?.path,
     duration: profile.performance.duration ?? 0,
+    heapUsed: profile.performance.heapUsed ?? 0,
     hasExceptions: profile.exceptions.length > 0,
     tags: tagHaystack(profile),
     search: searchHaystack(profile),

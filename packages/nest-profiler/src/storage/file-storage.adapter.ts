@@ -128,6 +128,17 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     return { items, total: page.total };
   }
 
+  async querySummaries(query: ProfilerQuery): Promise<ProfileSummary[]> {
+    await this.init();
+    // Filter/sort/paginate over the in-memory summaries only — no profile files are read,
+    // which is the whole point of an aggregation over the sidecar index.
+    return this.withLock(async () => {
+      await this.syncIndex();
+      const entries = this.validSummaries().map((summary) => ({ summary, value: summary }));
+      return selectPage(entries, query).items;
+    });
+  }
+
   async distinct(field: string, typeIn?: string[]): Promise<SummaryPrimitive[]> {
     await this.init();
     return this.withLock(async () => {

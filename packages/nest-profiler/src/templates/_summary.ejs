@@ -1,0 +1,343 @@
+<%
+  /* Aggregated overview of the window (see SummaryService / ProfilerSummary). Server-rendered,
+     no client JS: distribution bars are inline-width divs, drill-throughs are plain <a> links. */
+  const s = summary || {
+    sampled: 0,
+    duration: { avg: 0, p50: 0, p95: 0, p99: 0 },
+    errors: { count: 0, rate: 0 },
+    byMethod: {}, byStatusClass: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
+    issues: {}, topSlowEndpoints: [], recentErrors: [],
+    byType: {}, timeline: [], issueEndpoints: {}, heap: null, topN: 5,
+  };
+  const topN = s.topN || 5;
+  const ms = (n) => `${Math.round(n)}`;
+  const pct = (r) => `${(r * 100).toFixed(1)}%`;
+  // A drill-through link into the Profiling view, carrying the given `http_*` filter params.
+  const pfLink = (params) =>
+    link(profilerPath + '?' + new URLSearchParams({ view: 'profiling', ...params }).toString());
+  const STATUS_CLASSES = ['2xx', '3xx', '4xx', '5xx'];
+  const methodEntries = Object.entries(s.byMethod).sort((a, b) => b[1] - a[1]);
+  const maxMethod = methodEntries.reduce((m, [, c]) => Math.max(m, c), 0) || 1;
+  const maxStatus = STATUS_CLASSES.reduce((m, k) => Math.max(m, s.byStatusClass[k] || 0), 0) || 1;
+  const issueEntries = Object.entries(s.issues).sort((a, b) => b[1] - a[1]);
+%>
+
+<!-- ── Summary header — JSON export ──────────────────────────────────────── -->
+<div class="flex items-center justify-end mb-4">
+  <a href="<%= link(profilerPath + '/summary.json') %>"
+     download="profiler-summary.json"
+     class="flex items-center gap-1 px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors text-2xs">
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    Export JSON
+  </a>
+</div>
+
+<% if (s.sampled === 0) { %>
+
+  <div class="bg-surface border border-line rounded-xl p-10 text-center">
+    <p class="text-foreground text-sm mb-1">No profiles captured yet</p>
+    <p class="text-foreground-faint text-xs">Exercise your app — the summary aggregates the most recent requests as they arrive.</p>
+  </div>
+
+<% } else { %>
+
+  <!-- ── Metric cards ──────────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Requests</p>
+      <p class="text-foreground text-2xl font-bold tabular-nums leading-none"><%= s.sampled %></p>
+      <p class="text-foreground-faint text-2xs mt-2">most recent, sampled</p>
+    </div>
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Median (p50)</p>
+      <p class="text-foreground text-2xl font-bold tabular-nums leading-none"><%= ms(s.duration.p50) %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span></p>
+      <p class="text-foreground-faint text-2xs mt-2 tabular-nums">avg <%= ms(s.duration.avg) %> ms · measured only</p>
+    </div>
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">p95 / p99</p>
+      <p class="text-foreground text-2xl font-bold tabular-nums leading-none"><%= ms(s.duration.p95) %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span></p>
+      <p class="text-foreground-faint text-2xs mt-2 tabular-nums">p99 <%= ms(s.duration.p99) %> ms</p>
+    </div>
+    <a href="<%= pfLink({ http_error: '1' }) %>" class="block bg-surface border border-line rounded-xl p-4 hover:border-line-active transition-colors">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Error rate</p>
+      <p class="<%= s.errors.count > 0 ? 'text-danger' : 'text-success' %> text-2xl font-bold tabular-nums leading-none"><%= pct(s.errors.rate) %></p>
+      <p class="text-foreground-faint text-2xs mt-2 tabular-nums"><%= s.errors.count %> error<%= s.errors.count !== 1 ? 's' : '' %> · 5xx or exception</p>
+    </a>
+  </div>
+
+  <!-- ── Process heap trend ────────────────────────────────────────────── -->
+  <% if (s.heap && s.heap.series && s.heap.series.length >= 2) {
+       const hMin = s.heap.min;
+       const hSpan = (s.heap.max - hMin) || 1;
+       const trendClass = s.heap.trend === 'leak' ? 'text-danger' : s.heap.trend === 'growing' ? 'dur-medium' : 'text-foreground-muted';
+       const trendLabel = s.heap.trend === 'leak' ? '↑ potential leak' : s.heap.trend === 'growing' ? '↑ growing' : '~ stable';
+       // Memory isn't a good/bad scale: one colour for all bars, driven by the trend (green/amber/red).
+       const heapBar = s.heap.trend === 'leak' ? 'bg-danger/60' : s.heap.trend === 'growing' ? 'bg-amber-400/70' : 'bg-success/50';
+  %>
+    <div class="bg-surface border border-line rounded-xl p-4 mb-6">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <span class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Process heap</span>
+        <div class="flex items-center gap-4 text-xs tabular-nums">
+          <span class="text-foreground-faint">min <span class="text-foreground"><%= mb(hMin) %></span></span>
+          <span class="text-foreground-faint">max <span class="text-foreground"><%= mb(s.heap.max) %></span></span>
+          <span class="text-foreground-faint">now <span class="text-foreground font-medium"><%= mb(s.heap.current) %></span></span>
+          <span class="<%= trendClass %> font-medium"><%= trendLabel %></span>
+        </div>
+      </div>
+      <div class="flex items-end gap-px h-10">
+        <% for (const v of s.heap.series) {
+             const pct = Math.round(((v - hMin) / hSpan) * 80) + 20;
+        %>
+          <div class="flex-1 rounded-t-sm <%= heapBar %>" style="height:<%= pct %>%" title="<%= mb(v) %>"></div>
+        <% } %>
+      </div>
+      <p class="text-foreground-faint text-2xs mt-2">Process-wide V8 heap at request start. A rising trend indicates a memory leak.</p>
+    </div>
+  <% } %>
+
+  <!-- ── Throughput & latency over time ────────────────────────────────── -->
+  <%
+    // Only slices with traffic, in order, so bars sit together instead of leaving gaps for quiet periods.
+    const activeTimeline = (s.timeline || []).filter((b) => b.count > 0);
+  %>
+  <% if (activeTimeline.length >= 2) {
+       const maxCount = activeTimeline.reduce((m, b) => Math.max(m, b.count), 0) || 1;
+  %>
+    <div class="bg-surface border border-line rounded-xl p-4 mb-6">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <span class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Throughput &amp; latency</span>
+        <div class="flex items-center gap-3 text-2xs text-foreground-faint">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-success/70"></span>fast</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-amber-400/70"></span>&ge;100ms</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-danger/70"></span>&ge;500ms p95 / errors</span>
+        </div>
+      </div>
+      <div class="flex items-end gap-px h-16">
+        <% for (const b of activeTimeline) {
+             const h = Math.round((b.count / maxCount) * 88) + 12;
+             const barClass = b.errorCount > 0 ? 'bg-danger/70' : b.p95 >= 500 ? 'bg-danger/60' : b.p95 >= 100 ? 'bg-amber-400/70' : 'bg-success/70';
+        %>
+          <div class="flex-1 rounded-t-sm <%= barClass %>" style="height:<%= h %>%"
+               title="<%= b.count %> req · p95 <%= ms(b.p95) %>ms<%= b.errorCount > 0 ? ' · ' + b.errorCount + ' error' + (b.errorCount !== 1 ? 's' : '') : '' %>"></div>
+        <% } %>
+      </div>
+      <p class="text-foreground-faint text-2xs mt-2">Time slices with traffic, oldest → newest; bar height is throughput, colour is p95 latency (red when the slice has errors).</p>
+    </div>
+  <% } %>
+
+  <!-- ── Distributions + issues ────────────────────────────────────────── -->
+  <%
+    const typeEntries = Object.entries(s.byType).sort((a, b) => b[1] - a[1]);
+    const maxType = typeEntries.reduce((m, [, c]) => Math.max(m, c), 0) || 1;
+  %>
+  <div class="grid md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">By method</h2>
+      <% if (methodEntries.length === 0) { %>
+        <p class="text-foreground-faint text-xs italic">No HTTP methods in this window.</p>
+      <% } else { %>
+        <div class="space-y-1.5">
+          <% for (const [method, count] of methodEntries) { %>
+            <a href="<%= pfLink({ http_method: method }) %>" class="flex items-center gap-2 group">
+              <span class="w-14 shrink-0"><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(method) %>"><%= method %></span></span>
+              <span class="flex-1 h-4 bg-surface-muted rounded overflow-hidden"><span class="block h-full bg-nest/40 group-hover:bg-nest/60 transition-colors" style="width:<%= Math.round((count / maxMethod) * 100) %>%"></span></span>
+              <span class="w-8 text-right text-foreground-secondary text-xs tabular-nums"><%= count %></span>
+            </a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">By status</h2>
+      <div class="space-y-1.5">
+        <% for (const cls of STATUS_CLASSES) { %>
+          <% const count = s.byStatusClass[cls] || 0; %>
+          <a href="<%= pfLink({ http_statusClass: cls.charAt(0) }) %>" class="flex items-center gap-2 group">
+            <span class="w-14 shrink-0"><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= statusClass(parseInt(cls, 10) * 100) %>"><%= cls %></span></span>
+            <span class="flex-1 h-4 bg-surface-muted rounded overflow-hidden"><span class="block h-full bg-nest/40 group-hover:bg-nest/60 transition-colors" style="width:<%= Math.round((count / maxStatus) * 100) %>%"></span></span>
+            <span class="w-8 text-right text-foreground-secondary text-xs tabular-nums"><%= count %></span>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl p-4">
+      <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">By kind</h2>
+      <% if (typeEntries.length === 0) { %>
+        <p class="text-foreground-faint text-xs italic">No profiles in this window.</p>
+      <% } else { %>
+        <div class="space-y-1.5">
+          <% for (const [type, count] of typeEntries) { %>
+            <div class="flex items-center gap-2">
+              <span class="w-16 shrink-0 text-foreground-muted text-2xs truncate" title="<%= type %>"><%= type %></span>
+              <span class="flex-1 h-4 bg-surface-muted rounded overflow-hidden"><span class="block h-full bg-nest/40" style="width:<%= Math.round((count / maxType) * 100) %>%"></span></span>
+              <span class="w-8 text-right text-foreground-secondary text-xs tabular-nums"><%= count %></span>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (issueEntries.length > 0) { %>
+    <div class="bg-surface border border-line rounded-xl overflow-hidden mb-6">
+      <div class="px-4 py-3 bg-surface-muted border-b border-line">
+        <h2 class="text-foreground text-xs font-semibold">Performance issues</h2>
+      </div>
+      <div class="divide-y divide-line">
+        <% for (const [id, count] of issueEntries) {
+             const endpoints = (s.issueEndpoints && s.issueEndpoints[id]) || [];
+        %>
+          <div class="p-4">
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide bg-surface-muted text-foreground border border-line"><%= id %></span>
+              <span class="text-foreground-faint text-2xs"><%= count %> request<%= count !== 1 ? 's' : '' %> affected</span>
+            </div>
+            <% if (endpoints.length > 0) { %>
+              <div class="rounded-lg border border-line overflow-hidden">
+                <table class="w-full table-fixed">
+                  <tbody class="divide-y divide-line-subtle">
+                    <% for (const ep of endpoints) { %>
+                      <tr class="hover:bg-surface-muted transition-colors">
+                        <td class="py-1.5 px-3 align-top">
+                          <% if (ep.token) { %>
+                            <a href="<%= link(profilerPath + '/' + ep.token + '?tag=' + encodeURIComponent(id)) %>" class="flex items-center gap-2 hover:underline" title="Open a profile with this issue, on the relevant tab">
+                              <% if (ep.badge) { %><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide shrink-0 <%= ep.method ? methodClass(ep.method) : 'bg-surface-muted text-foreground-muted border border-line' %>"><%= ep.badge %></span><% } %>
+                              <code class="text-foreground text-xs break-words min-w-0"><%= ep.path %></code>
+                            </a>
+                          <% } else { %>
+                            <div class="flex items-center gap-2">
+                              <% if (ep.badge) { %><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide shrink-0 <%= ep.method ? methodClass(ep.method) : 'bg-surface-muted text-foreground-muted border border-line' %>"><%= ep.badge %></span><% } %>
+                              <code class="text-foreground text-xs break-words min-w-0"><%= ep.path %></code>
+                            </div>
+                          <% } %>
+                        </td>
+                        <td class="py-1.5 px-3 text-right align-top text-xs tabular-nums whitespace-nowrap w-20 <%= ep.avg >= 500 ? 'dur-slow' : ep.avg >= 100 ? 'dur-medium' : 'dur-fast' %>"><%= ms(ep.avg) %> ms</td>
+                        <td class="py-1.5 px-3 text-right align-top text-foreground-secondary text-2xs tabular-nums whitespace-nowrap w-16"><%= ep.count %>&times;</td>
+                      </tr>
+                    <% } %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- ── Collector-contributed domain sections (DB, cache, custom…) ──────── -->
+  <% (typeof domainSections !== 'undefined' && domainSections ? domainSections : []).forEach((sec) => { %>
+    <div class="bg-surface border border-line rounded-xl overflow-hidden mb-6">
+      <div class="flex items-center gap-2 px-4 py-3 bg-surface-muted border-b border-line">
+        <% if (sec.icon) { %><span class="w-3.5 h-3.5 shrink-0 text-foreground-muted"><%- sec.icon %></span><% } %>
+        <h2 class="text-foreground text-xs font-semibold"><%= sec.label %></h2>
+      </div>
+      <div class="p-4">
+        <% if (sec.tiles && sec.tiles.length > 0) { %>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 <%= sec.templatePath ? 'mb-4' : '' %>">
+            <% sec.tiles.forEach((t) => {
+                 const sevClass = t.severity === 'danger' ? 'text-danger' : t.severity === 'warning' ? 'dur-medium' : 'text-foreground';
+            %>
+              <div class="bg-surface-muted border border-line rounded-lg p-3">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1"><%= t.label %></p>
+                <p class="<%= sevClass %> text-lg font-bold tabular-nums leading-none"><%= t.value %></p>
+                <% if (t.hint) { %><p class="text-foreground-faint text-2xs mt-1 tabular-nums"><%= t.hint %></p><% } %>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+        <% if (sec.templatePath) { %>
+          <%- include(sec.templatePath, { data: sec.data, link, profilerPath, highlightSql, toJson, isoDate, timeOnly, methodClass, statusClass, mb }) %>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+
+  <!-- ── Top slowest endpoints ─────────────────────────────────────────── -->
+  <div class="bg-surface border border-line rounded-xl overflow-hidden mb-6">
+    <div class="flex items-center justify-between gap-2 px-4 py-3 bg-surface-muted border-b border-line">
+      <h2 class="text-foreground text-xs font-semibold">Top <%= topN %> slowest endpoints</h2>
+      <a href="<%= link(profilerPath + '?view=profiling') %>" class="text-foreground-muted hover:text-foreground text-2xs whitespace-nowrap transition-colors">View all &rarr;</a>
+    </div>
+    <% if (s.topSlowEndpoints.length === 0) { %>
+      <p class="p-4 text-foreground-faint text-xs italic">No measured requests in this window.</p>
+    <% } else { %>
+      <table class="w-full">
+        <thead>
+          <tr class="border-b border-line">
+            <th class="text-left py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Endpoint</th>
+            <th class="text-right py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Calls</th>
+            <th class="text-right py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Avg</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line-subtle">
+          <% for (const ep of s.topSlowEndpoints) { %>
+            <tr class="hover:bg-surface-muted transition-colors">
+              <td class="py-2 px-4 align-top">
+                <% if (ep.method) { %>
+                  <a href="<%= pfLink({ http_method: ep.method }) %>" class="inline-flex items-center gap-2 hover:underline">
+                    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(ep.method) %>"><%= ep.method %></span>
+                    <code class="text-foreground text-xs break-all"><%= ep.path %></code>
+                  </a>
+                <% } else { %>
+                  <a href="<%= link(profilerPath + '?view=profiling') %>" class="inline-flex items-center gap-2 hover:underline">
+                    <% if (ep.badge) { %><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide bg-surface-muted text-foreground-muted border border-line"><%= ep.badge %></span><% } %>
+                    <code class="text-foreground text-xs break-all"><%= ep.path %></code>
+                  </a>
+                <% } %>
+              </td>
+              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums align-top"><%= ep.calls %></td>
+              <td class="py-2 px-4 text-right text-xs tabular-nums align-top <%= ep.avg >= 500 ? 'dur-slow' : ep.avg >= 100 ? 'dur-medium' : 'dur-fast' %>"><%= ms(ep.avg) %> ms</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+
+  <!-- ── Recent errors ─────────────────────────────────────────────────── -->
+  <% if (s.recentErrors.length > 0) { %>
+    <div class="bg-surface border border-line rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between gap-2 px-4 py-3 bg-surface-muted border-b border-line">
+        <h2 class="text-foreground text-xs font-semibold">Top <%= topN %> recent errors</h2>
+        <a href="<%= pfLink({ http_error: '1' }) %>" class="text-foreground-muted hover:text-foreground text-2xs whitespace-nowrap transition-colors">View all &rarr;</a>
+      </div>
+      <table class="w-full">
+        <thead>
+          <tr class="border-b border-line">
+            <th class="text-left py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Endpoint</th>
+            <th class="text-left py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
+            <th class="text-right py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line-subtle">
+          <% for (const err of s.recentErrors) { %>
+            <tr class="hover:bg-surface-muted transition-colors">
+              <td class="py-2 px-4 align-top">
+                <a href="<%= link(profilerPath + '/' + err.token) %>" class="inline-flex items-center gap-2 hover:underline">
+                  <% if (err.method) { %>
+                    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(err.method) %>"><%= err.method %></span>
+                  <% } else if (err.badge) { %>
+                    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide bg-surface-muted text-foreground-muted border border-line"><%= err.badge %></span>
+                  <% } %>
+                  <code class="text-foreground text-xs break-all"><%= err.path %></code>
+                </a>
+              </td>
+              <td class="py-2 px-4 align-top">
+                <% if (err.statusCode !== undefined) { %>
+                  <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= statusClass(err.statusCode) %>"><%= err.statusCode %></span>
+                <% } else { %>
+                  <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-5xx">exception</span>
+                <% } %>
+              </td>
+              <td class="py-2 px-4 text-right text-foreground-faint text-xs whitespace-nowrap tabular-nums align-top"><%= isoDate(err.at) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+<% } %>

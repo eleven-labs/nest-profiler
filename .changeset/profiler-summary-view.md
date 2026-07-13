@@ -1,0 +1,20 @@
+---
+'@eleven-labs/nest-profiler': minor
+'@eleven-labs/nest-profiler-cache': minor
+---
+
+Rework the profiler home page into a navigable workspace with a new **Summary** dashboard.
+
+The home page (`GET /_profiler`) now uses the detail page's two-column layout — a sticky left sidebar of **views** and a right content pane — with the active view selected server-side from a `?view=` query parameter (plain links, no client JS, consistent with the `script-src 'self'` CSP). The sidebar lists **Summary** (the new default), **Profiling** (the existing per-entrypoint list sections and filters) and one entry per registered global-scope collector (Config, Routes, Schemas…), each built lazily only when active.
+
+The **Summary** view aggregates the most recent captured profiles into an at-a-glance overview — total requests, average / p50 / p95 / p99 duration, error rate and count, method and status-class distributions, per performance-tag issue counts, the slowest endpoints and the most recent errors. It is computed on demand by a new `SummaryService` from a single bounded, pushdown-friendly `querySummaries` read (never a full-store scan) and memoized in memory for ~30s. Metric cards and rows link through to the Profiling view's filters.
+
+The summary is entrypoint-agnostic: HTTP requests group by their matched route (or `method` + URL), while non-HTTP kinds (CLI commands, consumed RabbitMQ messages, GraphQL operations) group by their own descriptor, so they render with a meaningful label instead of a blank row.
+
+The Summary also carries a throughput/latency **time-series** (bucketed over the window: count, errors, p95), a **breakdown by entrypoint kind**, a **performance-issues breakdown** (for each tag, the endpoints that trigger it, with the entrypoint kind and mean duration per row), and a **process-heap** trend (current/min/max + a leak/growing/stable trend). It is exported as JSON at `GET /_profiler/summary.json`.
+
+The `summary` module option configures the aggregation window (`windowSize`) and cache TTL (`cacheTtl`), the per-table row cap (`topN`, default 5 — each table is labelled "Top N …" with a **View all →** link into the full Profiling list and shows a time column), and how a **failure** is qualified (`error`). By default a failure is a 5xx status or a captured exception, so 4xx like 401/404 are not counted; `error` lets you override the HTTP status bound (a number or a predicate), toggle whether exceptions count, and add a `classify` predicate to qualify kinds without a status code (commands, GraphQL, RabbitMQ) from their own tags/attributes. This governs only the Summary's error rate / recent-errors table / timeline bars — the Profiling list's `error` tag remains a separate rule-engine concern.
+
+**Extensible from any collector.** A collector — built-in, a package, or a user's custom one — can add its own tile or table to the Summary by implementing `buildSummary(profiles)`, returning a `CollectorSummarySection` with metric tiles and/or a custom block via `templatePath` + `data` (the same EJS mechanism as the detail-page panels). Contributions are isolated, priority-ordered, and built from a bounded full-profile window only when a collector opts in. The query collectors (TypeORM/MikroORM/Mongoose) ship a Database section (query count, average query time, slow-query count, and a slowest-queries table) and `@eleven-labs/nest-profiler-cache` ships a Cache section (hit rate, hits, misses).
+
+Storage: `ProfileSummary` gains an optional `route` (the matched route pattern) and a `heapUsed`, and adapters gain an optional `querySummaries(query)` that returns only lightweight summary rows — implemented natively on the file and SQLite adapters (no profile blob parsed), with an in-memory fallback. New public exports: `SummaryService`, `computeProfilerSummary`, `resolveErrorClassifier`, `defaultIsError`, and the `ProfilerSummary` / `SlowEndpoint` / `RecentError` / `TimeBucket` / `EndpointCount` / `HeapSummary` / `CollectorSummarySection` / `SummaryTile` / `SummaryContext` / `ComputeSummaryOptions` / `ProfilerSummaryOptions` / `ProfilerErrorClassification` / `ProfileErrorInfo` types.

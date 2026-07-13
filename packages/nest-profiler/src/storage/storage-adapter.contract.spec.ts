@@ -16,19 +16,24 @@ import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
  * in the per-adapter specs.
  */
 
-function makeProfile(token: string, o: { createdAt?: number; method?: string } = {}): Profile {
+function makeProfile(
+  token: string,
+  o: { createdAt?: number; method?: string; route?: string } = {},
+): Profile {
   const createdAt = o.createdAt ?? Date.now();
+  const method = o.method ?? 'GET';
   return {
     token,
     createdAt,
     entrypoint: {
       type: 'http',
-      data: { method: o.method ?? 'GET', url: `/${token}`, headers: {}, query: {} },
+      data: { method, url: `/${token}`, headers: {}, query: {} },
     },
     performance: { startTime: createdAt, heapUsed: 0, duration: 10 },
     logs: [],
     exceptions: [],
     collectors: {},
+    ...(o.route ? { route: { controller: 'C', handler: 'h', path: o.route, method } } : {}),
   };
 }
 
@@ -217,6 +222,33 @@ describe.each(cases)(
         await adapter.save(makeProfile('b', { method: 'POST', createdAt: base + 1 }));
         await adapter.save(makeProfile('c', { method: 'POST', createdAt: base + 2 }));
         expect((await adapter.distinct!('method')).sort()).toEqual(['GET', 'POST']);
+      });
+
+      it('querySummaries returns lightweight summaries (with route), newest-first and paginated', async () => {
+        const adapter = await make({ maxProfiles: 100, ttl: 3600 });
+        const base = Date.now();
+        await adapter.save(
+          makeProfile('get1', { method: 'GET', createdAt: base, route: '/a/:id' }),
+        );
+        await adapter.save(makeProfile('post1', { method: 'POST', createdAt: base + 1 }));
+        await adapter.save(
+          makeProfile('get2', { method: 'GET', createdAt: base + 2, route: '/a/:id' }),
+        );
+
+        const summaries = await adapter.querySummaries!({ filters: [], page: 1, pageSize: 2 });
+        // Newest-first, page-bounded, and summaries (not full profiles): no `collectors`/`logs` keys.
+        expect(summaries.map((s) => s.token)).toEqual(['get2', 'post1']);
+        expect(summaries[0]).not.toHaveProperty('collectors');
+        // The matched route pattern is projected onto the summary; absent → undefined.
+        expect(summaries.find((s) => s.token === 'get2')?.route).toBe('/a/:id');
+        expect(summaries.find((s) => s.token === 'post1')?.route).toBeUndefined();
+
+        const filtered = await adapter.querySummaries!({
+          filters: [{ field: 'method', op: 'eq', value: 'POST' }],
+          page: 1,
+          pageSize: 10,
+        });
+        expect(filtered.map((s) => s.token)).toEqual(['post1']);
       });
     });
   },

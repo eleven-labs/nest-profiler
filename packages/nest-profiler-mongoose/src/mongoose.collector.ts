@@ -54,6 +54,11 @@ export class MongooseCollector extends AbstractQueryCollector<MongooseQueryEntry
     }));
   }
 
+  /** The Summary "slowest queries" table shows the readable mongo command (verbatim). */
+  protected describeEntry(query: MongooseQueryEntry): string {
+    return query.command ?? `${query.operation} ${query.collection}`;
+  }
+
   /** Feeds the core performance-rule engine the thresholds configured on this module. */
   getTagConfig(): TagConfig {
     return {
