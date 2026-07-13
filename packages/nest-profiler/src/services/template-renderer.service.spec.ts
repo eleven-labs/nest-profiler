@@ -9,6 +9,8 @@ const MINIMAL_LIST_DATA = {
   title: 'Profiles',
   profilerPath: '/_profiler',
   clientScripts: ['profiler.js', 'http.js'],
+  views: [{ key: 'profiling', label: 'Profiling' }],
+  activeView: 'profiling',
   profiles: [],
   globalPanels: [],
   heapSeries: [],
@@ -49,6 +51,103 @@ describe('TemplateRendererService', () => {
     const html = await service.render('list', MINIMAL_LIST_DATA);
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('Recent Profiles');
+  });
+
+  it('renders the Summary view with a populated summary', async () => {
+    const t0 = 1_000_000;
+    const summary = {
+      sampled: 42,
+      duration: { avg: 87, p50: 40, p95: 300, p99: 900 },
+      errors: { count: 3, rate: 3 / 42 },
+      byMethod: { GET: 30, POST: 12 },
+      byStatusClass: { '2xx': 38, '3xx': 0, '4xx': 3, '5xx': 1 },
+      issues: { slow: 4, 'n-plus-one': 2 },
+      topSlowEndpoints: [
+        { method: 'GET', badge: 'GET', path: '/api/slow', calls: 5, avg: 300 },
+        { badge: 'CLI', path: 'demo:greet', calls: 2, avg: 12 },
+      ],
+      recentErrors: [
+        { token: 'abc12345', method: 'GET', badge: 'GET', path: '/api/x', statusCode: 500, at: t0 },
+        { token: 'def67890', badge: 'CLI', path: 'demo:greet --fail', at: t0 - 1000 },
+      ],
+      byType: { http: 40, command: 2 },
+      timeline: [
+        { startedAt: t0 - 1000, count: 15, errorCount: 0, p95: 40 }, // fast → green
+        { startedAt: t0, count: 20, errorCount: 1, p95: 120 },
+        { startedAt: t0 + 1000, count: 22, errorCount: 2, p95: 640 },
+      ],
+      issueEndpoints: {
+        slow: [{ method: 'GET', badge: 'GET', path: '/api/slow', count: 4, token: 'tok-slow-1' }],
+        'n-plus-one': [
+          { method: 'GET', badge: 'GET', path: '/api/slow', count: 2, token: 'tok-np-1' },
+        ],
+      },
+      heap: {
+        current: 64 * 1024 * 1024,
+        min: 40 * 1024 * 1024,
+        max: 70 * 1024 * 1024,
+        trend: 'growing',
+        series: [40, 48, 55, 60, 64].map((mb) => mb * 1024 * 1024),
+      },
+    };
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      views: [
+        { key: 'summary', label: 'Summary' },
+        { key: 'profiling', label: 'Profiling' },
+      ],
+      activeView: 'summary',
+      summary,
+      domainSections: [
+        {
+          name: 'cache',
+          label: 'Cache',
+          tiles: [
+            { label: 'Hit rate', value: '92%' },
+            { label: 'Misses', value: '8' },
+          ],
+        },
+        {
+          name: 'database',
+          label: 'Database',
+          tiles: [{ label: 'Queries', value: '12' }],
+          templatePath: path.join(__dirname, '../collectors/templates/query-summary.ejs'),
+          data: {
+            highlight: true,
+            tab: 'database',
+            subtab: 'typeorm',
+            entries: [
+              {
+                label: 'SELECT * FROM a_very_long_table_name WHERE id = 1',
+                duration: 42,
+                token: 'tok-query-1',
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(html).toContain('Error rate');
+    expect(html).toContain('Hit rate'); // collector-contributed domain tile
+    expect(html).toContain('92%');
+    // Collector custom table (SQL slowest-queries) rendered via its templatePath, with a
+    // wrapping query column so long SQL never overflows the responsive table.
+    expect(html).toContain('slowest queries');
+    expect(html).toContain('a_very_long_table_name');
+    expect(html).toContain('whitespace-pre-wrap break-words');
+    expect(html).toContain('/_profiler/tok-query-1'); // query row links to its profile
+    expect(html).toContain('Throughput'); // time-series chart
+    expect(html).toContain('bg-success/70'); // a fast bucket uses the green (not the nest-red)
+    expect(html).toContain('By kind'); // entrypoint-kind distribution
+    expect(html).toContain('Performance issues'); // per-issue endpoint tables
+    expect(html).toContain('n-plus-one'); // an issue id with its affected endpoints
+    expect(html).toContain('/_profiler/tok-np-1'); // issue row links to a representative profile
+    expect(html).toContain('Process heap'); // heap trend chart
+    expect(html).toContain('demo:greet'); // non-HTTP endpoint label
+    expect(html).toContain('/_profiler/summary.json'); // JSON export link
+    // Drill-through into the detail page for a recent error.
+    expect(html).toContain('/_profiler/abc12345');
   });
 
   it('renders every section as a <details> disclosure and folds only defaultCollapsed ones', async () => {

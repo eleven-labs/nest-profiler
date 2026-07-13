@@ -190,6 +190,116 @@ describe('CollectorRegistry', () => {
     warn.mockRestore();
   });
 
+  it('listGlobalPanelDescriptors lists global panels (name/label/icon) without running collect()', () => {
+    const globalCollect = jest.fn().mockReturnValue({ any: 'data' });
+    registry.register({
+      name: 'cfg',
+      label: 'Config',
+      icon: '<c/>',
+      scope: 'global',
+      collect: globalCollect,
+    });
+    // A profile-scoped collector must not appear among the global descriptors.
+    registry.register({ name: 'req', collect: () => ({}) });
+
+    const descriptors = registry.listGlobalPanelDescriptors();
+
+    expect(descriptors).toContainEqual({ name: 'cfg', label: 'Config', icon: '<c/>' });
+    expect(descriptors.some((d) => d.name === 'req')).toBe(false);
+    // Descriptors are metadata-only — no collector was invoked.
+    expect(globalCollect).not.toHaveBeenCalled();
+  });
+
+  it('buildGlobalPanel materialises a single global panel by name', async () => {
+    const cfgCollect = jest.fn().mockReturnValue({ level: 'debug' });
+    const otherCollect = jest.fn().mockReturnValue({ x: 1 });
+    registry.register({ name: 'cfg', label: 'Config', scope: 'global', collect: cfgCollect });
+    registry.register({ name: 'routes', scope: 'global', collect: otherCollect });
+
+    const panel = await registry.buildGlobalPanel('cfg');
+
+    expect(panel).toMatchObject({ name: 'cfg', label: 'Config', data: { level: 'debug' } });
+    expect(cfgCollect).toHaveBeenCalledTimes(1);
+    // Only the requested panel is built — sibling global collectors stay untouched.
+    expect(otherCollect).not.toHaveBeenCalled();
+  });
+
+  it('buildGlobalPanel returns undefined for an unknown or non-global name', async () => {
+    registry.register({ name: 'req', collect: () => ({}) });
+    expect(await registry.buildGlobalPanel('missing')).toBeUndefined();
+    // A profile-scoped collector is not a global panel.
+    expect(await registry.buildGlobalPanel('req')).toBeUndefined();
+  });
+
+  describe('Summary contributions', () => {
+    it('hasSummaryContributors reflects whether any collector implements buildSummary', () => {
+      expect(registry.hasSummaryContributors()).toBe(false);
+      registry.register({ name: 'plain', collect: () => ({}) });
+      expect(registry.hasSummaryContributors()).toBe(false);
+      registry.register({
+        name: 'db',
+        collect: () => [],
+        buildSummary: () => ({
+          name: 'db',
+          label: 'Database',
+          tiles: [{ label: 'Q', value: '1' }],
+        }),
+      });
+      expect(registry.hasSummaryContributors()).toBe(true);
+    });
+
+    it('collects contributions ordered by priority, filling name/label from metadata', () => {
+      registry.register({
+        name: 'db',
+        label: 'Database',
+        priority: 20,
+        collect: () => [],
+        buildSummary: () => ({ name: '', label: '', tiles: [{ label: 'Queries', value: '5' }] }),
+      });
+      registry.register({
+        name: 'cache',
+        label: 'Cache',
+        priority: 10,
+        collect: () => [],
+        buildSummary: () => ({
+          name: 'cache',
+          label: 'Cache',
+          tiles: [{ label: 'Hit', value: '90%' }],
+        }),
+      });
+      const sections = registry.buildSummarySections([]);
+      expect(sections.map((s) => s.name)).toEqual(['cache', 'db']); // priority order
+      // Empty name/label are backfilled from the collector metadata.
+      expect(sections[1]).toMatchObject({ name: 'db', label: 'Database' });
+    });
+
+    it('drops empty sections and isolates a throwing buildSummary', () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      registry.register({ name: 'empty', collect: () => [], buildSummary: () => undefined });
+      registry.register({
+        name: 'no-content',
+        collect: () => [],
+        buildSummary: () => ({ name: 'x', label: 'X' }),
+      });
+      registry.register({
+        name: 'boom',
+        collect: () => [],
+        buildSummary: () => {
+          throw new Error('nope');
+        },
+      });
+      registry.register({
+        name: 'ok',
+        collect: () => [],
+        buildSummary: () => ({ name: 'ok', label: 'OK', tiles: [{ label: 'A', value: '1' }] }),
+      });
+      const sections = registry.buildSummarySections([]);
+      expect(sections.map((s) => s.name)).toEqual(['ok']);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom'));
+      warn.mockRestore();
+    });
+  });
+
   it('getCollectorNames returns registered names', () => {
     registry.register({ name: 'alpha', collect: () => ({}) });
     registry.register({ name: 'beta', collect: () => ({}) });

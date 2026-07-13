@@ -39,6 +39,33 @@ describe('CacheCollector', () => {
     collector = new CacheCollector();
   });
 
+  describe('buildSummary', () => {
+    it('contributes a Cache section with the hit rate over the window', () => {
+      const p1 = makeProfile({
+        collectors: { cache: [makeOp('GET_HIT'), makeOp('GET_HIT'), makeOp('GET_MISS')] },
+      });
+      const p2 = makeProfile({ collectors: { cache: [makeOp('GET_HIT'), makeOp('SET')] } });
+      const section = collector.buildSummary([p1, p2]);
+      expect(section).toMatchObject({ name: 'cache', label: 'Cache' });
+      // 3 hits / 4 lookups = 75%; 5 operations total.
+      expect(section?.tiles).toEqual([
+        { label: 'Hit rate', value: '75%', severity: null },
+        { label: 'Hits', value: '3' },
+        { label: 'Misses', value: '1' },
+        { label: 'Operations', value: '5' },
+      ]);
+    });
+
+    it('flags a poor hit rate as a warning and contributes nothing on an empty window', () => {
+      const poor = makeProfile({ collectors: { cache: [makeOp('GET_MISS'), makeOp('GET_MISS')] } });
+      expect(collector.buildSummary([poor])?.tiles?.[0]).toMatchObject({
+        value: '0%',
+        severity: 'warning',
+      });
+      expect(collector.buildSummary([makeProfile()])).toBeUndefined();
+    });
+  });
+
   it('collects operations and removes the internal key', () => {
     const op = makeOp('GET_HIT');
     const profile = makeProfile({ collectors: { [CACHE_OPERATIONS_KEY]: [op] } });

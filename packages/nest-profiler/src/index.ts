@@ -26,12 +26,34 @@ export type {
   ProfilerLoggerOptions,
 } from './services/profiler-logger-adapter';
 export { ProfilerStorageService } from './services/profiler-storage.service';
+export { SummaryService } from './services/summary.service';
+export {
+  computeProfilerSummary,
+  defaultIsError,
+  resolveErrorClassifier,
+} from './summary/profiler-summary';
+export type {
+  ProfilerSummary,
+  SlowEndpoint,
+  RecentError,
+  TimeBucket,
+  EndpointCount,
+  HeapSummary,
+  ComputeSummaryOptions,
+  ProfilerErrorClassification,
+  ProfileErrorInfo,
+} from './summary/profiler-summary';
 export { ProfilerCoreService } from './services/profiler-core.service';
 export { TemplateRendererService } from './services/template-renderer.service';
 export { ClientAssetRegistry, CORE_CLIENT_SCRIPT } from './services/client-asset-registry.service';
 export type { ClientAssetRegistration } from './services/client-asset-registry.service';
 export { CollectorRegistry } from './collectors/collector-registry.service';
 export type { CollectorPanelInfo, GlobalPanelInfo } from './collectors/collector-registry.service';
+export type {
+  CollectorSummarySection,
+  SummaryTile,
+  SummaryContext,
+} from './collectors/collector-summary.interface';
 export { ProfilerCollector } from './collectors/collector.decorator';
 export type { ProfilerCollectorMetadata } from './collectors/collector.decorator';
 export type { IProfilerCollector } from './collectors/collector.interface';
@@ -85,7 +107,7 @@ export type {
 } from './analysis/performance-rule.interface';
 export { BUILTIN_PERFORMANCE_RULES } from './analysis/builtin-rules';
 export { normalizeSqlFingerprint, normalizeHttpFingerprint } from './analysis/fingerprint.utils';
-export type { ProfilerPerformanceOptions } from './nest-profiler.builder';
+export type { ProfilerPerformanceOptions, ProfilerSummaryOptions } from './nest-profiler.builder';
 export { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
 export type {
   IProfilerStorageAdapter,

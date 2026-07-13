@@ -4,6 +4,7 @@ import type { IProfilerStorageAdapter } from './storage/storage-adapter.interfac
 import type { ProfilerRequestFilter } from './filters';
 import type { PerformanceRule } from './analysis/performance-rule.interface';
 import type { PlatformRequest, PlatformResponse } from './types/http';
+import type { ProfilerErrorClassification } from './summary/profiler-summary';
 
 /**
  * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the
@@ -177,6 +178,24 @@ export interface ProfilerModuleOptions {
 
   /** Performance-tagging configuration (custom rules for the N+1/slow engine). */
   performance?: ProfilerPerformanceOptions;
+
+  /** Home **Summary** dashboard configuration (aggregation window and cache TTL). */
+  summary?: ProfilerSummaryOptions;
+}
+
+/** Configuration for the home Summary dashboard ({@link SummaryService}). */
+export interface ProfilerSummaryOptions {
+  /** Most-recent profiles aggregated per computation (a single bounded read). Default: `1000`, min `1`. */
+  windowSize?: number;
+  /** Seconds a computed summary is served from memory. Default: `30`. Set `0` to disable caching. */
+  cacheTtl?: number;
+  /** Rows each Summary table shows (top N). The full data lives in the Profiling view. Default: `5`, min `1`. */
+  topN?: number;
+  /**
+   * How the Summary qualifies a **failure** (error rate, recent errors, timeline). Default: a 5xx
+   * status or a captured exception, so 4xx like 401/404 are not counted. See {@link ProfilerErrorClassification}.
+   */
+  error?: ProfilerErrorClassification;
 }
 
 /** Configuration for the performance-tagging rule engine ({@link analyzeProfile}). */

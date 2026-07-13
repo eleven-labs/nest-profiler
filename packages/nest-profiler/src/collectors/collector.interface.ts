@@ -1,5 +1,6 @@
 import type { Profile } from '../interfaces/profile.interface';
 import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import type { CollectorSummarySection, SummaryContext } from './collector-summary.interface';
 
 export interface IProfilerCollector {
   readonly name: string;
@@ -27,4 +28,11 @@ export interface IProfilerCollector {
   getBadgeSeverity?(profile: Profile): TagSeverity | null;
   getTemplatePath?(): string | undefined;
   collect(profile: Profile): unknown;
+  /**
+   * Contribute a section to the home **Summary** — the extension point for any collector. Read this
+   * collector's entries over the bounded window and return {@link CollectorSummarySection | tiles
+   * and/or a table}, or `undefined` for nothing. Isolated (a throw is swallowed); `context` carries
+   * shared knobs like `topN`.
+   */
+  buildSummary?(profiles: Profile[], context?: SummaryContext): CollectorSummarySection | undefined;
 }

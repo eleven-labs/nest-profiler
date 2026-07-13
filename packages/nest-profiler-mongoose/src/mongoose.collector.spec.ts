@@ -708,4 +708,41 @@ describe('MongooseConnectionPatch', () => {
     expect(base.Query.prototype.exec).toBe(patchedQueryExec);
     expect(base.Aggregate.prototype.exec).toBe(patchedAggExec);
   });
+
+  describe('buildSummary', () => {
+    it('contributes a Database section with a slowest-queries table linked to the profile', () => {
+      const profile = makeProfile({
+        token: 'mongo-1',
+        collectors: {
+          mongoose: [
+            makeQuery({ operation: 'find', duration: 120, command: 'db.reviews.find({})' }),
+            makeQuery({
+              operation: 'aggregate',
+              duration: 30,
+              command: 'db.products.aggregate([])',
+            }),
+          ],
+        },
+      });
+      const section = new MongooseCollector().buildSummary([profile]);
+      expect(section).toMatchObject({ name: 'mongoose' });
+      expect(section?.tiles?.[0]).toEqual({ label: 'Queries', value: '2' });
+      const data = section?.data as {
+        highlight: boolean;
+        tab: string;
+        subtab?: string;
+        entries: { label: string; duration: number; token: string }[];
+      };
+      // Mongo commands are shown verbatim (not SQL-highlighted), slowest first, linked to the profile.
+      expect(data.highlight).toBe(false);
+      // Grouped under Database → the link opens `?tab=database&subtab=mongoose`.
+      expect(data.tab).toBe('database');
+      expect(data.subtab).toBe('mongoose');
+      expect(data.entries[0]).toEqual({
+        label: 'db.reviews.find({})',
+        duration: 120,
+        token: 'mongo-1',
+      });
+    });
+  });
 });

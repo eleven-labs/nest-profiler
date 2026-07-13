@@ -18,6 +18,11 @@ import { TemplateRendererService } from '../services/template-renderer.service';
 import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import { SummaryService } from '../services/summary.service';
+import type { ProfilerSummary } from '../summary/profiler-summary';
+import type { CollectorPanelInfo, GlobalPanelInfo } from '../collectors/collector-registry.service';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface';
+import type { CollectorSummarySection } from '../collectors/collector-summary.interface';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
@@ -36,6 +41,19 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
+
+/**
+ * The home page's built-in sidebar view keys. The active view is chosen from the
+ * `?view=` query param (server-rendered, no client routing), mirroring the detail
+ * page's `?tab=` navigation. `summary` is the aggregated overview (the default);
+ * `profiling` hosts the per-entrypoint list sections; global-collector panels
+ * (Config, Routes, Schemas…) contribute their own view keys dynamically.
+ */
+const SUMMARY_VIEW = 'summary';
+const PROFILING_VIEW = 'profiling';
+
+/** The view rendered when `?view=` is absent or unknown. */
+const DEFAULT_HOME_VIEW = SUMMARY_VIEW;
 
 /**
  * Stylesheets the profiler serves same-origin from `public/styles`. The allowlist
@@ -71,6 +89,7 @@ export class ProfilerController {
     private readonly core: ProfilerCoreService,
     private readonly templateRenderer: TemplateRendererService,
     private readonly clientAssets: ClientAssetRegistry,
+    private readonly summary: SummaryService,
     @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions,
   ) {
     this.pageSize = options.listPageSize ?? DEFAULT_LIST_PAGE_SIZE;
@@ -129,28 +148,47 @@ export class ProfilerController {
     const linkQuery = this.resolveLinkQuery(req);
     const allSections = this.core.getListSections();
 
-    // Fetch only the 30 most-recent profiles for the heap trend — never the whole store.
-    // `findAll()` would defeat the SQLite query pushdown (SELECT without LIMIT + JSON.parse
-    // of every document) on the dashboard's own hot path.
-    const [recentPage, globalPanels] = await Promise.all([
-      this.core.storage.query({ filters: [], page: 1, pageSize: 30 }),
-      this.core.collectorRegistry.buildGlobalPanels(),
-    ]);
+    // The active sidebar view is server-selected from `?view=` (no client routing).
+    const requestedView = typeof query.view === 'string' ? query.view : undefined;
 
-    // The heap trend reflects the real process history, so it ignores filters. `query()`
-    // returns newest-first; reverse to plot oldest → newest.
-    const heapSeries = recentPage.items
-      .map((p) => p.performance.heapUsed)
-      .filter((v) => v !== undefined)
-      .reverse();
+    // Sidebar views: the built-in "Profiling" list plus one entry per registered global
+    // panel (Config, Routes, Schemas…). Descriptors carry name/label/icon only — no
+    // `collect()` runs here; only the active view's panel is materialised below. An
+    // unknown/absent `?view=` falls back to the default so a stale link never blanks the pane.
+    const globalDescriptors = this.core.collectorRegistry.listGlobalPanelDescriptors();
+    const views = [
+      { key: SUMMARY_VIEW, label: 'Summary' },
+      { key: PROFILING_VIEW, label: 'Profiling' },
+      ...globalDescriptors.map((d) => ({ key: d.name, label: d.label, icon: d.icon })),
+    ];
+    const activeView = views.some((v) => v.key === requestedView)
+      ? (requestedView as string)
+      : DEFAULT_HOME_VIEW;
 
-    // Each section is an independent list: it queries the store for its own page,
-    // scoped to its entrypoint type(s), with its own namespaced filter/page params
-    // (`<sectionKey>_<key>`). Filtering and pagination are pushed to the storage
-    // adapter (native when supported, in-memory fallback otherwise).
-    const sections = await Promise.all(
-      allSections.map((section) => this.buildSection(section, allSections, query)),
-    );
+    // Build only the active view. Summary aggregates a bounded window (cached, including the heap
+    // trend); the Profiling view builds the list sections; a global view materialises its panel.
+    let summary: ProfilerSummary | undefined;
+    let domainSections: CollectorSummarySection[] = [];
+    let sections: Record<string, unknown>[] = [];
+    let activeGlobalPanel: GlobalPanelInfo | undefined;
+
+    if (activeView === SUMMARY_VIEW) {
+      // The request-level summary (index-only) and the optional collector-contributed domain
+      // sections (full-profile window, only when a collector opts in) are both cached.
+      [summary, domainSections] = await Promise.all([
+        this.summary.getSummary(),
+        this.summary.getDomainSections(),
+      ]);
+    } else if (activeView === PROFILING_VIEW) {
+      // Each section is an independent list, scoped to its entrypoint type(s) with its own
+      // namespaced filter/page params (`<sectionKey>_<key>`); filtering and pagination are pushed
+      // to the storage adapter (native when supported, in-memory fallback otherwise).
+      sections = await Promise.all(
+        allSections.map((section) => this.buildSection(section, allSections, query)),
+      );
+    } else {
+      activeGlobalPanel = await this.core.collectorRegistry.buildGlobalPanel(activeView);
+    }
 
     return this.templateRenderer.render('list', {
       title: 'Profiles',
@@ -158,9 +196,12 @@ export class ProfilerController {
       link: (href: string) => appendLinkQuery(href, linkQuery),
       linkQueryPairs: linkQueryPairs(linkQuery),
       clientScripts: this.clientAssets.list(),
+      views,
+      activeView,
+      summary,
+      domainSections,
       sections,
-      globalPanels,
-      heapSeries,
+      activeGlobalPanel,
     });
   }
 
@@ -283,6 +324,18 @@ export class ProfilerController {
     return qs ? `${this.profilerPath}?${qs}` : this.profilerPath;
   }
 
+  /**
+   * JSON export of the aggregated Summary. Declared **before** the `:token` route so the literal
+   * `summary.json` segment wins over the token matcher (Nest matches in declaration order).
+   */
+  @Get(`${PROFILER_BASE_PATH}/summary.json`)
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  getSummaryData(): Promise<ProfilerSummary> {
+    return this.summary.getSummary();
+  }
+
   @Get(`${PROFILER_BASE_PATH}/:token/data`)
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
@@ -302,6 +355,7 @@ export class ProfilerController {
     @Param('token') token: string,
     @Query('tab') tab?: string,
     @Query('subtab') subtab?: string,
+    @Query('tag') tag?: string,
   ): Promise<string> {
     const linkQuery = this.resolveLinkQuery(req);
     const profile = await this.core.storage.findOne(token);
@@ -309,6 +363,9 @@ export class ProfilerController {
 
     const collectorPanels = this.core.collectorRegistry.buildPanels(profile);
     const collectorTabNames = collectorPanels.map((p) => p.name);
+
+    // From a Summary issue row (`?tag=<id>`, no explicit `?tab=`): open the tab that carries the tag.
+    const tagTab = tab ? undefined : this.resolveTagTab(profile, collectorPanels, tag);
 
     // The active entrypoint type owns the primary tabs (e.g. Request/Response for
     // HTTP, Command for a CLI command, Message for a consumed message). It falls
@@ -324,7 +381,7 @@ export class ProfilerController {
     const builtinTabNames = [...entrypointTabNames, ...UNIVERSAL_TAB_NAMES];
 
     const defaultTab = entrypointTabs[0]?.name ?? 'performance';
-    const activeTab = tab ?? defaultTab;
+    const activeTab = tab ?? tagTab?.tab ?? defaultTab;
 
     const summary = entrypointType.summary(profile);
     const entrypointTabTemplate = entrypointType.detailTabs.find(
@@ -363,7 +420,41 @@ export class ProfilerController {
       collectorData,
       // Which sub-tab of a grouped collector panel (e.g. `mongoose` within Database)
       // is initially active; honoured server-side so a sub-panel is linkable/screenshot-able.
-      activeSubTab: subtab ?? null,
+      activeSubTab: subtab ?? tagTab?.subtab ?? null,
     });
+  }
+
+  /**
+   * The detail tab (and grouped sub-tab) a `?tag=<id>` link should open: the first collector panel
+   * whose entries carry that tag, else the Exceptions tab for a profile-level `error`. `undefined`
+   * when nothing carries it (keep the default tab) or `tagId` is absent.
+   */
+  private resolveTagTab(
+    profile: Profile,
+    panels: CollectorPanelInfo[],
+    tagId?: string,
+  ): { tab: string; subtab?: string } | undefined {
+    if (!tagId) return undefined;
+    const carriesTag = (data: unknown): boolean =>
+      Array.isArray(data) &&
+      data.some(
+        (entry) =>
+          entry != null &&
+          typeof entry === 'object' &&
+          Array.isArray((entry as { tags?: ProfilerTag[] }).tags) &&
+          (entry as { tags: ProfilerTag[] }).tags.some((t) => t.id === tagId),
+      );
+    for (const panel of panels) {
+      if (panel.isGroup && panel.subPanels) {
+        for (const sub of panel.subPanels) {
+          if (carriesTag(profile.collectors[sub.name]))
+            return { tab: panel.name, subtab: sub.name };
+        }
+      } else if (carriesTag(profile.collectors[panel.name])) {
+        return { tab: panel.name };
+      }
+    }
+    if (tagId === 'error' && profile.exceptions.length > 0) return { tab: 'exceptions' };
+    return undefined;
   }
 }

@@ -14,7 +14,11 @@ function listWith(data: RoutesCollectorData): Record<string, unknown> {
     profilerPath: '/_profiler',
     clientScripts: ['profiler.js'],
     profiles: [],
-    globalPanels: [{ name: 'routes', label: 'Routes', templatePath: ROUTES_PANEL, data }],
+    // The routes panel is a global-scope collector, now rendered as its own sidebar view: the
+    // home page selects it via `activeView` and materialises only the active global panel.
+    views: [{ key: 'routes', label: 'Routes' }],
+    activeView: 'routes',
+    activeGlobalPanel: { name: 'routes', label: 'Routes', templatePath: ROUTES_PANEL, data },
     heapSeries: [],
     filters: {},
   };

@@ -204,6 +204,8 @@ describe('template rendering — XSS regression', () => {
         title: 'Profiles',
         profilerPath: '/_profiler',
         clientScripts: ['profiler.js'],
+        views: [{ key: 'profiling', label: 'Profiling' }],
+        activeView: 'profiling',
         globalPanels: [],
         heapSeries: [],
         filters: {},

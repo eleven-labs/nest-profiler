@@ -15,6 +15,7 @@ import {
 } from './nest-profiler.builder';
 import type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
 import { ProfilerStorageService } from './services/profiler-storage.service';
+import { SummaryService } from './services/summary.service';
 import { ProfilerService } from './services/nest-profiler.service';
 import { NoopProfilerService } from './services/noop-profiler.service';
 import { ProfilerMiddleware } from './middleware/profiler.middleware';
@@ -110,6 +111,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
           },
         },
         ProfilerStorageService,
+        SummaryService,
         ProfilerService,
         ProfilerMiddleware,
         ProfilerGuard,
@@ -127,6 +129,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
       exports: [
         ProfilerService,
         ProfilerStorageService,
+        SummaryService,
         CollectorRegistry,
         TemplateRendererService,
         ClientAssetRegistry,

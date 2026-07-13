@@ -10,175 +10,176 @@
       <p class="text-foreground-muted text-xs mt-0.5">Profiles captured by the profiler</p>
     </div>
 
-    <% if (heapSeries && heapSeries.length >= 2) { %>
-      <%
-        const heapMin  = Math.min(...heapSeries);
-        const heapMax  = Math.max(...heapSeries);
-        const heapSpan = heapMax - heapMin || 1;
-        const heapLast = heapSeries[heapSeries.length - 1];
-        // Trend: compare last 20% vs first 20% of the series
-        const chunk = Math.max(1, Math.floor(heapSeries.length / 5));
-        const heapAvgFirst = heapSeries.slice(0, chunk).reduce((s, v) => s + v, 0) / chunk;
-        const heapAvgLast  = heapSeries.slice(-chunk).reduce((s, v) => s + v, 0) / chunk;
-        const heapTrend    = heapAvgLast - heapAvgFirst;
-        const trendClass   = heapTrend > 5 * 1024 * 1024 ? 'text-danger' : heapTrend > 1024 * 1024 ? 'dur-medium' : 'text-foreground-muted';
-        const trendLabel   = heapTrend > 5 * 1024 * 1024 ? '↑ potential leak' : heapTrend > 1024 * 1024 ? '↑ growing' : '~ stable';
-      %>
-      <div class="mb-4 bg-surface border border-line rounded-xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-3">
-            <span class="text-xs font-semibold text-foreground">Process heap</span>
-            <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">last <%= heapSeries.length %> requests</span>
-          </div>
-          <div class="flex items-center gap-4 text-xs tabular-nums">
-            <span class="text-foreground-faint">min <span class="text-foreground"><%= mb(heapMin) %></span></span>
-            <span class="text-foreground-faint">max <span class="text-foreground"><%= mb(heapMax) %></span></span>
-            <span class="text-foreground-faint">now <span class="text-foreground font-medium"><%= mb(heapLast) %></span></span>
-            <span class="<%= trendClass %> font-medium"><%= trendLabel %></span>
-          </div>
-        </div>
-        <div class="flex items-end gap-px h-10">
-          <% for (const v of heapSeries) { %>
-            <%
-              const pct = Math.round(((v - heapMin) / heapSpan) * 80) + 20;
-              const barClass = v > heapMin + heapSpan * 0.8 ? 'bg-danger/60' : v > heapMin + heapSpan * 0.5 ? 'bg-amber-400/60' : 'bg-nest/40';
-            %>
-            <div class="flex-1 rounded-t-sm <%= barClass %>" style="height:<%= pct %>%"
-                 title="<%= mb(v) %>"></div>
-          <% } %>
-        </div>
-        <p class="text-foreground-faint text-2xs mt-2">Process-wide V8 heap at request start. A rising trend indicates a memory leak.</p>
-      </div>
-    <% } %>
-
-    <% if (globalPanels && globalPanels.length > 0) { %>
-      <% for (const gPanel of globalPanels) { %>
-        <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden">
-          <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
-            <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-            <% if (gPanel.icon) { %><span class="w-3.5 h-3.5 shrink-0 text-foreground-muted"><%- gPanel.icon %></span><% } %>
-            <span class="text-xs font-semibold text-foreground"><%= gPanel.label %></span>
-            <span class="text-foreground-faint text-2xs ml-1 font-normal">— global, captured at startup</span>
-          </summary>
-          <div class="p-4 border-t border-line">
-            <% if (gPanel.templatePath) { %>
-              <%- include(gPanel.templatePath, { panel: gPanel, data: gPanel.data, highlightSql, toJson, isoDate, timeOnly }) %>
-            <% } else { %>
-              <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs text-code-text overflow-x-auto leading-relaxed"><%= toJson(gPanel.data) %></pre>
-            <% } %>
-          </div>
-        </details>
-      <% } %>
-    <% } %>
-
     <%
-      // Profiles are grouped into independent tables — one per registered list
-      // section (the core ships the "HTTP" catch-all; packages contribute their
-      // own, e.g. "GraphQL", "Commands"). Each section has its own filter bar:
-      // the universal filters plus the filters scoped to that kind, with form
-      // fields namespaced by the section key so a section filters only itself.
-      const sectionBuckets = typeof sections !== 'undefined' && sections ? sections : [];
-      const sectionHelpers = { profilerPath, link, methodClass, gqlTypeClass, statusClass, isoDate, toJson, timeOnly, tagBadges };
-      const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
+      /* Sidebar view icons by key (unknown keys fall back to a dot); SVGs mirror detail.ejs. */
+      const VIEW_ICONS = {
+        summary: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m4 10V11m4 6v-3M3 21h18M4 3h16a1 1 0 011 1v13a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z"/></svg>',
+        profiling: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h7"/></svg>',
+      };
+      const viewList = typeof views !== 'undefined' && views ? views : [];
     %>
 
-    <%# One form wraps every section so submitting any bar preserves the others. %>
-    <form data-profiler-filters method="GET" action="<%= profilerPath %>">
-      <%# Preserve a query-param credential (security.linkQuery) across a filter submit. %>
-      <% linkQueryPairs.forEach((p) => { %><input type="hidden" name="<%= p.name %>" value="<%= p.value %>"><% }) %>
-      <% sectionBuckets.forEach((section) => { %>
-        <% if (section.isDefault || section.total > 0) { %>
+    <!-- ── Two-column layout ─────────────────────────────────────────────── -->
+    <div class="flex gap-5 items-start">
+
+      <!-- ── Left aside — view navigation ─────────────────────────────────── -->
+      <aside class="w-52 shrink-0 sticky top-16">
+        <nav class="bg-surface border border-line rounded-xl overflow-hidden">
+          <div class="px-4 pt-3 pb-1.5">
+            <span class="text-2xs text-foreground-faint uppercase tracking-widest font-medium">Views</span>
+          </div>
+          <% for (const v of viewList) { %>
+            <% const isActive = v.key === activeView; %>
+            <a href="<%= link(profilerPath + '?view=' + v.key) %>"
+               class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2
+                 <%= isActive
+                   ? 'border-nest text-nest bg-surface-active'
+                   : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted' %>">
+              <% const icon = VIEW_ICONS[v.key] || v.icon; %>
+              <% if (icon) { %><span class="w-3.5 h-3.5 shrink-0"><%- icon %></span><% } %>
+              <span class="flex-1"><%= v.label %></span>
+            </a>
+          <% } %>
+          <div class="h-2"></div>
+        </nav>
+      </aside>
+
+      <!-- ── Right panel — active view ─────────────────────────────────────── -->
+      <div class="flex-1 min-w-0">
+
+        <% if (activeView === 'summary') { %>
+
+          <%- include('_summary', { summary, domainSections: (typeof domainSections !== 'undefined' ? domainSections : []), profilerPath, link, methodClass, statusClass, isoDate, timeOnly, toJson, highlightSql, mb }) %>
+
+        <% } else if (activeView === 'profiling') { %>
+
           <%
-            // The badge counts the whole (filtered) result set, not the current
-            // page: `filteredTotal` when a filter narrows the section, else the
-            // section's full total.
-            const filteredTotal = section.pagination ? section.pagination.filteredTotal : section.profiles.length;
-            const plural = section.total !== 1 ? 's' : '';
-            const countText = filteredTotal !== section.total
-              ? `${filteredTotal} of ${section.total} ${section.itemLabel}${plural}`
-              : `${section.total} ${section.itemLabel}${plural}`;
+            // One independent table per registered list section (HTTP, GraphQL, Commands…), each with
+            // its own filter bar whose fields are namespaced by the section key.
+            const sectionBuckets = typeof sections !== 'undefined' && sections ? sections : [];
+            const sectionHelpers = { profilerPath, link, methodClass, gqlTypeClass, statusClass, isoDate, toJson, timeOnly, tagBadges };
+            const inputClass = 'bg-surface-muted border border-line rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-nest';
           %>
-          <%# Every section is a collapsible disclosure; `defaultCollapsed` starts it folded. %>
-          <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden"<%= section.defaultCollapsed ? '' : ' open' %>>
-            <summary class="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
-              <div class="flex items-center gap-2 min-w-0">
-                <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-                <span class="text-xs font-semibold text-foreground shrink-0"><%= section.title %></span>
-                <% if (section.description) { %>
-                  <span class="text-foreground-faint text-2xs ml-1 font-normal truncate">— <%= section.description %></span>
-                <% } %>
-              </div>
-              <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums shrink-0"><%= countText %></span>
-            </summary>
-            <div class="p-4 border-t border-line">
-              <% if (section.filterDefs && section.filterDefs.length > 0) { %>
-                <div class="mb-4 flex flex-wrap gap-2 items-end bg-surface-muted border border-line rounded-xl p-4">
-                  <% for (const def of section.filterDefs) { %>
-                    <% const value = (section.filterValues || {})[def.key]; %>
-                    <% const fieldName = section.filterPrefix + '_' + def.key; %>
-                    <% if (def.control === 'checkbox') { %>
-                      <label class="flex items-center gap-1.5 text-xs text-foreground cursor-pointer self-end py-1.5">
-                        <input type="checkbox" name="<%= fieldName %>" value="1" <%= value ? 'checked' : '' %>
-                               class="accent-nest" />
-                        <%= def.label %>
-                      </label>
-                    <% } else { %>
-                      <div class="flex flex-col gap-1">
-                        <label class="text-foreground-faint text-2xs uppercase tracking-widest"><%= def.label %></label>
-                        <% if (def.control === 'select') { %>
-                          <select name="<%= fieldName %>" class="<%= inputClass %>">
-                            <% for (const opt of (def.options || [])) { %>
-                              <option value="<%= opt.value %>" <%= value === opt.value ? 'selected' : '' %>><%= opt.label %></option>
-                            <% } %>
-                          </select>
-                        <% } else { %>
-                          <input type="<%= def.control === 'number' ? 'number' : 'text' %>" name="<%= fieldName %>"
-                                 value="<%= value || '' %>"
-                                 placeholder="<%= def.placeholder || '' %>"
-                                 class="<%= inputClass %> <%= def.control === 'number' ? 'w-24' : 'w-44' %>" />
+
+          <%# One form wraps every section so submitting any bar preserves the others. %>
+          <form data-profiler-filters method="GET" action="<%= profilerPath %>">
+            <%# Keep the active view across a filter submit (the form only posts its own fields). %>
+            <input type="hidden" name="view" value="<%= activeView %>">
+            <%# Preserve a query-param credential (security.linkQuery) across a filter submit. %>
+            <% linkQueryPairs.forEach((p) => { %><input type="hidden" name="<%= p.name %>" value="<%= p.value %>"><% }) %>
+            <% sectionBuckets.forEach((section) => { %>
+              <% if (section.isDefault || section.total > 0) { %>
+                <%
+                  // The badge counts the whole (filtered) result set, not the current page.
+                  const filteredTotal = section.pagination ? section.pagination.filteredTotal : section.profiles.length;
+                  const plural = section.total !== 1 ? 's' : '';
+                  const countText = filteredTotal !== section.total
+                    ? `${filteredTotal} of ${section.total} ${section.itemLabel}${plural}`
+                    : `${section.total} ${section.itemLabel}${plural}`;
+                %>
+                <%# Every section is a collapsible disclosure; `defaultCollapsed` starts it folded. %>
+                <details class="group mb-4 rounded-xl border border-line bg-surface overflow-hidden"<%= section.defaultCollapsed ? '' : ' open' %>>
+                  <summary class="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                      <span class="text-xs font-semibold text-foreground shrink-0"><%= section.title %></span>
+                      <% if (section.description) { %>
+                        <span class="text-foreground-faint text-2xs ml-1 font-normal truncate">— <%= section.description %></span>
+                      <% } %>
+                    </div>
+                    <span class="text-xs text-foreground-secondary bg-surface border border-line px-3 py-1.5 rounded-full tabular-nums shrink-0"><%= countText %></span>
+                  </summary>
+                  <div class="p-4 border-t border-line">
+                    <% if (section.filterDefs && section.filterDefs.length > 0) { %>
+                      <div class="mb-4 flex flex-wrap gap-2 items-end bg-surface-muted border border-line rounded-xl p-4">
+                        <% for (const def of section.filterDefs) { %>
+                          <% const value = (section.filterValues || {})[def.key]; %>
+                          <% const fieldName = section.filterPrefix + '_' + def.key; %>
+                          <% if (def.control === 'checkbox') { %>
+                            <label class="flex items-center gap-1.5 text-xs text-foreground cursor-pointer self-end py-1.5">
+                              <input type="checkbox" name="<%= fieldName %>" value="1" <%= value ? 'checked' : '' %>
+                                     class="accent-nest" />
+                              <%= def.label %>
+                            </label>
+                          <% } else { %>
+                            <div class="flex flex-col gap-1">
+                              <label class="text-foreground-faint text-2xs uppercase tracking-widest"><%= def.label %></label>
+                              <% if (def.control === 'select') { %>
+                                <select name="<%= fieldName %>" class="<%= inputClass %>">
+                                  <% for (const opt of (def.options || [])) { %>
+                                    <option value="<%= opt.value %>" <%= value === opt.value ? 'selected' : '' %>><%= opt.label %></option>
+                                  <% } %>
+                                </select>
+                              <% } else { %>
+                                <input type="<%= def.control === 'number' ? 'number' : 'text' %>" name="<%= fieldName %>"
+                                       value="<%= value || '' %>"
+                                       placeholder="<%= def.placeholder || '' %>"
+                                       class="<%= inputClass %> <%= def.control === 'number' ? 'w-24' : 'w-44' %>" />
+                              <% } %>
+                            </div>
+                          <% } %>
                         <% } %>
+                        <div class="flex gap-2">
+                          <button type="submit" class="px-3 py-1.5 rounded bg-nest text-white text-xs font-medium hover:opacity-90 transition-opacity">Filter</button>
+                          <a href="<%= section.resetHref %>" class="px-3 py-1.5 rounded border border-line text-foreground-muted text-xs hover:text-foreground hover:border-line-active transition-colors">Reset</a>
+                        </div>
                       </div>
                     <% } %>
-                  <% } %>
-                  <div class="flex gap-2">
-                    <button type="submit" class="px-3 py-1.5 rounded bg-nest text-white text-xs font-medium hover:opacity-90 transition-opacity">Filter</button>
-                    <a href="<%= section.resetHref %>" class="px-3 py-1.5 rounded border border-line text-foreground-muted text-xs hover:text-foreground hover:border-line-active transition-colors">Reset</a>
+
+                    <%- include(section.templatePath, { ...sectionHelpers, profiles: section.profiles }) %>
+
+                    <% if (section.pagination && section.pagination.pageCount > 1) { %>
+                      <% const pg = section.pagination; %>
+                      <nav class="mt-3 flex items-center justify-between gap-3 text-xs" aria-label="Pagination">
+                        <span class="text-foreground-faint tabular-nums">
+                          Showing <%= pg.rangeStart %>–<%= pg.rangeEnd %> of <%= pg.filteredTotal %>
+                        </span>
+                        <div class="flex items-center gap-2">
+                          <% if (pg.prevHref) { %>
+                            <a href="<%= pg.prevHref %>" rel="prev" class="px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors">‹ Prev</a>
+                          <% } else { %>
+                            <span class="px-2.5 py-1 rounded border border-line-subtle text-foreground-faint cursor-not-allowed" aria-disabled="true">‹ Prev</span>
+                          <% } %>
+                          <span class="text-foreground-secondary tabular-nums px-1">Page <%= pg.page %> / <%= pg.pageCount %></span>
+                          <% if (pg.nextHref) { %>
+                            <a href="<%= pg.nextHref %>" rel="next" class="px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors">Next ›</a>
+                          <% } else { %>
+                            <span class="px-2.5 py-1 rounded border border-line-subtle text-foreground-faint cursor-not-allowed" aria-disabled="true">Next ›</span>
+                          <% } %>
+                        </div>
+                      </nav>
+                    <% } %>
                   </div>
-                </div>
+                </details>
               <% } %>
+            <% }) %>
+          </form>
 
-              <%- include(section.templatePath, { ...sectionHelpers, profiles: section.profiles }) %>
+        <% } else if (activeGlobalPanel) { %>
 
-              <% if (section.pagination && section.pagination.pageCount > 1) { %>
-                <% const pg = section.pagination; %>
-                <nav class="mt-3 flex items-center justify-between gap-3 text-xs" aria-label="Pagination">
-                  <span class="text-foreground-faint tabular-nums">
-                    Showing <%= pg.rangeStart %>–<%= pg.rangeEnd %> of <%= pg.filteredTotal %>
-                  </span>
-                  <div class="flex items-center gap-2">
-                    <% if (pg.prevHref) { %>
-                      <a href="<%= pg.prevHref %>" rel="prev" class="px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors">‹ Prev</a>
-                    <% } else { %>
-                      <span class="px-2.5 py-1 rounded border border-line-subtle text-foreground-faint cursor-not-allowed" aria-disabled="true">‹ Prev</span>
-                    <% } %>
-                    <span class="text-foreground-secondary tabular-nums px-1">Page <%= pg.page %> / <%= pg.pageCount %></span>
-                    <% if (pg.nextHref) { %>
-                      <a href="<%= pg.nextHref %>" rel="next" class="px-2.5 py-1 rounded border border-line text-foreground-muted hover:text-foreground hover:border-line-active transition-colors">Next ›</a>
-                    <% } else { %>
-                      <span class="px-2.5 py-1 rounded border border-line-subtle text-foreground-faint cursor-not-allowed" aria-disabled="true">Next ›</span>
-                    <% } %>
-                  </div>
-                </nav>
+          <!-- ── Global-collector panel (Config, Routes, Schemas…) ───────────── -->
+          <div class="bg-surface border border-line rounded-xl overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-3 bg-surface-muted border-b border-line">
+              <% if (activeGlobalPanel.icon) { %><span class="w-3.5 h-3.5 shrink-0 text-foreground-muted"><%- activeGlobalPanel.icon %></span><% } %>
+              <span class="text-xs font-semibold text-foreground"><%= activeGlobalPanel.label %></span>
+              <span class="text-foreground-faint text-2xs ml-1 font-normal">— global, captured at startup</span>
+            </div>
+            <div class="p-4">
+              <% if (activeGlobalPanel.templatePath) { %>
+                <%- include(activeGlobalPanel.templatePath, { panel: activeGlobalPanel, data: activeGlobalPanel.data, highlightSql, toJson, isoDate, timeOnly }) %>
+              <% } else { %>
+                <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs text-code-text overflow-x-auto leading-relaxed"><%= toJson(activeGlobalPanel.data) %></pre>
               <% } %>
             </div>
-          </details>
+          </div>
+
         <% } %>
-      <% }) %>
-    </form>
+
+      </div><!-- end content pane -->
+
+    </div><!-- end two-column -->
 
   </main>
 </body>

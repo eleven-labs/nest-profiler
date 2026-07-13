@@ -150,6 +150,17 @@ describe('ProfilerStorageService', () => {
     expect(await service.distinct('method')).toEqual(['GET']);
   });
 
+  it('querySummaries() falls back to summarizing findAll (newest-first, page-bounded)', async () => {
+    const base = Date.now();
+    await service.save(makeProfile('a', base + 1));
+    await service.save(makeProfile('b', base + 2));
+    await service.save(makeProfile('c', base + 3));
+    const summaries = await service.querySummaries({ filters: [], page: 1, pageSize: 2 });
+    expect(summaries.map((s) => s.token)).toEqual(['c', 'b']);
+    // Lightweight summaries, not full profiles.
+    expect(summaries[0]).not.toHaveProperty('collectors');
+  });
+
   it('delegates query()/distinct() to a native adapter when it implements them', async () => {
     const query = jest.fn().mockResolvedValue({ items: [], total: 0 });
     const distinct = jest.fn().mockResolvedValue(['x']);
@@ -176,6 +187,32 @@ describe('ProfilerStorageService', () => {
 
     expect(query).toHaveBeenCalledWith(q);
     expect(distinct).toHaveBeenCalledWith('attributes.x', ['http']);
+  });
+
+  it('delegates querySummaries() to a native adapter, never fetching full profiles', async () => {
+    const querySummaries = jest.fn().mockResolvedValue([]);
+    const findAll = jest.fn().mockReturnValue([]);
+    const custom = {
+      save: jest.fn(),
+      findAll,
+      findOne: jest.fn(),
+      clear: jest.fn(),
+      querySummaries,
+    } as unknown as IProfilerStorageAdapter;
+    const svc = (
+      await Test.createTestingModule({
+        providers: [
+          ProfilerStorageService,
+          { provide: PROFILER_STORAGE_ADAPTER, useValue: custom },
+        ],
+      }).compile()
+    ).get(ProfilerStorageService);
+
+    const q = { filters: [], page: 1, pageSize: 1000 };
+    await svc.querySummaries(q);
+
+    expect(querySummaries).toHaveBeenCalledWith(q);
+    expect(findAll).not.toHaveBeenCalled();
   });
 
   it('forwards the index-attributes provider to an adapter that accepts it', async () => {
