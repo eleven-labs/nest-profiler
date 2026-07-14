@@ -1,5 +1,5 @@
-<div class="rounded-xl border border-line overflow-hidden bg-surface">
-  <table class="w-full">
+<div class="rounded-xl border border-line overflow-x-auto bg-surface">
+  <table class="w-full min-w-[640px]">
     <thead>
       <tr class="bg-surface-muted border-b border-line">
         <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
@@ -11,6 +11,14 @@
       </tr>
     </thead>
     <tbody class="divide-y divide-line-subtle">
+      <% if (profiles.length === 0) { %>
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="text-foreground-muted text-sm mb-1">No GraphQL operations found</p>
+            <p class="text-foreground-faint text-xs">Send a GraphQL query or mutation to start collecting data.</p>
+          </td>
+        </tr>
+      <% } else { %>
       <% for (const p of profiles) { %>
         <%
           const gql = p.entrypoint.data.graphql;
@@ -53,6 +61,7 @@
           </td>
           <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
         </tr>
+      <% } %>
       <% } %>
     </tbody>
   </table>

@@ -148,12 +148,75 @@ describe('ProfilerController (unit)', () => {
     });
   });
 
+  describe('home sidebar views (?view=)', () => {
+    it('defaults to the catch-all section and lists sections + badged global panels in the sidebar', async () => {
+      const { controller, rendered, core } = setup();
+      (
+        core.collectorRegistry as { buildGlobalPanels: jest.Mock }
+      ).buildGlobalPanels.mockResolvedValue([
+        { name: 'config', label: 'Config', data: {}, badge: 12 },
+      ]);
+      await controller.listProfiles({}, mockReq());
+      expect(rendered[0]?.template).toBe('list');
+      expect(rendered[0]?.ctx.activeView).toBe('http');
+      // Section sub-items carry an unfiltered count badge; global items carry the panel's own badge.
+      expect(rendered[0]?.ctx.sectionViews).toEqual([{ key: 'http', label: 'HTTP', count: 0 }]);
+      expect(rendered[0]?.ctx.globalViews).toEqual([
+        { key: 'config', label: 'Config', icon: undefined, count: 12 },
+      ]);
+      expect((rendered[0]?.ctx.activeSection as { key: string }).key).toBe('http');
+      expect(rendered[0]?.ctx.activeGlobalPanel).toBeUndefined();
+    });
+
+    it('picks the active global panel for ?view=<panel> and builds no section', async () => {
+      const { controller, rendered, core } = setup();
+      (
+        core.collectorRegistry as { buildGlobalPanels: jest.Mock }
+      ).buildGlobalPanels.mockResolvedValue([
+        { name: 'config', label: 'Config', data: {}, badge: 3 },
+      ]);
+
+      await controller.listProfiles({ view: 'config' }, mockReq());
+
+      expect(rendered[0]?.ctx.activeView).toBe('config');
+      expect((rendered[0]?.ctx.activeGlobalPanel as { name: string }).name).toBe('config');
+      expect(rendered[0]?.ctx.activeSection).toBeUndefined();
+    });
+
+    it('falls back to the default section for an unknown ?view=', async () => {
+      const { controller, rendered } = setup();
+      await controller.listProfiles({ view: 'nope' }, mockReq());
+      expect(rendered[0]?.ctx.activeView).toBe('http');
+    });
+  });
+
   it('falls back to the performance tab when the entrypoint type has no detail tabs', async () => {
     const { controller, rendered } = setup();
     await controller.getProfileDetail(mockReq(), 'tok-123456789');
     expect(rendered[0]?.template).toBe('detail');
     expect(rendered[0]?.ctx.activeTab).toBe('performance');
     expect(rendered[0]?.ctx.entrypointTabs).toEqual([]);
+  });
+
+  it('resolves the profile list view for the back link (its section, else the default)', async () => {
+    const { controller, rendered, core } = setup();
+    // The GraphQL section owns the `graphql` type implicitly (a section's types default to its key).
+    (core.getListSections as jest.Mock).mockReturnValue([
+      { key: 'http', title: 'HTTP', isDefault: true, templatePath: '/tmp/http.ejs' },
+      { key: 'graphql', title: 'GraphQL', templatePath: '/tmp/gql.ejs' },
+    ]);
+
+    // A 'tabless' profile matches no typed section → the default catch-all.
+    await controller.getProfileDetail(mockReq(), 'tok-123456789');
+    expect(rendered[0]?.ctx.listView).toBe('http');
+    expect(rendered[0]?.ctx.listLabel).toBe('HTTP');
+
+    // A profile whose entrypoint type owns a section → that section.
+    const gqlProfile = makeProfile('gql-token-123');
+    gqlProfile.entrypoint = { type: 'graphql', data: {} };
+    (core.storage as { findOne: jest.Mock }).findOne.mockResolvedValueOnce(gqlProfile);
+    await controller.getProfileDetail(mockReq(), 'gql-token-123');
+    expect(rendered[1]?.ctx.listView).toBe('graphql');
   });
 
   it('enriches grouped sub-panels with each collector data when several ORMs share a group', async () => {
@@ -245,8 +308,8 @@ describe('ProfilerController (unit)', () => {
     // `''` (empty string) and `[]` (no first element) both fail the keep test,
     // so the only section's reset link carries no query string.
     await controller.listProfiles({ other_a: '', other_b: [] }, mockReq());
-    const sections = rendered[0]?.ctx.sections as { resetHref: string }[];
-    expect(sections[0]?.resetHref).toBe('/_profiler');
+    const section = rendered[0]?.ctx.activeSection as { resetHref: string };
+    expect(section.resetHref).toBe('/_profiler');
   });
 
   describe('pagination', () => {
@@ -258,7 +321,7 @@ describe('ProfilerController (unit)', () => {
     it('slices a section to one page and reports the total + range', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
       await controller.listProfiles({}, mockReq());
-      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      const section = rendered[0]?.ctx.activeSection as RenderedSection;
       expect(section.profiles).toHaveLength(25);
       expect(section.profiles[0]?.token).toBe('tok-0');
       expect(section.total).toBe(60);
@@ -277,7 +340,7 @@ describe('ProfilerController (unit)', () => {
     it('serves the requested page and builds prev/next links preserving other params', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
       await controller.listProfiles({ http_page: '2', other_x: 'keep' }, mockReq());
-      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      const section = rendered[0]?.ctx.activeSection as RenderedSection;
       expect(section.profiles[0]?.token).toBe('tok-25');
       expect(section.pagination).toMatchObject({
         page: 2,
@@ -293,7 +356,7 @@ describe('ProfilerController (unit)', () => {
     it('clamps an out-of-range page to the last page', async () => {
       const { controller, rendered } = setup({ listPageSize: 25, profiles: manyProfiles(60) });
       await controller.listProfiles({ http_page: '999' }, mockReq());
-      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      const section = rendered[0]?.ctx.activeSection as RenderedSection;
       expect(section.pagination).toMatchObject({
         page: 3,
         pageCount: 3,
@@ -307,7 +370,7 @@ describe('ProfilerController (unit)', () => {
     it('defaults the page size to 25 when no listPageSize option is given', async () => {
       const { controller, rendered } = setup({ profiles: manyProfiles(30) });
       await controller.listProfiles({}, mockReq());
-      const section = (rendered[0]?.ctx.sections as RenderedSection[])[0]!;
+      const section = rendered[0]?.ctx.activeSection as RenderedSection;
       expect(section.pagination.pageSize).toBe(25);
       expect(section.profiles).toHaveLength(25);
     });

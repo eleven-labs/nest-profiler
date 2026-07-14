@@ -108,8 +108,8 @@
                       Body — <span class="text-foreground-muted font-mono normal-case tracking-normal"><%= inputs.body.name %></span>
                     </p>
                     <% if (inputs.body.properties && inputs.body.properties.length) { %>
-                      <div class="rounded-lg border border-line overflow-hidden">
-                        <table class="w-full">
+                      <div class="rounded-lg border border-line overflow-x-auto">
+                        <table class="w-full min-w-[480px]">
                           <thead>
                             <tr class="border-b border-line bg-surface">
                               <th class="text-left py-2 px-3 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Property</th>

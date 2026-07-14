@@ -10,7 +10,9 @@ const MINIMAL_LIST_DATA = {
   profilerPath: '/_profiler',
   clientScripts: ['profiler.js', 'http.js'],
   profiles: [],
-  globalPanels: [],
+  sectionViews: [{ key: 'http', label: 'HTTP' }],
+  globalViews: [],
+  activeView: 'http',
   heapSeries: [],
   filters: {},
 };
@@ -51,48 +53,43 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('Recent Profiles');
   });
 
-  it('renders every section as a <details> disclosure and folds only defaultCollapsed ones', async () => {
+  it('renders the active list section as its own page with a filter bar and rows', async () => {
     const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tpl-section-'));
     try {
       await fs.promises.writeFile(path.join(dir, 'rows.ejs'), '<tbody data-rows></tbody>');
       service.registerDir(dir);
       const rowsPath = path.join(dir, 'rows.ejs');
 
-      const baseSection = {
-        title: 'HTTP',
-        description: undefined,
-        itemLabel: 'profile',
-        isDefault: true,
-        total: 0,
-        profiles: [],
-        filterDefs: [],
-        filterValues: {},
-        filterPrefix: 'http',
-        resetHref: '/_profiler',
-        templatePath: rowsPath,
-      };
-
       const html = await service.render('list', {
         ...MINIMAL_LIST_DATA,
-        sections: [
-          { ...baseSection, key: 'http', defaultCollapsed: false },
-          {
-            ...baseSection,
-            key: 'cmd',
-            title: 'Commands',
-            isDefault: false,
-            total: 2,
-            defaultCollapsed: true,
-          },
+        sectionViews: [
+          { key: 'http', label: 'HTTP' },
+          { key: 'cmd', label: 'Commands' },
         ],
+        activeView: 'cmd',
+        activeSection: {
+          key: 'cmd',
+          title: 'Commands',
+          description: undefined,
+          itemLabel: 'command',
+          isDefault: false,
+          total: 2,
+          profiles: [],
+          filterDefs: [{ key: 'q', label: 'Search', control: 'text' }],
+          filterValues: {},
+          filterPrefix: 'cmd',
+          resetHref: '/_profiler?view=cmd',
+          templatePath: rowsPath,
+        },
       });
 
+      // The sidebar lists both sections under Profiling; the active one renders as a page.
+      expect(html).toContain('>Profiling<');
+      expect(html).toContain('>HTTP<');
       expect(html).toContain('Commands');
-      // Every section is a disclosure: two sections → two <details>/<summary>.
-      expect(html.match(/<details/g)).toHaveLength(2);
-      expect(html.match(/<summary/g)).toHaveLength(2);
-      // Expanded by default, except the defaultCollapsed: true section → exactly one `open`.
-      expect(html.match(/<details[^>]*\sopen>/g)).toHaveLength(1);
+      // Its filter bar keeps the active view on submit, and the rows partial is included.
+      expect(html).toContain('name="view" value="cmd"');
+      expect(html).toContain('data-rows');
     } finally {
       await fs.promises.rm(dir, { recursive: true, force: true });
     }

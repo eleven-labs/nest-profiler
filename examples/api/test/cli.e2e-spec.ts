@@ -122,7 +122,7 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
         name: 'demo:greet',
       });
 
-      const list = await request(server(app)).get('/_profiler');
+      const list = await request(server(app)).get('/_profiler').query({ view: 'command' });
       expect(list.status).toBe(200);
       expect(list.text).toContain('demo:greet');
       expect(list.text).toContain(cmdProfile.token.slice(0, 8));

@@ -34,24 +34,36 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
   });
 
   describe('GET /_profiler (list page)', () => {
-    it('renders the recent profiles', async () => {
+    it('defaults to the HTTP view and lists the Profiling group in the sidebar', async () => {
       const res = await request(server(app)).get('/_profiler');
 
       expect(res.status).toBe(200);
       expect(res.text).toContain('<!DOCTYPE html>');
       expect(res.text).toContain('Recent Profiles');
+      // Sidebar: the Profiling group with a sub-item per entrypoint kind (HTTP is the default page).
+      expect(res.text).toContain('>Profiling<');
+      expect(res.text).toContain('>HTTP<');
+      expect(res.text).toContain('>GraphQL<');
+      // The default HTTP page lists HTTP profiles; other kinds live on their own views.
       expect(res.text).toContain(short(healthToken));
-      expect(res.text).toContain(short(graphqlToken));
+      expect(res.text).not.toContain(short(graphqlToken));
     });
 
-    // The global-scope Schema collector renders one home-page panel per wired ORM, listing the
-    // registered entities and their columns/relations/indexes.
-    it('renders the global Schema panel for the active ORM', async () => {
-      const res = await request(server(app)).get('/_profiler');
-      const label = activeSqlOrm() === 'mikro-orm' ? 'Schema · MikroORM' : 'Schema · TypeORM';
+    // The global-scope Schema collector contributes its own sidebar view; the home page lists it,
+    // and the view renders the registered entities and their columns/relations.
+    it('renders the global Schema panel in its sidebar view for the active ORM', async () => {
+      const isMikro = activeSqlOrm() === 'mikro-orm';
+      const label = isMikro ? 'Schema · MikroORM' : 'Schema · TypeORM';
+      const viewKey = isMikro ? 'mikro-orm-schema' : 'typeorm-schema';
 
+      // The sidebar on the home page links to the Schema view.
+      const home = await request(server(app)).get('/_profiler');
+      expect(home.text).toContain(label);
+      expect(home.text).toContain(`view=${viewKey}`);
+
+      // The view itself renders the panel: the Product entity and its backing table.
+      const res = await request(server(app)).get('/_profiler').query({ view: viewKey });
       expect(res.text).toContain(label);
-      // The Product entity and its backing table appear inside the expanded panel.
       expect(res.text).toContain('Product');
       expect(res.text).toContain('products');
     });
@@ -99,16 +111,16 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.text).not.toContain(short(healthToken));
     });
 
-    it('lists each entrypoint kind in its own section with independent filters', async () => {
-      // Both kinds show on the unfiltered page, each in its own section.
-      const all = await request(server(app)).get('/_profiler');
-      expect(all.text).toContain(short(healthToken));
-      expect(all.text).toContain(short(graphqlToken));
+    it('lists each entrypoint kind in its own dedicated view with scoped filters', async () => {
+      // Each kind is its own page: GraphQL profiles live under the GraphQL view, not the HTTP one.
+      const graphql = await request(server(app)).get('/_profiler').query({ view: 'graphql' });
+      expect(graphql.text).toContain(short(graphqlToken));
+      expect(graphql.text).not.toContain(short(healthToken));
 
-      // Filters are scoped to a single section: narrowing the HTTP list to POST
-      // drops the GET health profile while leaving the GraphQL section untouched.
-      const httpPost = await request(server(app)).get('/_profiler').query({ http_method: 'POST' });
-      expect(httpPost.text).toContain(short(graphqlToken));
+      // Filtering the HTTP view to POST drops the GET health profile.
+      const httpPost = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'http', http_method: 'POST' });
       expect(httpPost.text).not.toContain(short(healthToken));
     });
   });
@@ -120,6 +132,26 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.status).toBe(200);
       expect(res.text).toContain('<!DOCTYPE html>');
       expect(res.text).toContain(short(healthToken));
+    });
+
+    it('has a back link to the list view of the profile kind', async () => {
+      // An HTTP profile links back to the HTTP view…
+      const http = await request(server(app)).get(`/_profiler/${healthToken}`);
+      expect(http.text).toContain('view=http');
+      expect(http.text).not.toContain('view=graphql');
+
+      // …and a GraphQL profile links back to the GraphQL view (not the HTTP default).
+      const graphql = await request(server(app)).get(`/_profiler/${graphqlToken}`);
+      expect(graphql.text).toContain('view=graphql');
+    });
+  });
+
+  describe('empty list view', () => {
+    it('renders an empty-state row when a section has no profiles', async () => {
+      // No CLI command runs in this HTTP suite, so the Commands view shows the empty state.
+      const res = await request(server(app)).get('/_profiler').query({ view: 'command' });
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('No commands found');
     });
 
     it('renders built-in tabs (performance, logs, exceptions)', async () => {

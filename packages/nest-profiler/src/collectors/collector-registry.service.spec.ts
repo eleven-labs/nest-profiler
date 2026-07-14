@@ -417,6 +417,20 @@ describe('CollectorRegistry', () => {
         templatePath: '/metrics.ejs',
       });
     });
+
+    it('badges a global panel from the first `*Count` field in its data', async () => {
+      registry.register({
+        name: 'routes',
+        scope: 'global',
+        collect: () => ({ groups: [], routeCount: 7 }),
+      });
+      registry.register({ name: 'plain', scope: 'global', collect: () => ({ ok: true }) });
+
+      const panels = await registry.buildGlobalPanels();
+      expect(panels.find((p) => p.name === 'routes')?.badge).toBe(7);
+      // No `*Count` field → no badge.
+      expect(panels.find((p) => p.name === 'plain')?.badge).toBeUndefined();
+    });
   });
 
   it('getCollectors returns the registered collector instances', () => {

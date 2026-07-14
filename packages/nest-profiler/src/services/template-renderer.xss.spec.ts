@@ -204,10 +204,12 @@ describe('template rendering — XSS regression', () => {
         title: 'Profiles',
         profilerPath: '/_profiler',
         clientScripts: ['profiler.js'],
-        globalPanels: [],
+        sectionViews: [{ key: 'http', label: 'HTTP' }],
+        globalViews: [],
+        activeView: 'http',
         heapSeries: [],
         filters: {},
-        sections: [section],
+        activeSection: section,
       });
 
       expectNoRawInjection(html);

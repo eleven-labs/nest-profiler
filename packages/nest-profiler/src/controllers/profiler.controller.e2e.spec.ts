@@ -417,9 +417,13 @@ describe('ProfilerController (e2e)', () => {
       });
     }
 
-    it('lists commands in a dedicated table on the list page', async () => {
+    it('lists commands in their own dedicated view', async () => {
       await saveCommandProfile();
-      const res = await request(server()).get('/_profiler');
+      // The sidebar lists a Commands sub-item on every page; its own view renders the table.
+      const home = await request(server()).get('/_profiler');
+      expect(home.text).toContain('>Commands<');
+
+      const res = await request(server()).get('/_profiler').query({ view: 'command' });
       expect(res.status).toBe(200);
       expect(res.text).toContain('>Commands<');
       expect(res.text).toContain('demo:greet');

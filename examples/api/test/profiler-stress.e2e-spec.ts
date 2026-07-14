@@ -57,12 +57,17 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
     const profiles = await Promise.all(tokens.map((t) => getProfile(app, t)));
     expect(profiles).toHaveLength(CONCURRENT_BURST * 2);
 
-    // …and the list page shows the whole burst, none lost to storage races.
+    // …and the per-kind views show the whole burst, none lost to storage races: GraphQL mutations
+    // land on the GraphQL view, the REST calls on the HTTP view.
     await app.get(ProfilerService).flush();
-    const list = await request(server(app)).get('/_profiler');
-    expect(list.status).toBe(200);
+    const [gqlList, httpList] = await Promise.all([
+      request(server(app)).get('/_profiler').query({ view: 'graphql' }),
+      request(server(app)).get('/_profiler').query({ view: 'http' }),
+    ]);
+    expect(gqlList.status).toBe(200);
+    const combined = gqlList.text + httpList.text;
     for (const token of tokens) {
-      expect(list.text).toContain(short(token));
+      expect(combined).toContain(short(token));
     }
   });
 
@@ -72,8 +77,9 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
       tokens.push(tokenOf(await createProduct(app, `Chain Product ${i}`)));
     }
 
+    // The mutations are GraphQL, so they land on the GraphQL view.
     await app.get(ProfilerService).flush();
-    const list = await request(server(app)).get('/_profiler');
+    const list = await request(server(app)).get('/_profiler').query({ view: 'graphql' });
     for (const token of tokens) {
       expect(list.text).toContain(short(token));
     }
