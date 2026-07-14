@@ -18,6 +18,7 @@ import { TemplateRendererService } from '../services/template-renderer.service';
 import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import type { GlobalPanelInfo } from '../collectors/collector-registry.service';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
@@ -36,6 +37,10 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
+
+// Home sidebar: each list section (HTTP, GraphQL, Commands, RabbitMQ…) is a view under the
+// **Profiling** group, and each global panel (Config, Routes, Schemas…) is a view too. The active
+// one is server-selected from `?view=` (no client routing), defaulting to the catch-all section.
 
 /**
  * Stylesheets the profiler serves same-origin from `public/styles`. The allowlist
@@ -129,28 +134,53 @@ export class ProfilerController {
     const linkQuery = this.resolveLinkQuery(req);
     const allSections = this.core.getListSections();
 
-    // Fetch only the 30 most-recent profiles for the heap trend — never the whole store.
-    // `findAll()` would defeat the SQLite query pushdown (SELECT without LIMIT + JSON.parse
-    // of every document) on the dashboard's own hot path.
-    const [recentPage, globalPanels] = await Promise.all([
-      this.core.storage.query({ filters: [], page: 1, pageSize: 30 }),
+    // The active sidebar view is server-selected from `?view=` (no client routing).
+    const requestedView = typeof query.view === 'string' ? query.view : undefined;
+
+    // Sidebar model: the **Profiling** group (one sub-item per list section, badged with its total)
+    // and one item per global panel (Config, Routes, Schemas…), badged with its own count.
+    const [sectionCounts, globalPanels] = await Promise.all([
+      Promise.all(allSections.map((s) => this.countSection(s, allSections))),
       this.core.collectorRegistry.buildGlobalPanels(),
     ]);
+    const sectionViews = allSections.map((s, i) => ({
+      key: s.key,
+      label: s.title,
+      count: sectionCounts[i],
+    }));
+    const globalViews = globalPanels.map((p) => ({
+      key: p.name,
+      label: p.label,
+      icon: p.icon,
+      count: p.badge,
+    }));
 
-    // The heap trend reflects the real process history, so it ignores filters. `query()`
-    // returns newest-first; reverse to plot oldest → newest.
-    const heapSeries = recentPage.items
-      .map((p) => p.performance.heapUsed)
-      .filter((v) => v !== undefined)
-      .reverse();
+    const sectionKeys = new Set(sectionViews.map((v) => v.key));
+    const globalKeys = new Set(globalViews.map((v) => v.key));
+    // Default to the catch-all list section (HTTP) so an unknown/absent `?view=` never blanks the pane.
+    const defaultView = (allSections.find((s) => s.isDefault) ?? allSections[0])?.key;
+    const activeView =
+      requestedView && (sectionKeys.has(requestedView) || globalKeys.has(requestedView))
+        ? requestedView
+        : defaultView;
 
-    // Each section is an independent list: it queries the store for its own page,
-    // scoped to its entrypoint type(s), with its own namespaced filter/page params
-    // (`<sectionKey>_<key>`). Filtering and pagination are pushed to the storage
-    // adapter (native when supported, in-memory fallback otherwise).
-    const sections = await Promise.all(
-      allSections.map((section) => this.buildSection(section, allSections, query)),
-    );
+    // Materialise only the active view: a list-section page builds that one section + the heap trend;
+    // a global view picks its already-built panel.
+    let activeSection: Record<string, unknown> | undefined;
+    let heapSeries: number[] = [];
+    let activeGlobalPanel: GlobalPanelInfo | undefined;
+
+    if (activeView && sectionKeys.has(activeView)) {
+      const section = allSections.find((s) => s.key === activeView)!;
+      const recentPage = await this.core.storage.query({ filters: [], page: 1, pageSize: 30 });
+      heapSeries = recentPage.items
+        .map((p) => p.performance.heapUsed)
+        .filter((v) => v !== undefined)
+        .reverse();
+      activeSection = await this.buildSection(section, allSections, query);
+    } else if (activeView) {
+      activeGlobalPanel = globalPanels.find((p) => p.name === activeView);
+    }
 
     return this.templateRenderer.render('list', {
       title: 'Profiles',
@@ -158,10 +188,28 @@ export class ProfilerController {
       link: (href: string) => appendLinkQuery(href, linkQuery),
       linkQueryPairs: linkQueryPairs(linkQuery),
       clientScripts: this.clientAssets.list(),
-      sections,
-      globalPanels,
+      sectionViews,
+      globalViews,
+      activeView,
+      activeSection,
       heapSeries,
+      activeGlobalPanel,
     });
+  }
+
+  /** The unfiltered total of a list section (its sidebar count badge), via one bounded count query. */
+  private async countSection(
+    section: ProfilerListSection,
+    allSections: ProfilerListSection[],
+  ): Promise<number> {
+    const constraint = sectionTypeConstraint(section, allSections);
+    const { total } = await this.core.storage.query({
+      ...constraint,
+      filters: [],
+      page: 1,
+      pageSize: 1,
+    });
+    return total;
   }
 
   /** Resolves one list section: its filter bar, the current page of profiles and the pager. */
@@ -310,6 +358,16 @@ export class ProfilerController {
     const collectorPanels = this.core.collectorRegistry.buildPanels(profile);
     const collectorTabNames = collectorPanels.map((p) => p.name);
 
+    // The list view this profile belongs to (for the "back" link): the non-default section owning
+    // its entrypoint type (a section's types default to its key), else the default catch-all.
+    const listSections = this.core.getListSections();
+    const listSection =
+      listSections.find(
+        (s) => !s.isDefault && (s.types ?? [s.key]).includes(profile.entrypoint.type),
+      ) ??
+      listSections.find((s) => s.isDefault) ??
+      listSections[0];
+
     // The active entrypoint type owns the primary tabs (e.g. Request/Response for
     // HTTP, Command for a CLI command, Message for a consumed message). It falls
     // back to the built-in HTTP type when the kind has no dedicated type.
@@ -361,6 +419,9 @@ export class ProfilerController {
       summary,
       collectorPanels,
       collectorData,
+      // The list view to return to from the detail page's "back" link.
+      listView: listSection?.key,
+      listLabel: listSection?.title,
       // Which sub-tab of a grouped collector panel (e.g. `mongoose` within Database)
       // is initially active; honoured server-side so a sub-panel is linkable/screenshot-able.
       activeSubTab: subtab ?? null,

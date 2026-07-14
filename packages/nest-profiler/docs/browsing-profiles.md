@@ -4,11 +4,25 @@ Every profiled execution receives a unique token and lands in the profiler UI. T
 
 ## Profiler UI endpoints
 
-| Endpoint                     | Description                    |
-| ---------------------------- | ------------------------------ |
-| `GET /_profiler`             | List of recent profiles (HTML) |
-| `GET /_profiler/:token`      | Profile detail page (HTML)     |
-| `GET /_profiler/:token/data` | Raw profile data (JSON)        |
+| Endpoint                     | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `GET /_profiler`             | Home page — profiles + views (HTML) |
+| `GET /_profiler/:token`      | Profile detail page (HTML)          |
+| `GET /_profiler/:token/data` | Raw profile data (JSON)             |
+
+## Home page navigation
+
+The home page uses the same two-column layout as the detail page: a sticky left sidebar lists the available **views**, and the active one is selected server-side from a `?view=` query parameter (plain links, no client-side routing — consistent with the profiler's `script-src 'self'` CSP).
+
+Each entrypoint kind is its own dissociated page under a **Profiling** group, and every global-scope collector is a view too:
+
+| View                       | `?view=`                | Content                                                                    |
+| -------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| HTTP (default)             | `http`                  | The HTTP list, its filters, its pager and the process-heap trend           |
+| GraphQL / Commands / …     | the section key         | One page per registered list section (each with its own filters and pager) |
+| Config / Routes / Schemas… | the global panel's name | One entry per installed global-scope collector, rendered on demand         |
+
+Every sidebar item carries a **count badge**: a list section shows its unfiltered profile total, and a global panel shows its own count (the first `*Count` field its data exposes, e.g. `routeCount`). The `?view=` parameter coexists with the list filters, so a filtered link keeps its view: `GET /_profiler?view=http&http_method=POST`. Global panels (Config, Routes, DB schemas…) are sidebar destinations rather than inline `<details>` blocks.
 
 ## Debug headers
 

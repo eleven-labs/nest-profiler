@@ -37,7 +37,7 @@
         const isInvalid = entry.status === 'invalid';
         const borderClass = isInvalid ? 'border-danger-line bg-danger-bg/20' : 'border-line';
       %>
-      <div class="rounded-lg border <%= borderClass %> overflow-hidden">
+      <div class="rounded-lg border <%= borderClass %> overflow-x-auto">
 
         <div class="flex items-center justify-between px-4 py-3 bg-surface-muted border-b border-line">
           <div class="flex items-center gap-3">
@@ -57,7 +57,7 @@
         </div>
 
         <% if (isInvalid && entry.violations.length > 0) { %>
-          <table class="w-full">
+          <table class="w-full min-w-[480px]">
             <thead>
               <tr class="bg-surface border-b border-line">
                 <th class="text-left py-2 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-1/4">Property</th>

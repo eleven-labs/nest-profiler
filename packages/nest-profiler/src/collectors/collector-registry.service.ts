@@ -54,6 +54,17 @@ export interface GlobalPanelInfo {
   icon?: string;
   data: unknown;
   templatePath?: string;
+  /** Sidebar count badge, taken by convention from the panel data's `*Count` field (e.g. `routeCount`). */
+  badge?: number;
+}
+
+/** The panel's count badge: the first top-level numeric `*Count` field (`keyCount`, `routeCount`…). */
+function globalPanelBadge(data: unknown): number | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (key.endsWith('Count') && typeof value === 'number') return value;
+  }
+  return undefined;
 }
 
 interface RegisteredCollector {
@@ -190,11 +201,17 @@ export class CollectorRegistry implements OnModuleInit {
     return panels.sort((a, b) => a.priority - b.priority);
   }
 
-  async buildGlobalPanels(): Promise<GlobalPanelInfo[]> {
-    const globals = [...this.collectors.values()].filter(
-      ({ instance, meta }) => (meta.scope ?? instance.scope ?? 'profile') === 'global',
-    );
-    const emptyProfile: Profile = {
+  /** Whether a registered collector runs once per list page (process-level data). */
+  private isGlobal({ instance, meta }: RegisteredCollector): boolean {
+    return (meta.scope ?? instance.scope ?? 'profile') === 'global';
+  }
+
+  /**
+   * The synthetic, empty profile handed to a global collector: its data is
+   * process-level (configuration, routes, schemas…), so it never reads a real request.
+   */
+  private emptyGlobalProfile(): Profile {
+    return {
       token: '',
       createdAt: 0,
       entrypoint: {
@@ -206,14 +223,24 @@ export class CollectorRegistry implements OnModuleInit {
       exceptions: [],
       collectors: {},
     };
+  }
+
+  /** Builds every global panel (one per global-scope collector) with its data and count badge. */
+  async buildGlobalPanels(): Promise<GlobalPanelInfo[]> {
+    const globals = [...this.collectors.values()].filter((e) => this.isGlobal(e));
+    const emptyProfile = this.emptyGlobalProfile();
     return Promise.all(
-      globals.map(async ({ instance, meta }) => ({
-        name: meta.name,
-        label: meta.label ?? instance.label ?? meta.name,
-        icon: meta.icon ?? instance.icon,
-        data: await this.safeCollect(instance, meta.name, emptyProfile),
-        templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
-      })),
+      globals.map(async ({ instance, meta }) => {
+        const data = await this.safeCollect(instance, meta.name, emptyProfile);
+        return {
+          name: meta.name,
+          label: meta.label ?? instance.label ?? meta.name,
+          icon: meta.icon ?? instance.icon,
+          data,
+          templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
+          badge: globalPanelBadge(data),
+        };
+      }),
     );
   }
 
