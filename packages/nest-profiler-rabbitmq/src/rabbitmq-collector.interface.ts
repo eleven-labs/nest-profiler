@@ -1,5 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import type { ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
 
 export interface RabbitMqCollectorModuleOptions {
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
@@ -23,6 +24,18 @@ export interface RabbitMqCollectorModuleOptions {
    * `x-auth-token`.
    */
   maskHeaders?: string[];
+
+  /**
+   * What counts as a **failed message** — what earns the `error` tag and what the list's
+   * `Errors` filter keeps. A consumed message has no status code, so the default is simply
+   * "the handler threw".
+   *
+   * ```ts
+   * // A handler that throws to trigger a retry is not an incident; a timeout is.
+   * RabbitMqCollectorModule.forRoot({ error: { exceptions: ['TimeoutError'] } });
+   * ```
+   */
+  error?: ProfilerErrorOptions;
 }
 
 /** Async configuration for `RabbitMqCollectorModule.forRootAsync`. */

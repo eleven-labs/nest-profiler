@@ -8,7 +8,8 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
   let app: INestApplication;
   let healthToken: string;
   let slowToken: string;
-  let errorToken: string;
+  let badRequestToken: string;
+  let crashToken: string;
   let productsToken: string;
   let createToken: string;
   let graphqlToken: string;
@@ -19,7 +20,11 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     // Generate one profile per shape the filters discriminate on.
     healthToken = tokenOf(await request(server(app)).get('/health'));
     slowToken = tokenOf(await request(server(app)).get('/api/v1/slow'));
-    errorToken = tokenOf(await request(server(app)).get('/api/v1/error'));
+    // A real 400: the validation pipe rejects the body and its BadRequestException is captured.
+    badRequestToken = tokenOf(
+      await request(server(app)).post('/api/v1/products').send({ name: 'Broken', price: -5 }),
+    );
+    crashToken = tokenOf(await request(server(app)).get('/api/v1/crash')); // 500
     productsToken = tokenOf(await request(server(app)).get('/api/v1/products'));
     createToken = tokenOf(
       await request(server(app)).post('/api/v1/products').send({ name: 'UI fixture', price: 10 }),
@@ -79,11 +84,11 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
 
     it('filters by status code and status class', async () => {
       const byExact = await request(server(app)).get('/_profiler').query({ http_status: '400' });
-      expect(byExact.text).toContain(short(errorToken));
+      expect(byExact.text).toContain(short(badRequestToken));
       expect(byExact.text).not.toContain(short(healthToken));
 
       const byClass = await request(server(app)).get('/_profiler').query({ http_statusClass: '4' });
-      expect(byClass.text).toContain(short(errorToken));
+      expect(byClass.text).toContain(short(badRequestToken));
       expect(byClass.text).not.toContain(short(productsToken));
     });
 
@@ -91,15 +96,27 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       const res = await request(server(app)).get('/_profiler').query({ http_q: 'health' });
 
       expect(res.text).toContain(short(healthToken));
-      expect(res.text).not.toContain(short(errorToken));
+      expect(res.text).not.toContain(short(crashToken));
     });
 
-    it('filters by the errors checkbox', async () => {
-      // The engine tags a profile carrying an unhandled exception `error`; the dedicated
-      // "errors" checkbox replaces the former "exceptions" filter.
+    it('filters by the errors checkbox, keeping the 500 and sparing the 400', async () => {
       const res = await request(server(app)).get('/_profiler').query({ http_error: '1' });
 
-      expect(res.text).toContain(short(errorToken));
+      expect(res.text).toContain(short(crashToken));
+      expect(res.text).not.toContain(short(healthToken));
+      // The rejected POST answers 400: its BadRequestException was captured, but the API
+      // answered correctly, so it is not a failure under the default classification.
+      expect(res.text).not.toContain(short(badRequestToken));
+    });
+
+    it('filters by exception type, independently of what counts as an error', async () => {
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ http_exception: 'BadRequestException' });
+
+      // The 400 is not an "error", yet its exception is still there to be found.
+      expect(res.text).toContain(short(badRequestToken));
+      expect(res.text).not.toContain(short(crashToken));
       expect(res.text).not.toContain(short(healthToken));
     });
 
@@ -155,8 +172,9 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     });
 
     it('renders built-in tabs (performance, logs, exceptions)', async () => {
+      // /crash logs and throws, so all three tabs have something to render.
       for (const tab of ['performance', 'logs', 'exceptions']) {
-        const res = await request(server(app)).get(`/_profiler/${errorToken}`).query({ tab });
+        const res = await request(server(app)).get(`/_profiler/${crashToken}`).query({ tab });
         expect(res.status).toBe(200);
         expect(res.text).toContain('<!DOCTYPE html>');
       }

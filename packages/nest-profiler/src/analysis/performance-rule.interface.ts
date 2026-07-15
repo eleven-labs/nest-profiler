@@ -1,5 +1,5 @@
 import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerTag } from './profiler-tag.interface';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
 import type { TagConfig, TaggableEntry } from './taggable-collector.interface';
 
 /**
@@ -25,6 +25,14 @@ export interface PerformanceRuleContext {
   readonly profile: Profile;
   /** Analyzable entry groups, one per taggable collector that produced entries. */
   readonly collectors: readonly AnalyzedCollector[];
+  /**
+   * Whether the profile's entrypoint kind considers it a **failure**, per the kind's own
+   * {@link ProfilerErrorOptions} — a 5xx for HTTP, an `INTERNAL_SERVER_ERROR` for GraphQL, a
+   * non-zero exit for a command. The engine knows no protocol; each kind supplies the verdict.
+   */
+  isProfileError(): boolean;
+  /** Severity the entrypoint kind gives its `error` tag. Default: `'danger'`. */
+  readonly profileErrorSeverity: TagSeverity;
   /** Tag a single entry (deduplicated by tag id). */
   tagEntry(entry: TaggableEntry, tag: ProfilerTag): void;
   /** Tag the whole profile (aggregated onto `profile.tags`, deduplicated by tag id). */

@@ -9,6 +9,7 @@ import {
   Header,
   HttpCode,
   Injectable,
+  InternalServerErrorException,
   Post,
 } from '@nestjs/common';
 import type { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common';
@@ -59,6 +60,11 @@ class DummyController {
   @Get('/boom')
   boom(): never {
     throw new BadRequestException('kaboom');
+  }
+
+  @Get('/crash')
+  crash(): never {
+    throw new InternalServerErrorException('crashed');
   }
 }
 
@@ -217,17 +223,29 @@ describe('ProfilerController (e2e)', () => {
 
     it('narrows the HTTP list by global search and by the errors checkbox', async () => {
       const helloToken = await createProfile('/hello', 'get');
-      const errToken = await createProfile('/boom', 'get');
+      const crashToken = await createProfile('/crash', 'get'); // 500
 
       const bySearch = await request(server()).get('/_profiler').query({ http_q: 'hello' });
       expect(bySearch.text).toContain(short(helloToken));
-      expect(bySearch.text).not.toContain(short(errToken));
+      expect(bySearch.text).not.toContain(short(crashToken));
 
-      // The rule engine tags a profile carrying an unhandled exception `error`; the
-      // dedicated "errors" checkbox replaces the former "exceptions" filter.
       const byError = await request(server()).get('/_profiler').query({ http_error: '1' });
-      expect(byError.text).toContain(short(errToken));
+      expect(byError.text).toContain(short(crashToken));
       expect(byError.text).not.toContain(short(helloToken));
+    });
+
+    // The default classification: the status is the verdict, so a BadRequestException is a 400
+    // answer rather than a failure — even though the exception itself was captured.
+    it('does not count a 4xx as an error, but still lists its exception', async () => {
+      const badRequestToken = await createProfile('/boom', 'get'); // 400
+
+      const byError = await request(server()).get('/_profiler').query({ http_error: '1' });
+      expect(byError.text).not.toContain(short(badRequestToken));
+
+      const byException = await request(server())
+        .get('/_profiler')
+        .query({ http_exception: 'BadRequestException' });
+      expect(byException.text).toContain(short(badRequestToken));
     });
 
     it('ignores non-numeric filter values instead of hiding all profiles', async () => {

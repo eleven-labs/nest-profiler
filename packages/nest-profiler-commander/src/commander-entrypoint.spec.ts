@@ -25,6 +25,24 @@ function applies(key: string, value: string, profile: Profile): boolean {
   return matchesCriterion(summarizeProfile(profile, attrs), filter!.toCriterion(value));
 }
 
+describe('error classification', () => {
+  const run = (success: boolean): Profile<CommandInfo> =>
+    makeProfile({ name: 'seed', arguments: [], success, exitCode: success ? 0 : 1 });
+
+  // Alone among the kinds, `command` needs no configuration: a non-zero exit is a failure and
+  // nobody disagrees.
+  it('counts a failed run and spares a successful one', () => {
+    expect(COMMAND_ENTRYPOINT_TYPE_DEF.isError!(run(false))).toBe(true);
+    expect(COMMAND_ENTRYPOINT_TYPE_DEF.isError!(run(true))).toBe(false);
+  });
+
+  // The Commands list already offers `Status: Success/Failed`, which is the same question
+  // under a clearer name.
+  it('hides the universal errors checkbox', () => {
+    expect(COMMAND_ENTRYPOINT_TYPE_DEF.hiddenFilters).toContain('error');
+  });
+});
+
 describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
   it('describes the command entrypoint type', () => {
     expect(COMMAND_ENTRYPOINT_TYPE_DEF.type).toBe(COMMAND_ENTRYPOINT_TYPE);

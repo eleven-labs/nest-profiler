@@ -105,17 +105,64 @@ describe('analyzeProfile', () => {
     expect(ids(entries[0]?.tags)).not.toContain('n-plus-one');
   });
 
-  it('tags failed entries and profiles with exceptions as error', () => {
-    const profile = makeProfile({ exceptions: [{ message: 'boom' } as never] });
-    const http: TaggableEntry[] = [{ duration: 5, error: 'ECONNRESET' }, { duration: 5 }];
+  it('tags failed entries as error', () => {
+    const profile = makeProfile();
+    const http: TaggableEntry[] = [
+      { duration: 5, error: 'ECONNRESET' },
+      { duration: 5 },
+      { duration: 5 },
+    ];
     (http[1] as { statusCode?: number }).statusCode = 500;
+    // A 404 from an upstream is an answer, not a failed call.
+    (http[2] as { statusCode?: number }).statusCode = 404;
     const collector = makeCollector('http-client', 'http', profile, http);
 
     analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
 
     expect(ids(http[0]?.tags)).toContain('error');
     expect(ids(http[1]?.tags)).toContain('error');
-    expect(profile.tags?.find((t) => t.id === 'error')?.count).toBe(1);
+    expect(ids(http[2]?.tags)).not.toContain('error');
+    expect(profile.tags?.map((t) => t.id)).toContain('error');
+  });
+
+  it("honours the collector's own isErrorEntry over the default", () => {
+    const profile = makeProfile();
+    const entries: TaggableEntry[] = [{ duration: 5 }, { duration: 5 }];
+    (entries[0] as { statusCode?: number }).statusCode = 404;
+    (entries[1] as { statusCode?: number }).statusCode = 500;
+    const collector = makeCollector('http-client', 'http', profile, entries, {
+      ...CONFIG,
+      isErrorEntry: (entry) => (entry as { statusCode?: number }).statusCode === 404,
+      errorSeverity: 'warning',
+    });
+
+    analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+    expect(ids(entries[0]?.tags)).toContain('error');
+    expect(ids(entries[1]?.tags)).not.toContain('error');
+    expect(profile.tags?.find((t) => t.id === 'error')?.severity).toBe('warning');
+  });
+
+  // The engine knows no protocol: without a kind's verdict, only entries can be errors.
+  it('leaves the profile untagged when no error classification is supplied', () => {
+    const profile = makeProfile({ exceptions: [{ message: 'boom' } as never] });
+
+    analyzeProfile(profile, [], BUILTIN_PERFORMANCE_RULES);
+
+    expect(profile.tags?.map((t) => t.id) ?? []).not.toContain('error');
+  });
+
+  it("tags the profile per the entrypoint kind's verdict, counting its exceptions", () => {
+    const profile = makeProfile({ exceptions: [{ message: 'boom' } as never] });
+
+    analyzeProfile(profile, [], BUILTIN_PERFORMANCE_RULES, {
+      isError: (p) => p.exceptions.length > 0,
+      severity: 'danger',
+    });
+
+    const tag = profile.tags?.find((t) => t.id === 'error');
+    expect(tag?.count).toBe(1);
+    expect(tag?.severity).toBe('danger');
   });
 
   it('tags a chatty profile when the call count reaches the threshold', () => {

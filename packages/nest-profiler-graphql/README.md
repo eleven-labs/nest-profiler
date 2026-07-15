@@ -22,9 +22,9 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-graphql` captures GraphQL queries and mutations and displays them in their own **GraphQL** list table, each with a dedicated **GraphQL** detail tab (operation, query, variables and response).
+`@eleven-labs/nest-profiler-graphql` captures GraphQL queries and mutations and displays them in their own **GraphQL** sidebar view, each with a dedicated **GraphQL** detail tab (operation, query, variables and response).
 
-![Profiles list showing GQL MUTATION and GQL QUERY badges alongside the operation name and status](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-list.png)
+![GraphQL view showing GQL MUTATION and GQL QUERY badges alongside the operation name and status](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-list.png)
 
 ![GraphQL detail tab showing operation type, operation name, syntax-highlighted query and variables](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-request.png)
 
@@ -126,11 +126,31 @@ Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:
 | `query`         | The full GraphQL document (formatted)          |
 | `variables`     | Variables object                               |
 
-Registering this module installs the `graphql` entrypoint type: GraphQL operations get their own **GraphQL** table on the `/_profiler` list, with a filter bar including an **Operation** filter (query / mutation / subscription).
+Registering this module installs the `graphql` entrypoint type: GraphQL operations get their own **GraphQL** view on `/_profiler`, with a filter bar including an **Operation** filter (query / mutation / subscription).
 
-GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions.
+GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions. Since GraphQL names every error `GraphQLError`, its `extensions.code` is shown alongside — that code is what the **Exception** filter lists and what decides whether the operation counts as an error.
 
-![Exceptions tab showing an amber GraphQLError badge with validation error message and location](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-error.png)
+![Exceptions tab showing an amber GraphQLError badge with its BAD_REQUEST code, validation message and location](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-error.png)
+
+## Options
+
+`GraphQLCollectorModule.forRoot(options)` accepts:
+
+| Option    | Default                 | Description                                                                                                                                             |
+| --------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled` | `true`                  | Enable GraphQL profiling.                                                                                                                               |
+| `error`   | `INTERNAL_SERVER_ERROR` | What counts as a **failed operation**. A GraphQL response is `200` even when it failed, so statuses say nothing and `extensions.code` takes their role. |
+
+A `BAD_REQUEST` (what the Nest Apollo driver emits for a rejected mutation), `BAD_USER_INPUT`, `UNAUTHENTICATED` or `NOT_FOUND` is the schema answering correctly — GraphQL's equivalent of a 4xx — so none of them is an error by default. An error carrying no code counts, as an unmapped throw is a genuine failure.
+
+```ts
+// Here, a failed login is an incident worth surfacing.
+GraphQLCollectorModule.forRoot({
+  error: { codes: ['INTERNAL_SERVER_ERROR', 'UNAUTHENTICATED'] },
+});
+```
+
+Use `forRootAsync` to resolve the options from `ConfigService`. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification).
 
 ## How it works
 

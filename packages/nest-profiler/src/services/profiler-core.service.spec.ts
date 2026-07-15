@@ -4,6 +4,7 @@ import { ProfilerStorageService } from './profiler-storage.service';
 import { CollectorRegistry } from '../collectors/collector-registry.service';
 import { RouteCollector } from '../collectors/route.collector';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
@@ -22,6 +23,106 @@ function makeProfile(): Profile {
     collectors: {},
   };
 }
+
+describe('error classification', () => {
+  /** Builds a core with the given `error` option and returns the tags a saved profile carries. */
+  async function tagsOf(
+    options: ProfilerModuleOptions,
+    profile: Profile,
+  ): Promise<(string | undefined)[]> {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProfilerCoreService,
+        {
+          provide: ProfilerStorageService,
+          useValue: { save, setIndexAttributesProvider: jest.fn() },
+        },
+        {
+          provide: CollectorRegistry,
+          useValue: { collectAll: jest.fn().mockResolvedValue(undefined), getCollectors: () => [] },
+        },
+        { provide: RouteCollector, useValue: { match: jest.fn() } },
+        { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: options },
+      ],
+    }).compile();
+
+    const core = moduleRef.get(ProfilerCoreService);
+    core.schedulePersist(profile);
+    await core.flushPendingProfiles();
+    return (profile.tags ?? []).map((t) => t.id);
+  }
+
+  const withStatus = (statusCode: number): Profile => ({
+    ...makeProfile(),
+    response: { statusCode, headers: {} },
+    exceptions: [{ name: 'HttpException', message: 'boom', timestamp: Date.now() }],
+  });
+
+  it('does not tag a 4xx as an error by default, even with a captured exception', async () => {
+    expect(await tagsOf({}, withStatus(404))).not.toContain('error');
+  });
+
+  it('tags a 5xx as an error by default', async () => {
+    expect(await tagsOf({}, withStatus(500))).toContain('error');
+  });
+
+  it('tags a 4xx when the host lowers the threshold', async () => {
+    expect(await tagsOf({ error: { httpStatus: 400 } }, withStatus(404))).toContain('error');
+  });
+
+  it('honours a host-supplied classify predicate', async () => {
+    const options: ProfilerModuleOptions = {
+      error: { classify: ({ statusCode }) => statusCode === 418 },
+    };
+    expect(await tagsOf(options, withStatus(418))).toContain('error');
+    expect(await tagsOf(options, withStatus(500))).not.toContain('error');
+  });
+});
+
+describe('getIndexAttributes', () => {
+  async function build(): Promise<ProfilerCoreService> {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProfilerCoreService,
+        {
+          provide: ProfilerStorageService,
+          useValue: { setIndexAttributesProvider: jest.fn() },
+        },
+        { provide: CollectorRegistry, useValue: {} },
+        { provide: RouteCollector, useValue: { match: jest.fn() } },
+      ],
+    }).compile();
+    return moduleRef.get(ProfilerCoreService);
+  }
+
+  it('indexes the primary exception, so the exception filter can offer it', async () => {
+    const core = await build();
+    const profile = makeProfile();
+    profile.exceptions = [
+      { name: 'NotFoundException', message: 'nope', timestamp: 0 },
+      { name: 'TypeError', message: 'later', timestamp: 0 },
+    ];
+
+    expect(core.getIndexAttributes(profile)).toEqual({ exception: 'NotFoundException' });
+  });
+
+  // GraphQL flattens every error to `GraphQLError`; only the code discriminates.
+  it('prefers the error code over the class name', async () => {
+    const core = await build();
+    const profile = makeProfile();
+    profile.exceptions = [
+      { name: 'GraphQLError', message: 'nope', code: 'BAD_USER_INPUT', timestamp: 0 },
+    ];
+
+    expect(core.getIndexAttributes(profile)).toEqual({ exception: 'BAD_USER_INPUT' });
+  });
+
+  it('indexes nothing when the profile carries no exception', async () => {
+    const core = await build();
+    expect(core.getIndexAttributes(makeProfile())).toEqual({});
+  });
+});
 
 describe('ProfilerCoreService', () => {
   it('exposes the injected storage, collector registry and route collector', async () => {

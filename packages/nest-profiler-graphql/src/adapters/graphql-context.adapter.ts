@@ -193,15 +193,22 @@ export class GraphQLContextAdapter implements IContextAdapter {
       const errObj = err as Record<string, unknown> | null;
       if (!errObj || typeof errObj['message'] !== 'string') continue;
 
+      const extensions = errObj['extensions'] as Record<string, unknown> | undefined;
+      const code = extensions?.['code'];
+
       const entry: ExceptionEntry = {
+        // GraphQL answers `200` and flattens every failure into `errors`, so the class name
+        // carries no information — `extensions.code` is what actually discriminates, and it is
+        // what the error classification and the `exception` filter key on.
         name: 'GraphQLError',
         message: errObj['message'],
+        ...(typeof code === 'string' ? { code } : {}),
         timestamp: Date.now(),
       };
 
       const parts: string[] = [];
       if (errObj['locations']) parts.push(`Locations: ${JSON.stringify(errObj['locations'])}`);
-      if (errObj['extensions']) parts.push(`Extensions: ${JSON.stringify(errObj['extensions'])}`);
+      if (extensions) parts.push(`Extensions: ${JSON.stringify(extensions)}`);
       if (parts.length > 0) entry.stack = parts.join('\n');
 
       profile.exceptions.push(entry);

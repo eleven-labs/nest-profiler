@@ -15,6 +15,13 @@ export interface LogEntry {
 export interface ExceptionEntry {
   name: string;
   message: string;
+  /**
+   * Machine-readable error code, when the protocol carries one distinct from the class
+   * name — a GraphQL `extensions.code` (`BAD_USER_INPUT`, `INTERNAL_SERVER_ERROR`…). It is
+   * what the error classification and the `exception` list filter key on in preference to
+   * {@link name}, which GraphQL flattens to `GraphQLError` for every error alike.
+   */
+  code?: string;
   stack?: string;
   timestamp: number;
 }

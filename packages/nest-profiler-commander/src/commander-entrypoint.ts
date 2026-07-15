@@ -34,10 +34,17 @@ const commandStatusFilter: ProfilerListFilter<string> = {
  * The `command` entrypoint: CLI commands profiled via nest-commander render in
  * their own list table and on a dedicated "Command" detail tab (no
  * request/response tabs). Registered by {@link CommanderCollectorModule}.
+ *
+ * Alone among the kinds, it needs no error configuration: a command either exited zero or it
+ * did not, and nobody disagrees about which is a failure. So `isError` is fixed rather than
+ * resolved from an option, and the universal `Errors` checkbox is hidden — {@link
+ * commandStatusFilter} already offers exactly that choice, with a clearer name.
  */
 export const COMMAND_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   type: COMMAND_ENTRYPOINT_TYPE,
   label: 'Command',
+  hiddenFilters: ['error'],
+  isError: (profile: Profile<CommandInfo>) => profile.entrypoint.data.success === false,
   listSection: {
     title: 'Commands',
     description: 'CLI commands profiled via nest-commander',

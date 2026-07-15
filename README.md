@@ -36,7 +36,7 @@ A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profil
 
 The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
 
-![Profiler UI — profiles list with filters, HTTP statuses, durations and the global Config panel](docs/public/screenshots/profiler/profiles-list.png)
+![Profiler UI — the sidebar of views, the process-heap trend and the HTTP list with its filters](docs/public/screenshots/profiler/profiles-list.png)
 
 ## Packages
 

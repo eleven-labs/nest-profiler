@@ -6,12 +6,15 @@ import type {
   Profile,
   TagConfig,
   TaggableCollector,
+  TaggableEntry,
   TagSeverity,
 } from '@eleven-labs/nest-profiler';
 import {
   getCollectorEntries,
   maxTagSeverity,
   normalizeHttpFingerprint,
+  resolveEntryErrorClassifier,
+  resolveErrorSeverity,
 } from '@eleven-labs/nest-profiler';
 import type { HttpRequestEntry } from './http-request.interface';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
@@ -38,11 +41,16 @@ export class HttpClientCollector implements IProfilerCollector, TaggableCollecto
   readonly priority = 20;
   readonly tagDomain = 'http';
 
+  /** Resolved once: `getTagConfig()` runs on every profile, the options never change. */
+  private readonly isErrorEntry: (entry: TaggableEntry) => boolean;
+
   constructor(
     @Optional()
     @Inject(HTTP_COLLECTOR_OPTIONS)
     private readonly options: HttpCollectorModuleOptions = {},
-  ) {}
+  ) {
+    this.isErrorEntry = resolveEntryErrorClassifier(options.error);
+  }
 
   getBadgeValue(profile: Profile): string | null {
     const requests = this.entriesOf(profile);
@@ -86,6 +94,8 @@ export class HttpClientCollector implements IProfilerCollector, TaggableCollecto
       nPlusOneThreshold: this.options.nPlusOneThreshold ?? 2,
       chattyThreshold: this.options.chattyThreshold ?? 10,
       largePayloadThreshold: this.options.largePayloadThreshold ?? 1_048_576,
+      isErrorEntry: this.isErrorEntry,
+      errorSeverity: resolveErrorSeverity(this.options.error),
       slowSeverity: this.options.slowSeverity,
       nPlusOneSeverity: this.options.nPlusOneSeverity,
       chattySeverity: this.options.chattySeverity,

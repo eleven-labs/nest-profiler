@@ -16,8 +16,17 @@ export function parseLenientInt(raw: string | undefined): number | undefined {
  * Whether a filter belongs in a given section's filter bar. Universal filters
  * (no {@link ProfilerListFilter.forType}) apply everywhere; a scoped filter
  * applies only to the section(s) named by its `forType` (a single type or a set).
+ *
+ * `hiddenFilters` is the opt-out the other way round: a kind names the universal filters that
+ * are meaningless or redundant on its own list (see
+ * {@link ProfilerEntrypointType.hiddenFilters}).
  */
-export function filterAppliesToSection(filter: ProfilerListFilter, sectionKey: string): boolean {
+export function filterAppliesToSection(
+  filter: ProfilerListFilter,
+  sectionKey: string,
+  hiddenFilters?: readonly string[],
+): boolean {
+  if (hiddenFilters?.includes(filter.key)) return false;
   if (!filter.forType) return true;
   return Array.isArray(filter.forType)
     ? filter.forType.includes(sectionKey)

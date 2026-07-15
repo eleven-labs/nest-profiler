@@ -22,9 +22,9 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-rabbitmq` captures RabbitMQ messages consumed via `@RabbitSubscribe` (`@golevelup/nestjs-rabbitmq`) and surfaces each one as its own profile — a dedicated **RabbitMQ** table on the list page and a built-in **Message** detail tab.
+`@eleven-labs/nest-profiler-rabbitmq` captures RabbitMQ messages consumed via `@RabbitSubscribe` (`@golevelup/nestjs-rabbitmq`) and surfaces each one as its own profile — a dedicated **RabbitMQ** view on the profiler home and a built-in **Message** detail tab.
 
-![RabbitMQ list section — consumed messages with delivery, exchange, routing-key and handler filters](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq-list.png)
+![RabbitMQ view — consumed messages with delivery, exchange, routing-key and handler filters](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq-list.png)
 
 ![Message detail tab — a consumed review.created delivery with exchange, routing key, handler, delivery metadata and JSON payload](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq.png)
 
@@ -71,8 +71,13 @@ RabbitMqCollectorModule.forRoot({
   captureHeaders: true, // default — AMQP headers (sensitive ones masked)
   captureBody: true, // default — deserialized payload (can be large)
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
+  // What counts as a failed message. A message has no status code, so the default is
+  // simply "the handler threw" — narrow it when a handler throws as flow control.
+  error: { exceptions: ['TimeoutError'] },
 });
 ```
+
+`error` decides what earns the `error` tag and what the list's **Errors** filter keeps. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification). Use `forRootAsync` to resolve any of these from `ConfigService`.
 
 > **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
@@ -95,7 +100,7 @@ The masked headers and the payload are stored on `entrypoint.data.headers` / `en
 
 ## How it works
 
-A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` execution context that **creates** a fresh profile per message. The core `ProfilerInterceptor` wraps the handler in a CLS context — so profile-scoped collectors (HTTP client, database, …) keep capturing — then persists the profile. The module registers the `rabbitmq` entrypoint type, so the profiler renders it in a dedicated **RabbitMQ** list table (filterable via the **Type** filter) and a built-in **Message** detail tab; the HTTP Request/Response tabs are hidden, exactly like CLI commands.
+A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` execution context that **creates** a fresh profile per message. The core `ProfilerInterceptor` wraps the handler in a CLS context — so profile-scoped collectors (HTTP client, database, …) keep capturing — then persists the profile. The module registers the `rabbitmq` entrypoint type, so the profiler renders it in a dedicated **RabbitMQ** sidebar view and a built-in **Message** detail tab; the HTTP Request/Response tabs are hidden, exactly like CLI commands.
 
 ---
 

@@ -159,6 +159,10 @@ export class ProfilingModule {
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
             ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
+            // What counts as a failed request. The default (5xx, so a 404 is an answer rather
+            // than an error) is what most apps want; this demo also flags 429 to show that a
+            // predicate can pick out individual statuses.
+            error: { httpStatus: (statusCode) => statusCode >= 500 || statusCode === 429 },
           }),
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),

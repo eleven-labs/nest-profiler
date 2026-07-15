@@ -1,0 +1,145 @@
+---
+title: What counts as an error
+description: Define what a failure means for each entrypoint kind — HTTP status codes, GraphQL error codes, message handlers, exit codes — and drive the error tag and the Errors filter from your own definition.
+seo:
+  title: Configure what counts as an error
+  description: 'The profiler ships no universal definition of failure: 4xx are answers, not errors, by default. Configure per package — HTTP status thresholds, GraphQL extensions.code, RabbitMQ exception lists, or a custom predicate — and the error tag, the Errors checkbox and the pills all follow.'
+---
+
+Not everyone agrees on what an "error" is. A `404` is a bug for one team and an ordinary answer for another; a `401` is routine on a public API and an incident on an internal one. So the profiler ships **no universal definition** — each entrypoint kind carries its own, and you can redefine it.
+
+That definition drives everything failure-related: the `error` tag, its pill in the panels and the list, and the **Errors** checkbox on the list page.
+
+## The defaults
+
+| Kind       | A profile is an error when…                                                                      | Configured on                                |
+| ---------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `http`     | The response status is **≥ 500** — or an exception was captured and no status was recorded       | `ProfilerModule.forRoot({ error })`          |
+| `graphql`  | An error in `errors` carries `extensions.code: INTERNAL_SERVER_ERROR`, or carries no code at all | `GraphQLCollectorModule.forRoot({ error })`  |
+| `rabbitmq` | The handler threw                                                                                | `RabbitMqCollectorModule.forRoot({ error })` |
+| `command`  | The command exited non-zero                                                                      | Not configurable — see below                 |
+
+Outgoing calls your app _makes_ are judged separately, per entry: an outgoing call is failed when it threw or answered **≥ 500** (`HttpCollectorModule.forRoot({ error })`).
+
+<Callout type="info">
+  **4xx are not errors by default.** `401`, `403`, `404` and friends mean your application answered correctly. If yours treats them as failures, one line brings them back: `ProfilerModule.forRoot({ error: { httpStatus: 400 } })`.
+</Callout>
+
+## Configuring it
+
+The option is the same shape everywhere. Its layers are resolved in order, and **the first that applies is decisive**:
+
+1. `classify` — return a boolean to settle it, `undefined` to defer to the layers below.
+2. `httpStatus` — when the profile carries a status, that status decides **on its own**.
+3. `exceptions` — the fallback for kinds carrying no status.
+
+Layer 2 being decisive is what keeps the defaults coherent: a `NotFoundException` produces _both_ a captured exception and a `404`, so if the exceptions were also consulted they would contradict the status and re-flag the very 404 you excluded. For a kind that answers with a status, the status _is_ the verdict.
+
+```ts
+// Count 4xx as errors too.
+ProfilerModule.forRoot({ error: { httpStatus: 400 } });
+
+// Anything but a 404 — that one is expected here.
+ProfilerModule.forRoot({ error: { httpStatus: (code) => code >= 400 && code !== 404 } });
+
+// A teapot is an incident; everything else keeps the default.
+ProfilerModule.forRoot({
+  error: {
+    classify: ({ statusCode }) => (statusCode === 418 ? true : undefined),
+  },
+});
+```
+
+### GraphQL
+
+A GraphQL response is `200` even when the operation failed — the failure lives in the `errors` array. Statuses therefore say nothing here, and `extensions.code` takes their role: it is GraphQL's equivalent of a status code.
+
+By default only `INTERNAL_SERVER_ERROR` counts, plus any error carrying no code (an unmapped throw is a genuine failure). `BAD_REQUEST` — what the Nest Apollo driver emits when validation rejects a mutation — along with `BAD_USER_INPUT`, `UNAUTHENTICATED`, `FORBIDDEN` and `NOT_FOUND`, is the schema answering correctly: GraphQL's 4xx.
+
+The code is shown as a badge next to the error on the **Exceptions** tab, and it is what the **Exception** filter lists — GraphQL names every error `GraphQLError`, so the code is the only thing that tells them apart.
+
+```ts
+// Here, a failed login is an incident worth surfacing.
+GraphQLCollectorModule.forRoot({
+  error: { codes: ['INTERNAL_SERVER_ERROR', 'UNAUTHENTICATED'] },
+});
+```
+
+### RabbitMQ
+
+A consumed message has no status code, so the verdict rests on whether the handler threw.
+
+```ts
+// A handler that throws to trigger a retry is not an incident; a timeout is.
+RabbitMqCollectorModule.forRoot({ error: { exceptions: ['TimeoutError'] } });
+
+// Or decide from the message itself.
+RabbitMqCollectorModule.forRoot({
+  error: { classify: ({ profile }) => profile.entrypoint.data.redelivered === true },
+});
+```
+
+### Outgoing HTTP calls
+
+The calls your app makes are judged one by one, independently of whether the incoming request that made them is itself considered failed.
+
+```ts
+// Any non-2xx from our upstreams is a problem worth flagging.
+HttpCollectorModule.forRoot({ error: { httpStatus: 400 } });
+```
+
+### Commands
+
+`command` is the one kind with nothing to configure: a command either exited zero or it did not, and nobody disagrees about which is a failure. Its list also hides the **Errors** checkbox, since the `Status: Success/Failed` filter already asks exactly that question under a clearer name.
+
+## Errors vs Exception: two different questions
+
+The list page offers both, and they are complementary:
+
+- The **Errors** checkbox asks _"what failed?"_ — your configured verdict. With the defaults, a `404` is not kept even though its `NotFoundException` was captured.
+- The **Exception** select asks _"show me the `NotFoundException`s"_ — the failure type actually captured, whether or not it counts as an error. Its options are not a fixed list: they are the values present in your store, so each list offers only what it has really seen. For GraphQL it offers error codes rather than class names, since every GraphQL error is a `GraphQLError`.
+
+## Severity
+
+The `error` tag is `danger` by default. Like every other tag, its severity is configurable — and lowering it re-colours the pill and the collector tab consistently:
+
+```ts
+ProfilerModule.forRoot({ error: { severity: 'warning' } });
+```
+
+## Reference
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="ProfilerErrorOptions"
+/>
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="EntryErrorOptions"
+/>
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="ProfileErrorInfo"
+/>
+
+## Custom entrypoint kinds
+
+A kind you contribute yourself declares its own verdict on its `ProfilerEntrypointType`. Build the predicate with `resolveProfileErrorClassifier` so your users get the same layered option shape for free:
+
+```ts
+import { resolveProfileErrorClassifier, resolveErrorSeverity } from '@eleven-labs/nest-profiler';
+import type { ProfilerEntrypointType, ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
+
+export function buildCronEntrypointType(error?: ProfilerErrorOptions): ProfilerEntrypointType {
+  return {
+    ...CRON_ENTRYPOINT_TYPE_DEF,
+    // A cron job carries no status: the job throwing is the signal.
+    isError: resolveProfileErrorClassifier(error, { httpStatus: false }),
+    errorSeverity: resolveErrorSeverity(error),
+    // Hide a universal filter that is redundant on this kind's list.
+    hiddenFilters: [],
+  };
+}
+```

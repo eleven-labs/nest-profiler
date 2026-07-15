@@ -6,7 +6,7 @@ seo:
   description: 'A step-by-step guide to profiling RabbitMQ messages consumed via @RabbitSubscribe and inspecting their routing key, payload and timing in the web profiler, from install to live inspection.'
 ---
 
-This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile - with a **Message** panel plus any HTTP, cache, or database activity the handler triggered - that appears in a dedicated **RabbitMQ** table at `/_profiler`.
+This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile - with a **Message** panel plus any HTTP, cache, or database activity the handler triggered - that appears in a dedicated **RabbitMQ** view at `/_profiler`.
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ export class NarrationService {
 
 ## Step 4 - Inspect the profile
 
-Publish a message (or trigger your normal flow) and open `/_profiler`. Messages appear in a dedicated **RabbitMQ** table - separate from the HTTP/GraphQL and Commands tables - and you can isolate them with the **Type** filter (choose _RabbitMQ_). Open one to find:
+Publish a message (or trigger your normal flow) and open `/_profiler`, then pick **RabbitMQ** in the sidebar. Messages get their own view, with a filter bar of their own. Open one to find:
 
 - **Message** - exchange, routing key, handler, redelivered flag, consumer/delivery tags, headers and payload (the HTTP request/response tabs are hidden)
 - **HTTP Client**, **Database**, … - whatever the handler triggered
@@ -130,4 +130,4 @@ ConditionalModule.registerWhen(
 
 ## How it works
 
-A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list table and **Message** detail tab). See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.
+A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list view and **Message** detail tab). See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.

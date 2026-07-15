@@ -24,7 +24,7 @@
 
 `@eleven-labs/nest-profiler-commander` profiles CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/) — the console equivalent of Symfony's command profiling. Every command run produces a profile that shows up in the web profiler at `/_profiler`, in a dedicated **Commands** table and with a built-in **Command** tab, plus any HTTP, cache, or database activity the command triggered.
 
-![Commands list — every profiled CLI command in a dedicated table with its status, exit code and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command-list.png)
+![Commands view — every profiled CLI command with its status, exit code and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command-list.png)
 
 ![Command tab — a profiled nest-commander run with its arguments, options and exit code](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command.png)
 

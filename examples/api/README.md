@@ -186,7 +186,7 @@ AppModule (no controller — only global forRoot + feature modules)
 │     └── ArticleFetchModule    [HTTP_CLIENT=fetch]          → HttpCollectorModule (FetchInstrumentation)
 ├── AuthModule               → AuthCollectorModule (nest-profiler-auth)
 ├── HealthModule             → GET /health
-├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/error + demo:greet CLI
+├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
 └── ReviewsModule [FEATURE_MONGOOSE]  → MongooseCollectorModule (nest-profiler-mongoose)
       └── publishes review.created via the EventPublisher port:
           ├── NotificationsRabbitMqModule [FEATURE_RABBITMQ] → RabbitMqCollectorModule + consumer
@@ -286,11 +286,13 @@ All business routes are served under the global prefix **`/api/v1`**. Only `GET 
 
 ### Health (`HealthModule`) & Diagnostics (`DiagnosticsModule`)
 
-| Endpoint            | Collector demo | Description                                 |
-| ------------------- | -------------- | ------------------------------------------- |
-| `GET /health`       | Logs           | Health check with timestamp                 |
-| `GET /api/v1/slow`  | Timeline       | 3 nested spans: fetch → process → serialize |
-| `GET /api/v1/error` | Exceptions     | Throws `BadRequestException`                |
+| Endpoint            | Collector demo | Description                                              |
+| ------------------- | -------------- | -------------------------------------------------------- |
+| `GET /health`       | Logs           | Health check with timestamp                              |
+| `GET /api/v1/slow`  | Timeline       | 3 nested spans: fetch → process → serialize              |
+| `GET /api/v1/crash` | Exceptions     | Throws a 500 — tagged `error`, kept by the Errors filter |
+
+There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nestjs-profiler-module.vercel.app/en/docs/packages/nest-profiler/error-classification).
 
 ### Catalog (`CatalogModule` → active SQL ORM + GraphQL)
 

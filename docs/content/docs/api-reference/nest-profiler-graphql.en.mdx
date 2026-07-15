@@ -8,10 +8,10 @@ seo:
 
 ## GraphQLCollectorModuleOptions
 
-Options passed to `GraphQLCollectorModule.forRoot()`.
+Options passed to `GraphQLCollectorModule.forRoot()` / `forRootAsync()`.
 
 <AutoTypeTable
-  path="packages/nest-profiler-graphql/src/graphql-collector.module.ts"
+  path="packages/nest-profiler-graphql/src/graphql-collector.interface.ts"
   name="GraphQLCollectorModuleOptions"
 />
 
@@ -104,6 +104,6 @@ import {
 import type { GraphQLCollectorModuleOptions } from '@eleven-labs/nest-profiler-graphql';
 ```
 
-There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.

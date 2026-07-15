@@ -1,10 +1,14 @@
-import { BadRequestException, Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 
 /**
- * Artificial endpoints that showcase profiler features (nested timeline spans, exception capture).
+ * Artificial endpoints that showcase profiler features (nested timeline spans, a server failure).
  * Not real business logic — kept together as a diagnostics surface for the demo.
+ *
+ * There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid
+ * `POST /api/v1/products` already produces a real 400 with a captured exception, which is a
+ * truer demo than an artificial one.
  */
 @ApiTags('diagnostics')
 @Controller()
@@ -36,11 +40,13 @@ export class DiagnosticsController {
     return { message: 'Slow operation completed — check the Timeline panel in /_profiler' };
   }
 
-  @Get('error')
-  @ApiOperation({ summary: 'Throws a BadRequestException — tests the profiler exception capture' })
-  @ApiResponse({ status: 400, description: 'Simulated error for profiler testing' })
-  throwError(): never {
-    this.logger.error('Simulated error endpoint hit');
-    throw new BadRequestException('This is a simulated error for profiler testing');
+  @Get('crash')
+  @ApiOperation({
+    summary: 'Throws a 500 — the profiler tags it `error` and the Errors filter keeps it',
+  })
+  @ApiResponse({ status: 500, description: 'Simulated server failure for profiler testing' })
+  crash(): never {
+    this.logger.error('Simulated crash endpoint hit');
+    throw new InternalServerErrorException('This is a simulated crash for profiler testing');
   }
 }

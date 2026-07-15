@@ -3,9 +3,11 @@ import type {
   EntrypointSummary,
   Profile,
   ProfilerEntrypointType,
+  ProfilerErrorOptions,
   ProfilerListFilter,
   SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
+import { resolveErrorSeverity, resolveProfileErrorClassifier } from '@eleven-labs/nest-profiler';
 import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
 
@@ -78,10 +80,14 @@ const routingKeyFilter: ProfilerListFilter<string> = {
  * The `rabbitmq` entrypoint: messages consumed via `@RabbitSubscribe` render in
  * their own list table and on a dedicated "Message" detail tab (no
  * request/response tabs). Registered by {@link RabbitMqCollectorModule}.
+ *
+ * Carries the default error classification; {@link RabbitMqCollectorModule} registers a
+ * configured one via {@link buildRabbitMqEntrypointType}.
  */
 export const RABBITMQ_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   type: RABBITMQ_ENTRYPOINT_TYPE,
   label: 'RabbitMQ',
+  isError: resolveProfileErrorClassifier(),
   listSection: {
     title: 'RabbitMQ',
     description: 'RabbitMQ messages consumed via @RabbitSubscribe',
@@ -116,3 +122,21 @@ export const RABBITMQ_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
     };
   },
 };
+
+/**
+ * The RabbitMQ entrypoint with a host-supplied error classification.
+ *
+ * A consumed message carries no status code, so the verdict rests entirely on whether the
+ * handler threw — the default. Narrow it to the exceptions that matter
+ * (`error: { exceptions: ['TimeoutError'] }`) when a handler throws routinely as flow control,
+ * or take over with `classify` to read the payload or the redelivery flag.
+ *
+ * @param error - What counts as a failed message, from `RabbitMqCollectorModuleOptions.error`.
+ */
+export function buildRabbitMqEntrypointType(error?: ProfilerErrorOptions): ProfilerEntrypointType {
+  return {
+    ...RABBITMQ_ENTRYPOINT_TYPE_DEF,
+    isError: resolveProfileErrorClassifier(error),
+    errorSeverity: resolveErrorSeverity(error),
+  };
+}

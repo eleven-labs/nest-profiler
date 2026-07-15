@@ -1,4 +1,6 @@
 import * as path from 'path';
+import type { ProfilerErrorOptions } from '../analysis/profiler-error';
+import { resolveErrorSeverity, resolveProfileErrorClassifier } from '../analysis/profiler-error';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import { HELPERS } from '../views/template-engine';
@@ -35,13 +37,15 @@ const RESPONSE_ICON =
  * (`isDefault`): any profile whose `entrypoint.type` matches no registered type
  * renders here. GraphQL rides on HTTP but is its own entrypoint kind, contributed
  * by `@eleven-labs/nest-profiler-graphql` with its own list table and detail tab.
+ *
+ * Carries the default error classification; `ProfilerModule` registers a configured one via
+ * {@link buildHttpEntrypointType}.
  */
 export const HTTP_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   type: HTTP_ENTRYPOINT_TYPE,
   label: 'HTTP',
   isDefault: true,
-  // The `http` option is seeded directly on the built-in `type` filter, so no
-  // `typeFilterOption` is contributed here.
+  isError: resolveProfileErrorClassifier(),
   listSection: {
     title: 'HTTP',
     description: 'HTTP requests captured by the profiler',
@@ -73,3 +77,18 @@ export const HTTP_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
     };
   },
 };
+
+/**
+ * The HTTP entrypoint with a host-supplied error classification.
+ *
+ * @param error - What counts as a failed request, from `ProfilerModuleOptions.error`. Defaults
+ *   to a 5xx status, or a captured exception when no status was recorded — so 4xx like
+ *   `401`/`404` are answers, not errors. Pass `{ httpStatus: 400 }` to count them.
+ */
+export function buildHttpEntrypointType(error?: ProfilerErrorOptions): ProfilerEntrypointType {
+  return {
+    ...HTTP_ENTRYPOINT_TYPE_DEF,
+    isError: resolveProfileErrorClassifier(error),
+    errorSeverity: resolveErrorSeverity(error),
+  };
+}
