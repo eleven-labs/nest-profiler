@@ -76,12 +76,15 @@ describe('template rendering — XSS regression', () => {
   });
 
   describe('detail — exceptions tab', () => {
-    it('escapes a hostile exception name, message and stack', async () => {
+    it('escapes a hostile exception name, message, code and stack', async () => {
       const profile = baseProfile();
       profile.exceptions = [
         {
           name: `Error${SCRIPT}`,
           message: `boom ${SCRIPT}`,
+          // `code` comes straight from a GraphQL response's `extensions.code`, which an
+          // upstream/federated service controls — it is as untrusted as the message.
+          code: `CODE${SCRIPT}`,
           stack: `at ${SCRIPT}\n  at handler`,
           timestamp: Date.now(),
         },
@@ -105,6 +108,23 @@ describe('template rendering — XSS regression', () => {
 
       expect(html).toContain('TypeError');
       expect(html).toContain('Cannot read properties of undefined');
+    });
+
+    // The Exception filter offers the code, so the card must show it — GraphQL names every
+    // error `GraphQLError`, leaving nothing else to tie the filtered row back to.
+    it('shows the error code as a badge when the exception carries one', async () => {
+      const profile = baseProfile();
+      profile.exceptions = [
+        {
+          name: 'GraphQLError',
+          message: 'Bad Request',
+          code: 'BAD_REQUEST',
+          timestamp: Date.now(),
+        },
+      ];
+      const html = await service.render('detail', detailData({ activeTab: 'exceptions', profile }));
+
+      expect(html).toContain('BAD_REQUEST');
     });
   });
 

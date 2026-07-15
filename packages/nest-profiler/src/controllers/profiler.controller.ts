@@ -222,10 +222,11 @@ export class ProfilerController {
 
     // Resolve the section's filter bar, filling dynamic `select` options from the
     // store's distinct values for filters that declare a `distinctField`.
+    const { hiddenFilters } = this.core.getEntrypointType(section.key);
     const filterDefs = await Promise.all(
       this.core
         .getListFilters()
-        .filter((f) => filterAppliesToSection(f, section.key))
+        .filter((f) => filterAppliesToSection(f, section.key, hiddenFilters))
         .map((f) => this.resolveFilterOptions(f, constraint.typeIn)),
     );
 

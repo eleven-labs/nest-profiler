@@ -34,6 +34,15 @@ export interface TagConfig {
   chattyThreshold?: number;
   /** A request/response body at or above this size (bytes) is tagged `large-payload`. */
   largePayloadThreshold?: number;
+  /**
+   * Whether one of this collector's entries counts as a failure — an outgoing call that threw
+   * or answered 5xx, a query that errored. Already resolved from the collector's own
+   * `error` option via {@link resolveEntryErrorClassifier}; when absent the engine applies the
+   * same defaults (an `error` on the entry, or a status ≥ 500).
+   */
+  isErrorEntry?: (entry: TaggableEntry) => boolean;
+  /** Severity of the `error` tag on this collector's entries. Default: `danger`. */
+  errorSeverity?: TagSeverity;
   /** Severity of the `slow` tag. Default: `warning`. */
   slowSeverity?: TagSeverity;
   /** Severity of the `n-plus-one` tag. Default: `danger`. */

@@ -43,8 +43,12 @@ interface RabbitMqCollectorModuleOptions {
   captureBody?: boolean;
   /** Extra header names (lowercase) to mask, merged with the built-in list. */
   maskHeaders?: string[];
+  /** What counts as a failed message. Default: the handler threw. */
+  error?: ProfilerErrorOptions;
 }
 ```
+
+A consumed message carries no status code, so `error` rests on whether the handler threw — narrow it to the exceptions that matter, or take over with `classify`. See [What counts as an error](/docs/packages/nest-profiler/error-classification).
 
 Gate the module per environment with `ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot({ … }), isProfilerEnabled)` — the same pattern used for every profiler module.
 

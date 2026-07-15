@@ -103,14 +103,39 @@ const tagFilter: ProfilerListFilter<string> = {
 };
 
 /**
- * Keeps only profiles that carry the `error` tag — a failed call (an entry error or
- * an HTTP status ≥ 400) or an unhandled exception. Kept separate from the performance
- * tag select since an error is a failure, not a performance issue; replaces the former
- * "with exceptions" checkbox (now broader: it also covers failed HTTP/query calls).
+ * Narrows the list to one failure type — the exception class actually captured
+ * (`NotFoundException`, `TypeError`) or, where the protocol carries one, its error code (a
+ * GraphQL `BAD_USER_INPUT`). The options are the distinct values present in the store, scoped
+ * to the section's kind, so each list offers only what it has really seen.
+ *
+ * Complements {@link errorFilter} rather than duplicating it: the checkbox answers "what failed,
+ * per my definition of failure" — which is configurable and may well exclude a captured
+ * `NotFoundException` — while this select answers "show me the `NotFoundException`s",
+ * independently of whether they count as errors.
+ */
+const exceptionFilter: ProfilerListFilter<string> = {
+  key: 'exception',
+  label: 'Exception',
+  control: 'select',
+  order: 84,
+  distinctField: 'attributes.exception',
+  parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
+  toCriterion: (value) => ({ field: 'attributes.exception', op: 'eq', value }),
+};
+
+/**
+ * Keeps only profiles that carry the `error` tag — a failure per the entrypoint kind's own
+ * definition (a 5xx for HTTP, an `INTERNAL_SERVER_ERROR` for GraphQL, a non-zero exit for a
+ * command), or a failed call among the profile's collected entries. What counts is configurable
+ * per package via its `error` option, so this checkbox follows the host's definition rather than
+ * imposing one.
+ *
+ * Kept separate from the performance tag select since a failure is not a performance issue. A
+ * kind whose list already carries an equivalent control hides it via `hiddenFilters`.
  */
 const errorFilter: ProfilerListFilter<boolean> = {
   key: 'error',
-  label: 'With errors',
+  label: 'Errors',
   control: 'checkbox',
   order: 85,
   // Checked boxes submit '1'; unchecked submit nothing — undefined keeps the filter inactive.
@@ -133,5 +158,6 @@ export const BUILTIN_LIST_FILTERS: ProfilerListFilter[] = [
   minDurationFilter,
   maxDurationFilter,
   tagFilter,
+  exceptionFilter,
   errorFilter,
 ];

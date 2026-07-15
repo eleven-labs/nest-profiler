@@ -1,6 +1,6 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { distinctInMemory, matchesCriterion, summarizeProfile } from '@eleven-labs/nest-profiler';
-import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
+import { buildRabbitMqEntrypointType, RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
 import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
 
@@ -29,6 +29,51 @@ function applies(key: string, value: string, profile: Profile): boolean {
 function distinctFor(field: string, profiles: Profile[]): (string | number | boolean)[] {
   return distinctInMemory(profiles, field, attrs).sort();
 }
+
+const MESSAGE: RabbitMqInfo = {
+  exchange: 'events',
+  routingKey: 'book.published',
+  redelivered: false,
+};
+
+/** A consumed message whose handler threw. */
+function makeFailedProfile(name = 'TimeoutError'): Profile {
+  const profile = makeProfile(MESSAGE);
+  profile.exceptions = [{ name, message: 'boom', timestamp: 0 }];
+  return profile;
+}
+
+describe('error classification', () => {
+  // A message carries no status code, so the handler throwing is the only signal available.
+  it('counts a message whose handler threw', () => {
+    expect(buildRabbitMqEntrypointType().isError!(makeFailedProfile())).toBe(true);
+  });
+
+  it('does not count a message consumed cleanly', () => {
+    expect(buildRabbitMqEntrypointType().isError!(makeProfile(MESSAGE))).toBe(false);
+  });
+
+  it('can be narrowed to the exceptions that matter', () => {
+    const type = buildRabbitMqEntrypointType({ exceptions: ['TimeoutError'] });
+    expect(type.isError!(makeFailedProfile('TimeoutError'))).toBe(true);
+    // A handler that throws as flow control (to trigger a retry) is not an incident.
+    expect(type.isError!(makeFailedProfile('RetryLaterError'))).toBe(false);
+  });
+
+  it('can decide from the message payload via classify', () => {
+    const type = buildRabbitMqEntrypointType({
+      classify: ({ profile }) => (profile.entrypoint.data as RabbitMqInfo).redelivered === true,
+    });
+    const redelivered = makeProfile({ ...MESSAGE, redelivered: true });
+    expect(type.isError!(redelivered)).toBe(true);
+    expect(type.isError!(makeProfile(MESSAGE))).toBe(false);
+  });
+
+  it('honours a host-supplied severity, defaulting to danger', () => {
+    expect(buildRabbitMqEntrypointType().errorSeverity).toBe('danger');
+    expect(buildRabbitMqEntrypointType({ severity: 'info' }).errorSeverity).toBe('info');
+  });
+});
 
 describe('RABBITMQ_ENTRYPOINT_TYPE_DEF', () => {
   it('describes the rabbitmq entrypoint type', () => {

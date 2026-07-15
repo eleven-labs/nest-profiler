@@ -1,6 +1,10 @@
 import type { PerformanceRule } from './performance-rule.interface';
+import { resolveEntryErrorClassifier } from './profiler-error';
 import { BUILTIN_TAG_IDS } from './profiler-tag.interface';
 import type { TaggableEntry } from './taggable-collector.interface';
+
+/** Applied to collectors that expose no `isErrorEntry`: an entry error, or a status ≥ 500. */
+const defaultEntryIsError = resolveEntryErrorClassifier();
 
 /** Fallback `chattyThreshold` when a collector exposes none, per domain. */
 const DEFAULT_CHATTY_THRESHOLD: Record<string, number> = { query: 20, http: 10 };
@@ -80,33 +84,39 @@ export const nPlusOneRule: PerformanceRule = {
 };
 
 /**
- * Flags failed calls — any entry carrying an `error`, or an HTTP entry with a
- * status ≥ 400 — and tags the profile when it carries unhandled exceptions. This
- * unifies the former dedicated "exceptions" list filter into the tag system.
+ * Flags failures, at both levels — the entries a collector captured (an outgoing call that
+ * threw or answered 5xx, a query that errored) and the profile itself.
+ *
+ * Unlike every other rule here, "failure" has no protocol-agnostic definition: HTTP reasons in
+ * status codes, GraphQL in `extensions.code`, a command in its exit code. So this rule owns no
+ * criteria of its own — each collector supplies {@link TagConfig.isErrorEntry} and each
+ * entrypoint kind supplies {@link PerformanceRuleContext.isProfileError}, both resolved from
+ * that package's `error` option. The rule only applies the verdict.
  */
 export const errorRule: PerformanceRule = {
   id: BUILTIN_TAG_IDS.error,
   evaluate(ctx) {
-    for (const { entries } of ctx.collectors) {
+    for (const { entries, config } of ctx.collectors) {
+      const isError = config.isErrorEntry ?? defaultEntryIsError;
       for (const entry of entries) {
+        if (!isError(entry)) continue;
         const statusCode = (entry as HttpLikeEntry).statusCode;
-        const failed = entry.error != null || (typeof statusCode === 'number' && statusCode >= 400);
-        if (failed) {
-          ctx.tagEntry(entry, {
-            id: BUILTIN_TAG_IDS.error,
-            label: 'Error',
-            severity: 'danger',
-            detail: entry.error ?? `HTTP ${statusCode}`,
-          });
-        }
+        ctx.tagEntry(entry, {
+          id: BUILTIN_TAG_IDS.error,
+          label: 'Error',
+          severity: config.errorSeverity ?? 'danger',
+          detail: entry.error ?? (statusCode !== undefined ? `HTTP ${statusCode}` : 'Failed'),
+        });
       }
     }
-    if (ctx.profile.exceptions.length > 0) {
+    if (ctx.isProfileError()) {
       ctx.tagProfile({
         id: BUILTIN_TAG_IDS.error,
         label: 'Error',
-        severity: 'danger',
-        count: ctx.profile.exceptions.length,
+        severity: ctx.profileErrorSeverity,
+        // A kind can fail without an exception (a bare 500), so an absent count means
+        // "failed", not "zero failures" — `upsertTag` keeps the highest count seen.
+        ...(ctx.profile.exceptions.length > 0 ? { count: ctx.profile.exceptions.length } : {}),
       });
     }
   },

@@ -3,6 +3,7 @@ import type { CanActivate, ConfigurableModuleAsyncOptions, Type } from '@nestjs/
 import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
 import type { ProfilerRequestFilter } from './filters';
 import type { PerformanceRule } from './analysis/performance-rule.interface';
+import type { ProfilerErrorOptions } from './analysis/profiler-error';
 import type { PlatformRequest, PlatformResponse } from './types/http';
 
 /**
@@ -177,6 +178,22 @@ export interface ProfilerModuleOptions {
 
   /** Performance-tagging configuration (custom rules for the N+1/slow engine). */
   performance?: ProfilerPerformanceOptions;
+
+  /**
+   * What counts as a **failed HTTP request** — what earns the `error` tag and what the list's
+   * `Errors` filter keeps. Default: a 5xx status, or a captured exception when no status was
+   * recorded; 4xx like `401`/`403`/`404` are answers, not errors.
+   *
+   * ```ts
+   * ProfilerModule.forRoot({ error: { httpStatus: 400 } }); // count 4xx too
+   * ```
+   *
+   * This governs the built-in `http` kind only. Every other kind carries its own definition,
+   * configured on its own package — `GraphQLCollectorModule.forRoot({ error })`,
+   * `RabbitMqCollectorModule.forRoot({ error })` — since a status code means nothing to them.
+   * Outgoing HTTP calls are judged separately, via `HttpCollectorModule.forRoot({ error })`.
+   */
+  error?: ProfilerErrorOptions;
 }
 
 /** Configuration for the performance-tagging rule engine ({@link analyzeProfile}). */

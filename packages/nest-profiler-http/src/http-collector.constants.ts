@@ -1,6 +1,6 @@
 import { ConfigurableModuleBuilder, Type } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { TagSeverity } from '@eleven-labs/nest-profiler';
+import type { EntryErrorOptions, TagSeverity } from '@eleven-labs/nest-profiler';
 import type { HttpCaptureOptions } from './http-request.interface';
 import type { HttpInstrumentation } from './http-instrumentation.interface';
 
@@ -37,6 +37,21 @@ export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
 
   /** Severity of the `large-payload` tag. Default: `warning`. */
   largePayloadSeverity?: TagSeverity;
+
+  /**
+   * What counts as a **failed outgoing call**. Default: the call threw (a network error, a
+   * timeout) or answered with a status ≥ 500 — a 404 from an API you call is an answer, not a
+   * failure of the call.
+   *
+   * ```ts
+   * // Any non-2xx from our upstreams is a problem worth flagging.
+   * HttpCollectorModule.forRoot({ error: { httpStatus: 400 } });
+   * ```
+   *
+   * Judges the calls this collector captures, independently of whether the incoming request
+   * that made them is itself considered failed (`ProfilerModule.forRoot({ error })`).
+   */
+  error?: EntryErrorOptions;
 
   /**
    * The HTTP-client instrumentations to install. Nothing is instrumented unless a client is

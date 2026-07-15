@@ -7,6 +7,7 @@
     "browsing-profiles",
     "collectors",
     "performance-tags",
+    "error-classification",
     "extending-the-ui",
     "context-adapters",
     "storage",

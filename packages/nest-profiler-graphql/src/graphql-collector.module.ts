@@ -1,24 +1,42 @@
-import { Module, Optional } from '@nestjs/common';
+import { Inject, Module, Optional } from '@nestjs/common';
 import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
+import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
 import { GraphqlRouteSource } from './graphql-route-source';
-import { GRAPHQL_ENTRYPOINT_TYPE_DEF } from './graphql-entrypoint';
+import { buildGraphqlEntrypointType } from './graphql-entrypoint';
+import {
+  ConfigurableModuleClass,
+  GRAPHQL_COLLECTOR_OPTIONS,
+  type GraphQLCollectorModuleOptions,
+  type GraphQLCollectorModuleAsyncOptions,
+} from './graphql-collector.interface';
 
-export interface GraphQLCollectorModuleOptions {
-  /** Enable GraphQL profiling. Default: `true`. */
-  enabled?: boolean;
-}
+export type {
+  GraphQLCollectorModuleOptions,
+  GraphQLCollectorModuleAsyncOptions,
+} from './graphql-collector.interface';
+
+// The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
+// the single, supported registration mechanism.
+const SHAPE: CollectorModuleShape = {
+  providers: [GraphQLContextAdapter, GraphqlRouteSource],
+};
 
 @Module({})
-export class GraphQLCollectorModule implements OnModuleInit {
+export class GraphQLCollectorModule extends ConfigurableModuleClass implements OnModuleInit {
   constructor(
     private readonly moduleRef: ModuleRef,
     // @Optional() so the module does not throw when forRoot({ enabled: false }) omits providers
-    @Optional() private readonly adapter: GraphQLContextAdapter,
-    @Optional() private readonly routeSource: GraphqlRouteSource,
-  ) {}
+    @Optional() private readonly adapter?: GraphQLContextAdapter,
+    @Optional() private readonly routeSource?: GraphqlRouteSource,
+    @Optional()
+    @Inject(GRAPHQL_COLLECTOR_OPTIONS)
+    private readonly options: GraphQLCollectorModuleOptions = {},
+  ) {
+    super();
+  }
 
   onModuleInit(): void {
     if (!this.adapter) return;
@@ -29,7 +47,7 @@ export class GraphQLCollectorModule implements OnModuleInit {
       core.registerContextAdapter(this.adapter);
       // Render GraphQL operations in their own list table and detail tab, and add
       // the "GraphQL" option to the list page's "Type" filter.
-      core.registerEntrypointType(GRAPHQL_ENTRYPOINT_TYPE_DEF);
+      core.registerEntrypointType(buildGraphqlEntrypointType(this.options.error));
       // Contribute a GraphQL group to the Routes panel (rendered only if that package is installed).
       if (this.routeSource) core.registerRouteSource(this.routeSource);
     } catch {
@@ -38,12 +56,14 @@ export class GraphQLCollectorModule implements OnModuleInit {
   }
 
   static forRoot(options: GraphQLCollectorModuleOptions = {}): DynamicModule {
-    if (options.enabled === false) return { module: GraphQLCollectorModule };
-    return {
-      module: GraphQLCollectorModule,
-      // The adapter registers itself with the core in onModuleInit via
-      // registerContextAdapter() — that is the single, supported registration mechanism.
-      providers: [GraphQLContextAdapter, GraphqlRouteSource],
-    };
+    return buildCollectorModule(super.forRoot(options), options, SHAPE);
+  }
+
+  /**
+   * Async variant — resolve the options (e.g. which `error` codes count as a failure) from DI
+   * such as `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
+   */
+  static forRootAsync(options: GraphQLCollectorModuleAsyncOptions): DynamicModule {
+    return buildCollectorModule(super.forRootAsync(options), options, SHAPE);
   }
 }

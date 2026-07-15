@@ -228,7 +228,7 @@ const TARGETS: Target[] = [
     file: 'exceptions.png',
     tab: 'exceptions',
     preds: [
-      (p) => httpGet(api('/error'))(p) && exceptionsOf(p) > 0,
+      (p) => httpGet(api('/crash'))(p) && exceptionsOf(p) > 0,
       (p) => isHttp(p) && exceptionsOf(p) > 0,
     ],
   },
@@ -312,108 +312,6 @@ function capture(filename: string, url: string): void {
     ],
     { stdio: 'ignore' },
   );
-}
-
-/**
- * The profiler serves its CSS/JS from same-origin absolute paths
- * (`/_profiler/__assets/…`), so a saved `file://` copy would load unstyled. Inject
- * a `<base href="${API_URL}/">` so every relative asset resolves against the
- * running app instead. (The app is up throughout capture.)
- */
-const withBase = (html: string): string =>
-  html.replace('<head>', `<head><base href="${API_URL}/">`);
-
-/**
- * Returns the balanced `<details>` block whose own summary contains `>${title}<`, nested-safe
- * (the Routes/Config global panels nest group and row disclosures inside the panel block). Empty
- * string when no such panel is present.
- */
-function extractDetailsBlock(html: string, title: string): string {
-  const tag = /<(\/?)details\b/g;
-  let depth = 0;
-  let start = -1;
-  let m: RegExpExecArray | null;
-  while ((m = tag.exec(html)) !== null) {
-    if (m[1] === '') {
-      if (depth === 0) start = m.index;
-      depth += 1;
-    } else if (depth > 0) {
-      depth -= 1;
-      if (depth === 0 && start !== -1) {
-        const block = html.slice(start, html.indexOf('>', tag.lastIndex) + 1);
-        const summaryEnd = block.indexOf('</summary>');
-        if (summaryEnd !== -1 && block.slice(0, summaryEnd).includes(`>${title}<`)) return block;
-        start = -1;
-      }
-    }
-  }
-  return '';
-}
-
-/**
- * Capture a single list-page section on its own. The list renders every section
- * (and the global panels) as sibling, non-nested `<details>` blocks, so we fetch
- * the page, drop every block except the one whose summary holds `title`, force it
- * open, rewrite asset URLs with a `<base>`, and shoot the local copy. Used for the
- * GraphQL and Commands section views.
- */
-async function captureSection(
-  filename: string,
-  title: string,
-  workDir: string,
-  query = '',
-): Promise<void> {
-  const html = withBase(
-    (await (await fetch(`${PROFILER_URL}${query}`)).text()).replace(
-      /<details\b[\s\S]*?<\/details>/g,
-      (block) => (block.includes(`>${title}<`) ? block.replace('<details', '<details open') : ''),
-    ),
-  );
-  const file = join(workDir, filename.replace(/\.png$/, '.html'));
-  writeFileSync(file, html);
-  capture(filename, `file://${file}`);
-}
-
-/**
- * Keep only the top-level list-page `<details>` panel whose summary holds `label`, dropping
- * the sibling panels and section tables. Unlike {@link captureSection}'s non-greedy regex,
- * this tracks `<details>`/`</details>` depth so a panel that itself contains nested
- * disclosures (e.g. the Schema panel's per-entity `<details>`) is kept whole.
- */
-function isolatePanel(html: string, label: string): string {
-  const tokenRe = /<details\b|<\/details>/g;
-  const drop: Array<[number, number]> = [];
-  let depth = 0;
-  let blockStart = -1;
-  let match: RegExpExecArray | null;
-  while ((match = tokenRe.exec(html)) !== null) {
-    if (match[0] === '</details>') {
-      depth -= 1;
-      if (depth === 0 && blockStart !== -1) {
-        const end = tokenRe.lastIndex;
-        if (!html.slice(blockStart, end).includes(`>${label}<`)) drop.push([blockStart, end]);
-        blockStart = -1;
-      }
-    } else {
-      if (depth === 0) blockStart = match.index;
-      depth += 1;
-    }
-  }
-  // Splice the non-matching sibling blocks out from the end so earlier indices stay valid.
-  return drop.reduceRight((acc, [s, e]) => acc.slice(0, s) + acc.slice(e), html);
-}
-
-/**
- * Capture a single global list-page panel (Config-style) on its own: isolate it from its
- * siblings and force every `<details>` open (headless Chrome cannot toggle a disclosure).
- * Used for the Schema panels, which render as collapsed global panels on the home page.
- */
-async function captureGlobalPanel(filename: string, label: string, workDir: string): Promise<void> {
-  const page = await (await fetch(PROFILER_URL)).text();
-  const html = withBase(isolatePanel(page, label).replace(/<details/g, '<details open'));
-  const file = join(workDir, filename.replace(/\.png$/, '.html'));
-  writeFileSync(file, html);
-  capture(filename, `file://${file}`);
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -555,76 +453,38 @@ async function main(): Promise<void> {
       capture('profiles-list.png', `${PROFILER_URL}?http_method=DELETE`);
     }
 
-    // 6. Per-section list views — each entrypoint kind's table on its own.
+    // 6. Per-kind list views — each entrypoint kind is its own page, selected by `?view=`.
     if (wanted('graphql-list.png')) {
       console.log('  • graphql-list.png');
-      await captureSection('graphql-list.png', 'GraphQL', workDir);
+      capture('graphql-list.png', `${PROFILER_URL}?view=graphql`);
     }
     if (wanted('command-list.png')) {
       console.log('  • command-list.png');
-      await captureSection('command-list.png', 'Commands', workDir);
+      capture('command-list.png', `${PROFILER_URL}?view=command`);
     }
 
     // Performance-tag filter — the GraphQL list narrowed to the profiles carrying the
     // `n-plus-one` tag, showing the tag select active and the N+1 pills on rows.
     if (wanted('performance-tags-filter.png')) {
       console.log('  • performance-tags-filter.png');
-      await captureSection(
-        'performance-tags-filter.png',
-        'GraphQL',
-        workDir,
-        '?graphql_tag=n-plus-one',
-      );
+      capture('performance-tags-filter.png', `${PROFILER_URL}?view=graphql&graphql_tag=n-plus-one`);
     }
 
-    // 7. Config — a collapsed-by-default global panel. Headless Chrome cannot open a
-    //    <details>, so fetch the rendered page, force every disclosure open, rewrite
-    //    asset URLs with a <base>, and shoot the local copy.
-    if (wanted('config.png')) {
-      console.log('  • config.png');
-      const html = withBase(
-        (await (await fetch(PROFILER_URL)).text()).replace(/<details/g, '<details open'),
-      );
-      const configHtml = join(workDir, 'config.html');
-      writeFileSync(configHtml, html);
-      capture('config.png', `file://${configHtml}`);
-    }
-
-    // Schema panels — global, collapsed-by-default home-page panels (one per wired ORM). The
-    // main pass runs TypeORM + Mongoose, so both are on this page; MikroORM is captured on its
-    // own reboot below. Each is isolated from the sibling panels and forced open.
-    if (wanted('schema.png')) {
-      console.log('  • schema.png');
-      await captureGlobalPanel('schema.png', 'Schema · TypeORM', workDir);
-    }
-    if (wanted('schema-mongoose.png')) {
-      console.log('  • schema-mongoose.png');
-      await captureGlobalPanel('schema-mongoose.png', 'Schema · Mongoose', workDir);
-    }
-
-    // 7b. Routes — a collapsed-by-default global panel with nested group/row disclosures. Isolate
-    //     its <details> block, open the panel and its transport groups (but leave the route rows
-    //     collapsed for a clean overview), and reuse the page <head> so it renders as in the app.
-    if (wanted('routes.png')) {
-      console.log('  • routes.png');
-      const page = await (await fetch(PROFILER_URL)).text();
-      const head = /<head[\s\S]*?<\/head>/.exec(page)?.[0] ?? '<head></head>';
-      const bodyOpen = /<body[^>]*>/.exec(page)?.[0] ?? '<body>';
-      // `group mb-4` is the panel, `group mb-3` the transport groups; `group/route` rows stay closed.
-      const block = extractDetailsBlock(page, 'Routes').replace(
-        /<details class="group mb-/g,
-        '<details open class="group mb-',
-      );
-      // `min-height:100vh` makes the reconstructed page fill the capture window, so the shot keeps
-      // the fixed WIDTH×HEIGHT like every other screenshot instead of being cropped to the panel
-      // (headless Chrome fits the image to the content when the page is shorter than the window).
-      const html = withBase(
-        `<!doctype html><html>${head}${bodyOpen}<div style="min-height:100vh" class="p-6">` +
-          `<div class="max-w-5xl mx-auto">${block}</div></div></body></html>`,
-      );
-      const routesHtml = join(workDir, 'routes.html');
-      writeFileSync(routesHtml, html);
-      capture('routes.png', `file://${routesHtml}`);
+    // 7. Global-scope panels — each is its own sidebar view, keyed by the collector name, and
+    //    renders its group disclosures open. Nothing to isolate or force: shoot the URL.
+    for (const [file, view] of [
+      ['config.png', 'config'],
+      // The Routes panel's transport groups are open; its per-route rows stay collapsed,
+      // which is the overview we want.
+      ['routes.png', 'routes'],
+      // One Schema view per wired ORM. The main pass runs TypeORM + Mongoose; MikroORM
+      // needs its own boot (below), the catalog binding a single SQL adapter per run.
+      ['schema.png', 'typeorm-schema'],
+      ['schema-mongoose.png', 'mongoose-schema'],
+    ] as const) {
+      if (!wanted(file)) continue;
+      console.log(`  • ${file}`);
+      capture(file, `${PROFILER_URL}?view=${view}`);
     }
 
     // The next two passes reboot the app with different feature flags, so they
@@ -656,7 +516,7 @@ async function main(): Promise<void> {
           capture('mikro-orm.png', `${PROFILER_URL}/${mikro.token}?tab=database`);
         }
         if (wanted('schema-mikro-orm.png')) {
-          await captureGlobalPanel('schema-mikro-orm.png', 'Schema · MikroORM', workDir);
+          capture('schema-mikro-orm.png', `${PROFILER_URL}?view=mikro-orm-schema`);
         }
       } catch (error) {
         console.warn(
@@ -698,7 +558,7 @@ async function main(): Promise<void> {
         });
         const delivery = await waitForProfileIn(rmqDir, (p) => typeOf(p) === 'rabbitmq');
         capture('rabbitmq.png', `${PROFILER_URL}/${delivery.token}?tab=message`);
-        await captureSection('rabbitmq-list.png', 'RabbitMQ', workDir);
+        capture('rabbitmq-list.png', `${PROFILER_URL}?view=rabbitmq`);
       } catch (error) {
         console.warn(
           `  ⚠ SKIPPED rabbitmq shots (${error instanceof Error ? error.message : String(error)})`,

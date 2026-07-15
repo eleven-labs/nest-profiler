@@ -108,6 +108,11 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     const invalid = validatorEntries(profile.collectors).find((e) => e.status === 'invalid');
     expect(invalid).toMatchObject({ dtoClass: 'CreateProductDto' });
     expect(invalid?.violations.map((v) => v.property)).toContain('price');
+
+    // The rejection is captured as an exception — and is NOT an error: the API answered
+    // correctly. This is the real 400 the profiler demo exercises.
+    expect(profile.exceptions[0]).toMatchObject({ name: 'BadRequestException' });
+    expect((profile.tags ?? []).map((t) => t.id)).not.toContain('error');
   });
 
   it('PATCH /products/:id updates one row and records the affected rowCount', async () => {

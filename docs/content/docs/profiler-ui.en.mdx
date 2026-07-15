@@ -12,17 +12,19 @@ This page is a **visual tour** of the panels and tabs. For the reference side �
 
 ## Profiles list
 
-The `/_profiler` page groups captured profiles into a separate table per entrypoint kind (HTTP, GraphQL, Commands…). Each table has its own filter bar above it - the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus a **With errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**) - so each list is filtered independently. Global panels such as **Config** apply across the whole page.
+`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector (Config, Routes, Schemas) is a view of its own — each badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing.
 
-![Recent profiles list with filters and the global Config panel](/screenshots/profiler/profiles-list.png)
+Every list carries its own filter bar and is filtered independently: the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus an **Exception** select and an **Errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**). A kind hides a universal filter that is redundant for it — the Commands list has no **Errors** checkbox, its **Status** filter already asking the same question.
+
+![Profiler home — the sidebar of views with count badges, the process-heap trend and the HTTP list narrowed by the method filter](/screenshots/profiler/profiles-list.png)
 
 ## GraphQL operations
 
 Requires [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql) - see the [GraphQL support section](/docs/getting-started#graphql-support) in Getting started.
 
-GraphQL operations appear in their own **GraphQL** table (separate from REST requests), each row showing the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**) and the operation or field name. Its filter bar adds an **Operation** filter to narrow the list by operation type.
+GraphQL operations get their own **GraphQL** view in the sidebar (separate from REST requests), each row showing the operation type (**QUERY**, **MUTATION**, or **SUBSCRIPTION**) and the operation or field name. Its filter bar adds an **Operation** filter to narrow the list by operation type.
 
-![Profiles list showing the GraphQL table with QUERY and MUTATION operations alongside their status](/screenshots/profiler/graphql-list.png)
+![GraphQL view listing QUERY and MUTATION operations alongside their status](/screenshots/profiler/graphql-list.png)
 
 Opening an operation lands on its dedicated **GraphQL** detail tab, displaying:
 
@@ -38,9 +40,9 @@ Opening an operation lands on its dedicated **GraphQL** detail tab, displaying:
 
 ![GraphQL detail tab for a Mutation with input variables](/screenshots/profiler/graphql-mutation.png)
 
-GraphQL-level errors (schema validation failures, resolver errors returned in `response.body.errors`) appear in the **Exceptions** tab with an amber `GraphQLError` badge, visually distinct from NestJS runtime exceptions which use a red badge.
+GraphQL-level errors (schema validation failures, resolver errors returned in `response.body.errors`) appear in the **Exceptions** tab with an amber `GraphQLError` badge, visually distinct from NestJS runtime exceptions which use a red badge. Since GraphQL names every error `GraphQLError`, its `extensions.code` is shown alongside — `BAD_REQUEST` here — and that code is what the **Exception** filter lists and what decides whether the operation counts as an [error](/docs/packages/nest-profiler/error-classification).
 
-![Exceptions tab showing an amber GraphQLError badge with validation error message and location](/screenshots/profiler/graphql-error.png)
+![Exceptions tab showing an amber GraphQLError badge with its BAD_REQUEST code, validation message and location](/screenshots/profiler/graphql-error.png)
 
 ## Built-in tabs
 
@@ -60,9 +62,9 @@ The **Logs** tab lists entries captured through `profilerService.createLogger()`
 
 ![Logs tab showing messages with context names and a structured JSON payload](/screenshots/profiler/logs.png)
 
-The **Exceptions** tab highlights the exception thrown by the `/api/v1/error` endpoint.
+The **Exceptions** tab lists what the profile captured, each with its message and stack trace — here the `InternalServerErrorException` behind a 500. A captured exception is not automatically an **error**, though: a `BadRequestException` answering `400` means the application did its job, so it appears here and under the **Exception** filter, but not under the **Errors** checkbox. See [What counts as an error](/docs/packages/nest-profiler/error-classification).
 
-![Exceptions tab displaying a captured BadRequestException](/screenshots/profiler/exceptions.png)
+![Exceptions tab displaying a captured InternalServerErrorException with its stack trace](/screenshots/profiler/exceptions.png)
 
 ## Collectors
 
@@ -90,13 +92,13 @@ The **Cache** collector shows `GET_HIT`, `GET_MISS`, `SET` operations and the hi
 
 ![Cache tab showing a GET_HIT and a 100 percent hit rate](/screenshots/profiler/cache.png)
 
-The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, command profiles appear in the list with a **CLI** method badge and the command line in place of the URL; the **Command** tab details the command name, arguments, options, and exit code.
+The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, commands get their own **Commands** view — a **CLI** badge and the command line in place of the URL, with a **Status** filter for successful vs failed runs — and the **Command** tab details the command name, arguments, options, and exit code.
 
 ![Command tab showing a profiled nest-commander run with arguments, options and exit code](/screenshots/profiler/command.png)
 
-The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)) profiles messages consumed via `@RabbitSubscribe`. Each delivery becomes its own profile: a dedicated **RabbitMQ** table on the list page, and a **Message** detail tab showing the exchange, routing key, handler, delivery metadata and JSON payload.
+The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)) profiles messages consumed via `@RabbitSubscribe`. Each delivery becomes its own profile: a dedicated **RabbitMQ** view, and a **Message** detail tab showing the exchange, routing key, handler, delivery metadata and JSON payload.
 
-![Profiles list showing the RabbitMQ table with a consumed review.created delivery and its filters](/screenshots/profiler/rabbitmq-list.png)
+![RabbitMQ view showing a consumed review.created delivery and its filters](/screenshots/profiler/rabbitmq-list.png)
 
 ![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
@@ -108,6 +110,6 @@ The **Validator** collector shows validated DTOs and failing `class-validator` c
 
 ![Validator tab showing two validation violations on CreatePostDto](/screenshots/profiler/validator.png)
 
-The **Config** collector is global: it appears on the profiles list and exposes flattened configuration with masked secrets.
+The **Config** collector is global — it describes the application, not one request — so it is a sidebar view of its own, exposing the runtime and the flattened configuration with secrets masked.
 
-![Global Config panel showing app and database keys with database.password masked](/screenshots/profiler/config.png)
+![Config view showing the runtime tiles and the flattened app/database keys with database.password masked](/screenshots/profiler/config.png)

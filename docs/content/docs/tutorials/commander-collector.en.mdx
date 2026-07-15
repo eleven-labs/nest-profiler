@@ -127,7 +127,7 @@ node dist/cli.js sync:posts --limit 3
 
 ## Step 6 - Inspect the profile
 
-Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. Commands appear in a dedicated **Commands** table (separate from HTTP/GraphQL requests). Open one to find:
+Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. Pick **Commands** in the sidebar: commands get their own view, with a **Status** filter for successful vs failed runs. Open one to find:
 
 - **Command** - name, arguments, options, duration, exit code (the request/response tabs are hidden)
 - **HTTP Client** - the outgoing request the command made
@@ -137,4 +137,4 @@ A command that throws is captured too: its profile is marked failed (status `500
 
 ## How it works
 
-At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list table and **Command** detail tab) - so import it in the HTTP app too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.
+At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list view and **Command** detail tab) - so import it in the HTTP app too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.

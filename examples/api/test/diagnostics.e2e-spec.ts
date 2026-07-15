@@ -33,17 +33,17 @@ describe('Diagnostics endpoints (e2e)', () => {
     });
   });
 
-  describe('GET /error', () => {
-    it('captures the thrown exception in the profile', async () => {
-      const { res, profile } = await profileOf(app, 'get', '/api/v1/error');
+  describe('GET /crash', () => {
+    it('captures the thrown exception and tags the profile as an error', async () => {
+      const { res, profile } = await profileOf(app, 'get', '/api/v1/crash');
 
-      expect(res.status).toBe(400);
-      expect(profile.response?.statusCode).toBe(400);
-      expect(profile.exceptions.length).toBeGreaterThanOrEqual(1);
+      expect(res.status).toBe(500);
+      expect(profile.response?.statusCode).toBe(500);
       expect(profile.exceptions[0]).toMatchObject({
-        name: 'BadRequestException',
-        message: expect.stringContaining('simulated error') as string,
+        name: 'InternalServerErrorException',
+        message: expect.stringContaining('simulated crash') as string,
       });
+      expect((profile.tags ?? []).map((t) => t.id)).toContain('error');
     });
   });
 });

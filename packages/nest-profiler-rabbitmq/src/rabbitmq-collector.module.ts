@@ -1,4 +1,4 @@
-import { DynamicModule, Module, OnModuleInit, Optional } from '@nestjs/common';
+import { DynamicModule, Inject, Module, OnModuleInit, Optional } from '@nestjs/common';
 import { DiscoveryModule, ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
@@ -6,10 +6,11 @@ import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
 import { RabbitMqRouteSource } from './rabbitmq-route-source';
 import {
   ConfigurableModuleClass,
+  RABBITMQ_COLLECTOR_OPTIONS,
   type RabbitMqCollectorModuleOptions,
   type RabbitMqCollectorModuleAsyncOptions,
 } from './rabbitmq-collector.interface';
-import { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
+import { buildRabbitMqEntrypointType } from './rabbitmq-entrypoint';
 
 // The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
 // the single, supported registration mechanism. The route source self-registers at bootstrap and
@@ -33,6 +34,9 @@ export class RabbitMqCollectorModule extends ConfigurableModuleClass implements 
   constructor(
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly adapter?: RabbitMqContextAdapter,
+    @Optional()
+    @Inject(RABBITMQ_COLLECTOR_OPTIONS)
+    private readonly options: RabbitMqCollectorModuleOptions = {},
   ) {
     super();
   }
@@ -42,7 +46,7 @@ export class RabbitMqCollectorModule extends ConfigurableModuleClass implements 
     try {
       const core = this.moduleRef.get(ProfilerCoreService, { strict: false });
       core.registerContextAdapter(this.adapter);
-      core.registerEntrypointType(RABBITMQ_ENTRYPOINT_TYPE_DEF);
+      core.registerEntrypointType(buildRabbitMqEntrypointType(this.options.error));
     } catch {
       /* profiler core not available — no-op */
     }

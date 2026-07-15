@@ -7,4 +7,4 @@ export type {
   RabbitMqCollectorModuleOptions,
   RabbitMqCollectorModuleAsyncOptions,
 } from './rabbitmq-collector.interface';
-export { RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
+export { RABBITMQ_ENTRYPOINT_TYPE_DEF, buildRabbitMqEntrypointType } from './rabbitmq-entrypoint';

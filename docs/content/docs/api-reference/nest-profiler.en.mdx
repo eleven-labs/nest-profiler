@@ -44,6 +44,37 @@ The context passed to a `ProfilerAuthorize` predicate. `ProfilerAuthorize` is `(
   name="ProfilerAuthContext"
 />
 
+## Error classification
+
+What counts as a failure, per entrypoint kind and per collector. See [What counts as an error](/docs/packages/nest-profiler/error-classification).
+
+### ProfilerErrorOptions
+
+The `error` option of `ProfilerModule.forRoot()` (the `http` kind), and of every package contributing a kind — `GraphQLCollectorModule`, `RabbitMqCollectorModule`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="ProfilerErrorOptions"
+/>
+
+### EntryErrorOptions
+
+The `error` option of a collector judging its own entries, such as `HttpCollectorModule.forRoot()`.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="EntryErrorOptions"
+/>
+
+### ProfileErrorInfo
+
+The view of a profile handed to a `classify` predicate.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/analysis/profiler-error.ts"
+  name="ProfileErrorInfo"
+/>
+
 ## Profile structure
 
 ### Profile

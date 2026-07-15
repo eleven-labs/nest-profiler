@@ -19,7 +19,10 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import type { ProfilerRouteSource } from '../routes/route-source.interface';
-import { HTTP_ENTRYPOINT_TYPE_DEF } from '../entrypoints/builtin-http-entrypoint';
+import {
+  buildHttpEntrypointType,
+  HTTP_ENTRYPOINT_TYPE_DEF,
+} from '../entrypoints/builtin-http-entrypoint';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import type { SummaryPrimitive } from '../storage/profile-summary';
 
@@ -56,8 +59,10 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     // attributes. The closure reads the registry at call time, so entrypoint types
     // registered later (in packages' onModuleInit) are picked up.
     this.storage.setIndexAttributesProvider((profile) => this.getIndexAttributes(profile));
-    // Seed the built-in HTTP entrypoint — the catch-all for REST requests.
-    this.registerEntrypointType(HTTP_ENTRYPOINT_TYPE_DEF);
+    // Seed the built-in HTTP entrypoint — the catch-all for REST requests — carrying the
+    // host's error classification. `getEntrypointType` prefers this registered instance over
+    // the unconfigured `HTTP_ENTRYPOINT_TYPE_DEF`, so the option also governs unknown kinds.
+    this.registerEntrypointType(buildHttpEntrypointType(options.error));
     // Seed any custom performance rules contributed via the module option.
     for (const rule of options.performance?.rules ?? []) {
       this.registerPerformanceRule(rule);
@@ -65,13 +70,23 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   }
 
   /**
-   * The kind-specific index attributes for a profile — its entrypoint type's
-   * {@link ProfilerEntrypointType.indexAttributes} projection, or `{}` when the type
-   * is unregistered or contributes none. Exposed to storage adapters so they can
-   * index and query facets like a GraphQL `operationType` or a RabbitMQ `exchange`.
+   * The index attributes for a profile — its entrypoint type's
+   * {@link ProfilerEntrypointType.indexAttributes} projection, on top of the universal
+   * `exception` facet. Exposed to storage adapters so they can index and query facets like a
+   * GraphQL `operationType` or a RabbitMQ `exchange`.
+   *
+   * `exception` names the **primary** (first) captured failure, preferring its
+   * {@link ExceptionEntry.code} over its class name — GraphQL flattens every error to
+   * `GraphQLError`, so only the code discriminates. It backs the `exception` list filter, whose
+   * options are the distinct values actually seen. A kind's own attributes win over it, so a
+   * kind can project the facet differently.
    */
   getIndexAttributes(profile: Profile): Record<string, SummaryPrimitive> {
-    return this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
+    const kindAttributes =
+      this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
+    const primary = profile.exceptions[0];
+    if (!primary) return kindAttributes;
+    return { exception: primary.code ?? primary.name, ...kindAttributes };
   }
 
   /**
@@ -85,9 +100,14 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.track(
       this.collectorRegistry
         .collectAll(profile)
-        .then(() =>
-          analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules),
-        )
+        .then(() => {
+          // The entrypoint kind owns what "failed" means; the engine stays protocol-agnostic.
+          const entrypointType = this.getEntrypointType(profile.entrypoint.type);
+          analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules, {
+            isError: entrypointType.isError?.bind(entrypointType),
+            severity: entrypointType.errorSeverity,
+          });
+        })
         .then(() => this.storage.save(profile)),
     );
   }

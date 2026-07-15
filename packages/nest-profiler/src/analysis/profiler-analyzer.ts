@@ -1,8 +1,12 @@
 import { Logger } from '@nestjs/common';
 import type { IProfilerCollector } from '../collectors/collector.interface';
 import type { Profile } from '../interfaces/profile.interface';
-import type { AnalyzedCollector, PerformanceRule } from './performance-rule.interface';
-import type { ProfilerTag } from './profiler-tag.interface';
+import type {
+  AnalyzedCollector,
+  PerformanceRule,
+  PerformanceRuleContext,
+} from './performance-rule.interface';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
 import { upsertTag } from './profiler-tag.interface';
 import { isTaggableCollector } from './taggable-collector.interface';
 
@@ -24,11 +28,18 @@ const logger = new Logger('ProfilerAnalyzer');
  * @param profile - The collected profile to analyze and tag (mutated in place).
  * @param collectors - Every registered collector; non-taggable ones are ignored.
  * @param rules - The performance rules to evaluate, in order.
+ * @param errorClassification - The entrypoint kind's failure verdict, resolved from its `error`
+ *   option (see {@link ProfilerEntrypointType.isError}). Omitted, no profile is a failure —
+ *   only its entries can be, since the engine itself knows no protocol.
  */
 export function analyzeProfile(
   profile: Profile,
   collectors: readonly IProfilerCollector[],
   rules: readonly PerformanceRule[],
+  errorClassification?: {
+    isError?: (profile: Profile) => boolean;
+    severity?: TagSeverity;
+  },
 ): void {
   const analyzed: AnalyzedCollector[] = [];
   for (const collector of collectors) {
@@ -44,9 +55,11 @@ export function analyzeProfile(
   }
 
   const profileTags: ProfilerTag[] = [];
-  const ctx = {
+  const ctx: PerformanceRuleContext = {
     profile,
     collectors: analyzed,
+    isProfileError: () => errorClassification?.isError?.(profile) ?? false,
+    profileErrorSeverity: errorClassification?.severity ?? 'danger',
     tagEntry: (entry: { tags?: ProfilerTag[] }, tag: ProfilerTag): void => {
       upsertTag((entry.tags ??= []), tag);
     },

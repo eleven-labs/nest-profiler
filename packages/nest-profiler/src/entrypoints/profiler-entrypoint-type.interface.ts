@@ -1,3 +1,4 @@
+import type { TagSeverity } from '../analysis/profiler-tag.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
@@ -76,6 +77,23 @@ export interface ProfilerEntrypointType {
    * Their `forType` is derived from this type.
    */
   readonly listFilters?: ProfilerListFilter[];
+  /**
+   * Universal filter keys hidden from this kind's list. Lets a kind drop a built-in filter that
+   * is meaningless or redundant for it — `command` hides `error`, its `Status: Success/Failed`
+   * filter already being exactly that. Declared here rather than scoped from the core, so the
+   * core needs no knowledge of the kinds packages contribute.
+   */
+  readonly hiddenFilters?: readonly string[];
+  /**
+   * Whether this profile **failed**, per this kind's own criteria — a 5xx for HTTP, an
+   * `INTERNAL_SERVER_ERROR` for GraphQL, a non-zero exit for a command. Drives the `error` tag
+   * and the list's `Errors` filter. Build it with {@link resolveProfileErrorClassifier} from the
+   * package's `error` option so hosts can redefine it (`error: { httpStatus: 400 }` to count
+   * 4xx). Omitted, no profile of this kind is ever a failure.
+   */
+  isError?(profile: Profile): boolean;
+  /** Severity of this kind's `error` tag. Default: `'danger'`. */
+  readonly errorSeverity?: TagSeverity;
   /** Builds the detail-page breadcrumb summary for a profile of this kind. */
   summary(profile: Profile): EntrypointSummary;
   /**

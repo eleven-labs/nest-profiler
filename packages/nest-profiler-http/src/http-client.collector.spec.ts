@@ -80,6 +80,32 @@ describe('HttpClientCollector', () => {
     expect(new HttpClientCollector({ slowThreshold: 750 }).getTagConfig().slowThreshold).toBe(750);
   });
 
+  describe('getTagConfig error classification', () => {
+    const judge = (collector: HttpClientCollector, entry: object): boolean =>
+      collector.getTagConfig().isErrorEntry!(entry as never);
+
+    it('counts a failed call or a 5xx, sparing a 4xx answer', () => {
+      const collector = new HttpClientCollector();
+      expect(judge(collector, { duration: 1, error: 'ECONNREFUSED' })).toBe(true);
+      expect(judge(collector, { duration: 1, statusCode: 500 })).toBe(true);
+      expect(judge(collector, { duration: 1, statusCode: 404 })).toBe(false);
+      expect(judge(collector, { duration: 1, statusCode: 200 })).toBe(false);
+    });
+
+    it('counts 4xx when the host lowers the threshold', () => {
+      const collector = new HttpClientCollector({ error: { httpStatus: 400 } });
+      expect(judge(collector, { duration: 1, statusCode: 404 })).toBe(true);
+      expect(judge(collector, { duration: 1, statusCode: 200 })).toBe(false);
+    });
+
+    it('exposes the error severity, defaulting to danger', () => {
+      expect(new HttpClientCollector().getTagConfig().errorSeverity).toBe('danger');
+      expect(
+        new HttpClientCollector({ error: { severity: 'warning' } }).getTagConfig().errorSeverity,
+      ).toBe('warning');
+    });
+  });
+
   it('getTagConfig passes configured severities through', () => {
     expect(
       new HttpClientCollector({

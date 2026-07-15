@@ -1,6 +1,6 @@
 Every profiled execution receives a unique token and lands in the profiler UI. This page is the **reference** for the endpoints that expose the collected data, the debug headers that link a response to its profile, the list filters, and how to export a profile.
 
-![Profiler UI — profiles list with filters, HTTP statuses, durations and global panels](../../../docs/public/screenshots/profiler/profiles-list.png)
+![Profiler UI — the sidebar of views with count badges, and the HTTP list with its filter bar](../../../docs/public/screenshots/profiler/profiles-list.png)
 
 ## Profiler UI endpoints
 
@@ -53,12 +53,25 @@ The **universal** filters (available on every list) are:
 | `minDuration` | Minimum duration in ms                                                                                                                                                  |
 | `maxDuration` | Maximum duration in ms                                                                                                                                                  |
 | `tag`         | Keep only profiles carrying a performance tag (`slow`, `n-plus-one`, `chatty`, `large-payload`) — see [Performance tags](/docs/packages/nest-profiler/performance-tags) |
-| `error`       | Checkbox — keep only profiles with a failed call or unhandled exception (the `error` tag)                                                                               |
+| `exception`   | Keep only profiles whose captured failure is of this type — an exception class (`NotFoundException`) or, for GraphQL, an error code (`BAD_USER_INPUT`)                  |
+| `error`       | Checkbox — keep only profiles that **failed**, per each kind's [error classification](/docs/packages/nest-profiler/error-classification)                                |
+
+`exception` and `error` answer different questions and are meant to be used
+together. `error` asks _"what failed?"_ — a verdict you configure, which by
+default does **not** count a `404` even though its `NotFoundException` was
+captured. `exception` asks _"show me the `NotFoundException`s"_, regardless of
+whether they count as failures. Its options are not a fixed list: they are the
+values actually present in your store, so each list offers only what it has
+really seen.
 
 Each entrypoint kind also contributes **scoped** filters, shown only above its own
 list — e.g. `method` (HTTP), `operationType` (GraphQL, via
 `@eleven-labs/nest-profiler-graphql`), `commandStatus` (Commands). A scoped filter
 is namespaced like any other: `graphql_operationType=mutation`.
+
+A kind may also **hide** a universal filter that is redundant on its own list: the
+Commands list has no `error` checkbox, since its `commandStatus` filter
+(`Success`/`Failed`) already asks exactly that.
 
 ### Custom list filters
 

@@ -287,6 +287,11 @@
                         <% } %>
                         <div class="min-w-0">
                           <span class="<%= nameClass %> font-bold text-xs"><%= ex.name %></span>
+                          <%# The error code is what the classification and the Exception filter key on — GraphQL
+                              names every error `GraphQLError`, so without it the card shows nothing to filter by. %>
+                          <% if (ex.code) { %>
+                            <span class="ml-1.5 px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= ex.code %></span>
+                          <% } %>
                           <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= ex.message %></p>
                         </div>
                       </div>
