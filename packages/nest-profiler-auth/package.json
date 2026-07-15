@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-auth",
-  "version": "1.0.0-alpha.8",
+  "version": "1.0.0-alpha.9",
   "description": "Auth/Security collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
