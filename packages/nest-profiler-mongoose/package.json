@@ -71,7 +71,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.2",
     "jest": "^30.4.2",
-    "mongoose": "^9.7.3",
+    "mongoose": "^9.7.4",
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "ts-jest": "^29.3.0",
