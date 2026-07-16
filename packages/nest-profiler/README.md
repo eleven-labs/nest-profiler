@@ -29,8 +29,10 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 `nestjs-cls` is a required peer dependency used for per-execution context propagation.
 

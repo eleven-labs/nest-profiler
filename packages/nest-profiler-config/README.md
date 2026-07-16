@@ -29,8 +29,10 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-config @nestjs/config
+pnpm add @eleven-labs/nest-profiler-config@alpha @nestjs/config
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@nestjs/config ^4.0.0`
 

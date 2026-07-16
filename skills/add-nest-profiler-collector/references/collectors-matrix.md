@@ -2,6 +2,8 @@
 
 Map a dependency found in the consumer's `package.json` to the collector package that instruments it, then open the matching **family reference** for its full options, snippet, gotcha and the question(s) to ask. All collectors are published under the `@eleven-labs/` scope, peer on the core `@eleven-labs/nest-profiler`, `@nestjs/common@^11`, `@nestjs/core@^11`, `reflect-metadata@^0.2`, and (most of them) `nestjs-cls@^6`. Only the **distinguishing** signal is listed below.
 
+There is **no stable release yet** — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`<pm> add <package>@alpha`); `@latest` resolves to nothing.
+
 Detection confidence:
 
 - **Hard peer** — the collector declares the host lib as a required peer; presence in the consumer is a reliable signal.

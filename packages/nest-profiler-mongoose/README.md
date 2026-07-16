@@ -29,8 +29,10 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-mongoose
+pnpm add @eleven-labs/nest-profiler-mongoose@alpha
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0`
 

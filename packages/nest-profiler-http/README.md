@@ -29,10 +29,12 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-http
+pnpm add @eleven-labs/nest-profiler-http@alpha
 # only if you select the axios adapter — your app already owns these:
 pnpm add @nestjs/axios axios
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Optional peer dependency:** `axios ^1.0.0` (type-only, used by the `/axios` adapter). `fetch` is a Node ≥ 22 built-in and needs no dependency. This package never imports `@nestjs/axios` — that is your application's dependency.
 

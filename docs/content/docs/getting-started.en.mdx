@@ -18,8 +18,13 @@ description: Install and configure @eleven-labs/nest-profiler in a NestJS 11 app
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 ```
+
+<Callout type="warn" title="Alpha release">
+  There is no stable release yet — every `@eleven-labs/nest-profiler*` package must be installed
+  with the `@alpha` dist-tag. `@latest` resolves to nothing.
+</Callout>
 
 The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies - a NestJS application already provides all of them except `nestjs-cls`, which is why it is installed explicitly above.
 
@@ -225,7 +230,7 @@ export class AppModule {}
 GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphql` package. The core `ProfilerModule` is HTTP-only - without this package, GraphQL requests pass through without profiling and without errors.
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-graphql
+pnpm add @eleven-labs/nest-profiler-graphql@alpha
 ```
 
 Import `GraphQLCollectorModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
