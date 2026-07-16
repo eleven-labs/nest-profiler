@@ -76,6 +76,7 @@
     "self-host-profiler-assets",
     "sqlite-robustness",
     "storage-query-pushdown",
-    "update-dependency-ranges"
+    "update-dependency-ranges",
+    "validator-app-owned-pipe"
   ]
 }
