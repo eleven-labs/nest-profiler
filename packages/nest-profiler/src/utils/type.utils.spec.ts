@@ -21,4 +21,18 @@ describe('isPlainObject', () => {
     expect(isPlainObject(true)).toBe(false);
     expect(isPlainObject(undefined)).toBe(false);
   });
+
+  it('returns true for a null-prototype object', () => {
+    expect(isPlainObject(Object.create(null))).toBe(true);
+  });
+
+  it('returns false for exotic built-ins and class instances', () => {
+    class Foo {}
+    expect(isPlainObject(new Date())).toBe(false);
+    expect(isPlainObject(new Map())).toBe(false);
+    expect(isPlainObject(new Set())).toBe(false);
+    expect(isPlainObject(/re/)).toBe(false);
+    expect(isPlainObject(new Error('x'))).toBe(false);
+    expect(isPlainObject(new Foo())).toBe(false);
+  });
 });
