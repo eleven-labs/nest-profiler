@@ -12,7 +12,7 @@ description: |
 
 ⚠️ **Off in production by default** — the profiler exposes headers, query params and logs, so recommend keeping it off in production. It is the user's call, though: if the API isn't publicly reachable (internal, behind a VPN) or they've weighed the risks and still want it on, respect that and help them harden it (the `harden-for-production` skill, or the production section in [references/core-options.md](references/core-options.md)) — don't refuse. Both enable strategies keep `ProfilerService` injectable, so app code that calls it keeps working (as a no-op) when profiling is off.
 
-Log capture goes through the DI-free `createProfilerLogger` (it reads the active profile from CLS, and is a transparent pass-through when off), so nothing special is needed for logging to survive the enable/disable gate. `ProfilerNoopModule` is opt-in — needed only when the app injects `ProfilerService` **directly** (`startSpan`, `addEvent`, `addException`, `setSecurityContext`, `getCurrentToken`).
+Log capture goes through the DI-free `createProfilerLogger` (it reads the active profile from CLS, and is a transparent pass-through when off), so nothing special is needed for logging to survive the enable/disable gate. `ProfilerNoopModule` is opt-in — needed only when the app injects `ProfilerService` **directly** (`startSpan`, `getCurrentToken`).
 
 **Only adding one collector to an app that already has the core profiler wired?** → use the `add-nest-profiler-collector` skill instead. This skill installs the core (and can add collectors in the same pass).
 

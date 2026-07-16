@@ -61,7 +61,7 @@ The condition is a plain `(env) => boolean`. Gate each optional collector packag
 
 #### Keep `ProfilerService` resolvable when off: `ProfilerNoopModule`
 
-If a service (or `main.ts`) injects `ProfilerService` **directly** — for custom timeline spans (`startSpan`), `addEvent`, `addException`, `setSecurityContext` or `getCurrentToken` — that injection would fail to resolve when the active module is gated out. Register `ProfilerNoopModule` as the fallback so it resolves to a **zero-dependency** no-op instead (no CLS store, and the async options factory never runs):
+If a service (or `main.ts`) injects `ProfilerService` **directly** — for custom timeline spans (`startSpan`) or the current debug token (`getCurrentToken`) — that injection would fail to resolve when the active module is gated out. Register `ProfilerNoopModule` as the fallback so it resolves to a **zero-dependency** no-op instead (no CLS store, and the async options factory never runs):
 
 ```ts title="app.module.ts"
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';

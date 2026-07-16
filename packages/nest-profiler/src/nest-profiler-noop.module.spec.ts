@@ -28,9 +28,6 @@ describe('ProfilerNoopModule', () => {
     const profiler = module.get<ProfilerService>(ProfilerService);
     expect(profiler.getCurrentToken()).toBeUndefined();
     await expect(profiler.flush()).resolves.toBeUndefined();
-    expect(() =>
-      profiler.addException({ name: 'E', message: 'boom', timestamp: Date.now() }),
-    ).not.toThrow();
     const stop = profiler.startSpan('phase');
     expect(() => stop()).not.toThrow();
     await module.close();

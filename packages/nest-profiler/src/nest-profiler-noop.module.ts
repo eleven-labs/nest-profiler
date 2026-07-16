@@ -8,10 +8,9 @@ import { NoopProfilerService } from './services/noop-profiler.service';
  * {@link NoopProfilerService}.
  *
  * **Opt-in** — you only need it when your app injects `ProfilerService`
- * **directly** (`startSpan`, `addEvent`, `addException`, `setSecurityContext`,
- * `getCurrentToken`). Log capture goes through the DI-free
- * {@link createProfilerLogger}, so an app that only captures logs and reads
- * collector panels never resolves `ProfilerService` and does not need this.
+ * **directly** (`startSpan` or `getCurrentToken`). Log capture goes through the
+ * DI-free {@link createProfilerLogger}, so an app that only captures logs and
+ * reads collector panels never resolves `ProfilerService` and does not need this.
  *
  * When you do inject it, pair this with `ConditionalModule.registerWhen` as the
  * fallback so the injection still resolves when the profiler is disabled:
