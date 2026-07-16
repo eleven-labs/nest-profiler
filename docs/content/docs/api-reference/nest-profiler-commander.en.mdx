@@ -60,7 +60,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 export class CliModule {}
 ```
 
-Wire the core `ProfilerModule` (with `storageType: 'file'` so the CLI and HTTP server share profiles) and its `ProfilerNoopModule` fallback once at the CLI root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Wire the core `ProfilerModule` (with `storageType: 'file'` so the CLI and HTTP server share profiles) once at the CLI root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler). If a command injects `ProfilerService` directly, also register its `ProfilerNoopModule` fallback.
 
 ```ts title="cli.ts"
 import { CommandFactory } from 'nest-commander';

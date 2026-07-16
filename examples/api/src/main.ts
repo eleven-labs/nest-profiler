@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import {
   createProfilerValidationPipe,
   createClassValidatorPipe,
@@ -21,12 +21,13 @@ async function bootstrap() {
   const port = configService.getOrThrow<number>('app.port');
   const isPinoLoggerEnabled = configService.getOrThrow<boolean>('features.pinoLogger');
 
-  // Wrap the chosen logger so all log calls are captured into the active profile.
-  const profilerService = app.get(ProfilerService);
+  // Wrap the chosen logger so all log calls are captured into the active profile. createProfilerLogger
+  // is DI-free (it reads the active profile from CLS), so this needs no ProfilerService and works
+  // whether the profiler is enabled or not.
   const baseLogger: LoggerService = isPinoLoggerEnabled
     ? app.get(PinoLogger)
     : new ConsoleLogger('ExampleApi');
-  app.useLogger(profilerService.createLogger(baseLogger));
+  app.useLogger(createProfilerLogger(baseLogger));
 
   // App-owned validation pipe: always runs, and feeds the Validator panel when the profiler is on.
   // createClassValidatorPipe (not a bare ValidationPipe) keeps per-property violations in the panel.

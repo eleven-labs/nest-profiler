@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { ProfilerService, createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ArticleGateway } from '../domain/article-gateway.js';
 import type { Article, ForwardedArticle, NewArticle, TodoWithAssignee } from '../domain/article.js';
@@ -22,13 +22,14 @@ export class ArticleService {
 
   constructor(
     private readonly gateway: ArticleGateway,
+    // Injected for the timeline spans below; log capture goes through the standalone createProfilerLogger.
     private readonly profiler: ProfilerService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     @Optional()
     @InjectPinoLogger(ArticleService.name)
     pinoLogger?: PinoLogger,
   ) {
-    this.logger = pinoLogger ? this.profiler.createLogger(pinoLogger) : undefined;
+    this.logger = pinoLogger ? createProfilerLogger(pinoLogger) : undefined;
   }
 
   /** Fetch articles then resolve each author in parallel (N+1 calls), cached. */

@@ -21,8 +21,8 @@ The list at `/_profiler` stays empty even after making requests.
 
 Logs are written to the console but never show up in the profile.
 
-- Wrap the logger in `main.ts`: `app.useLogger(profilerService.createLogger(new ConsoleLogger()))`, and create the app with `{ bufferLogs: true }`. See [Set up the profiler](/docs/tutorials/setup-profiler#step-3-enable-log-capture).
-- `app.useLogger()` only captures logs that flow through NestJS's `Logger`. A logger injected directly into a service (e.g. `nestjs-pino`'s `PinoLogger`) must be wrapped explicitly with `profiler.createLogger(...)` at the injection point. See [Log capture](/docs/packages/nest-profiler/logs).
+- Wrap the logger in `main.ts`: `app.useLogger(createProfilerLogger(new ConsoleLogger()))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler`), and create the app with `{ bufferLogs: true }`. See [Set up the profiler](/docs/tutorials/setup-profiler#step-3-enable-log-capture).
+- `app.useLogger()` only captures logs that flow through NestJS's `Logger`. A logger injected directly into a service (e.g. `nestjs-pino`'s `PinoLogger`) must be wrapped explicitly with `createProfilerLogger(...)` at the injection point. See [Log capture](/docs/packages/nest-profiler/logs).
 
 ## GraphQL operations are not profiled
 

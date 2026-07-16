@@ -38,11 +38,11 @@ pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 
 ## Quick start
 
-The recommended way to wire the profiler is to gate it with Nest's `ConditionalModule.registerWhen` and pair it with `ProfilerNoopModule`, so it loads only when you want it and `ProfilerService` stays injectable either way:
+The recommended way to wire the profiler is to gate it with Nest's `ConditionalModule.registerWhen`, so it loads only when you want it:
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { ConditionalModule } from '@nestjs/config';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
@@ -53,10 +53,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 }),
       isProfilerEnabled,
     ),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
   ],
 })
 export class AppModule {}
@@ -64,7 +60,7 @@ export class AppModule {}
 
 Start the application, make a few requests, and open `http://localhost:3000/_profiler`. Every non-profiler response also carries an `X-Debug-Token-Link` header pointing straight to its profile.
 
-> A top-level `enabled` option is also supported as an alternative, documented once in [Configuration → Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+> If a service injects `ProfilerService` **directly** (custom `startSpan`, events, exceptions…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so that injection still resolves when off. Log capture never needs it — `createProfilerLogger` is DI-free. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration → Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Documentation
 

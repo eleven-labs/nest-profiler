@@ -1,6 +1,6 @@
 [
   {
-    "query": "app.module.ts already registers the profiler with Approach A:\n  ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),\n  ConditionalModule.registerWhen(ProfilerNoopModule.forRoot({ isGlobal: true }), (env) => !isProfilerEnabled(env)),\nThe app just added @nestjs/cache-manager and CacheModule.register().\n\nUser: Add cache profiling.",
+    "query": "app.module.ts already registers the profiler with Approach A:\n  ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),\nThe app just added @nestjs/cache-manager and CacheModule.register().\n\nUser: Add cache profiling.",
     "expected_behavior": "Confirm the base profiler is already set up and note the existing enable strategy is Approach A. Install @eleven-labs/nest-profiler-cache@alpha (no stable release yet — pin the alpha dist-tag). Register CacheCollectorModule.forRoot() AFTER CacheModule, gated with the SAME ConditionalModule.registerWhen(..., isProfilerEnabled) pattern — do not introduce a different enable pattern."
   },
   {

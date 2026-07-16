@@ -5,7 +5,7 @@
   },
   {
     "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/config\": \"^4.0.0\",\n    \"@nestjs/typeorm\": \"^11.0.0\",\n    \"typeorm\": \"^0.3.0\"\n  }\n}\nLockfile present: pnpm-lock.yaml\n\nUser: Set up the profiler in this app.",
-    "expected_behavior": "End-to-end setup. Choose Approach A (recommended, @nestjs/config present). Install with pnpm, pinning the profiler to the alpha dist-tag (no stable release yet): 'pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls'. Detect TypeORM and offer the nest-profiler-typeorm collector (TypeOrmCollectorModule, optionally the TypeOrmSchemaCollectorModule panel) placed after TypeOrmModule and gated the same way — NO inject: [DataSource] (it self-resolves the DataSource via connectionName). Add the logger wrap in main.ts (bufferLogs + createLogger). Add PROFILER_ENABLED=true to .env for dev (code default is off). Verify via curl for X-Debug-Token and /_profiler."
+    "expected_behavior": "End-to-end setup. Choose Approach A (recommended, @nestjs/config present). Install with pnpm, pinning the profiler to the alpha dist-tag (no stable release yet): 'pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls'. Detect TypeORM and offer the nest-profiler-typeorm collector (TypeOrmCollectorModule, optionally the TypeOrmSchemaCollectorModule panel) placed after TypeOrmModule and gated the same way — NO inject: [DataSource] (it self-resolves the DataSource via connectionName). Add the logger wrap in main.ts (bufferLogs + the standalone createProfilerLogger, no ProfilerService injection). Add PROFILER_ENABLED=true to .env for dev (code default is off). Verify via curl for X-Debug-Token and /_profiler."
   },
   {
     "query": "My app already has ProfilerModule wired up and I just added @nestjs/cache-manager. How do I add cache profiling?",
@@ -18,6 +18,10 @@
   {
     "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/config\": \"^4.0.0\",\n    \"@nestjs/cache-manager\": \"^3.0.0\",\n    \"@nestjs/passport\": \"^11.0.0\",\n    \"@nestjs/jwt\": \"^11.0.0\"\n  }\n}\n\nUser: Set up the profiler with everything relevant to my stack.",
     "expected_behavior": "Introspect and detect multiple relevant collectors: nest-profiler-cache (hard peer @nestjs/cache-manager) and nest-profiler-auth (heuristic via @nestjs/passport/@nestjs/jwt). Must ASK the user (multi-select) which detected collectors to add rather than assuming all. Wire core + logger, place globals at root and infra collectors co-located, and recommend keeping the profiler off in production by default (without stating it as an absolute ban)."
+  },
+  {
+    "query": "I'm wiring log capture in main.ts for the profiler. What exactly goes in there?",
+    "expected_behavior": "Create the app with { bufferLogs: true }, then app.useLogger(createProfilerLogger(new ConsoleLogger('App'))) — importing the standalone createProfilerLogger from @eleven-labs/nest-profiler. Must NOT resolve ProfilerService for logging (no app.get(ProfilerService), no logger method on ProfilerService): createProfilerLogger is DI-free (reads the active profile from CLS) and is a transparent pass-through when the profiler is off, so it needs no ProfilerService and no ProfilerNoopModule. A directly-injected logger (e.g. PinoLogger) is wrapped the same way at its injection point with createProfilerLogger(pinoLogger)."
   },
   {
     "query": "package.json includes @nestjs/common, @nestjs/core and @nestjs/config. User: My API is internal only, reachable through our VPN, and I understand the exposure. I want the profiler enabled in production too, not just in dev.",

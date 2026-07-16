@@ -4,19 +4,18 @@
 
 ## Enable log capture
 
-Wrap the application logger with `profilerService.createLogger()` in `main.ts`:
+Wrap the application logger with the standalone `createProfilerLogger()` in `main.ts`. It is **DI-free** — it reads the active profile from the CLS store, so it needs no `ProfilerService` and there is no `app.get(...)` to make. When the profiler is off (or a log happens outside a request) it is a transparent pass-through, so no line is lost:
 
 ```ts
 import { ConsoleLogger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  const profilerService = app.get(ProfilerService);
-  app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApplication')));
+  app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
 
   await app.listen(3000);
 }
@@ -28,15 +27,12 @@ The wrapper returns the **same type** as the logger you pass in: it captures the
 
 ### Capturing a directly-injected logger
 
-`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too:
+`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too. Still no `ProfilerService` needed:
 
 ```ts
-constructor(
-  profiler: ProfilerService,
-  @InjectPinoLogger(MyService.name) pinoLogger: PinoLogger,
-) {
+constructor(@InjectPinoLogger(MyService.name) pinoLogger: PinoLogger) {
   // pino's own `info()` keeps working AND is now captured into the profile
-  this.logger = profiler.createLogger(pinoLogger);
+  this.logger = createProfilerLogger(pinoLogger);
 }
 ```
 
@@ -105,7 +101,7 @@ The default mapping already knows the common third-party method names (pino's `i
 ```ts
 import { DEFAULT_LOG_METHODS } from '@eleven-labs/nest-profiler';
 
-profiler.createLogger(myLogger, {
+createProfilerLogger(myLogger, {
   logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
 });
 ```
@@ -115,7 +111,7 @@ profiler.createLogger(myLogger, {
 For a logger whose argument convention the default heuristic cannot classify, provide a [`parseArgs`](https://nest-profiler.eleven-labs.com/docs/api-reference/nest-profiler#profilerloggeroptions) function returning the [`ParsedLogCall`](https://nest-profiler.eleven-labs.com/docs/api-reference/nest-profiler#parsedlogcall) to store:
 
 ```ts
-profiler.createLogger(weirdLogger, {
+createProfilerLogger(weirdLogger, {
   parseArgs: (method, args) => ({
     message: String(args[1]),
     data: args[0],

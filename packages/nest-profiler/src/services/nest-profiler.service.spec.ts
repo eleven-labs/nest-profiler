@@ -40,22 +40,6 @@ describe('ProfilerService', () => {
     });
   });
 
-  it('addLog appends to active profile', () => {
-    const profile = makeProfile('t1');
-    cls.run(() => {
-      cls.set('profiler.profile', profile);
-      service.addLog({ level: 'log', message: 'hello', timestamp: Date.now() });
-    });
-    expect(profile.logs).toHaveLength(1);
-    expect(profile.logs[0]?.message).toBe('hello');
-  });
-
-  it('addLog does nothing outside CLS context', () => {
-    expect(() =>
-      service.addLog({ level: 'log', message: 'noop', timestamp: Date.now() }),
-    ).not.toThrow();
-  });
-
   it('addException appends to active profile', () => {
     const profile = makeProfile('t2');
     cls.run(() => {
@@ -108,23 +92,6 @@ describe('ProfilerService', () => {
   it('startSpan stop is a no-op outside CLS context', () => {
     const stop = service.startSpan('orphan');
     expect(() => stop()).not.toThrow();
-  });
-
-  it('createLogger wraps a delegate and captures logs', () => {
-    const delegate = {
-      log: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-    };
-    const profile = makeProfile('t3');
-    const logger = service.createLogger(delegate);
-    cls.run(() => {
-      cls.set('profiler.profile', profile);
-      logger.log('test message', 'TestContext');
-    });
-    expect(delegate.log).toHaveBeenCalled();
-    expect(profile.logs).toHaveLength(1);
-    expect(profile.logs[0]?.level).toBe('log');
   });
 
   it('flush is a safe no-op when the profiler is disabled (no core)', async () => {

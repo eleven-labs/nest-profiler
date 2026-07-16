@@ -13,7 +13,6 @@ describe('NoopProfilerService', () => {
 
   it('mutators never throw and record nothing', () => {
     const now = Date.now();
-    expect(() => service.addLog({ level: 'log', message: 'x', timestamp: now })).not.toThrow();
     expect(() => service.addException({ name: 'E', message: 'm', timestamp: now })).not.toThrow();
     expect(() => service.addEvent({ eventName: 'ev', timestamp: now })).not.toThrow();
     expect(() => service.setSecurityContext({ isAuthenticated: false })).not.toThrow();
@@ -23,10 +22,5 @@ describe('NoopProfilerService', () => {
     const stop = service.startSpan('phase');
     expect(typeof stop).toBe('function');
     expect(() => stop()).not.toThrow();
-  });
-
-  it('createLogger() returns the delegate untouched', () => {
-    const delegate = { log: () => {}, error: () => {} };
-    expect(service.createLogger(delegate)).toBe(delegate);
   });
 });

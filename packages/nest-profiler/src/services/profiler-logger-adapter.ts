@@ -1,6 +1,7 @@
-import type { LogLevel } from '../interfaces/profile.interface';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface';
+import { PROFILER_CLS_KEYS } from '../constants';
 import { toSafeData } from '../utils/safe-data.utils';
-import type { ProfilerService } from './nest-profiler.service';
 
 /** Method name to profiler log level; extend with custom entries (e.g. a logger's `silly` or `http` level) to support any logger. */
 export type LogMethodMap = Record<string, LogLevel>;
@@ -38,7 +39,7 @@ export type LogArgsParser = (
   delegate: object,
 ) => ParsedLogCall;
 
-/** Options accepted by `createProfilerLogger` and `ProfilerService.createLogger`. */
+/** Options accepted by `createProfilerLogger`. */
 export interface ProfilerLoggerOptions {
   /** Map overriding which methods are intercepted and at what level. Defaults to {@link DEFAULT_LOG_METHODS}. */
   logMethods?: LogMethodMap;
@@ -144,10 +145,35 @@ function isLogMethodMap(value: LogMethodMap | ProfilerLoggerOptions): value is L
   return entries.length > 0 && entries.every((entry) => typeof entry === 'string');
 }
 
-/** Wraps any logger in a Proxy: captures level-method calls into the active profile and forwards them to the real logger. */
+/**
+ * Appends a log entry to the active profile, resolved statically from the
+ * process-wide CLS singleton — the same store the profiler writes on each
+ * request. No DI, so the wrapped logger needs no `ProfilerService`. Outside a
+ * profiled context (bootstrap, background job, or profiler disabled) there is no
+ * active profile, so the call records nothing and the log still flows through.
+ */
+function appendLogEntry(entry: LogEntry): void {
+  try {
+    const profile = ClsServiceManager.getClsService().get<Profile | undefined>(
+      PROFILER_CLS_KEYS.profile,
+    );
+    profile?.logs.push(entry);
+  } catch {
+    // No active CLS context — transparent pass-through.
+  }
+}
+
+/**
+ * Wraps any logger in a Proxy: captures level-method calls into the active
+ * profile (resolved statically from CLS) and forwards them to the real logger.
+ *
+ * App-owned and DI-free — build it in `main.ts` and pass it to
+ * `app.useLogger(...)`, or wherever a logger is needed. It survives the
+ * profiler's enable/disable gate: with no active profile it is a transparent
+ * pass-through, so log lines are never lost when profiling is off.
+ */
 export function createProfilerLogger<T extends object>(
   delegate: T,
-  profilerService: Pick<ProfilerService, 'addLog'>,
   logMethodsOrOptions?: LogMethodMap | ProfilerLoggerOptions,
 ): T {
   const options: ProfilerLoggerOptions =
@@ -168,7 +194,7 @@ export function createProfilerLogger<T extends object>(
         if (level !== undefined) {
           return (message: unknown, ...optionalParams: unknown[]): unknown => {
             const parsed = parseArgs(prop, [message, ...optionalParams], target);
-            profilerService.addLog({
+            appendLogEntry({
               level,
               message: parsed.message,
               context: parsed.context,

@@ -89,7 +89,7 @@ ConditionalModule.registerWhen(
 );
 ```
 
-Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback once at the root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Wire the core `ProfilerModule` once at the root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler). If a service injects `ProfilerService` directly, also register its `ProfilerNoopModule` fallback.
 
 `@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies - the ones you already
 install to consume messages. The module needs no changes to your `@RabbitSubscribe` handlers.

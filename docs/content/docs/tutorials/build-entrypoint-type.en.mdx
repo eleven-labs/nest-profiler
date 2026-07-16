@@ -295,10 +295,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       ProfilerModule.forRoot({ isGlobal: true, collectBody: true }),
       isProfilerEnabled,
     ),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
     WebSocketProfilerModule,
     // ...your gateways
   ],
@@ -326,7 +322,7 @@ Emit a `chat` message from a client, then open `/_profiler`: a **WebSocket** tab
 
 ## How it works
 
-For a non-HTTP context, `ProfilerInterceptor` looks up the adapter registered for the context type. It uses the profile already in CLS, or calls `recoverProfile()` - which here mints one. It then calls `enrichProfile()` (idempotently) to fill `entrypoint.data`, re-establishes the CLS context so `ProfilerService.addLog()` and profile-scoped collectors work inside the handler, runs the handler, then collects and persists the profile off the response path. Because the kind was registered with `registerEntrypointType()`, the profiler renders its dedicated list table, **Message** detail tab and its own filter bar (the universal filters plus your `listFilters`) - no core change required.
+For a non-HTTP context, `ProfilerInterceptor` looks up the adapter registered for the context type. It uses the profile already in CLS, or calls `recoverProfile()` - which here mints one. It then calls `enrichProfile()` (idempotently) to fill `entrypoint.data`, re-establishes the CLS context so the profiler logger (`createProfilerLogger`) and profile-scoped collectors work inside the handler, runs the handler, then collects and persists the profile off the response path. Because the kind was registered with `registerEntrypointType()`, the profiler renders its dedicated list table, **Message** detail tab and its own filter bar (the universal filters plus your `listFilters`) - no core change required.
 
 <Callout type="info">
   For the full extensibility model and a gRPC variant, see [Custom entrypoints &

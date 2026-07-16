@@ -188,7 +188,7 @@ The compact summary an entrypoint type renders in the detail-page breadcrumb.
 
 ### ProfilerLoggerOptions
 
-Options accepted by `ProfilerService.createLogger()` (and `createProfilerLogger()`). The default `parseArgs` implementation, exported as `parseLogArgs`, understands the NestJS (`log(message, context)`, `error(message, stack, context)`), pino / nestjs-pino (`info(mergingObject, message)`) and message-first (`log(message, payloadObject)`) conventions; pass a custom `parseArgs` for loggers with an exotic argument convention.
+Options accepted by `createProfilerLogger()`. The default `parseArgs` implementation, exported as `parseLogArgs`, understands the NestJS (`log(message, context)`, `error(message, stack, context)`), pino / nestjs-pino (`info(mergingObject, message)`) and message-first (`log(message, payloadObject)`) conventions; pass a custom `parseArgs` for loggers with an exotic argument convention.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/services/profiler-logger-adapter.ts"

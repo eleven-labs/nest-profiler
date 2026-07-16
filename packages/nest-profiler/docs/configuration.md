@@ -34,14 +34,14 @@ ProfilerModule.forRootAsync({
 
 ## Enabling and disabling the profiler
 
-The profiler is a development tool — turn it off in production. There are two ways to do it; both keep `ProfilerService` injectable so the code that depends on it (custom spans, the wrapped logger…) never breaks when profiling is off.
+The profiler is a development tool — turn it off in production. There are two ways to do it. Log capture keeps working either way: `createProfilerLogger` is DI-free and a transparent pass-through when off (see [Log capture](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/logs)), so you never have to keep `ProfilerService` alive just for logging.
 
-### Recommended: `ConditionalModule` + `ProfilerNoopModule`
+### Recommended: `ConditionalModule`
 
-Gate the active `ProfilerModule` with Nest's `ConditionalModule.registerWhen`, and register `ProfilerNoopModule` as the fallback. When profiling is off, the active module — with its middleware, interceptor, storage and collectors — is never loaded; `ProfilerNoopModule` provides a **zero-dependency** no-op `ProfilerService` in its place (no CLS store, and the async options factory never runs), so the disabled path costs nothing.
+Gate the active `ProfilerModule` with Nest's `ConditionalModule.registerWhen`. When profiling is off, the active module — with its middleware, interceptor, storage and collectors — is never loaded, so the disabled path costs nothing.
 
 ```ts title="app.module.ts"
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { ConditionalModule } from '@nestjs/config';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
@@ -52,22 +52,34 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       ProfilerModule.forRootAsync({ isGlobal: true, useFactory: () => ({ maxProfiles: 100 }) }),
       isProfilerEnabled,
     ),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
   ],
 })
 export class AppModule {}
 ```
 
-The condition is a plain `(env) => boolean`; register `ProfilerNoopModule.forRoot({ isGlobal: true })` with the same `isGlobal` as the active module so `ProfilerService` stays visible to every feature module. Gate each optional collector package (`@eleven-labs/nest-profiler-http`, `-config`, …) the same way — they need no no-op counterpart, as they self-register through discovery.
+The condition is a plain `(env) => boolean`. Gate each optional collector package (`@eleven-labs/nest-profiler-http`, `-config`, …) the same way — they need no no-op counterpart, as they self-register through discovery.
+
+#### Keep `ProfilerService` resolvable when off: `ProfilerNoopModule`
+
+If a service (or `main.ts`) injects `ProfilerService` **directly** — for custom timeline spans (`startSpan`), `addEvent`, `addException`, `setSecurityContext` or `getCurrentToken` — that injection would fail to resolve when the active module is gated out. Register `ProfilerNoopModule` as the fallback so it resolves to a **zero-dependency** no-op instead (no CLS store, and the async options factory never runs):
+
+```ts title="app.module.ts"
+import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+
+ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+ConditionalModule.registerWhen(
+  ProfilerNoopModule.forRoot({ isGlobal: true }),
+  (env) => !isProfilerEnabled(env),
+),
+```
+
+Register it with the same `isGlobal` as the active module. An app that only captures logs and reads collector panels never injects `ProfilerService`, so it does **not** need this fallback — gate the active module alone.
 
 > **CLI apps (`nest-commander`):** `ConditionalModule.registerWhen` `await`s `ConfigModule.envVariablesLoaded` from `@nestjs/config`, which only resolves once `ConfigModule.forRoot()` has run. An HTTP app's root module usually imports it already, but a CLI bootstrapped with `CommandFactory` may not — and without it, registration hangs and the process exits `0` **silently** (no logs, no error, since the internal timeout is `unref`'d). If you use this gating in a CLI, import `ConfigModule.forRoot()` in its root module. See [Command profiling](https://nest-profiler.eleven-labs.com/docs/tutorials/commander-collector) and the [troubleshooting guide](https://nest-profiler.eleven-labs.com/docs/troubleshooting).
 
 #### Keep the root tidy: bundle into a `ProfilingModule`
 
-When several profiler modules live at the composition root (the core plus root-level collectors such as config, validator or commander), group them into a single module so the root keeps just **two** gates — one for the active bundle, one for the no-op fallback:
+When several profiler modules live at the composition root (the core plus root-level collectors such as config, validator or commander), group them into a single module so the root keeps a **single** gate for the active bundle (plus the no-op fallback only if the app injects `ProfilerService` directly):
 
 ```ts title="profiling.module.ts"
 import { DynamicModule, Module } from '@nestjs/common';
@@ -94,10 +106,11 @@ export class ProfilingModule {
 @Module({
   imports: [
     ConditionalModule.registerWhen(ProfilingModule.forRoot(), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
+    // Add this second gate only if a service injects ProfilerService directly (custom spans, events…):
+    // ConditionalModule.registerWhen(
+    //   ProfilerNoopModule.forRoot({ isGlobal: true }),
+    //   (env) => !isProfilerEnabled(env),
+    // ),
   ],
 })
 export class AppModule {}

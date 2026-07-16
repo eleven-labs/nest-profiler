@@ -29,13 +29,10 @@ describe('ProfilerNoopModule', () => {
     expect(profiler.getCurrentToken()).toBeUndefined();
     await expect(profiler.flush()).resolves.toBeUndefined();
     expect(() =>
-      profiler.addLog({ level: 'log', message: 'x', timestamp: Date.now() }),
+      profiler.addException({ name: 'E', message: 'boom', timestamp: Date.now() }),
     ).not.toThrow();
     const stop = profiler.startSpan('phase');
     expect(() => stop()).not.toThrow();
-    // createLogger returns the delegate untouched.
-    const delegate = { log: () => {} };
-    expect(profiler.createLogger(delegate)).toBe(delegate);
     await module.close();
   });
 

@@ -7,8 +7,14 @@ import { NoopProfilerService } from './services/noop-profiler.service';
  * exports {@link ProfilerService} bound to the zero-dependency
  * {@link NoopProfilerService}.
  *
- * Pair it with `ConditionalModule.registerWhen` as the fallback when the
- * profiler is disabled:
+ * **Opt-in** — you only need it when your app injects `ProfilerService`
+ * **directly** (`startSpan`, `addEvent`, `addException`, `setSecurityContext`,
+ * `getCurrentToken`). Log capture goes through the DI-free
+ * {@link createProfilerLogger}, so an app that only captures logs and reads
+ * collector panels never resolves `ProfilerService` and does not need this.
+ *
+ * When you do inject it, pair this with `ConditionalModule.registerWhen` as the
+ * fallback so the injection still resolves when the profiler is disabled:
  *
  * @example
  * ```ts
@@ -16,12 +22,8 @@ import { NoopProfilerService } from './services/noop-profiler.service';
  * ConditionalModule.registerWhen(ProfilerNoopModule.forRoot({ isGlobal: true }), (env) => !isProfilerEnabled(env)),
  * ```
  *
- * Unlike `ProfilerModule.forRoot({ enabled: false })` (whose inert layer is
- * still skipped entirely when its `ConditionalModule` condition is false), this
- * module guarantees `ProfilerService` stays injectable everywhere so consumers
- * never fail with "cannot resolve dependency ProfilerService". Because it binds
- * the no-op service it pulls in **no** dependencies (no `ClsModule`), so the
- * disabled path has no runtime cost.
+ * Because it binds the no-op service it pulls in **no** dependencies (no
+ * `ClsModule`), so the disabled path has no runtime cost.
  */
 @Module({})
 export class ProfilerNoopModule {

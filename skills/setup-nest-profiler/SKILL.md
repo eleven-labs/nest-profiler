@@ -12,12 +12,14 @@ description: |
 
 ⚠️ **Off in production by default** — the profiler exposes headers, query params and logs, so recommend keeping it off in production. It is the user's call, though: if the API isn't publicly reachable (internal, behind a VPN) or they've weighed the risks and still want it on, respect that and help them harden it (the `harden-for-production` skill, or the production section in [references/core-options.md](references/core-options.md)) — don't refuse. Both enable strategies keep `ProfilerService` injectable, so app code that calls it keeps working (as a no-op) when profiling is off.
 
+Log capture goes through the DI-free `createProfilerLogger` (it reads the active profile from CLS, and is a transparent pass-through when off), so nothing special is needed for logging to survive the enable/disable gate. `ProfilerNoopModule` is opt-in — needed only when the app injects `ProfilerService` **directly** (`startSpan`, `addEvent`, `addException`, `setSecurityContext`, `getCurrentToken`).
+
 **Only adding one collector to an app that already has the core profiler wired?** → use the `add-nest-profiler-collector` skill instead. This skill installs the core (and can add collectors in the same pass).
 
 ## Workflow
 
 1. **Introspect the project** first — nothing else until you have this (see below).
-2. **Choose the enable strategy** with `AskUserQuestion` → [references/enable-strategies.md](references/enable-strategies.md): Approach A (`ConditionalModule` + `ProfilerNoopModule`, **recommended, always presented first**) vs Approach B (the synchronous `enabled` flag).
+2. **Choose the enable strategy** with `AskUserQuestion` → [references/enable-strategies.md](references/enable-strategies.md): Approach A (`ConditionalModule` gating, **recommended, always presented first**) vs Approach B (the synchronous `enabled` flag). Add `ProfilerNoopModule` only if the app injects `ProfilerService` directly.
 3. **Install and configure the core** — ask the config questions that matter (see below).
 4. **Detect and wire collectors** → [references/collectors-matrix.md](references/collectors-matrix.md) and the family references; multi-select which to add, then ask each collector's key question.
 5. **Finalize and verify** (see below).
@@ -50,8 +52,8 @@ Then **ship the `env-condition` helpers** (`src/config/env-condition.ts` + `isPr
 
 1. `<pm> add @eleven-labs/nest-profiler@alpha nestjs-cls` — the profiler has **no stable release yet**, so every `@eleven-labs/nest-profiler*` package must be pinned to the `@alpha` dist-tag (`@latest` resolves to nothing). `nestjs-cls` powers per-request context and is the one peer a Nest app doesn't already provide. Add `@libsql/client` too only if the user picks SQLite storage (local file, `:memory:`, or a remote SQLite database).
 2. **Ask the core config questions that matter** (balanced — apply and state documented defaults for the rest): storage backend (`memory` / `file` / `sqlite`; use file or sqlite for CLI/multi-process), **access control** (the `security` option — the profiler is **open by default**, so ask whether to lock the UI down now and how: reuse an app guard via `security.guards`, or an `authorize` predicate — see [references/core-options.md](references/core-options.md)), whether to `collectBody` (default `false`, sensitive), and `sampleRate`. Leave `maxProfiles`, `ttl`, `ignorePaths`, `maskHeaders`, `emitDebugHeaders`, `maxBodySize`, `listPageSize` at their defaults unless the user has a reason.
-3. Add the gated import(s) to the composition root per the chosen strategy, with `isGlobal: true`. When options come from `ConfigService`, use `forRootAsync` (`isGlobal`/`enabled` stay top-level). Consider the `ProfilingModule.forWeb()` bundle to keep the root to two profiler entries.
-4. Enable log capture in `main.ts`: create the app with `{ bufferLogs: true }`, then `app.useLogger(app.get(ProfilerService).createLogger(new ConsoleLogger('App')))`.
+3. Add the gated import(s) to the composition root per the chosen strategy, with `isGlobal: true`. When options come from `ConfigService`, use `forRootAsync` (`isGlobal`/`enabled` stay top-level). Consider the `ProfilingModule.forWeb()` bundle to keep the root to a single profiler entry (plus the no-op fallback only if the app injects `ProfilerService` directly).
+4. Enable log capture in `main.ts`: create the app with `{ bufferLogs: true }`, then `app.useLogger(createProfilerLogger(new ConsoleLogger('App')))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler` — it needs no `ProfilerService`).
 
 ## Detect and wire collectors
 
@@ -76,4 +78,4 @@ Place each per the matrix (`config`/`validator`/`routes`/`commander` at the root
 
 - Start the app, `curl -i http://localhost:3000/<some-route>`, and confirm the response carries `X-Debug-Token` and `X-Debug-Token-Link`.
 - Open `http://localhost:3000/_profiler`, click the token, and confirm the Request / Response / Performance / Logs / Exceptions tabs (plus any collector panel you added) render.
-- Confirm the app still boots with `PROFILER_ENABLED=false` — `ProfilerService` must still resolve.
+- Confirm the app still boots with `PROFILER_ENABLED=false`. If you registered `ProfilerNoopModule` (because a service injects `ProfilerService` directly), also confirm that service still resolves it; log capture keeps working either way (`createProfilerLogger` is a pass-through when off).
