@@ -104,13 +104,6 @@ export interface TimelineSpan {
   duration: number;
 }
 
-export interface EventEntry {
-  eventName: string;
-  payloadSummary?: string;
-  listenerCount?: number;
-  timestamp: number;
-}
-
 export interface SecurityContext {
   isAuthenticated: boolean;
   user?: Record<string, unknown>;
@@ -130,7 +123,6 @@ export interface Profile<TData = unknown> {
   collectors: Record<string, unknown>;
   route?: RouteInfo;
   spans?: TimelineSpan[];
-  events?: EventEntry[];
   security?: SecurityContext;
   /**
    * Performance tags aggregated by the rule engine ({@link analyzeProfile}) from

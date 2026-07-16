@@ -112,7 +112,6 @@ import type {
   LogEntry,
   ExceptionEntry,
   TimelineSpan,
-  EventEntry,
   SecurityContext,
   LogMethodMap,
   LogArgsParser,

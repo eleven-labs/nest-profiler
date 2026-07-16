@@ -139,7 +139,6 @@ export type {
   LogLevel,
   RouteInfo,
   TimelineSpan,
-  EventEntry,
   SecurityContext,
   GraphQLInfo,
 } from './interfaces/profile.interface';
