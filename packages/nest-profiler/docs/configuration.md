@@ -151,6 +151,36 @@ ProfilerModule.forRoot({ error: { httpStatus: 400 } }); // count 4xx too
 
 This governs the `http` kind only. Every other entrypoint kind carries its own definition, configured on its own package (`GraphQLCollectorModule`, `RabbitMqCollectorModule`), since a status code means nothing to them — and outgoing HTTP calls are judged separately via `HttpCollectorModule`. The full picture, including the `Exception` filter and custom kinds, is on the [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification) page.
 
+## Versioning and global prefix
+
+The profiler is tooling, not part of your API surface, so **your app's routing never applies to it**. The UI is always at `/_profiler`, and you have nothing to declare for that to hold.
+
+**API versioning** is ignored — the controller is `VERSION_NEUTRAL`, so no scheme (URI, header or media-type) prefixes it:
+
+```ts
+app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+// your routes  -> /v1/orders
+// the profiler -> /_profiler
+```
+
+A **global prefix** is ignored too. The profiler opts itself out of `setGlobalPrefix()`, so it stays at the root while your own routes get prefixed as usual:
+
+```ts
+app.setGlobalPrefix('api/v1');
+// your routes  -> /api/v1/orders
+// the profiler -> /_profiler
+```
+
+Listing `_profiler` in `exclude` yourself is therefore unnecessary — though harmless if you do, the profiler will not add a second entry.
+
+> **Watch out:** `exclude` does more than skip the prefix — it also determines which routes the profiler's middleware binds to. A route served outside Nest's router (a GraphQL endpoint handled by Apollo, say) must be listed there, otherwise the middleware never runs for it and its operations drop out of the profiler:
+>
+> ```ts
+> app.setGlobalPrefix('api/v1', {
+>   exclude: [{ path: 'graphql', method: RequestMethod.ALL }],
+> });
+> ```
+
 ## Securing the UI
 
 The profiler ships **open** — no authentication by default (intended for local development). To lock `/_profiler/*` down, provide your own strategy through the `security` option. You bring the authentication; the profiler just enforces it. Two building blocks, usable alone or together (when both are set, **all must pass**):
