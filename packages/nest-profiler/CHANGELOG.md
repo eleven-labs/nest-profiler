@@ -1,5 +1,58 @@
 # @eleven-labs/nest-profiler
 
+## 1.0.0-alpha.12
+
+### Minor Changes
+
+- c74556d: Decouple log capture from `ProfilerService`: `createProfilerLogger` is now the single, DI-free way to capture logs.
+
+  `createProfilerLogger(delegate, options?)` no longer takes a `ProfilerService` argument — it resolves the active profile statically from the process-wide CLS store, exactly like `createProfilerValidationPipe`. Build it anywhere (typically in `main.ts`) and pass it to `app.useLogger(...)` with no `app.get(ProfilerService)`:
+
+  ```ts
+  import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+
+  app.useLogger(createProfilerLogger(new ConsoleLogger('App')));
+  ```
+
+  With no active profile (profiler disabled, bootstrap, or a background job) it is a transparent pass-through, so no log line is ever lost.
+
+  **Breaking changes:**
+
+  - `ProfilerService.createLogger(...)` is removed — use the standalone `createProfilerLogger(delegate, options?)`.
+  - `ProfilerService.addLog(...)` is removed — capture logs by wrapping your logger with `createProfilerLogger` instead.
+  - `createProfilerLogger`'s second parameter is now the options object directly (`createProfilerLogger(delegate, options)`), not a `ProfilerService`.
+
+  Because the logger no longer resolves `ProfilerService`, `ProfilerNoopModule` is only needed when your app injects `ProfilerService` directly (`startSpan`, `addEvent`, `addException`, `setSecurityContext`, `getCurrentToken`). Apps that only capture logs and rely on collectors can drop the no-op fallback entirely.
+
+- 762e132: Trim the `ProfilerService` public API down to what earns its place.
+
+  `ProfilerService` now exposes only `startSpan`, `getCurrentToken` and `flush`. The manual enrichment methods have been removed because they duplicated automatic capture or had no consumer:
+
+  - **`addException`** — exceptions are already captured automatically by the exception filter and the interceptor, so `profile.exceptions` is populated without it.
+  - **`setSecurityContext`** — the security context is already set automatically by `@eleven-labs/nest-profiler-auth`, so `profile.security` is populated without it.
+  - **`addEvent`** — the events feature had no producer and was rendered nowhere. The method, the `EventEntry` type, the `profile.events` field and the `EventEntry` export are all removed.
+
+  **Breaking changes:**
+
+  - Removed `ProfilerService.addException`, `ProfilerService.addEvent` and `ProfilerService.setSecurityContext` (and their `NoopProfilerService` counterparts).
+  - Removed the `EventEntry` type export and the `Profile.events` field.
+
+  Custom timeline instrumentation still lives on `ProfilerService.startSpan(...)`; exceptions and the security panel keep working through their automatic capture.
+
+### Patch Changes
+
+- bd9255b: Capture the response body of error responses written by an exception filter.
+
+  - On the `catchError` path the interceptor finalizes `profile.response` before the exception filter produces the body, so `response.body` was left `undefined` while successful responses captured theirs. The finish hook then bailed out because `profile.response` was already set, dropping the payload the client actually received.
+  - The middleware finish hook now backfills `response.body` from the intercepted `res.json/send/end` output when the profile carries an exception, its body is still `undefined`, and `collectBody` is enabled — symmetrical to the existing GraphQL envelope backfill. The success path and the response status code are left untouched.
+
+- 300aaf8: Serialize non-plain values meaningfully in `redact()` instead of collapsing them.
+
+  - `redact()` (used for SQL parameters, request/response bodies, config snapshots, …) enumerated any object's own-enumerable string keys, so a `Date` became `{}`, a `Buffer` became a byte-index map, and `Map`/`Set`/`URL`/`RegExp`/`Error` became `{}`. A `BigInt` passed through unchanged and then threw `Do not know how to serialize a BigInt` when the profile was `JSON.stringify`-d for storage.
+  - Well-known types are now serialized before the plain-object branch: `Date` → ISO string, `Map` → object (keys stringified, sensitive keys still masked), `Set` → array, `URL`/`RegExp` → string, `Error` → `{ name, message, stack }`, `ArrayBuffer`/`Buffer`/TypedArray → a `[<Type> <n> bytes]` placeholder, and `BigInt` → its decimal string so serialization never throws.
+  - Remaining class instances prefer their `toJSON()` projection when present, else fall back to own-enumerable enumeration as before.
+  - `isPlainObject` is now strict (prototype must be `Object.prototype` or `null`), so exotic objects are no longer property-enumerated by any consumer.
+
 ## 1.0.0-alpha.11
 
 ### Patch Changes
