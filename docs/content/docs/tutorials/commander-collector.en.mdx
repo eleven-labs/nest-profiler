@@ -67,7 +67,7 @@ Create a dedicated module for the CLI. Use **file** storage with the same `stora
 
 ```ts title="cli.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
+import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
@@ -80,6 +80,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     ConditionalModule.registerWhen(
       ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
       isProfilerEnabled,
@@ -98,6 +99,16 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 })
 export class CliModule {}
 ```
+
+<Callout type="warn">
+  Your CLI root module **must** import `ConfigModule.forRoot()` from `@nestjs/config`. The
+  recommended gating (`ConditionalModule.registerWhen`) `await`s `ConfigModule.envVariablesLoaded`,
+  which only resolves once `ConfigModule.forRoot()` has run. A `CommandFactory` CLI that never
+  imports it never resolves that promise, so registration hangs and the process exits `0`
+  **silently** - no logs, no error (the internal timeout is `unref`'d). HTTP apps rarely hit this
+  because their root module already imports `ConfigModule.forRoot()`. This applies to every module
+  the CLI loads that gates something with `registerWhen` (core, database, RabbitMQ collectors…).
+</Callout>
 
 ## Step 4 - Bootstrap the CLI
 

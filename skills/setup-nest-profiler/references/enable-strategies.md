@@ -84,6 +84,7 @@ Rules:
 - Register `ProfilerNoopModule.forRoot({ isGlobal: true })` with the **same `isGlobal`** as the active module, gated on `not(isProfilerEnabled)`.
 - Gate each optional collector the same way (`ConditionalModule.registerWhen(..., isProfilerEnabled)`). Collectors need **no** no-op counterpart.
 - When options depend on injected providers (e.g. `ConfigService`), use `ProfilerModule.forRootAsync({ isGlobal: true, inject: [...], useFactory: ... })`. `isGlobal` stays a top-level key, outside the factory.
+- **CLI apps (`nest-commander` / `CommandFactory`):** `registerWhen` `await`s `ConfigModule.envVariablesLoaded`, which only resolves once `@nestjs/config`'s `ConfigModule.forRoot()` has run. An HTTP root module usually imports it already; a `CommandFactory` CLI often does not — and without it registration hangs and the process exits `0` **silently** (no logs, no error; the internal timeout is `unref`'d). Import `ConfigModule.forRoot()` in any CLI root module that gates something with `registerWhen` (core, DB, RabbitMQ collectors…).
 
 ## Approach B — ALTERNATIVE: the `enabled` flag (no `@nestjs/config`)
 
@@ -115,7 +116,7 @@ Rules:
 
 ## Bundling pattern — keep the root tidy (`ProfilingModule`)
 
-Group the core module and the **root-level** collectors (config, validator, commander, routes…) into one module so the composition root keeps just two profiler entries (active bundle + no-op fallback). Infra-scoped collectors stay in their feature modules, each with their own gate. Two static factories keep the web and CLI processes distinct (the CLI defaults to file/sqlite storage so its profiles show up in the web UI).
+Group the core module and the **root-level** collectors (config, validator, commander, routes…) into one module so the composition root keeps just two profiler entries (active bundle + no-op fallback). Infra-scoped collectors stay in their feature modules, each with their own gate. Two static factories keep the web and CLI processes distinct (the CLI defaults to file/sqlite storage so its profiles show up in the web UI). The CLI composition root (`CommandFactory.run(...)`) must import `ConfigModule.forRoot()` — the gates rely on it (see the CLI note under Approach A).
 
 ```ts title="src/profiling/profiling.module.ts"
 import { DynamicModule, Module } from '@nestjs/common';
