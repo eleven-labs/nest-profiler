@@ -37,12 +37,9 @@ type ExcludedRoute = NonNullable<
 >[number];
 
 /**
- * The profiler's own routes, in the shape `setGlobalPrefix()` stores its exclusions.
- *
- * Nest compiles these with `path-to-regexp` when an app writes them by hand; the patterns are
- * spelled out here instead so the package does not reach into that internal helper. They cover a
- * fixed, literal path — `/_profiler` itself and everything nested under it (`/:token`, the JSON
- * export, `/__assets/*`) — so there is no user input to translate.
+ * The profiler's routes, in the shape `setGlobalPrefix()` stores its exclusions. The `pathRegex`
+ * is spelled out by hand — the path is a fixed literal, so we avoid pulling in Nest's internal
+ * `path-to-regexp` conversion — covering `/_profiler` and everything nested under it.
  */
 const PROFILER_GLOBAL_PREFIX_EXCLUSIONS: ExcludedRoute[] = [
   {
@@ -178,19 +175,14 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
   }
 
   /**
-   * Opts the profiler out of the host's `setGlobalPrefix()`, so the UI is always at `/_profiler`
-   * whatever the app prefixes its own API with — and without the app having to declare anything.
+   * Opts the profiler out of the host's `setGlobalPrefix()` so the UI stays at `/_profiler`, with
+   * nothing for the app to declare. Everything pointing at {@link PROFILER_BASE_PATH} (asset links,
+   * the toolbar, the `X-Debug-Token-Link` header) then stays valid.
    *
-   * The profiler is tooling, not part of the API surface, so it has no business living under
-   * `/api/v1`. Left alone, Nest prefixes it like any other controller, which both moves the UI and
-   * strands everything that points at the fixed {@link PROFILER_BASE_PATH} (asset links, the
-   * injected toolbar, the `X-Debug-Token-Link` header). Excluding it keeps that constant true.
-   *
-   * Timing is what makes this work: `configure()` runs inside `registerModules()`, before
-   * `registerRouter()` builds the routes, and `RoutePathFactory` re-reads the exclusion list for
-   * every route it creates — so an entry added here is honoured. `setGlobalPrefix()` has already
-   * run by then (it happens on the app instance before `listen()`), hence merging into the host's
-   * options rather than replacing them.
+   * Relies on ordering: `configure()` runs before `registerRouter()` builds the routes, and
+   * `RoutePathFactory` re-reads the exclusion list per route — so an entry added here is honoured.
+   * We merge into the host's options (already carrying its own `setGlobalPrefix()` call) rather
+   * than replacing them.
    */
   private excludeFromGlobalPrefix(): void {
     const options = this.appConfig.getGlobalPrefixOptions();

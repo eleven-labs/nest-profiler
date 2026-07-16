@@ -64,10 +64,9 @@ const PROFILER_CSP =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
 
 /**
- * `VERSION_NEUTRAL` keeps the profiler out of the host's API versioning: as a plain
- * `@Controller()` it inherited the app's `defaultVersion`, so enabling URI versioning moved the
- * whole UI to `/v1/_profiler` and `/_profiler` 404'd. The profiler is tooling, not a versioned
- * API surface, so no version scheme — URI, header or media-type — should ever apply to it.
+ * `VERSION_NEUTRAL` keeps the profiler out of the host's API versioning. As a plain `@Controller()`
+ * it inherited the app's `defaultVersion`, so URI versioning moved the whole UI to `/v1/_profiler`
+ * and `/_profiler` 404'd. The profiler is tooling, not a versioned API surface.
  */
 @UseGuards(ProfilerGuard)
 @Controller({ version: VERSION_NEUTRAL })
