@@ -5,7 +5,7 @@
   },
   {
     "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/platform-express\": \"^11.0.0\"\n  }\n}\nLockfile present: package-lock.json\n\nUser: Add nest-profiler.",
-    "expected_behavior": "@nestjs/config is absent, but Approach A must STILL be the default/recommended option, presented FIRST — @nestjs/config is a first-party package installable solely for ConditionalModule without adopting ConfigModule. Present both via AskUserQuestion in fixed order (A first with '(recommended)' on the label, B second), let the user pick, and do NOT silently fall back to B. Install core with npm (package-lock.json): 'npm install @eleven-labs/nest-profiler nestjs-cls'."
+    "expected_behavior": "@nestjs/config is absent, but Approach A must STILL be the default/recommended option, presented FIRST — @nestjs/config is a first-party package installable solely for ConditionalModule without adopting ConfigModule. Present both via AskUserQuestion in fixed order (A first with '(recommended)' on the label, B second), let the user pick, and do NOT silently fall back to B. Install core with npm (package-lock.json), pinning the profiler to the alpha dist-tag (no stable release yet): 'npm install @eleven-labs/nest-profiler@alpha nestjs-cls'."
   },
   {
     "query": "You are presenting the enable-strategy choice. Show me the AskUserQuestion options.",

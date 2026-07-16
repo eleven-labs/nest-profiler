@@ -91,10 +91,10 @@ pnpm example:dev
 
 ## Installation
 
-Packages are published to the public **npm** registry — install them like any other dependency, no authentication required:
+Packages are published to the public **npm** registry — install them like any other dependency, no authentication required. There is no stable release yet, so every `@eleven-labs/nest-profiler*` package must be installed with the `@alpha` dist-tag (`@latest` resolves to nothing):
 
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 ```
 
 ```ts title="app.module.ts"
@@ -114,7 +114,7 @@ export class AppModule {}
 Add optional collectors in their respective feature modules:
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-typeorm
+pnpm add @eleven-labs/nest-profiler-typeorm@alpha
 ```
 
 ```ts title="products/products.module.ts"

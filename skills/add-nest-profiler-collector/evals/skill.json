@@ -1,11 +1,11 @@
 [
   {
     "query": "app.module.ts already registers the profiler with Approach A:\n  ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),\n  ConditionalModule.registerWhen(ProfilerNoopModule.forRoot({ isGlobal: true }), (env) => !isProfilerEnabled(env)),\nThe app just added @nestjs/cache-manager and CacheModule.register().\n\nUser: Add cache profiling.",
-    "expected_behavior": "Confirm the base profiler is already set up and note the existing enable strategy is Approach A. Install @eleven-labs/nest-profiler-cache. Register CacheCollectorModule.forRoot() AFTER CacheModule, gated with the SAME ConditionalModule.registerWhen(..., isProfilerEnabled) pattern — do not introduce a different enable pattern."
+    "expected_behavior": "Confirm the base profiler is already set up and note the existing enable strategy is Approach A. Install @eleven-labs/nest-profiler-cache@alpha (no stable release yet — pin the alpha dist-tag). Register CacheCollectorModule.forRoot() AFTER CacheModule, gated with the SAME ConditionalModule.registerWhen(..., isProfilerEnabled) pattern — do not introduce a different enable pattern."
   },
   {
     "query": "app.module.ts registers the profiler with the enabled flag (Approach B):\n  ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'production' }),\nThe app uses mongoose + @nestjs/mongoose with MongooseModule.forRoot(...).\n\nUser: Add MongoDB query profiling.",
-    "expected_behavior": "Confirm the base setup and note the existing strategy is the enabled flag (Approach B). Install @eleven-labs/nest-profiler-mongoose and register MongooseCollectorModule.forRoot({ slowThreshold: 100 }) (slowThreshold, NOT slowQueryThreshold), optionally MongooseSchemaCollectorModule for the model panel. Must MATCH Approach B — do NOT introduce ConditionalModule.registerWhen (that would be a second, inconsistent pattern)."
+    "expected_behavior": "Confirm the base setup and note the existing strategy is the enabled flag (Approach B). Install @eleven-labs/nest-profiler-mongoose@alpha (no stable release yet — pin the alpha dist-tag) and register MongooseCollectorModule.forRoot({ slowThreshold: 100 }) (slowThreshold, NOT slowQueryThreshold), optionally MongooseSchemaCollectorModule for the model panel. Must MATCH Approach B — do NOT introduce ConditionalModule.registerWhen (that would be a second, inconsistent pattern)."
   },
   {
     "query": "package.json has @nestjs/common, @nestjs/core, typeorm, @nestjs/typeorm but NO @eleven-labs/nest-profiler dependency, and no ProfilerModule anywhere in the codebase.\n\nUser: Add the TypeORM profiler collector.",
@@ -13,7 +13,7 @@
   },
   {
     "query": "The profiler is set up with Approach A. The app added @golevelup/nestjs-rabbitmq and amqplib and consumes messages via @RabbitSubscribe.\n\nUser: Add RabbitMQ message profiling.",
-    "expected_behavior": "Confirm base setup (Approach A). Install @eleven-labs/nest-profiler-rabbitmq and register RabbitMqCollectorModule.forRoot() in the process that CONSUMES messages (and hosts the profiler), gated with the same isProfilerEnabled pattern. Verify by publishing/consuming a message and checking the RabbitMQ panel."
+    "expected_behavior": "Confirm base setup (Approach A). Install @eleven-labs/nest-profiler-rabbitmq@alpha (no stable release yet — pin the alpha dist-tag) and register RabbitMqCollectorModule.forRoot() in the process that CONSUMES messages (and hosts the profiler), gated with the same isProfilerEnabled pattern. Verify by publishing/consuming a message and checking the RabbitMQ panel."
   },
   {
     "query": "The profiler is set up with Approach A. The app uses ioredis directly for a custom pub/sub channel (no @nestjs/cache-manager, no @golevelup/nestjs-rabbitmq).\n\nUser: Add a collector to profile my Redis pub/sub messages.",

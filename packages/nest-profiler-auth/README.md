@@ -29,8 +29,10 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-auth
+pnpm add @eleven-labs/nest-profiler-auth@alpha
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 No additional peer dependencies beyond `nestjs-cls` (already required by `@eleven-labs/nest-profiler`).
 

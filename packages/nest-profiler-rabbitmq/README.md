@@ -31,8 +31,10 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-rabbitmq
+pnpm add @eleven-labs/nest-profiler-rabbitmq@alpha
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to consume messages). They are optional — when no RabbitMQ consumer runs, the module simply never produces a profile.
 

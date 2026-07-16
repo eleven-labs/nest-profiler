@@ -31,8 +31,10 @@ It is **validator-agnostic**: instead of being tied to `class-validator`, it wra
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-validator
+pnpm add @eleven-labs/nest-profiler-validator@alpha
 ```
+
+> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 Then install the validator **you** use:
 
