@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-rabbitmq",
-  "version": "1.0.0-alpha.10",
+  "version": "1.0.0-alpha.11",
   "description": "RabbitMQ message collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
