@@ -40,43 +40,6 @@ describe('ProfilerService', () => {
     });
   });
 
-  it('addException appends to active profile', () => {
-    const profile = makeProfile('t2');
-    cls.run(() => {
-      cls.set('profiler.profile', profile);
-      service.addException({ name: 'Error', message: 'boom', timestamp: Date.now() });
-    });
-    expect(profile.exceptions).toHaveLength(1);
-    expect(profile.exceptions[0]?.message).toBe('boom');
-  });
-
-  it('addEvent appends an event to the active profile', () => {
-    const profile = makeProfile('t-evt');
-    cls.run(() => {
-      cls.set('profiler.profile', profile);
-      service.addEvent({ eventName: 'user.created', timestamp: Date.now() });
-    });
-    expect(profile.events).toHaveLength(1);
-    expect(profile.events?.[0]?.eventName).toBe('user.created');
-  });
-
-  it('addEvent does nothing outside CLS context', () => {
-    expect(() => service.addEvent({ eventName: 'noop', timestamp: Date.now() })).not.toThrow();
-  });
-
-  it('setSecurityContext stores the security context on the active profile', () => {
-    const profile = makeProfile('t-sec');
-    cls.run(() => {
-      cls.set('profiler.profile', profile);
-      service.setSecurityContext({ isAuthenticated: true, roles: ['admin'] });
-    });
-    expect(profile.security).toEqual({ isAuthenticated: true, roles: ['admin'] });
-  });
-
-  it('setSecurityContext does nothing outside CLS context', () => {
-    expect(() => service.setSecurityContext({ isAuthenticated: false })).not.toThrow();
-  });
-
   it('startSpan records a timeline span when stopped inside CLS context', () => {
     const profile = makeProfile('t-span');
     cls.run(() => {

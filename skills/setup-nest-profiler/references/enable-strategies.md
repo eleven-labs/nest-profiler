@@ -4,7 +4,7 @@ Turn the profiler off in production. Pick one strategy and apply it consistently
 
 **Log capture never needs `ProfilerService`** — wrap the logger with the standalone `createProfilerLogger` (DI-free; it reads the active profile from CLS and is a transparent pass-through when off). So neither strategy has to do anything special for `app.useLogger(...)` to keep working when profiling is off.
 
-**`ProfilerNoopModule` is opt-in.** It exists for one purpose: keeping `ProfilerService` resolvable when the profiler is off, for apps that **inject `ProfilerService` directly** — custom timeline spans (`startSpan`), `addEvent`, `addException`, `setSecurityContext` or `getCurrentToken`. An app that only captures logs and reads collector panels never resolves `ProfilerService`, so it does **not** need the no-op fallback. Add it only when a service (or `main.ts`) injects `ProfilerService`; otherwise gate the active module alone.
+**`ProfilerNoopModule` is opt-in.** It exists for one purpose: keeping `ProfilerService` resolvable when the profiler is off, for apps that **inject `ProfilerService` directly** — custom timeline spans (`startSpan`) or the current debug token (`getCurrentToken`). An app that only captures logs and reads collector panels never resolves `ProfilerService`, so it does **not** need the no-op fallback. Add it only when a service (or `main.ts`) injects `ProfilerService`; otherwise gate the active module alone.
 
 **Approach A is the recommended default — always present it first.** `@nestjs/config` is a first-party Nest package that can be installed **solely** to obtain `ConditionalModule`, without adopting `ConfigModule` or changing how the app loads its configuration. So even an app that has no `@nestjs/config` today should default to Approach A; Approach B is the fallback only when the user declines that one dependency.
 
@@ -84,7 +84,7 @@ Rules:
 
 ### Add the no-op fallback only if you inject `ProfilerService`
 
-If a service (or `main.ts`) injects `ProfilerService` directly — `startSpan`, `addEvent`, `addException`, `setSecurityContext`, `getCurrentToken` — register `ProfilerNoopModule` as the off-path fallback so the injection still resolves when profiling is off. Log capture does **not** count: it goes through the DI-free `createProfilerLogger`, so an app that only captures logs skips this entirely.
+If a service (or `main.ts`) injects `ProfilerService` directly — `startSpan` or `getCurrentToken` — register `ProfilerNoopModule` as the off-path fallback so the injection still resolves when profiling is off. Log capture does **not** count: it goes through the DI-free `createProfilerLogger`, so an app that only captures logs skips this entirely.
 
 ```ts title="app.module.ts"
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';

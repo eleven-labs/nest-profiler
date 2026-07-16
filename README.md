@@ -166,7 +166,7 @@ The profiler has two layers:
   controller, the collector registry and storage.
 - **Inert** — registers _only_ `ProfilerService`, backed by the zero-dependency
   `NoopProfilerService`, so application code that injects `ProfilerService`
-  directly (`startSpan`, `addEvent`, …) keeps working with zero overhead.
+  directly (`startSpan`, `getCurrentToken`) keeps working with zero overhead.
 
 The **recommended** way to toggle the profiler is `ConditionalModule.registerWhen`
 on the active module — it is never loaded when profiling is off. Log capture keeps

@@ -1,21 +1,20 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from './profiler-core.service';
-import type {
-  EventEntry,
-  ExceptionEntry,
-  Profile,
-  SecurityContext,
-} from '../interfaces/profile.interface';
+import type { Profile } from '../interfaces/profile.interface';
 
 /**
  * The main entry point for interacting with the profiler from your own code.
  *
- * Inject it anywhere to enrich the **active request profile** — add custom
- * timeline spans, events, exceptions or security context. Every method resolves
- * the current profile from the request-scoped CLS store, so a call made outside
- * of a profiled request (during bootstrap, in a background job, or when the
+ * Inject it anywhere to add custom **timeline spans** to the active request
+ * profile, or to read the current debug token. Every method resolves the
+ * current profile from the request-scoped CLS store, so a call made outside of
+ * a profiled request (during bootstrap, in a background job, or when the
  * profiler is disabled) is a safe no-op rather than an error.
+ *
+ * Exceptions and the security context are captured automatically (by the
+ * exception filter and `@eleven-labs/nest-profiler-auth`), so there is no
+ * method to record them by hand.
  *
  * To capture logs, wrap your logger with the standalone
  * {@link createProfilerLogger} instead — it needs no `ProfilerService` and works
@@ -79,41 +78,6 @@ export class ProfilerService {
     } catch {
       return undefined;
     }
-  }
-
-  /**
-   * Records an exception in the active profile's **Exceptions** panel.
-   *
-   * @param entry - The captured exception (name, message, stack, timestamp).
-   */
-  addException(entry: ExceptionEntry): void {
-    this.getProfile()?.exceptions.push(entry);
-  }
-
-  /**
-   * Appends a timeline **event** — a point-in-time marker, as opposed to a
-   * {@link startSpan | span} that has a duration — to the active profile.
-   *
-   * @param entry - The event to record (name and timestamp).
-   */
-  addEvent(entry: EventEntry): void {
-    const profile = this.getProfile();
-    if (!profile) return;
-    (profile.events ??= []).push(entry);
-  }
-
-  /**
-   * Sets the security context (authenticated user, roles, JWT claims…) shown in
-   * the **Security** panel, replacing any context previously set for the
-   * request. Usually populated by `@eleven-labs/nest-profiler-auth`, but you can
-   * call it directly to surface custom auth data.
-   *
-   * @param data - The security context to attach to the active profile.
-   */
-  setSecurityContext(data: SecurityContext): void {
-    const profile = this.getProfile();
-    if (!profile) return;
-    profile.security = data;
   }
 
   /**

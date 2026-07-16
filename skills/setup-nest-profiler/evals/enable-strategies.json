@@ -1,7 +1,7 @@
 [
   {
     "query": "Which enable strategy is recommended and what does it require?",
-    "expected_behavior": "Must read references/enable-strategies.md. Answer: Approach A — gate ProfilerModule with ConditionalModule.registerWhen(..., isProfilerEnabled), so the active module is never loaded when off. It requires @nestjs/config (where ConditionalModule lives). Log capture goes through the DI-free createProfilerLogger, so ProfilerNoopModule is opt-in — add it (gated on not(isProfilerEnabled)) only if the app injects ProfilerService directly (startSpan, addEvent, addException, setSecurityContext, getCurrentToken)."
+    "expected_behavior": "Must read references/enable-strategies.md. Answer: Approach A — gate ProfilerModule with ConditionalModule.registerWhen(..., isProfilerEnabled), so the active module is never loaded when off. It requires @nestjs/config (where ConditionalModule lives). Log capture goes through the DI-free createProfilerLogger, so ProfilerNoopModule is opt-in — add it (gated on not(isProfilerEnabled)) only if the app injects ProfilerService directly (startSpan or getCurrentToken)."
   },
   {
     "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\",\n    \"@nestjs/platform-express\": \"^11.0.0\"\n  }\n}\nLockfile present: package-lock.json\n\nUser: Add nest-profiler.",
