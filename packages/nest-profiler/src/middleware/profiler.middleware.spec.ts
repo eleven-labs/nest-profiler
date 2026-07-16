@@ -759,6 +759,52 @@ describe('ProfilerMiddleware', () => {
       expect(coreMock.storage.save.mock.calls.length).toBe(callsBefore);
     });
 
+    it('backfills the error-response body written by an exception filter', async () => {
+      // catchError finalized with an undefined body; the exception filter then wrote res.json().
+      const { middleware, cls, coreMock } = createMiddlewareWithCore({ collectBody: true });
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res, '/api');
+
+      const profile = capturedProfile(cls);
+      profile.exceptions.push({
+        name: 'BadRequestException',
+        message: 'bad',
+        timestamp: Date.now(),
+      });
+      profile.response = { statusCode: 400, headers: {}, body: undefined };
+
+      const errorBody = { errors: 'validation failed' };
+      res.json(errorBody);
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(profile.response.body).toEqual(errorBody);
+      expect(profile.response.statusCode).toBe(400);
+      expect(coreMock.storage.save).toHaveBeenCalledWith(profile);
+    });
+
+    it('does not backfill an error-response body when collectBody is false', async () => {
+      const { middleware, cls, coreMock } = createMiddlewareWithCore({ collectBody: false });
+      const res = makeResWithFinish(400);
+      await runMw(middleware, res, '/api');
+
+      const profile = capturedProfile(cls);
+      profile.exceptions.push({
+        name: 'BadRequestException',
+        message: 'bad',
+        timestamp: Date.now(),
+      });
+      profile.response = { statusCode: 400, headers: {}, body: undefined };
+
+      res.json({ errors: 'validation failed' });
+      const callsBefore = coreMock.storage.save.mock.calls.length;
+      res.triggerFinish();
+      await waitAsync();
+
+      expect(profile.response.body).toBeUndefined();
+      expect(coreMock.storage.save.mock.calls.length).toBe(callsBefore);
+    });
+
     /** Raw Node-style response: no json()/send(), body written via write()+end(). */
     function makeRawResWithFinish(contentType = 'application/json'): PlatformResponse & {
       triggerFinish(): void;

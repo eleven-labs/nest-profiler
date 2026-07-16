@@ -187,16 +187,21 @@ export class ProfilerMiddleware implements NestMiddleware {
     rawRes.once('finish', () => {
       const interceptedResponseBody = getResponseBody();
       if (profile.response) {
-        // The interceptor already finalized the profile. For GraphQL over HTTP it ran in
-        // the non-HTTP (resolver) context and only saw the resolver result — never the
-        // transport-level { data, errors } envelope the driver writes afterwards. Backfill
-        // it so the Response tab shows what the client actually received, errors included.
-        if (profile.entrypoint.data.graphql && interceptedResponseBody !== undefined) {
+        // The interceptor already finalized, but two cases still need the body the transport
+        // wrote afterwards: GraphQL (the resolver context never saw the { data, errors }
+        // envelope) and error responses (the exception filter produces the body after
+        // catchError left it undefined).
+        const isGraphql = Boolean(profile.entrypoint.data.graphql);
+        const needsErrorBodyBackfill =
+          this.collectBody && profile.exceptions.length > 0 && profile.response.body === undefined;
+        if ((isGraphql || needsErrorBodyBackfill) && interceptedResponseBody !== undefined) {
           profile.response.body = this.normalizeBody(interceptedResponseBody);
-          profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
+          if (isGraphql) {
+            profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
+          }
           this.core.scheduleSave(profile);
         }
-        return; // otherwise the interceptor already finalized and saved
+        return;
       }
 
       profile.performance.duration = Date.now() - profile.performance.startTime;
