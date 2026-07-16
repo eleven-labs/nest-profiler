@@ -95,4 +95,77 @@ describe('redact', () => {
     value['self'] = value;
     expect(redact(value)).toEqual({ a: 1, self: '[Circular]' });
   });
+
+  it('serializes a Date to an ISO string instead of collapsing it to {}', () => {
+    expect(redact({ at: new Date('2026-07-01T00:00:00.000Z') })).toEqual({
+      at: '2026-07-01T00:00:00.000Z',
+    });
+  });
+
+  it('serializes a top-level Date', () => {
+    expect(redact(new Date('2026-07-01T00:00:00.000Z'))).toBe('2026-07-01T00:00:00.000Z');
+  });
+
+  it('renders a Map as an object and redacts its sensitive keys', () => {
+    expect(
+      redact(
+        new Map<string, unknown>([
+          ['name', 'bob'],
+          ['password', 'hunter2'],
+        ]),
+      ),
+    ).toEqual({ name: 'bob', password: REDACTED });
+  });
+
+  it('renders a Set as an array', () => {
+    expect(redact(new Set([1, 2, 3]))).toEqual([1, 2, 3]);
+  });
+
+  it('renders URL and RegExp as strings', () => {
+    expect(redact({ u: new URL('https://x/y'), r: /foo/gi })).toEqual({
+      u: 'https://x/y',
+      r: '/foo/gi',
+    });
+  });
+
+  it('renders an Error as { name, message, stack }', () => {
+    const result = redact(new Error('boom')) as { name: string; message: string; stack?: string };
+    expect(result.name).toBe('Error');
+    expect(result.message).toBe('boom');
+    expect(typeof result.stack).toBe('string');
+  });
+
+  it('renders a Buffer as a size placeholder rather than a byte-index map', () => {
+    expect(redact({ blob: Buffer.from('hello') })).toEqual({ blob: '[Buffer 5 bytes]' });
+  });
+
+  it('renders a TypedArray as a size placeholder', () => {
+    expect(redact(new Uint16Array([1, 2, 3]))).toBe('[Uint16Array 6 bytes]');
+  });
+
+  it('stringifies a BigInt so profile serialization never throws', () => {
+    const result = redact({ big: 10n });
+    expect(result).toEqual({ big: '10' });
+    expect(() => JSON.stringify(result)).not.toThrow();
+  });
+
+  it('prefers a class instance toJSON() projection when available', () => {
+    class Money {
+      constructor(private readonly cents: number) {}
+      toJSON(): { amount: number } {
+        return { amount: this.cents / 100 };
+      }
+    }
+    expect(redact({ price: new Money(1050) })).toEqual({ price: { amount: 10.5 } });
+  });
+
+  it('falls back to own-enumerable enumeration for a plain class instance', () => {
+    class Point {
+      constructor(
+        public x: number,
+        public token: string,
+      ) {}
+    }
+    expect(redact(new Point(1, 'secret'))).toEqual({ x: 1, token: REDACTED });
+  });
 });

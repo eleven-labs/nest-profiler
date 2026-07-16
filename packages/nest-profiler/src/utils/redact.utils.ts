@@ -55,6 +55,22 @@ export function redactString(value: string): string {
     .replace(SK_KEY_RE, REDACTED);
 }
 
+/** Redacts an object's own-enumerable entries: secret keys are masked, others recursed into. */
+function redactEntries(
+  entries: [string, unknown][],
+  depth: number,
+  seen: WeakSet<object>,
+  options: Required<RedactOptions>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of entries) {
+    result[key] = isSecretKey(key, options)
+      ? REDACTED
+      : redactInner(entry, depth + 1, seen, options);
+  }
+  return result;
+}
+
 function redactInner(
   value: unknown,
   depth: number,
@@ -64,6 +80,8 @@ function redactInner(
   if (typeof value === 'string') {
     return options.maskValues ? redactString(value) : value;
   }
+  // BigInt is not JSON-serializable; stringify it so profile serialization never throws later.
+  if (typeof value === 'bigint') return value.toString();
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return '[Circular]';
   if (depth >= options.maxDepth) return value;
@@ -73,16 +91,35 @@ function redactInner(
     if (Array.isArray(value)) {
       return value.map((item) => redactInner(item, depth + 1, seen, options));
     }
-    if (isPlainObject(value)) {
-      const result: Record<string, unknown> = {};
-      for (const [key, entry] of Object.entries(value)) {
-        result[key] = isSecretKey(key, options)
-          ? REDACTED
-          : redactInner(entry, depth + 1, seen, options);
-      }
-      return result;
+    // Well-known non-plain types: serialize them meaningfully instead of enumerating their
+    // (usually empty) own-enumerable keys, which would collapse them to `{}` or mangle them.
+    if (value instanceof Date) return value.toISOString();
+    if (value instanceof RegExp || value instanceof URL) return String(value);
+    if (value instanceof Error) {
+      return { name: value.name, message: value.message, stack: value.stack };
     }
-    return value;
+    if (value instanceof Map) {
+      const entries: [string, unknown][] = [...value].map(([key, entry]) => [String(key), entry]);
+      return redactEntries(entries, depth, seen, options);
+    }
+    if (value instanceof Set) {
+      return [...value].map((item) => redactInner(item, depth + 1, seen, options));
+    }
+    if (value instanceof ArrayBuffer) return `[ArrayBuffer ${value.byteLength} bytes]`;
+    if (ArrayBuffer.isView(value)) {
+      const ctor = value.constructor?.name ?? 'TypedArray';
+      return `[${ctor} ${value.byteLength} bytes]`;
+    }
+    if (isPlainObject(value)) {
+      return redactEntries(Object.entries(value), depth, seen, options);
+    }
+    // A remaining class instance: prefer its `toJSON()` projection, else enumerate its own
+    // enumerable properties like a plain object (previous behavior).
+    const toJSON = (value as { toJSON?: unknown }).toJSON;
+    if (typeof toJSON === 'function') {
+      return redactInner((toJSON as () => unknown).call(value), depth, seen, options);
+    }
+    return redactEntries(Object.entries(value as Record<string, unknown>), depth, seen, options);
   } finally {
     seen.delete(value);
   }
