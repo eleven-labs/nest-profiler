@@ -27,7 +27,7 @@ Add `MikroOrmCollectorModule` **after** `MikroOrmModule` in your root module:
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { ConditionalModule } from '@nestjs/config';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
@@ -36,10 +36,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   imports: [
     MikroOrmModule.forRoot({ driver: PostgreSqlDriver /* ... */ }),
     ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
     ConditionalModule.registerWhen(
       MikroOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
       isProfilerEnabled,

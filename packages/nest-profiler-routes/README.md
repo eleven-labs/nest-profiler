@@ -50,7 +50,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 export class AppModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` so it loads only when the profiler is on, or pass `RoutesCollectorModule.forRoot({ enabled: false })`. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — see the [example app](https://nest-profiler.eleven-labs.com/docs/example-api).
+> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` so it loads only when the profiler is on, or pass `RoutesCollectorModule.forRoot({ enabled: false })`. Wire the core `ProfilerModule` **once at the root** (add its `ProfilerNoopModule` fallback only if you inject `ProfilerService` directly) — see the [example app](https://nest-profiler.eleven-labs.com/docs/example-api).
 
 ## What it collects
 

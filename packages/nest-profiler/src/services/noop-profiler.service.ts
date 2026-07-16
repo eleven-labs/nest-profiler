@@ -1,11 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  EventEntry,
-  ExceptionEntry,
-  LogEntry,
-  SecurityContext,
-} from '../interfaces/profile.interface';
-import type { LogMethodMap, ProfilerLoggerOptions } from './profiler-logger-adapter';
+import type { EventEntry, ExceptionEntry, SecurityContext } from '../interfaces/profile.interface';
 import type { ProfilerService } from './nest-profiler.service';
 
 /**
@@ -23,22 +17,13 @@ import type { ProfilerService } from './nest-profiler.service';
 @Injectable()
 export class NoopProfilerService implements Pick<
   ProfilerService,
-  | 'flush'
-  | 'getCurrentToken'
-  | 'addLog'
-  | 'addException'
-  | 'addEvent'
-  | 'setSecurityContext'
-  | 'startSpan'
-  | 'createLogger'
+  'flush' | 'getCurrentToken' | 'addException' | 'addEvent' | 'setSecurityContext' | 'startSpan'
 > {
   async flush(): Promise<void> {}
 
   getCurrentToken(): string | undefined {
     return undefined;
   }
-
-  addLog(_entry: LogEntry): void {}
 
   addException(_entry: ExceptionEntry): void {}
 
@@ -48,12 +33,5 @@ export class NoopProfilerService implements Pick<
 
   startSpan(_phase: string): () => void {
     return () => {};
-  }
-
-  createLogger<T extends object>(
-    delegate: T,
-    _logMethodsOrOptions?: LogMethodMap | ProfilerLoggerOptions,
-  ): T {
-    return delegate;
   }
 }

@@ -23,7 +23,7 @@ pnpm add @eleven-labs/nest-profiler-auth@alpha
 
 ```ts title="app.module.ts"
 import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
@@ -31,10 +31,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 @Module({
   imports: [
     ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
     ConditionalModule.registerWhen(
       AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
       isProfilerEnabled,

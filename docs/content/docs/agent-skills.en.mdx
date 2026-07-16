@@ -26,7 +26,7 @@ Open your agent in the target NestJS project and describe what you want, for exa
 The `setup-nest-profiler` skill then drives the agent to:
 
 - Detect your package manager and read `package.json`.
-- Pick an enable strategy — `ConditionalModule` + `ProfilerNoopModule` when `@nestjs/config` is present, otherwise the `enabled` flag.
+- Pick an enable strategy — `ConditionalModule` gating when `@nestjs/config` is present, otherwise the `enabled` flag (add `ProfilerNoopModule` only if you inject `ProfilerService` directly).
 - Install `@eleven-labs/nest-profiler` + `nestjs-cls` and register the module in your composition root.
 - Wrap your logger in `main.ts` so logs land in the profiler.
 - Detect and offer the collectors matching your dependencies (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ), then wire the chosen ones with their correct placement and caveats.

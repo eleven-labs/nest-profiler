@@ -30,7 +30,7 @@ import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RabbitMQModule } from './rabbitmq.module';
 
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
@@ -38,10 +38,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 @Module({
   imports: [
     ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
     ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
     RabbitMQModule,
   ],

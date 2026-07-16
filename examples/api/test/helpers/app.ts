@@ -5,7 +5,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import {
   createProfilerValidationPipe,
@@ -35,11 +35,10 @@ export async function createE2EApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ bufferLogs: true });
 
-  const profilerService = app.get(ProfilerService);
   const baseLogger = isPinoLoggerEnabled(process.env)
     ? app.get(PinoLogger)
     : new ConsoleLogger('e2e');
-  app.useLogger(profilerService.createLogger(baseLogger));
+  app.useLogger(createProfilerLogger(baseLogger));
 
   // Mirror main.ts: the app owns its validation pipe.
   app.useGlobalPipes(

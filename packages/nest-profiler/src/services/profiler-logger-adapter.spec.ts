@@ -1,25 +1,46 @@
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
 import { createProfilerLogger, DEFAULT_LOG_METHODS, parseLogArgs } from './profiler-logger-adapter';
-import type { ProfilerService } from './nest-profiler.service';
-import type { LogEntry, LogLevel } from '../interfaces/profile.interface';
+import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface';
+
+function makeProfile(): Profile {
+  return {
+    token: 'test',
+    createdAt: Date.now(),
+    entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
+    performance: { startTime: Date.now(), heapUsed: 0 },
+    logs: [],
+    exceptions: [],
+    collectors: {},
+  };
+}
 
 describe('createProfilerLogger', () => {
-  let addLog: jest.Mock<void, [LogEntry]>;
-  let profilerService: Pick<ProfilerService, 'addLog'>;
+  // The logger writes to the process-wide ClsServiceManager singleton, so drive that same instance.
+  const cls: ClsService = ClsServiceManager.getClsService();
+  let profile: Profile;
 
   beforeEach(() => {
-    addLog = jest.fn<void, [LogEntry]>();
-    profilerService = { addLog };
+    profile = makeProfile();
   });
+
+  /** Runs `fn` inside an active CLS context bound to `profile`, so captured logs land on it. */
+  function withProfile<T>(fn: () => T): T {
+    return cls.run(() => {
+      cls.set('profiler.profile', profile);
+      return fn();
+    });
+  }
 
   const levels: LogLevel[] = ['log', 'error', 'warn', 'debug', 'verbose', 'fatal'];
 
   it.each(levels)('captures the "%s" level and delegates to the underlying logger', (level) => {
     const delegate = { [level]: jest.fn() } as Record<string, jest.Mock>;
-    const logger = createProfilerLogger(delegate, profilerService);
+    const logger = createProfilerLogger(delegate);
 
-    logger[level]?.('hello', 'MyContext');
+    withProfile(() => void logger[level]?.('hello', 'MyContext'));
 
-    expect(addLog).toHaveBeenCalledWith(
+    expect(profile.logs[0]).toEqual(
       expect.objectContaining({ level, message: 'hello', context: 'MyContext' }),
     );
     expect(delegate[level]).toHaveBeenCalledWith('hello', 'MyContext');
@@ -32,14 +53,25 @@ describe('createProfilerLogger', () => {
     'captures the third-party alias "%s" as the "%s" profiler level',
     (method, expectedLevel) => {
       const delegate = { [method]: jest.fn() } as Record<string, jest.Mock>;
-      const logger = createProfilerLogger(delegate, profilerService);
+      const logger = createProfilerLogger(delegate);
 
-      logger[method]?.('hi');
+      withProfile(() => void logger[method]?.('hi'));
 
-      expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ level: expectedLevel }));
+      expect(profile.logs[0]).toEqual(expect.objectContaining({ level: expectedLevel }));
       expect(delegate[method]).toHaveBeenCalledWith('hi');
     },
   );
+
+  it('is a transparent pass-through with no active profile (records nothing, still logs)', () => {
+    const delegate = { log: jest.fn() };
+    const logger = createProfilerLogger(delegate);
+
+    // No CLS context — mirrors the profiler being disabled or a call made at bootstrap.
+    expect(() => void logger.log('hi', 'Ctx')).not.toThrow();
+
+    expect(delegate.log).toHaveBeenCalledWith('hi', 'Ctx');
+    expect(profile.logs).toHaveLength(0);
+  });
 
   it('passes non-level methods and properties straight through to the delegate', () => {
     const delegate = {
@@ -47,27 +79,27 @@ describe('createProfilerLogger', () => {
       setContext: jest.fn(),
       name: 'structured',
     };
-    const logger = createProfilerLogger(delegate, profilerService);
+    const logger = createProfilerLogger(delegate);
 
-    logger.setContext('Ctx');
+    withProfile(() => void logger.setContext('Ctx'));
     expect(delegate.setContext).toHaveBeenCalledWith('Ctx');
-    expect(addLog).not.toHaveBeenCalled();
+    expect(profile.logs).toHaveLength(0);
     expect(logger.name).toBe('structured');
   });
 
   describe('argument conventions', () => {
     const capture = (...args: unknown[]): LogEntry => {
       const delegate = { log: jest.fn(), error: jest.fn() } as Record<string, jest.Mock>;
-      const logger = createProfilerLogger(delegate, profilerService) as Record<
+      const logger = createProfilerLogger(delegate) as Record<
         string,
         (...callArgs: unknown[]) => unknown
       >;
       const [method, ...callArgs] = args as [string, ...unknown[]];
-      logger[method]?.(...callArgs);
+      withProfile(() => logger[method]?.(...callArgs));
       expect(delegate[method]).toHaveBeenCalledWith(...callArgs);
-      const entry = addLog.mock.calls[0]?.[0];
+      const entry = profile.logs[0];
       if (entry === undefined) {
-        throw new Error('addLog was not called');
+        throw new Error('no log entry was captured');
       }
       return entry;
     };
@@ -172,29 +204,29 @@ describe('createProfilerLogger', () => {
   describe('delegate context fallback', () => {
     it('reads the context name from the delegate when absent from the args', () => {
       const delegate = { log: jest.fn(), context: 'PostsController' };
-      const logger = createProfilerLogger(delegate, profilerService);
+      const logger = createProfilerLogger(delegate);
 
-      logger.log('hi');
+      withProfile(() => void logger.log('hi'));
 
-      expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ context: 'PostsController' }));
+      expect(profile.logs[0]).toEqual(expect.objectContaining({ context: 'PostsController' }));
     });
 
     it('prefers the context name from the args over the delegate one', () => {
       const delegate = { log: jest.fn(), context: 'PostsController' };
-      const logger = createProfilerLogger(delegate, profilerService);
+      const logger = createProfilerLogger(delegate);
 
-      logger.log('hi', 'Ctx');
+      withProfile(() => void logger.log('hi', 'Ctx'));
 
-      expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ context: 'Ctx' }));
+      expect(profile.logs[0]).toEqual(expect.objectContaining({ context: 'Ctx' }));
     });
 
     it('ignores an empty delegate context', () => {
       const delegate = { log: jest.fn(), context: '' };
-      const logger = createProfilerLogger(delegate, profilerService);
+      const logger = createProfilerLogger(delegate);
 
-      logger.log('hi');
+      withProfile(() => void logger.log('hi'));
 
-      expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ context: undefined }));
+      expect(profile.logs[0]).toEqual(expect.objectContaining({ context: undefined }));
     });
   });
 
@@ -203,46 +235,45 @@ describe('createProfilerLogger', () => {
       string,
       jest.Mock
     >;
-    const logger = createProfilerLogger(partial, profilerService) as Record<
-      string,
-      (...args: unknown[]) => unknown
-    >;
+    const logger = createProfilerLogger(partial) as Record<string, (...args: unknown[]) => unknown>;
 
-    expect(() => {
-      logger['debug']?.('d');
-      logger['verbose']?.('v');
-      logger['fatal']?.('f');
-    }).not.toThrow();
-    expect(addLog).toHaveBeenCalledTimes(3);
+    withProfile(() => {
+      expect(() => {
+        logger['debug']?.('d');
+        logger['verbose']?.('v');
+        logger['fatal']?.('f');
+      }).not.toThrow();
+    });
+    expect(profile.logs).toHaveLength(3);
   });
 
   it('supports a custom method → level map', () => {
     const delegate = { silly: jest.fn() } as Record<string, jest.Mock>;
-    const logger = createProfilerLogger(delegate, profilerService, {
+    const logger = createProfilerLogger(delegate, {
       ...DEFAULT_LOG_METHODS,
       silly: 'verbose',
     });
 
-    logger['silly']?.('noisy');
+    withProfile(() => void logger['silly']?.('noisy'));
 
-    expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ level: 'verbose' }));
+    expect(profile.logs[0]).toEqual(expect.objectContaining({ level: 'verbose' }));
     expect(delegate['silly']).toHaveBeenCalledWith('noisy');
   });
 
   it('supports the options form with logMethods', () => {
     const delegate = { silly: jest.fn() } as Record<string, jest.Mock>;
-    const logger = createProfilerLogger(delegate, profilerService, {
+    const logger = createProfilerLogger(delegate, {
       logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
     });
 
-    logger['silly']?.('noisy');
+    withProfile(() => void logger['silly']?.('noisy'));
 
-    expect(addLog).toHaveBeenCalledWith(expect.objectContaining({ level: 'verbose' }));
+    expect(profile.logs[0]).toEqual(expect.objectContaining({ level: 'verbose' }));
   });
 
   it('supports a custom parseArgs for exotic logger conventions', () => {
     const delegate = { log: jest.fn() };
-    const logger = createProfilerLogger(delegate, profilerService, {
+    const logger = createProfilerLogger(delegate, {
       parseArgs: (method, args) => ({
         message: `${method}:${String(args[1])}`,
         context: 'Custom',
@@ -250,9 +281,9 @@ describe('createProfilerLogger', () => {
       }),
     });
 
-    logger.log({ a: 1 }, 'hi');
+    withProfile(() => void logger.log({ a: 1 }, 'hi'));
 
-    expect(addLog).toHaveBeenCalledWith(
+    expect(profile.logs[0]).toEqual(
       expect.objectContaining({ message: 'log:hi', context: 'Custom', data: { a: 1 } }),
     );
     expect(delegate.log).toHaveBeenCalledWith({ a: 1 }, 'hi');

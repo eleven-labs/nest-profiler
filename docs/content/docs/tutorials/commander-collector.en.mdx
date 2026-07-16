@@ -69,7 +69,7 @@ Create a dedicated module for the CLI. Use **file** storage with the same `stora
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
@@ -84,10 +84,6 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
     ConditionalModule.registerWhen(
       ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
       isProfilerEnabled,
-    ),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
     ),
     ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
     HttpModule, // provides HttpService for the bundled axios adapter

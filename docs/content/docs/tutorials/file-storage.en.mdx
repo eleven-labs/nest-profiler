@@ -177,6 +177,6 @@ For a large backing store, additionally implement the optional `query()`, `disti
 
 <Callout type="warn" title="Production warning">
   Profile files contain sensitive request data. Never enable the profiler - regardless of storage
-  type - in production environments. Gate it with `ConditionalModule` + `ProfilerNoopModule` (see
-  [Getting started](/docs/getting-started#turn-the-profiler-on-and-off)).
+  type - in production environments. Gate it with `ConditionalModule` (see [Getting
+  started](/docs/getting-started#turn-the-profiler-on-and-off)).
 </Callout>

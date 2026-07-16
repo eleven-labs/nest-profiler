@@ -14,19 +14,18 @@ In a busy console, the logs of concurrent requests interleave. The profiler stor
 
 ## Step 1 - Wrap the application logger
 
-In `main.ts`, wrap the logger with `profilerService.createLogger()` and register it with `app.useLogger()`:
+In `main.ts`, wrap the logger with the standalone `createProfilerLogger()` and register it with `app.useLogger()`. It is DI-free — no `ProfilerService`, and a transparent pass-through when the profiler is off:
 
 ```ts title="main.ts"
 import { ConsoleLogger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  const profilerService = app.get(ProfilerService);
-  app.useLogger(profilerService.createLogger(new ConsoleLogger('MyApplication')));
+  app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
 
   await app.listen(3000);
 }
@@ -75,19 +74,17 @@ The same wrapper works with `nestjs-pino`. Register its `Logger` through `app.us
 ```ts title="main.ts"
 import { Logger as PinoLogger } from 'nestjs-pino';
 
-app.useLogger(profilerService.createLogger(app.get(PinoLogger)));
+app.useLogger(createProfilerLogger(app.get(PinoLogger)));
 ```
 
-For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
+For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too — still no `ProfilerService`. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
 
 ```ts title="posts.controller.ts"
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 
-constructor(
-  profiler: ProfilerService,
-  @InjectPinoLogger(PostsController.name) pinoLogger: PinoLogger,
-) {
-  this.logger = profiler.createLogger(pinoLogger);
+constructor(@InjectPinoLogger(PostsController.name) pinoLogger: PinoLogger) {
+  this.logger = createProfilerLogger(pinoLogger);
 }
 
 // pino convention: merging object first, then the message
@@ -101,7 +98,7 @@ The captured entry has `message: 'Posts cached'`, `context: 'PostsController'` a
 If a logger uses an argument convention the default parser cannot classify, pass a custom `parseArgs`:
 
 ```ts
-profiler.createLogger(weirdLogger, {
+createProfilerLogger(weirdLogger, {
   parseArgs: (method, args) => ({
     message: String(args[1]),
     data: args[0],
