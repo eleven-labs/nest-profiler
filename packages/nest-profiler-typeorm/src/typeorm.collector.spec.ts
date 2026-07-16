@@ -284,6 +284,23 @@ describe('TypeOrmDriverPatch', () => {
     expect(firstEntry(profile).rowCount).toBe(0);
   });
 
+  it('derives rowCount from a structured QueryResult read (records array)', async () => {
+    const { dataSource, profile } = setup({
+      queryImpl: () =>
+        Promise.resolve({ records: [{ id: 1 }, { id: 2 }], raw: [{ id: 1 }, { id: 2 }] }),
+    });
+    await dataSource.createQueryRunner().query('SELECT id FROM job');
+    expect(firstEntry(profile).rowCount).toBe(2);
+  });
+
+  it('falls back to the raw array when a structured QueryResult has no records', async () => {
+    const { dataSource, profile } = setup({
+      queryImpl: () => Promise.resolve({ raw: [{ id: 1 }, { id: 2 }, { id: 3 }] }),
+    });
+    await dataSource.createQueryRunner().query('SELECT id FROM job');
+    expect(firstEntry(profile).rowCount).toBe(3);
+  });
+
   it('derives rowCount from a better-sqlite3-style changes count', async () => {
     const { dataSource, profile } = setup({
       queryImpl: () => Promise.resolve({ changes: 2, lastInsertRowid: 5 }),

@@ -22,8 +22,11 @@ interface ConnectionMeta {
  * Best-effort row count from a raw driver result, without altering it: an array is a
  * read result-set (or a write with `RETURNING`) so its length is the count; an object
  * carrying `affected`/`rowCount`/`affectedRows`/`changes` covers TypeORM's `QueryResult`
- * and the pg/mysql/better-sqlite3 write results. A write on a driver that exposes none of
- * these yields `undefined` — never a spurious `0`.
+ * and the pg/mysql/better-sqlite3 write results. TypeORM 0.3 QueryBuilder/repository reads
+ * call `query(sql, params, useStructuredResult=true)`, which returns a structured `QueryResult`
+ * (`{ records, raw, affected }`); for a `SELECT` `affected` is `undefined` and the rows live
+ * under `records` (falling back to `raw`), so count those. A write on a driver that exposes
+ * none of these yields `undefined` — never a spurious `0`.
  */
 function deriveRowCount(result: unknown): number | undefined {
   if (Array.isArray(result)) return result.length;
@@ -33,6 +36,9 @@ function deriveRowCount(result: unknown): number | undefined {
       const value = r[key];
       if (typeof value === 'number') return value;
     }
+    // A structured QueryResult from a read: `affected` is unset, rows sit under records/raw.
+    if (Array.isArray(r.records)) return r.records.length;
+    if (Array.isArray(r.raw)) return r.raw.length;
   }
   return undefined;
 }
