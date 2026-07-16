@@ -54,6 +54,12 @@ Access to the UI is protected.
 
 - A `security` strategy (`authorize` predicate and/or `guards`) is configured and denied the request. Send the credential it expects (e.g. `Authorization: Bearer <token>`, a session cookie, or Basic auth), or remove the `security` option for local development. See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui).
 
+## A `nest-commander` command exits immediately and prints nothing
+
+After installing the profiler, a CLI command logs `Starting Nest application...` (or nothing at all) and the process exits `0` without ever running — no result, no error.
+
+- **The CLI root module doesn't import `ConfigModule.forRoot()`.** The recommended gating (`ConditionalModule.registerWhen`) `await`s `ConfigModule.envVariablesLoaded` from `@nestjs/config`, and that promise only resolves once `@nestjs/config`'s `ConfigModule.forRoot()` has run. A CLI bootstrapped with `CommandFactory` whose root module never imports it never resolves the promise, so registration hangs — and because the internal 5s timeout timer is `unref`'d, the event loop just drains and the process exits `0` silently instead of throwing. **Fix:** import `ConfigModule.forRoot()` from `@nestjs/config` in your CLI root module. This applies to every module the CLI loads that gates something with `registerWhen` (core, database, RabbitMQ collectors…). HTTP apps rarely hit this because their root module already imports `ConfigModule.forRoot()`. See [Command profiling](/docs/tutorials/commander-collector) and [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
 ## CLI command profiles don't appear next to HTTP requests
 
 You profiled a `nest-commander` command but can't find it in the web UI.

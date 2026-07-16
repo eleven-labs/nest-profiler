@@ -63,6 +63,8 @@ export class AppModule {}
 
 The condition is a plain `(env) => boolean`; register `ProfilerNoopModule.forRoot({ isGlobal: true })` with the same `isGlobal` as the active module so `ProfilerService` stays visible to every feature module. Gate each optional collector package (`@eleven-labs/nest-profiler-http`, `-config`, …) the same way — they need no no-op counterpart, as they self-register through discovery.
 
+> **CLI apps (`nest-commander`):** `ConditionalModule.registerWhen` `await`s `ConfigModule.envVariablesLoaded` from `@nestjs/config`, which only resolves once `ConfigModule.forRoot()` has run. An HTTP app's root module usually imports it already, but a CLI bootstrapped with `CommandFactory` may not — and without it, registration hangs and the process exits `0` **silently** (no logs, no error, since the internal timeout is `unref`'d). If you use this gating in a CLI, import `ConfigModule.forRoot()` in its root module. See [Command profiling](https://nest-profiler.eleven-labs.com/docs/tutorials/commander-collector) and the [troubleshooting guide](https://nest-profiler.eleven-labs.com/docs/troubleshooting).
+
 #### Keep the root tidy: bundle into a `ProfilingModule`
 
 When several profiler modules live at the composition root (the core plus root-level collectors such as config, validator or commander), group them into a single module so the root keeps just **two** gates — one for the active bundle, one for the no-op fallback:
