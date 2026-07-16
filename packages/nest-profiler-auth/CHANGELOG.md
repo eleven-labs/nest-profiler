@@ -1,5 +1,14 @@
 # @eleven-labs/nest-profiler-auth
 
+## 1.0.0-alpha.10
+
+### Patch Changes
+
+- 1735b38: Document the `@alpha` install tag in every package README.
+
+  - Install commands now pin `@eleven-labs/nest-profiler*` packages to the `@alpha` dist-tag, since there is no stable release yet (`@latest` resolves to nothing).
+  - Added a short note next to each install snippet explaining the requirement.
+
 ## 1.0.0-alpha.9
 
 ### Patch Changes
