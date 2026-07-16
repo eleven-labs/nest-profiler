@@ -3,9 +3,8 @@ import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { ValidatorCollectorModule } from './validator-collector.module';
 
 /**
- * Bootstrap matrix: the collector installs a global validation pipe and must initialise
- * cleanly against both an enabled profiler core and the no-op core (which provides no
- * ClsModule), injecting ClsService lazily so a disabled core never breaks `app.init()`.
+ * Bootstrap matrix: the panel-only collector must initialise cleanly against both an enabled
+ * profiler core and the no-op core, so registering it never breaks `app.init()`.
  */
 describe.each([
   ['enabled core', () => ProfilerModule.forRoot({ isGlobal: true })],

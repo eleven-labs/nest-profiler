@@ -257,9 +257,8 @@ export class ProfilingModule {
       imports: [
         ProfilerModule.forRootAsync({ isGlobal: true /* storage, filters… */ }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
-        ValidatorCollectorModule.forRoot({
-          validationPipeOptions: { whitelist: true, transform: true },
-        }),
+        // Panel only — the app owns the validation pipe in main.ts (see below).
+        ValidatorCollectorModule.forRoot(),
         CommanderCollectorModule.forRoot(),
       ],
     };
@@ -268,6 +267,14 @@ export class ProfilingModule {
 ```
 
 The bundle carries no `ConditionalModule` itself — the single outer gate covers the whole group, and none of the collectors needs a no-op counterpart (they self-register through discovery). Infra-scoped collectors (`HttpCollectorModule`, `MikroOrmCollectorModule`…) stay co-located in their bounded-context modules, gated there by their own feature flags on top of `isProfilerEnabled`.
+
+Validation itself is **app-owned** so it survives the profiler being gated off — `main.ts` installs it directly, and the module above contributes only the Validator panel:
+
+```ts title="main.ts"
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
+```
 
 ### Reviews → notifications: an event-driven flow
 

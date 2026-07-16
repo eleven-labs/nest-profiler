@@ -143,15 +143,27 @@ export class ProfilingModule {
           }),
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
-        ValidatorCollectorModule.forRoot({
-          validationPipeOptions: { whitelist: true, transform: true },
-        }),
+        // Panel only — the app owns the validation pipe in main.ts, so validation survives the gate.
+        ValidatorCollectorModule.forRoot(),
         RoutesCollectorModule.forRoot(),
         CommanderCollectorModule.forRoot(),
       ],
     };
   }
 }
+```
+
+Since the bundle is gated, install the validation pipe in `main.ts` (not the module) so it runs even when the profiler is off:
+
+```ts title="src/main.ts"
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
 ```
 
 ```ts title="app.module.ts"

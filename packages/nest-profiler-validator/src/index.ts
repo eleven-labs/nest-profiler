@@ -4,7 +4,7 @@ export type {
   ValidatorCollectorModuleAsyncOptions,
 } from './validator-collector.module';
 export type { ValidationPipeOptions } from '@nestjs/common';
-export { ProfilerValidationPipe } from './profiler-validation.pipe';
+export { ProfilerValidationPipe, createProfilerValidationPipe } from './profiler-validation.pipe';
 export { ValidatorCollector } from './validator.collector';
 
 // Validator adapter + extractors (validator-agnostic capture)
@@ -19,12 +19,7 @@ export type {
 } from './violation-extractor.interface';
 export { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface';
 
-// DI tokens for advanced overrides
-export {
-  PROFILER_INNER_PIPE,
-  PROFILER_EXTRACTORS,
-  VALIDATOR_KEY,
-} from './validator-collector.interface';
+export { VALIDATOR_KEY } from './validator-collector.interface';
 export type {
   ValidationEntry,
   ViolationEntry,

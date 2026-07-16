@@ -9,7 +9,7 @@
   },
   {
     "query": "package.json includes @nestjs/config, class-validator and class-transformer. main.ts already contains app.useGlobalPipes(new ValidationPipe({ whitelist: true })).\n\nUser: Add DTO validation profiling.",
-    "expected_behavior": "Must read collectors-validator.md. Offer nest-profiler-validator at the ROOT (global APP_PIPE). WARN that the existing separate global ValidationPipe must be removed — only one global validator. Fold its options into ValidatorCollectorModule.forRoot({ validationPipeOptions: { whitelist: true, transform: true } }). Note DTOs need value imports (not 'import type')."
+    "expected_behavior": "Must read collectors-validator.md. Offer nest-profiler-validator app-owned: keep the pipe in main.ts but wrap it — app.useGlobalPipes(createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true }))) (createClassValidatorPipe, not a bare ValidationPipe, so per-property violations reach the panel), and register the panel with ValidatorCollectorModule.forRoot() gated like the core. Only one global validation pipe. Note DTOs need value imports (not 'import type')."
   },
   {
     "query": "package.json includes @nestjs/config and nest-commander. The app has both an HTTP server (main.ts) and a CLI entrypoint (cli.ts using CommandFactory.run).\n\nUser: I want to profile my CLI commands and see them in the profiler UI.",
@@ -25,6 +25,6 @@
   },
   {
     "query": "Should the config and validator collectors go in the root module or a feature module?",
-    "expected_behavior": "Must read collectors-matrix.md. Answer: at the root — they install global providers (APP_PIPE for validator, a bootstrap snapshot for config); routes and commander are root-level too. Infra-scoped collectors (database, http, cache, rabbitmq, graphql transport) stay co-located in the feature module that owns their infrastructure."
+    "expected_behavior": "Must read collectors-matrix.md. Answer: at the root — they contribute global panels (a bootstrap snapshot for config; validator's panel, with its pipe app-owned in main.ts); routes and commander are root-level too. Infra-scoped collectors (database, http, cache, rabbitmq, graphql transport) stay co-located in the feature module that owns their infrastructure."
   }
 ]

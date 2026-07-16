@@ -33,7 +33,7 @@ Every collector is gated the same way as the core module. The per-collector snip
 
 ## Placement rule
 
-- **Root / global collectors** — `config`, `validator`, `routes`, `commander` install global providers (`APP_PIPE`, bootstrap snapshot, discovery panels). They belong at the composition root; bundle them with the core into a single `ProfilingModule` (see `enable-strategies.md`) to keep the root tidy.
+- **Root / global collectors** — `config`, `validator`, `routes`, `commander` contribute global panels (bootstrap snapshot, discovery panels). They belong at the composition root; bundle them with the core into a single `ProfilingModule` (see `enable-strategies.md`) to keep the root tidy. `validator`'s pipe is app-owned in `main.ts` (`createProfilerValidationPipe`), so its panel gates like the others (see `collectors-validator.md`).
 - **Infra-scoped collectors** — database (typeorm/mikro-orm/mongoose incl. their Schema companion), `http`, `cache`, `rabbitmq`, and the GraphQL transport stay co-located in the feature module that owns their infrastructure, each with its own gate.
 
 ## Asking which to add

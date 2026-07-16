@@ -167,9 +167,8 @@ export class ProfilingModule {
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
         RoutesCollectorModule.forRoot(),
-        ValidatorCollectorModule.forRoot({
-          validationPipeOptions: { whitelist: true, transform: true },
-        }),
+        // Panel only — the app owns the validation pipe in main.ts, so validation runs profiler-off.
+        ValidatorCollectorModule.forRoot(),
         CommanderCollectorModule.forRoot(),
       ],
     };
