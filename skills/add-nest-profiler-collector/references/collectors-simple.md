@@ -48,6 +48,7 @@ GraphQLModule.forRoot<ApolloDriverConfig>({
 - **Peers (required):** `nest-commander@^3.20`, `nestjs-cls@^6`.
 - **Module:** `CommanderCollectorModule.forRoot()` — **`forRoot` only**, option `enabled` only.
 - **⚠️ Gotcha:** the CLI and the HTTP server are separate processes, so in-memory storage cannot share profiles. Use a cross-process store on the core — `storageType: 'file'`, or the SQLite `storage` adapter (there is no `storageType: 'sqlite'`) — register the collector in the module you bootstrap with `CommandFactory.run(...)`, **and** import it in the HTTP app so command profiles render at `/_profiler`.
+- **⚠️ Gotcha:** the CLI root module must import `ConfigModule.forRoot()` from `@nestjs/config`. The `ConditionalModule.registerWhen` gate below `await`s `ConfigModule.envVariablesLoaded`, which only resolves once `ConfigModule.forRoot()` has run — a `CommandFactory` CLI that omits it hangs and exits `0` **silently** (the internal timeout is `unref`'d).
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-commander> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/commander-collector>
 
 ```ts
