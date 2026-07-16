@@ -2,8 +2,9 @@ import { RequestMethod } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 
 /**
- * Version every business route under `/api/v1`. A few paths stay at the root:
- * `/health` (probes), the GraphQL endpoint, and the profiler UI + its assets.
+ * Version every business route under `/api/v1`. Two paths stay at the root:
+ * `/health` (probes) and the GraphQL endpoint. The profiler UI stays at the
+ * root too, but it excludes itself — no entry for it is needed here.
  *
  * Excluding a path does more than skip the prefix — `setGlobalPrefix` rebinds
  * the profiler's `forRoutes('*')` middleware to the routes Nest knows (the
@@ -19,8 +20,6 @@ export function applyGlobalPrefix(app: INestApplication): void {
     exclude: [
       { path: 'health', method: RequestMethod.ALL },
       { path: 'graphql', method: RequestMethod.ALL },
-      { path: '_profiler', method: RequestMethod.ALL },
-      { path: '_profiler/*path', method: RequestMethod.ALL },
     ],
   });
 }

@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   UseGuards,
+  VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -62,8 +63,14 @@ const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
 const PROFILER_CSP =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
 
+/**
+ * `VERSION_NEUTRAL` keeps the profiler out of the host's API versioning: as a plain
+ * `@Controller()` it inherited the app's `defaultVersion`, so enabling URI versioning moved the
+ * whole UI to `/v1/_profiler` and `/_profiler` 404'd. The profiler is tooling, not a versioned
+ * API surface, so no version scheme — URI, header or media-type — should ever apply to it.
+ */
 @UseGuards(ProfilerGuard)
-@Controller()
+@Controller({ version: VERSION_NEUTRAL })
 export class ProfilerController {
   private static readonly assetCache = new Map<string, string>();
   private readonly profilerPath = PROFILER_BASE_PATH;

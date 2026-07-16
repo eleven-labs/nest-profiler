@@ -6,7 +6,7 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, ApplicationConfig, DiscoveryModule } from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import {
   ConfigurableModuleClass,
@@ -31,9 +31,38 @@ import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { TimelineCollector } from './collectors/timeline/timeline.collector';
 import { PROFILER_BASE_PATH } from './constants';
 
+/** The entry shape `setGlobalPrefix()` stores, read off Nest's own signature. */
+type ExcludedRoute = NonNullable<
+  ReturnType<ApplicationConfig['getGlobalPrefixOptions']>['exclude']
+>[number];
+
+/**
+ * The profiler's own routes, in the shape `setGlobalPrefix()` stores its exclusions.
+ *
+ * Nest compiles these with `path-to-regexp` when an app writes them by hand; the patterns are
+ * spelled out here instead so the package does not reach into that internal helper. They cover a
+ * fixed, literal path — `/_profiler` itself and everything nested under it (`/:token`, the JSON
+ * export, `/__assets/*`) — so there is no user input to translate.
+ */
+const PROFILER_GLOBAL_PREFIX_EXCLUSIONS: ExcludedRoute[] = [
+  {
+    path: PROFILER_BASE_PATH,
+    requestMethod: RequestMethod.ALL,
+    pathRegex: new RegExp(`^${PROFILER_BASE_PATH}$`),
+  },
+  {
+    path: `${PROFILER_BASE_PATH}/*path`,
+    requestMethod: RequestMethod.ALL,
+    pathRegex: new RegExp(`^${PROFILER_BASE_PATH}/.*$`),
+  },
+];
+
 @Module({})
 export class ProfilerModule extends ConfigurableModuleClass implements NestModule {
-  constructor(@Inject(PROFILER_ENABLED) private readonly enabled: boolean) {
+  constructor(
+    @Inject(PROFILER_ENABLED) private readonly enabled: boolean,
+    private readonly appConfig: ApplicationConfig,
+  ) {
     super();
   }
 
@@ -137,6 +166,8 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
 
   configure(consumer: MiddlewareConsumer): void {
     if (!this.enabled) return;
+    this.excludeFromGlobalPrefix();
+    // Keeps the profiler from profiling its own UI.
     consumer
       .apply(ProfilerMiddleware)
       .exclude(
@@ -144,5 +175,32 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         { path: `${PROFILER_BASE_PATH}/*path`, method: RequestMethod.ALL },
       )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
+  }
+
+  /**
+   * Opts the profiler out of the host's `setGlobalPrefix()`, so the UI is always at `/_profiler`
+   * whatever the app prefixes its own API with — and without the app having to declare anything.
+   *
+   * The profiler is tooling, not part of the API surface, so it has no business living under
+   * `/api/v1`. Left alone, Nest prefixes it like any other controller, which both moves the UI and
+   * strands everything that points at the fixed {@link PROFILER_BASE_PATH} (asset links, the
+   * injected toolbar, the `X-Debug-Token-Link` header). Excluding it keeps that constant true.
+   *
+   * Timing is what makes this work: `configure()` runs inside `registerModules()`, before
+   * `registerRouter()` builds the routes, and `RoutePathFactory` re-reads the exclusion list for
+   * every route it creates — so an entry added here is honoured. `setGlobalPrefix()` has already
+   * run by then (it happens on the app instance before `listen()`), hence merging into the host's
+   * options rather than replacing them.
+   */
+  private excludeFromGlobalPrefix(): void {
+    const options = this.appConfig.getGlobalPrefixOptions();
+    const exclude = options.exclude ?? [];
+    // The app may already have excluded the profiler by hand — don't duplicate its entry.
+    if (exclude.some((route) => route.pathRegex?.test(PROFILER_BASE_PATH))) return;
+
+    this.appConfig.setGlobalPrefixOptions({
+      ...options,
+      exclude: [...exclude, ...PROFILER_GLOBAL_PREFIX_EXCLUSIONS],
+    });
   }
 }
