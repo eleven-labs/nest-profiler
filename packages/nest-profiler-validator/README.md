@@ -50,11 +50,24 @@ pnpm add nestjs-zod zod
 
 ## Setup
 
-`ValidatorCollectorModule.forRoot()` registers `ProfilerValidationPipe` as the global `APP_PIPE`. It wraps your validation pipe — **do not also register a separate global `ValidationPipe`**.
+Own the validation pipe in your bootstrap with `createProfilerValidationPipe()`, and register the panel with `ValidatorCollectorModule.forRoot()`. Validation runs independently of the profiler, so the panel can be gated like every other collector while validation always runs.
 
 ### With class-validator (default)
 
-When `pipe` is omitted, a class-validator `ValidationPipe` is built from `validationPipeOptions`:
+```ts title="main.ts"
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+
+const app = await NestFactory.create(AppModule);
+
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
+```
+
+Wrap `createClassValidatorPipe` (rather than a bare `new ValidationPipe()`) so the raw `ValidationError[]` reaches the panel and violations show per property.
 
 ```ts title="app.module.ts"
 import { ConditionalModule } from '@nestjs/config';
@@ -63,46 +76,30 @@ import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(
-      ValidatorCollectorModule.forRoot({
-        validationPipeOptions: {
-          whitelist: true, // remove extra properties
-          transform: true, // transform payload to DTO class
-          // any other ValidationPipe options
-        },
-      }),
-      isProfilerEnabled,
-    ),
-  ],
+  imports: [ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled)],
 })
 export class AppModule {}
 ```
 
 ### With nestjs-zod
 
-Pass your own pipe via `pipe`; class-validator is never loaded:
+Pass your own pipe; class-validator is never loaded:
 
-```ts title="app.module.ts"
+```ts title="main.ts"
 import { ZodValidationPipe } from 'nestjs-zod';
 
-ConditionalModule.registerWhen(
-  ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
-  isProfilerEnabled,
-),
+app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
 ```
 
-> A NestJS app uses a single global validation strategy, so use **one** validator at a time.
+> A NestJS app uses a single global validation strategy, so use **one** validator at a time. `createProfilerValidationPipe(inner, extractors?)` also accepts a custom extractor chain as its second argument.
 
-## Options
+The pipe writes outcomes to CLS; the gated panel reads them only when the profiler is on. When the profiler is off the pipe validates and records nothing (transparent pass-through).
 
-| Option                  | Type                             | Description                                                                                  |
-| ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
-| `pipe`                  | `PipeTransform`                  | The validation pipe to wrap. Defaults to a class-validator pipe built from the option below. |
-| `validationPipeOptions` | `ValidationPipeOptions`          | Forwarded to the default class-validator pipe when `pipe` is omitted.                        |
-| `extractors`            | `ValidationViolationExtractor[]` | Override the extractor chain. Defaults to `[classValidator, zod, generic]`.                  |
+> **e2e / manual bootstrap** — when you boot the app yourself in tests (`Test.createTestingModule(...).createNestApplication()`), mirror this `useGlobalPipes(...)` call there too, since it lives in `main.ts` rather than a module.
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+The extractor chain (`[classValidator, zod, generic]`) rarely needs changing; pass a custom one as the second argument of `createProfilerValidationPipe(inner, extractors)`.
+
+> **Enabling / disabling** — gate the panel with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on (a top-level `enabled` option is also supported). Wire the core `ProfilerModule` and its `ProfilerNoopModule` fallback **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)).
 
 ## Prerequisite: value import for DTO types
 
@@ -163,7 +160,7 @@ const myExtractor: ValidationViolationExtractor = {
   },
 };
 
-ValidatorCollectorModule.forRoot({ pipe: myPipe, extractors: [myExtractor] });
+app.useGlobalPipes(createProfilerValidationPipe(myPipe, [myExtractor]));
 ```
 
 ## Toolbar badge

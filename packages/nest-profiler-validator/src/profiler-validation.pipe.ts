@@ -1,15 +1,10 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { ArgumentMetadata, OnModuleInit, PipeTransform } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
-import { ClsService } from 'nestjs-cls';
+import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
-import {
-  VALIDATOR_KEY,
-  PROFILER_INNER_PIPE,
-  PROFILER_EXTRACTORS,
-} from './validator-collector.interface';
+import { VALIDATOR_KEY } from './validator-collector.interface';
 import type { ValidationViolationExtractor } from './violation-extractor.interface';
 import { DEFAULT_EXTRACTORS } from './default-extractors';
 import { countViolations } from './violation.utils';
@@ -26,28 +21,18 @@ const PROFILE_KEY = 'profiler.profile';
  * the active profile. Validator-agnostic: it never inspects the validator
  * directly — on failure it runs a chain of {@link ValidationViolationExtractor}s
  * over the thrown error to normalize violations.
+ *
+ * CLS is resolved statically (no DI), so build it with {@link createProfilerValidationPipe}
+ * for `app.useGlobalPipes(...)`. With no active profile it is a transparent pass-through.
  */
-@Injectable()
-export class ProfilerValidationPipe implements PipeTransform, OnModuleInit {
-  /** Resolved lazily: when the core is disabled the pipe still validates, it just records nothing. */
-  private cls: ClsService | undefined;
+export class ProfilerValidationPipe implements PipeTransform {
+  /** Process-wide CLS singleton — the same instance the core's `ClsModule` provides, so the pipe reads the store the profiler writes. */
+  private readonly cls: ClsService = ClsServiceManager.getClsService();
 
   constructor(
-    private readonly moduleRef: ModuleRef,
-    @Inject(PROFILER_INNER_PIPE) private readonly inner: PipeTransform,
-    @Optional()
-    @Inject(PROFILER_EXTRACTORS)
+    private readonly inner: PipeTransform,
     private readonly extractors: readonly ValidationViolationExtractor[] = DEFAULT_EXTRACTORS,
   ) {}
-
-  onModuleInit(): void {
-    this.resolveCls();
-  }
-
-  /** Lazily resolves ClsService via ModuleRef (undefined when the core is disabled). */
-  private resolveCls(): ClsService | undefined {
-    return (this.cls ??= tryResolve<ClsService>(this.moduleRef, ClsService));
-  }
 
   async transform(value: unknown, metadata: ArgumentMetadata): Promise<unknown> {
     const startedAt = Date.now();
@@ -116,7 +101,7 @@ export class ProfilerValidationPipe implements PipeTransform, OnModuleInit {
 
   private pushEntry(entry: ValidationEntry): void {
     try {
-      const profile = this.resolveCls()?.get<Profile | undefined>(PROFILE_KEY);
+      const profile = this.cls.get<Profile | undefined>(PROFILE_KEY);
       if (!profile) return;
       appendCollectorEntry<ValidationEntry>(profile, VALIDATOR_KEY, entry);
     } catch {
@@ -124,3 +109,16 @@ export class ProfilerValidationPipe implements PipeTransform, OnModuleInit {
     }
   }
 }
+
+/**
+ * Builds a {@link ProfilerValidationPipe} for `app.useGlobalPipes(...)`, so the app owns
+ * its validation pipe. Pair it with `ValidatorCollectorModule.forRoot()` (the panel) to gate
+ * the profiler independently of validation.
+ *
+ * @param inner - the validation pipe to wrap (e.g. `new ValidationPipe()`, `new ZodValidationPipe()`)
+ * @param extractors - violation extractor chain; defaults to {@link DEFAULT_EXTRACTORS}
+ */
+export const createProfilerValidationPipe = (
+  inner: PipeTransform,
+  extractors: readonly ValidationViolationExtractor[] = DEFAULT_EXTRACTORS,
+): ProfilerValidationPipe => new ProfilerValidationPipe(inner, extractors);

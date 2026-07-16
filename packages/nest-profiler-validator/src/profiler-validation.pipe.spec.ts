@@ -1,9 +1,8 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
-import type { ModuleRef as _MR } from '@nestjs/core';
-import { Test } from '@nestjs/testing';
-import { ClsModule, ClsService } from 'nestjs-cls';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
 import { IsNotEmpty, IsString } from 'class-validator';
-import { ProfilerValidationPipe } from './profiler-validation.pipe';
+import { ProfilerValidationPipe, createProfilerValidationPipe } from './profiler-validation.pipe';
 import { createClassValidatorPipe } from './class-validator.adapter';
 import { VALIDATOR_KEY } from './validator-collector.interface';
 import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface';
@@ -42,18 +41,12 @@ class SimpleDto {
   name!: string;
 }
 
-function pipeModuleRef(cls: unknown): _MR {
-  return { get: () => cls } as unknown as _MR;
-}
-
 describe('ProfilerValidationPipe', () => {
+  // The pipe reads the static ClsServiceManager singleton, so drive that same instance directly.
   let cls: ClsService;
 
-  beforeEach(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [ClsModule.forRoot({ middleware: { mount: false } })],
-    }).compile();
-    cls = moduleRef.get(ClsService);
+  beforeEach(() => {
+    cls = ClsServiceManager.getClsService();
   });
 
   function entriesOf(profile: Profile): ValidationEntry[] {
@@ -67,7 +60,7 @@ describe('ProfilerValidationPipe', () => {
   }
 
   it('captures a "valid" entry when the inner pipe succeeds', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -83,7 +76,7 @@ describe('ProfilerValidationPipe', () => {
 
   it('captures an "invalid" entry with violations via the class-validator extractor', async () => {
     const error = { [VALIDATOR_RAW_ERRORS]: [{ property: 'name', constraints: { x: 'bad' } }] };
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(error));
+    const pipe = new ProfilerValidationPipe(throwing(error));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -99,7 +92,7 @@ describe('ProfilerValidationPipe', () => {
     const error = {
       getZodError: () => ({ issues: [{ code: 'too_small', path: ['t'], message: 'short' }] }),
     };
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(error));
+    const pipe = new ProfilerValidationPipe(throwing(error));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -109,7 +102,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('records an invalid entry with no violations when no extractor recognizes the error', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('boom')));
+    const pipe = new ProfilerValidationPipe(throwing(new Error('boom')));
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -141,7 +134,7 @@ describe('ProfilerValidationPipe', () => {
         return [];
       },
     };
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('x')), [
+    const pipe = new ProfilerValidationPipe(throwing(new Error('x')), [
       nullExtractor,
       matchExtractor,
       neverExtractor,
@@ -156,7 +149,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not capture for primitive metatypes but still returns the value', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -167,7 +160,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not capture when there is no metatype', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -177,7 +170,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('does not append when there is no active profile in CLS', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     await cls.run(async () => {
       const result: unknown = await pipe.transform({ name: 'ok' }, bodyMeta(SimpleDto));
       expect(result).toMatchObject({ name: 'ok' });
@@ -185,16 +178,16 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('works entirely outside a CLS context (swallows CLS errors)', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     await expect(pipe.transform({ name: 'ok' }, bodyMeta(SimpleDto))).resolves.toMatchObject({
       name: 'ok',
     });
-    const failing = new ProfilerValidationPipe(pipeModuleRef(cls), throwing(new Error('boom')));
+    const failing = new ProfilerValidationPipe(throwing(new Error('boom')));
     await expect(failing.transform({ name: '' }, bodyMeta(SimpleDto))).rejects.toThrow('boom');
   });
 
   it('falls back to "unknown" when the metatype has no name', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), passThrough);
+    const pipe = new ProfilerValidationPipe(passThrough);
     const profile = makeProfile();
     const Nameless = function () {} as unknown as new () => unknown;
     Object.defineProperty(Nameless, 'name', { value: undefined });
@@ -206,7 +199,7 @@ describe('ProfilerValidationPipe', () => {
   });
 
   it('integrates end-to-end with a real class-validator pipe', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), createClassValidatorPipe());
+    const pipe = new ProfilerValidationPipe(createClassValidatorPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -216,5 +209,44 @@ describe('ProfilerValidationPipe', () => {
     expect(e.status).toBe('invalid');
     expect(e.violations[0]?.property).toBe('name');
     expect(Object.keys(e.violations[0]?.constraints ?? {}).length).toBeGreaterThan(0);
+  });
+});
+
+describe('createProfilerValidationPipe', () => {
+  const cls = ClsServiceManager.getClsService();
+
+  it('builds an app-ownable pipe that records against the active profile without DI', async () => {
+    const pipe = createProfilerValidationPipe(passThrough);
+    expect(pipe).toBeInstanceOf(ProfilerValidationPipe);
+    const profile = makeProfile();
+    await cls.run(async () => {
+      cls.set('profiler.profile', profile);
+      const result: unknown = await pipe.transform({ name: 'alice' }, bodyMeta(SimpleDto));
+      expect(result).toMatchObject({ name: 'alice' });
+    });
+    const entries = profile.collectors[VALIDATOR_KEY] as ValidationEntry[] | undefined;
+    expect(entries?.[0]?.status).toBe('valid');
+  });
+
+  it('validates transparently (recording nothing) when no profile is active', async () => {
+    const pipe = createProfilerValidationPipe(createClassValidatorPipe());
+    await expect(pipe.transform({ name: 'ok' }, bodyMeta(SimpleDto))).resolves.toMatchObject({
+      name: 'ok',
+    });
+    await expect(pipe.transform({ name: '' }, bodyMeta(SimpleDto))).rejects.toBeDefined();
+  });
+
+  it('forwards a custom extractor chain to the pipe', async () => {
+    const custom: ValidationViolationExtractor = {
+      extract: () => [{ property: 'custom', constraints: { rule: 'failed' } }],
+    };
+    const pipe = createProfilerValidationPipe(throwing(new Error('x')), [custom]);
+    const profile = makeProfile();
+    await cls.run(async () => {
+      cls.set('profiler.profile', profile);
+      await expect(pipe.transform({}, bodyMeta(SimpleDto))).rejects.toThrow('x');
+    });
+    const entries = profile.collectors[VALIDATOR_KEY] as ValidationEntry[] | undefined;
+    expect(entries?.[0]?.violations[0]?.property).toBe('custom');
   });
 });

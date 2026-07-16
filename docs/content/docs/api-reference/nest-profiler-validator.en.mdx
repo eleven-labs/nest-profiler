@@ -8,7 +8,7 @@ seo:
 
 ## ValidatorCollectorModuleOptions
 
-Options for `ValidatorCollectorModule.forRoot()`.
+Options for `ValidatorCollectorModule.forRoot()`. The module registers only the Validator panel — the validation pipe is owned by the app via [`createProfilerValidationPipe`](#createprofilervalidationpipe) — so `enabled` is its only knob.
 
 <AutoTypeTable
   path="packages/nest-profiler-validator/src/validator-collector.module.ts"
@@ -49,7 +49,25 @@ Corresponds to the NestJS parameter decorator used: `@Body()`, `@Query()`, `@Par
 
 ## ProfilerValidationPipe
 
-Implements `PipeTransform`. Registered as the global `APP_PIPE` by `ValidatorCollectorModule.forRoot()`. It **wraps** an inner validation pipe (the one you configure) rather than performing validation itself: it delegates to the inner pipe, records a `valid` entry on success, and on failure runs the configured extractors over the thrown error to record an `invalid` entry - then always re-throws the original exception.
+Implements `PipeTransform`. Built via [`createProfilerValidationPipe`](#createprofilervalidationpipe) and installed by the app with `app.useGlobalPipes(...)`. It **wraps** an inner validation pipe (the one you configure) rather than performing validation itself: it delegates to the inner pipe, records a `valid` entry on success, and on failure runs the configured extractors over the thrown error to record an `invalid` entry - then always re-throws the original exception. It resolves CLS through `nestjs-cls`'s static `ClsServiceManager`, so it needs no DI container and degrades to a transparent pass-through when no profile is active.
+
+## createProfilerValidationPipe
+
+Builds a `ProfilerValidationPipe` **without** the Nest DI container so your application owns its global validation pipe in bootstrap. Pair it with `ValidatorCollectorModule.forRoot()` (which registers just the panel) to gate the profiler independently of validation.
+
+```ts
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+
+// Validation stays app-owned and always runs — profiler on or off.
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
+```
+
+Signature: `createProfilerValidationPipe(inner: PipeTransform, extractors?: ValidationViolationExtractor[])`. The `extractors` argument defaults to `DEFAULT_EXTRACTORS`. For class-validator, wrap `createClassValidatorPipe(options)` rather than a bare `new ValidationPipe()` so per-property violations reach the panel.
 
 ## ValidationViolationExtractor
 
@@ -89,6 +107,7 @@ Requires `class-validator` and `class-transformer` to be installed.
 import {
   ValidatorCollectorModule,
   ProfilerValidationPipe,
+  createProfilerValidationPipe,
   ValidatorCollector,
   createClassValidatorPipe,
   DEFAULT_EXTRACTORS,
@@ -112,25 +131,22 @@ import type {
 
 ## Setup
 
-### class-validator (default)
+Install the pipe in `main.ts` and register the panel with `forRoot()` — validation runs independently of the profiler's gate:
 
 ```ts
-// In AppModule - registers ProfilerValidationPipe as global APP_PIPE,
-// wrapping a default class-validator pipe built from validationPipeOptions.
-ValidatorCollectorModule.forRoot({
-  validationPipeOptions: { whitelist: true, transform: true },
-});
+// main.ts — class-validator (wrap createClassValidatorPipe to keep per-property violations)
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
+
+// main.ts — nestjs-zod
+app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
+
+// app.module.ts — panel only, gated like every other collector
+ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled);
 ```
 
-### nestjs-zod
-
-```ts
-import { ZodValidationPipe } from 'nestjs-zod';
-
-ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() });
-```
-
-A NestJS app uses a single global validation strategy, so use one validator at a time.
+Since the pipe lives in `main.ts`, mirror the same `useGlobalPipes(...)` call when you boot the app manually in e2e tests. A NestJS app uses a single global validation strategy, so use one validator at a time.
 
 **Important:** Use value imports (not `import type`) for DTO classes in controllers so that TypeScript emits `reflect-metadata` for the parameter type:
 
@@ -144,25 +160,4 @@ import type { CreateArticleDto } from './dto/create-article.dto';
 
 **Prerequisite:** install the validator you use (`class-validator` + `class-transformer`, or `nestjs-zod` + `zod`). For class-validator, `emitDecoratorMetadata: true` must be set in `tsconfig.json`.
 
-### Async setup
-
-Resolve the options (`pipe`, `extractors`, `validationPipeOptions`) from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
-
-```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
-
-ConditionalModule.registerWhen(
-  ValidatorCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      validationPipeOptions: {
-        whitelist: true,
-        transform: config.get<boolean>('validation.transform') ?? true,
-      },
-    }),
-  }),
-  isProfilerEnabled,
-);
-```
-
-Like `forRoot`, `enabled: false` keeps validation installed (the bare inner pipe, no profiler wrapper). When no pipe can be resolved it falls back to a passthrough pipe so the bootstrap never crashes; to disable validation entirely, gate the module out with `ConditionalModule` and install your own `APP_PIPE`.
+The panel gates like every other collector: `forRoot()` / `forRootAsync()` register only the `ValidatorCollector`, wrapped in `ConditionalModule.registerWhen(..., isProfilerEnabled)` (or toggled with the top-level `enabled` flag).

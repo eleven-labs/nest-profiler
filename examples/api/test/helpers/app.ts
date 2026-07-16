@@ -7,6 +7,10 @@ import request from 'supertest';
 import type { Response } from 'supertest';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
 import { AppModule } from '../../src/app.module.js';
 import { applyGlobalPrefix } from '../../src/config/global-prefix.js';
 import { isPinoLoggerEnabled } from '../../src/config/features.config.js';
@@ -36,6 +40,11 @@ export async function createE2EApp(): Promise<INestApplication> {
     ? app.get(PinoLogger)
     : new ConsoleLogger('e2e');
   app.useLogger(profilerService.createLogger(baseLogger));
+
+  // Mirror main.ts: the app owns its validation pipe.
+  app.useGlobalPipes(
+    createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+  );
 
   applyGlobalPrefix(app);
 

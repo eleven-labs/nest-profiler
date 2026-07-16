@@ -59,7 +59,7 @@ Cross-reference `package.json` against [references/collectors-matrix.md](referen
 
 - **[collectors-orm.md](references/collectors-orm.md)** — typeorm / mikro-orm / mongoose: query collector + optional Schema panel companion. Ask: add the Schema panel? tune `slowThreshold`? TypeORM needs **no** `inject: [DataSource]` (it self-resolves via `connectionName`); MikroORM is ESM-only; place each after its ORM module.
 - **[collectors-http.md](references/collectors-http.md)** — ⚠️ nothing is captured unless you list an instrumentation. Ask: axios, fetch, or both? capture bodies? axios needs `HttpModule` imported alongside.
-- **[collectors-validator.md](references/collectors-validator.md)** — ask: class-validator or zod? Installs a global `APP_PIPE` — remove any second global `ValidationPipe`; value-import DTOs.
+- **[collectors-validator.md](references/collectors-validator.md)** — ask: class-validator or zod? Validation is app-owned: install the pipe in `main.ts` with `createProfilerValidationPipe(...)` and register the panel with `forRoot()`. One global validation pipe only; value-import DTOs.
 - **[collectors-config-auth.md](references/collectors-config-auth.md)** — ask: extra keys / user fields to mask.
 - **[collectors-simple.md](references/collectors-simple.md)** — cache / graphql / commander / routes / rabbitmq: mostly confirm inclusion. GraphQL `context` must expose the request; commander needs file storage in both processes.
 

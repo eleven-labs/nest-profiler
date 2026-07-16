@@ -183,7 +183,7 @@ import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 export class AuthModule {}
 ```
 
-Collectors that install a global `APP_PIPE` or read global providers should remain in the root module:
+Collectors that read global providers or contribute a global panel should remain in the root module:
 
 ```ts title="app.module.ts"
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
@@ -209,12 +209,9 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
       isProfilerEnabled,
     ),
-    ConditionalModule.registerWhen(
-      ValidatorCollectorModule.forRoot({
-        validationPipeOptions: { whitelist: true, transform: true },
-      }),
-      isProfilerEnabled,
-    ),
+    // Validator panel only — the pipe is app-owned in main.ts (below), so validation runs
+    // regardless of the profiler's gate.
+    ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled),
 
     // feature modules:
     ProductsModule,
@@ -223,6 +220,19 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
   ],
 })
 export class AppModule {}
+```
+
+The Validator panel above needs its validation pipe installed in your bootstrap. This keeps validation independent of the profiler's gate — it runs whether profiling is on or off:
+
+```ts title="main.ts"
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
 ```
 
 ## GraphQL support

@@ -7,6 +7,10 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { ProfilerService } from '@eleven-labs/nest-profiler';
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
 import { AppModule } from './app.module.js';
 import { applyGlobalPrefix } from './config/global-prefix.js';
 
@@ -23,6 +27,12 @@ async function bootstrap() {
     ? app.get(PinoLogger)
     : new ConsoleLogger('ExampleApi');
   app.useLogger(profilerService.createLogger(baseLogger));
+
+  // App-owned validation pipe: always runs, and feeds the Validator panel when the profiler is on.
+  // createClassValidatorPipe (not a bare ValidationPipe) keeps per-property violations in the panel.
+  app.useGlobalPipes(
+    createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+  );
 
   applyGlobalPrefix(app);
 

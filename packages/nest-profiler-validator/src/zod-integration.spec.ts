@@ -1,7 +1,6 @@
 import type { ArgumentMetadata } from '@nestjs/common';
-import type { ModuleRef as _MR } from '@nestjs/core';
-import { Test } from '@nestjs/testing';
-import { ClsModule, ClsService } from 'nestjs-cls';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { createZodDto, ZodValidationPipe } from 'nestjs-zod';
 import { ProfilerValidationPipe } from './profiler-validation.pipe';
@@ -30,18 +29,11 @@ function makeProfile(): Profile {
 
 const bodyMeta: ArgumentMetadata = { type: 'body', metatype: CreateWidgetDto, data: '' };
 
-function pipeModuleRef(cls: unknown): _MR {
-  return { get: () => cls } as unknown as _MR;
-}
-
 describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   let cls: ClsService;
 
-  beforeEach(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [ClsModule.forRoot({ middleware: { mount: false } })],
-    }).compile();
-    cls = moduleRef.get(ClsService);
+  beforeEach(() => {
+    cls = ClsServiceManager.getClsService();
   });
 
   function entries(profile: Profile): ValidationEntry[] {
@@ -49,7 +41,7 @@ describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   }
 
   it('captures a valid entry for a payload that satisfies the zod schema', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), new ZodValidationPipe());
+    const pipe = new ProfilerValidationPipe(new ZodValidationPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);
@@ -60,7 +52,7 @@ describe('ProfilerValidationPipe with nestjs-zod (real integration)', () => {
   });
 
   it('captures an invalid entry with violations mapped from the ZodError', async () => {
-    const pipe = new ProfilerValidationPipe(pipeModuleRef(cls), new ZodValidationPipe());
+    const pipe = new ProfilerValidationPipe(new ZodValidationPipe());
     const profile = makeProfile();
     await cls.run(async () => {
       cls.set('profiler.profile', profile);

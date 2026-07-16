@@ -13,7 +13,7 @@
   },
   {
     "query": "Can I keep my existing global ValidationPipe when I add the validator collector?",
-    "expected_behavior": "Must read collectors-validator.md. Answer: No — do not register a second global ValidationPipe. The validator collector installs a global APP_PIPE that wraps your pipe; only one global validator at a time. Fold its options into ValidatorCollectorModule.forRoot({ validationPipeOptions: {...} }) and use value imports (not 'import type') for DTOs."
+    "expected_behavior": "Must read collectors-validator.md. Answer: Yes — keep it app-owned in main.ts, just wrap it: app.useGlobalPipes(createProfilerValidationPipe(yourPipe)). For class-validator wrap createClassValidatorPipe(options) instead of a bare ValidationPipe so per-property violations reach the panel. Then register the panel with ValidatorCollectorModule.forRoot(). Only one global validation pipe; use value imports (not 'import type') for DTOs."
   },
   {
     "query": "The app just added TypeORM. Do I need forRootAsync with inject: [DataSource] to add the collector?",

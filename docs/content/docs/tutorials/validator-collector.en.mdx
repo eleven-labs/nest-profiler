@@ -13,9 +13,10 @@ This tutorial shows how to add the validator collector to a NestJS application. 
 - `@eleven-labs/nest-profiler` installed and configured
 - A validation library. This tutorial uses `class-validator` + `class-transformer`, which are required **only** for the default class-validator pipe - they are not dependencies of `@eleven-labs/nest-profiler-validator` itself. For the nestjs-zod variant, install `nestjs-zod` + `zod` instead.
 
-<Callout type="info" title="No separate pipe needed">
-  `ValidatorCollectorModule` registers a global `APP_PIPE` internally. You do not need to call
-  `app.useGlobalPipes()` or configure `ValidationPipe` yourself - the module handles it.
+<Callout type="info" title="Validation stays app-owned">
+  You install the validation pipe in `main.ts` with `createProfilerValidationPipe(...)`, and
+  `ValidatorCollectorModule.forRoot()` contributes only the panel. Validation runs independently of
+  the profiler, so the panel can be gated on/off per environment while validation always runs.
 </Callout>
 
 ## Step 1 - Install the package
@@ -26,7 +27,24 @@ pnpm add @eleven-labs/nest-profiler-validator@alpha
 pnpm add class-validator class-transformer
 ```
 
-## Step 2 - Register the module
+## Step 2 - Install the pipe and register the panel
+
+Install the validation pipe in your bootstrap. `createClassValidatorPipe` (rather than a bare `new ValidationPipe()`) attaches the raw `ValidationError[]` the panel reads, so violations show per property:
+
+```ts title="main.ts"
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+
+const app = await NestFactory.create(AppModule);
+
+app.useGlobalPipes(
+  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+);
+```
+
+Then register the Validator panel — `forRoot()` adds only the collector (no `APP_PIPE`), so it gates like every other collector:
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
@@ -144,29 +162,13 @@ The collector records every validation that passes through the pipe - both succe
 
 ## Using a different validator (nestjs-zod)
 
-The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, pass its pipe via the `pipe` option - `class-validator` is never loaded:
+The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, wrap its pipe — `class-validator` is never loaded:
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
+```ts title="main.ts"
 import { ZodValidationPipe } from 'nestjs-zod';
+import { createProfilerValidationPipe } from '@eleven-labs/nest-profiler-validator';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-@Module({
-  imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ProfilerNoopModule.forRoot({ isGlobal: true }),
-      (env) => !isProfilerEnabled(env),
-    ),
-    ConditionalModule.registerWhen(
-      ValidatorCollectorModule.forRoot({ pipe: new ZodValidationPipe() }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class AppModule {}
+app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
 ```
 
 ```ts title="dto/create-article.dto.ts"
@@ -182,29 +184,13 @@ const ArticleSchema = z.object({
 export class CreateArticleDto extends createZodDto(ArticleSchema) {}
 ```
 
-The Validator panel renders zod violations exactly the same way - one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time.
+The Validator panel renders zod violations exactly the same way - one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time. `createProfilerValidationPipe(inner, extractors?)` also takes a custom extractor chain as its second argument.
 
-## Driving options from ConfigService
-
-Use `forRootAsync()` to resolve the options (`pipe`, `extractors`, `validationPipeOptions`) from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
-
-```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
-
-ConditionalModule.registerWhen(
-  ValidatorCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      validationPipeOptions: {
-        whitelist: true,
-        transform: config.get<boolean>('validation.transform') ?? true,
-      },
-    }),
-  }),
-  isProfilerEnabled,
-);
-```
+<Callout type="info" title="Testing the app manually">
+  Since the pipe lives in `main.ts`, mirror the same `useGlobalPipes(...)` call when you boot the
+  app yourself in e2e tests (`Test.createTestingModule(...).createNestApplication()`).
+</Callout>
 
 ## How it works
 
-`ValidatorCollectorModule` registers `ProfilerValidationPipe` as a global `APP_PIPE` that **wraps** the validation pipe you configure, records a valid/invalid entry into the active request profile, and normalizes violations through duck-typed extractors (class-validator, then zod, then a generic `HttpException` fallback) before re-throwing the original exception. See [How it works](/docs/packages/nest-profiler-validator#how-it-works) on the package page.
+`ProfilerValidationPipe` **wraps** the validation pipe you configure: it records a valid/invalid entry into the active request profile and normalizes violations through duck-typed extractors (class-validator, then zod, then a generic `HttpException` fallback) before re-throwing the original exception. It resolves CLS statically, so `createProfilerValidationPipe(...)` needs no DI container. See [How it works](/docs/packages/nest-profiler-validator#how-it-works) on the package page.
