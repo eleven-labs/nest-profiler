@@ -28,6 +28,13 @@ pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 
 The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies - a NestJS application already provides all of them except `nestjs-cls`, which is why it is installed explicitly above.
 
+<Callout type="info" title="Want it in devDependencies only?">
+  If you never want the profiler in production — zero footprint, never installed there — install it
+  with `pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls` and use the [dev-entry
+  split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead
+  of the runtime gate below.
+</Callout>
+
 ## Configure the core module
 
 The profiler is a development tool — keep it off in production. The **recommended** way to wire it is to gate the active `ProfilerModule` with `ConditionalModule.registerWhen`. When profiling is off, the active module is never loaded, at no runtime cost.

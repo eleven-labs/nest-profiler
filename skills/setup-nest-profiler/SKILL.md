@@ -19,7 +19,7 @@ Log capture goes through the DI-free `createProfilerLogger` (it reads the active
 ## Workflow
 
 1. **Introspect the project** first — nothing else until you have this (see below).
-2. **Choose the enable strategy** with `AskUserQuestion` → [references/enable-strategies.md](references/enable-strategies.md): Approach A (`ConditionalModule` gating, **recommended, always presented first**) vs Approach B (the synchronous `enabled` flag). Add `ProfilerNoopModule` only if the app injects `ProfilerService` directly.
+2. **Choose the enable strategy** with `AskUserQuestion` → [references/enable-strategies.md](references/enable-strategies.md): Approach A (`ConditionalModule` gating, **recommended, always presented first**) vs Approach B (the synchronous `enabled` flag). Add a third option, Approach C (`devDependency`-only / dev-entry split), **only** when the user wants the profiler in `devDependencies` with a zero production footprint / never injects `ProfilerService` — never promote it above A. Add `ProfilerNoopModule` only if the app injects `ProfilerService` directly (never with C).
 3. **Install and configure the core** — ask the config questions that matter (see below).
 4. **Detect and wire collectors** → [references/collectors-matrix.md](references/collectors-matrix.md) and the family references; multi-select which to add, then ask each collector's key question.
 5. **Finalize and verify** (see below).
@@ -34,6 +34,7 @@ Before changing anything, gather:
 - **`package.json` dependencies** — the detection signal for both the enable strategy and the collectors.
 - **The composition root** — the `@Module` that `NestFactory.create(...)` bootstraps (usually `app.module.ts`), plus the `main.ts` entrypoint.
 - **`@nestjs/config` presence** — informs the enable-strategy default (but never blocks Approach A — see below).
+- **Production stance** — does the user want the profiler in production `dependencies` at all? If they want it in `devDependencies` **only** (zero prod footprint) and never inject `ProfilerService`, offer Approach C (dev-entry split). Otherwise default to A/B.
 - **ESM vs CJS** — `"type": "module"` in the consumer's `package.json`; required if you add the MikroORM collector.
 
 If this is not a NestJS 11+ app (no `@nestjs/core`), stop and say so — the profiler does not apply. It also targets Node ≥ 22.
@@ -44,16 +45,17 @@ Present the choice with `AskUserQuestion`, following the rules in [references/en
 
 - **Fixed order** — Approach A in position 1, Approach B in position 2. **Always.** Never reorder based on how the project currently manages its config.
 - **Approach A is the recommended default even when `@nestjs/config` is absent** — it is a first-party Nest package installable **solely** for `ConditionalModule`, without adopting `ConfigModule`. Do not silently fall back to B; present both, put the "install one first-party dependency" trade-off inside B's description, and let the user pick.
+- **Approach C (`devDependency`-only) is a conditional third option** — add it (position 3, label `"devDependency only (dev-entry split)"`) **only** when introspection or the user flags a zero-prod-footprint / never-inject-`ProfilerService` intent. Skip it otherwise. Never promote it above A.
 - Put "(recommended)" on A's **label**, keep `header` ≤ 12 characters, and write **concrete** descriptions (what gets installed, exact runtime behaviour).
 
-Then **ship the `env-condition` helpers** (`src/config/env-condition.ts` + `isProfilerEnabled`) as shown in the reference — every gate reuses them.
+Then, **for A/B**, **ship the `env-condition` helpers** (`src/config/env-condition.ts` + `isProfilerEnabled`) as shown in the reference — every gate reuses them. **Approach C uses no gate and no helpers** (the entrypoint is the switch).
 
 ## Install and configure the core
 
-1. `<pm> add @eleven-labs/nest-profiler@alpha nestjs-cls` — the profiler has **no stable release yet**, so every `@eleven-labs/nest-profiler*` package must be pinned to the `@alpha` dist-tag (`@latest` resolves to nothing). `nestjs-cls` powers per-request context and is the one peer a Nest app doesn't already provide. Add `@libsql/client` too only if the user picks SQLite storage (local file, `:memory:`, or a remote SQLite database).
+1. `<pm> add @eleven-labs/nest-profiler@alpha nestjs-cls` — the profiler has **no stable release yet**, so every `@eleven-labs/nest-profiler*` package must be pinned to the `@alpha` dist-tag (`@latest` resolves to nothing). `nestjs-cls` powers per-request context and is the one peer a Nest app doesn't already provide. Add `@libsql/client` too only if the user picks SQLite storage (local file, `:memory:`, or a remote SQLite database). **For Approach C**, install everything as **dev** dependencies instead — `<pm> add -D ...` (`pnpm add -D` / `npm install -D` / `yarn add -D`).
 2. **Ask the core config questions that matter** (balanced — apply and state documented defaults for the rest): storage backend (`memory` / `file` / `sqlite`; use file or sqlite for CLI/multi-process), **access control** (the `security` option — the profiler is **open by default**, so ask whether to lock the UI down now and how: reuse an app guard via `security.guards`, or an `authorize` predicate — see [references/core-options.md](references/core-options.md)), whether to `collectBody` (default `false`, sensitive), and `sampleRate`. Leave `maxProfiles`, `ttl`, `ignorePaths`, `maskHeaders`, `emitDebugHeaders`, `maxBodySize`, `listPageSize` at their defaults unless the user has a reason.
-3. Add the gated import(s) to the composition root per the chosen strategy, with `isGlobal: true`. When options come from `ConfigService`, use `forRootAsync` (`isGlobal`/`enabled` stay top-level). Consider the `ProfilingModule.forWeb()` bundle to keep the root to a single profiler entry (plus the no-op fallback only if the app injects `ProfilerService` directly).
-4. Enable log capture in `main.ts`: create the app with `{ bufferLogs: true }`, then `app.useLogger(createProfilerLogger(new ConsoleLogger('App')))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler` — it needs no `ProfilerService`).
+3. Add the gated import(s) to the composition root per the chosen strategy, with `isGlobal: true`. When options come from `ConfigService`, use `forRootAsync` (`isGlobal`/`enabled` stay top-level). Consider the `ProfilingModule.forWeb()` bundle to keep the root to a single profiler entry (plus the no-op fallback only if the app injects `ProfilerService` directly). **For Approach C** there is no gate: keep `AppModule` profiler-free and put the profiler bundle in a dev-only `AppDevModule` imported only by `main-dev.ts` (see the reference).
+4. Enable log capture in `main.ts`: create the app with `{ bufferLogs: true }`, then `app.useLogger(createProfilerLogger(new ConsoleLogger('App')))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler` — it needs no `ProfilerService`). **For Approach C**, split the entrypoint: production `main.ts` stays profiler-free (plain `ConsoleLogger` + `ValidationPipe`); the `createProfilerLogger` / `createProfilerValidationPipe` wiring lives only in `main-dev.ts`.
 
 ## Detect and wire collectors
 
@@ -67,6 +69,8 @@ Cross-reference `package.json` against [references/collectors-matrix.md](referen
 
 Place each per the matrix (`config`/`validator`/`routes`/`commander` at the root, ideally bundled into `ProfilingModule`; database / http / cache / rabbitmq / graphql co-located with their host module), and gate it the same way as the core (`ConditionalModule.registerWhen(..., isProfilerEnabled)` for A). Collectors need no no-op counterpart.
 
+**For Approach C**, place **every** collector in the dev-only bundle instead — none in the production feature modules (they resolve across the whole DI container: `AxiosInstrumentation` via `DiscoveryService`, TypeORM via connection token, cache via global `CACHE_MANAGER`, Mongoose via `Query`/`Aggregate` patch, fetch via global patch). The only production-side requirement is app-owned config: GraphQL's `context` must expose the request, and prod `main.ts` keeps a plain `ValidationPipe` mirroring the dev pipe's options.
+
 ## Finalize
 
 - Add `PROFILER_ENABLED=true` to `.env` and `.env.example` **for local dev** — the code default (`enabled('PROFILER_ENABLED')`) is off, so a production deploy without the variable stays off.
@@ -79,3 +83,4 @@ Place each per the matrix (`config`/`validator`/`routes`/`commander` at the root
 - Start the app, `curl -i http://localhost:3000/<some-route>`, and confirm the response carries `X-Debug-Token` and `X-Debug-Token-Link`.
 - Open `http://localhost:3000/_profiler`, click the token, and confirm the Request / Response / Performance / Logs / Exceptions tabs (plus any collector panel you added) render.
 - Confirm the app still boots with `PROFILER_ENABLED=false`. If you registered `ProfilerNoopModule` (because a service injects `ProfilerService` directly), also confirm that service still resolves it; log capture keeps working either way (`createProfilerLogger` is a pass-through when off).
+- **For Approach C**, verify the split instead: the dev entry (`nest start --entryFile main-dev`) boots with `/_profiler`, **and** the production build boots with the profiler absent — build, prune the `@eleven-labs/nest-profiler*` packages + `nestjs-cls` from `node_modules` (or install with `--omit=dev`), run `node dist/main.js`, and confirm no `MODULE_NOT_FOUND` and that `/_profiler` returns 404.

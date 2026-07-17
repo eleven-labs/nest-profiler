@@ -97,6 +97,8 @@ Packages are published to the public **npm** registry — install them like any 
 pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 ```
 
+> Prefer the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of a runtime gate.
+
 ```ts title="app.module.ts"
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 
