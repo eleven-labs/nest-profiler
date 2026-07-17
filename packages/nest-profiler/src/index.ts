@@ -61,6 +61,15 @@ export type {
 } from './collectors/schema/schema.interface';
 export { detectQueryType } from './collectors/sql/sql-query.interface';
 export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface';
+export { ExplainRunnerRegistry } from './collectors/sql/explain/explain-runner-registry.service';
+export { parseExplainPlan } from './collectors/sql/explain/parse-explain';
+export type {
+  ExplainDialect,
+  ExplainOptions,
+  ExplainPlan,
+  ExplainRawResult,
+  ExplainRunner,
+} from './collectors/sql/explain/explain.interface';
 export { interpolateSql } from './collectors/sql/interpolate-sql';
 export { buildCurlCommand } from './views/copy/build-curl';
 export type { CurlInput } from './views/copy/build-curl';

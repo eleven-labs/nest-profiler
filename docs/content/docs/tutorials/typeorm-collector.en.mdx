@@ -115,6 +115,27 @@ The collector patches TypeORM's `createQueryRunner()` to time every query and re
   data loss. Use TypeORM migrations instead.
 </Callout>
 
+## Explain slow queries
+
+Each query in the Database panel has an **Explain** button. Click it and the profiler runs `EXPLAIN` for that one query over your DataSource and renders the execution plan inline — the top plan node, a ⚠ warning when it does a full-table (sequential) scan, the scanned relations, estimated rows/cost, and the raw plan. Supported dialects: **PostgreSQL**, **MySQL/MariaDB** and **SQLite**.
+
+It runs **on demand only** — nothing happens until you click, so the profiled request is never slowed. `EXPLAIN` alone does not execute the statement; the opt-in `analyze` variant (`EXPLAIN ANALYZE`) _does_ run the query and is therefore restricted to `SELECT`.
+
+```ts title="app.module.ts"
+TypeOrmCollectorModule.forRoot({
+  explain: { enabled: true }, // default; set `enabled: false` to hide the button
+  // explain: { analyze: true }, // dev only — runs the query to measure real timings (SELECT only)
+});
+```
+
+![Database panel — a query's EXPLAIN plan expanded, showing the Seq Scan badge, plan type, estimated rows/cost and the raw plan](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/database-explain.png)
+
+<Callout type="info" title="Runs against your database">
+  The captured SQL and its parameters are replayed on the live connection when you click, so the
+  action sits behind the profiler's `security`. Values that looked like credentials were redacted at
+  capture, so a plan for such a query may differ slightly from production.
+</Callout>
+
 ## Inspect the schema
 
 Alongside the per-request Database panel, the package ships `TypeOrmSchemaCollectorModule` — a global collector that adds a **Schema · TypeORM** panel to the profiler home page. It introspects the DataSource **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.

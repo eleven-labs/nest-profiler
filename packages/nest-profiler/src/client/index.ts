@@ -1,6 +1,7 @@
 // Entry point for the core profiler client bundle (dist/public/scripts/profiler.js).
 // Loaded as a blocking <script> in <head> so the theme boot runs before first paint.
 import { initCopy } from './behaviors/copy';
+import { initExplain } from './behaviors/explain';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
 import { bootTheme, initTheme } from './behaviors/theme';
@@ -19,4 +20,5 @@ api.onReady(() => {
   initCopy(api);
   initFilters(api);
   initGroupTabs(api);
+  initExplain(api);
 });

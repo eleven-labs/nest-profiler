@@ -37,7 +37,12 @@ import { MikroOrmSchemaInitializer } from './product.mikro-orm.schema-initialize
     }),
     MikroOrmModule.forFeature([ProductEntity]),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
+      // `explain` adds the on-demand "Explain" button in the SQL panel (PostgreSQL demo DB).
+      // `analyze: true` (dev only) runs EXPLAIN ANALYZE on SELECTs for real timings/rows.
+      MikroOrmCollectorModule.forRoot({
+        slowThreshold: 50,
+        explain: { enabled: true, analyze: true },
+      }),
       isProfilerEnabled,
     ),
     // Global-scope "Schema · MikroORM" home-page panel listing the registered entities.

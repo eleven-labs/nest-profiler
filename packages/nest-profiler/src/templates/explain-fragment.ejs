@@ -1,0 +1,28 @@
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="rounded border border-line bg-surface-muted px-3 py-2 text-2xs text-danger">
+    EXPLAIN failed: <%= error %>
+  </div>
+<% } else { %>
+  <div class="rounded border border-line bg-surface-muted p-3 text-xs">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <% if (plan.hasSeqScan) { %>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Full-table (sequential) scan">⚠ Seq Scan</span>
+      <% } %>
+      <% if (plan.planType) { %>
+        <span class="px-1.5 py-0.5 rounded text-2xs font-semibold badge-default"><%= plan.planType %></span>
+      <% } %>
+      <% if (plan.analyzed) { %><span class="text-2xs text-foreground-faint" title="EXPLAIN ANALYZE — the query was executed to measure real timings">analyzed</span><% } %>
+    </div>
+    <% if (typeof plan.estimatedRows === 'number' || typeof plan.estimatedCost === 'number' || plan.seqScanRelations.length) { %>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-2xs text-foreground-muted mb-2">
+        <% if (typeof plan.estimatedRows === 'number') { %><span>est. rows: <strong class="text-foreground tabular-nums"><%= plan.estimatedRows %></strong></span><% } %>
+        <% if (typeof plan.estimatedCost === 'number') { %><span>est. cost: <strong class="text-foreground tabular-nums"><%= plan.estimatedCost %></strong></span><% } %>
+        <% if (plan.seqScanRelations.length) { %><span>seq scan on: <strong class="text-amber-600 dark:text-amber-400"><%= plan.seqScanRelations.join(', ') %></strong></span><% } %>
+      </div>
+    <% } %>
+    <details open>
+      <summary class="cursor-pointer text-2xs text-foreground-muted hover:text-foreground select-none">Raw plan (<%= plan.dialect %>)</summary>
+      <pre class="mt-1 bg-surface border border-line rounded px-2 py-1 text-2xs overflow-x-auto m-0"><code class="language-json"><%= typeof rawJson !== 'undefined' ? rawJson : JSON.stringify(plan.raw, null, 2) %></code></pre>
+    </details>
+  </div>
+<% } %>

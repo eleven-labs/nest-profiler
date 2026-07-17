@@ -315,7 +315,7 @@
               const activePanel = collectorPanelMap[activeTab];
             %>
             <% if (activePanel && activePanel.templatePath) { %>
-              <%- include(activePanel.templatePath, { panel: activePanel, data: collectorData, activeSubTab: typeof activeSubTab !== 'undefined' ? activeSubTab : null, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+              <%- include(activePanel.templatePath, { panel: activePanel, data: collectorData, collectorName: activePanel.name, activeSubTab: typeof activeSubTab !== 'undefined' ? activeSubTab : null, profile, highlightSql, toJson, isoDate, timeOnly, link, profilerPath, explainCollectors: typeof explainCollectors !== 'undefined' ? explainCollectors : [] }) %>
             <% } else if (typeof collectorData !== 'undefined') { %>
               <pre class="bg-surface-muted border border-line rounded-lg p-4 text-xs text-code-text overflow-x-auto leading-relaxed"><%= toJson(collectorData) %></pre>
             <% } else { %>
