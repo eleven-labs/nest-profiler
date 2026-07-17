@@ -1,11 +1,11 @@
 import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
 
 export interface SafeDataOptions {
-  /** Maximum nesting depth before collapsing to `'[Object]'` / `'[Array]'`. */
+  /** Maximum nesting depth before collapsing to `'[Object]'` / `'[Array]'`. `0` (or negative) disables the cap. */
   maxDepth?: number;
-  /** Maximum entries kept per array, object, Map or Set. */
+  /** Maximum entries kept per array, object, Map or Set. `0` (or negative) disables the cap. */
   maxItems?: number;
-  /** Maximum string length before truncation. */
+  /** Maximum string length before truncation. `0` (or negative) disables the cap. */
   maxStringLength?: number;
 }
 
@@ -20,6 +20,7 @@ function truncate(value: unknown, maxLength: number): string {
   // array instead of a string (e.g. a tampered `?x=a&x=b` query parameter), which would make
   // `.length`/`.slice` behave unexpectedly. Coerce anything non-string before operating on it.
   const text = typeof value === 'string' ? value : String(value);
+  if (maxLength <= 0) return text;
   return text.length > maxLength ? `${text.slice(0, maxLength)}… [truncated]` : text;
 }
 
@@ -37,10 +38,11 @@ function sanitizeEntries(
   child: (item: unknown) => unknown,
   maxItems: number,
 ): Record<string, unknown> {
+  const kept = maxItems > 0 ? entries.slice(0, maxItems) : entries;
   const result = Object.fromEntries(
-    entries.slice(0, maxItems).map(([key, entry]): [string, unknown] => [key, child(entry)]),
+    kept.map(([key, entry]): [string, unknown] => [key, child(entry)]),
   );
-  if (entries.length > maxItems) {
+  if (maxItems > 0 && entries.length > maxItems) {
     result['…'] = `+${entries.length - maxItems} more`;
   }
   return result;
@@ -55,7 +57,7 @@ function capItems<T>(
 ): unknown[] {
   const items: unknown[] = [];
   for (const item of iterable) {
-    if (items.length >= maxItems) {
+    if (maxItems > 0 && items.length >= maxItems) {
       items.push(`… +${total - maxItems} more`);
       break;
     }
@@ -103,7 +105,7 @@ function sanitize(
   if (seen.has(value)) {
     return '[Circular]';
   }
-  if (depth >= options.maxDepth) {
+  if (options.maxDepth > 0 && depth >= options.maxDepth) {
     return Array.isArray(value) ? '[Array]' : '[Object]';
   }
   seen.add(value);
@@ -160,12 +162,21 @@ export const DEFAULT_MAX_BODY_SIZE = 64 * 1024;
  * and, if its serialized form exceeds `maxSize` characters, replaced by a truncation marker
  * carrying a short preview. Pass `maxSize <= 0` to disable the size cap.
  *
+ * The inner content caps (string length, item count, depth) are controlled by `safeDataOptions`;
+ * each can be disabled by passing `0` (or negative). With every cap disabled (`maxSize <= 0` and
+ * unlimited inner caps) the full body is captured verbatim.
+ *
  * @param value - The raw captured body.
  * @param maxSize - Max serialized length before truncation. Default {@link DEFAULT_MAX_BODY_SIZE}.
+ * @param safeDataOptions - Inner content caps forwarded to {@link toSafeData}.
  */
-export function normalizeBody(value: unknown, maxSize: number = DEFAULT_MAX_BODY_SIZE): unknown {
+export function normalizeBody(
+  value: unknown,
+  maxSize: number = DEFAULT_MAX_BODY_SIZE,
+  safeDataOptions: SafeDataOptions = {},
+): unknown {
   if (value === undefined || value === null) return value;
-  const safe = toSafeData(value);
+  const safe = toSafeData(value, safeDataOptions);
   if (maxSize <= 0) return safe;
 
   let serialized: string;
@@ -180,7 +191,8 @@ export function normalizeBody(value: unknown, maxSize: number = DEFAULT_MAX_BODY
     _truncated: true,
     _bytes: serialized.length,
     _preview: `${serialized.slice(0, 1024)}…`,
-    _note: 'Body truncated — use the raw JSON export (/:token/data) to inspect it in full.',
+    _note:
+      'Body truncated at capture time — the full body is not stored. Raise or disable maxBodySize (and the bodyCaptureLimits caps) to capture it in full.',
   };
 }
 
@@ -189,12 +201,16 @@ export function normalizeBody(value: unknown, maxSize: number = DEFAULT_MAX_BODY
  * so circular references and `BigInt` (which crash `JSON.stringify`) can't break rendering
  * or persistence. Falls back to a diagnostic string if serialization still fails.
  *
+ * Size/depth/item caps are disabled here: this serializes data that was already bounded at
+ * capture time by `maxBodySize` / `bodyCaptureLimits`, so only the safety conversions apply.
+ *
  * @param value - Any value, including cyclic graphs or `BigInt`.
  * @param space - Indentation passed to `JSON.stringify` (default `2`).
  */
 export function safeStringify(value: unknown, space: string | number = 2): string {
   try {
-    return JSON.stringify(toSafeData(value), null, space) ?? String(value);
+    const safe = toSafeData(value, { maxDepth: 0, maxItems: 0, maxStringLength: 0 });
+    return JSON.stringify(safe, null, space) ?? String(value);
   } catch {
     return '[Unserializable value]';
   }

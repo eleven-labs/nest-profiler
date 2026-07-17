@@ -1,4 +1,4 @@
-import { toSafeData, safeStringify } from './safe-data.utils';
+import { toSafeData, safeStringify, normalizeBody } from './safe-data.utils';
 
 describe('toSafeData', () => {
   it('passes through JSON-safe primitives untouched', () => {
@@ -99,6 +99,21 @@ describe('toSafeData', () => {
     expect(toSafeData('abcdef', { maxStringLength: 4 })).toBe('abcd… [truncated]');
   });
 
+  it('keeps the full value when caps are disabled with 0 or negative', () => {
+    const longString = 'x'.repeat(5000);
+    const deep = { l1: { l2: { l3: { l4: { l5: [1] } } } } };
+    const many = Array.from({ length: 200 }, (_, i) => i);
+    const manyKeys = Object.fromEntries(many.map((i) => [`k${i}`, i]));
+
+    expect(toSafeData(longString, { maxStringLength: 0 })).toBe(longString);
+    expect(toSafeData(deep, { maxDepth: 0 })).toEqual(deep);
+    expect(toSafeData(many, { maxItems: 0 })).toEqual(many);
+    expect(toSafeData(many, { maxItems: -1 })).toEqual(many);
+    expect(toSafeData(manyKeys, { maxItems: 0 })).toEqual(manyKeys);
+    expect(toSafeData(manyKeys, { maxItems: -1 })).toEqual(manyKeys);
+    expect(toSafeData({ data: { ok: true } }, { maxItems: 0 })).toEqual({ data: { ok: true } });
+  });
+
   it('always produces JSON-stringifiable output', () => {
     const value: Record<string, unknown> = {
       big: BigInt(1),
@@ -108,6 +123,34 @@ describe('toSafeData', () => {
     };
     value['self'] = value;
     expect(() => JSON.stringify(toSafeData(value))).not.toThrow();
+  });
+});
+
+describe('normalizeBody', () => {
+  it('returns undefined/null unchanged', () => {
+    expect(normalizeBody(undefined)).toBeUndefined();
+    expect(normalizeBody(null)).toBeNull();
+  });
+
+  it('applies the inner content caps forwarded via safeDataOptions', () => {
+    const body = { text: 'abcdef', list: [1, 2, 3, 4] };
+    expect(normalizeBody(body, 0, { maxStringLength: 4, maxItems: 2 })).toEqual({
+      text: 'abcd… [truncated]',
+      list: [1, 2, '… +2 more'],
+    });
+  });
+
+  it('keeps the full body when every cap is disabled', () => {
+    const body = { text: 'x'.repeat(5000), list: Array.from({ length: 200 }, (_, i) => i) };
+    expect(normalizeBody(body, 0, { maxStringLength: 0, maxItems: 0, maxDepth: 0 })).toEqual(body);
+  });
+
+  it('replaces an oversized body with a truncation marker', () => {
+    const body = { text: 'y'.repeat(2000) };
+    const result = normalizeBody(body, 100) as Record<string, unknown>;
+    expect(result._truncated).toBe(true);
+    expect(typeof result._bytes).toBe('number');
+    expect(result._note).not.toContain('/:token/data');
   });
 });
 
@@ -126,5 +169,18 @@ describe('safeStringify', () => {
   it('never throws on BigInt', () => {
     expect(() => safeStringify({ big: BigInt(10) })).not.toThrow();
     expect(safeStringify({ big: BigInt(10) }, 0)).toBe('{"big":"10"}');
+  });
+
+  it('does not re-apply size/depth/item caps (data was already bounded at capture)', () => {
+    const deep = { data: { products: [{ reviews: [{ id: '1' }, { id: '2' }] }] } };
+    expect(JSON.parse(safeStringify(deep, 0))).toEqual(deep);
+
+    const many = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`k${i}`, i]));
+    const parsedMany = JSON.parse(safeStringify(many, 0)) as Record<string, number>;
+    expect(parsedMany).toEqual(many);
+    expect('…' in parsedMany).toBe(false);
+
+    const longString = 'x'.repeat(5000);
+    expect(JSON.parse(safeStringify({ s: longString }, 0))).toEqual({ s: longString });
   });
 });

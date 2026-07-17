@@ -202,6 +202,44 @@ describe('ProfilerInterceptor', () => {
       expect(profile.response?.body).toBe('body');
     });
 
+    it('applies bodyCaptureLimits to the captured response body', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const interceptor = makeInterceptor(profile, core, {
+        collectBody: true,
+        bodyCaptureLimits: { maxStringLength: 4 },
+      });
+
+      await lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'GET', url: '/hello' }, makeRes()),
+          handler({ message: 'HelloWorld' }),
+        ),
+      );
+
+      expect(profile.response?.body).toEqual({ message: 'Hell… [truncated]' });
+    });
+
+    it('keeps the full response body when every cap is disabled', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const interceptor = makeInterceptor(profile, core, {
+        collectBody: true,
+        maxBodySize: 0,
+        bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 },
+      });
+
+      const long = 'x'.repeat(5000);
+      await lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'GET', url: '/hello' }, makeRes()),
+          handler({ message: long }),
+        ),
+      );
+
+      expect(profile.response?.body).toEqual({ message: long });
+    });
+
     it('updates the route from the route collector when matched', async () => {
       const profile = makeProfile();
       const core = makeCore();

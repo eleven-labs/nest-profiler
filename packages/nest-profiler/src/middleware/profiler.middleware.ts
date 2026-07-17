@@ -16,7 +16,8 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
 import { redact } from '../utils/redact.utils';
-import { normalizeBody } from '../utils/safe-data.utils';
+import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
+import type { SafeDataOptions } from '../utils/safe-data.utils';
 
 /**
  * Paths skipped by default so the profiler list is not flooded with browser and
@@ -74,6 +75,7 @@ export class ProfilerMiddleware implements NestMiddleware {
   private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
   private readonly maxBodySize: number | undefined;
+  private readonly bodyCaptureLimits: SafeDataOptions | undefined;
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
   private readonly maskCookies: Set<string>;
@@ -91,6 +93,7 @@ export class ProfilerMiddleware implements NestMiddleware {
   ) {
     this.collectBody = options.collectBody ?? false;
     this.maxBodySize = options.maxBodySize;
+    this.bodyCaptureLimits = options.bodyCaptureLimits;
     this.sampleRate = options.sampleRate ?? 1.0;
     this.ignorePaths = [
       ...(options.useDefaultIgnorePaths === false ? [] : DEFAULT_IGNORE_PATHS),
@@ -328,11 +331,9 @@ export class ProfilerMiddleware implements NestMiddleware {
     );
   }
 
-  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize`). */
+  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize` / `bodyCaptureLimits`). */
   private normalizeBody(body: unknown): unknown {
-    return this.maxBodySize === undefined
-      ? normalizeBody(body)
-      : normalizeBody(body, this.maxBodySize);
+    return normalizeBody(body, this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE, this.bodyCaptureLimits);
   }
 
   private buildCookieMap(req: PlatformRequest): Record<string, string> | undefined {

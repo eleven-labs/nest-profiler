@@ -17,7 +17,8 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
-import { normalizeBody } from '../utils/safe-data.utils';
+import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
+import type { SafeDataOptions } from '../utils/safe-data.utils';
 
 function normalizeHeaders(
   raw: Record<string, string | number | string[]>,
@@ -32,6 +33,7 @@ export class ProfilerInterceptor implements NestInterceptor {
   private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
   private readonly maxBodySize: number | undefined;
+  private readonly bodyCaptureLimits: SafeDataOptions | undefined;
 
   constructor(
     private readonly cls: ClsService,
@@ -42,13 +44,12 @@ export class ProfilerInterceptor implements NestInterceptor {
   ) {
     this.collectBody = options.collectBody ?? false;
     this.maxBodySize = options.maxBodySize;
+    this.bodyCaptureLimits = options.bodyCaptureLimits;
   }
 
-  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize`). */
+  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize` / `bodyCaptureLimits`). */
   private normalizeBody(body: unknown): unknown {
-    return this.maxBodySize === undefined
-      ? normalizeBody(body)
-      : normalizeBody(body, this.maxBodySize);
+    return normalizeBody(body, this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE, this.bodyCaptureLimits);
   }
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {

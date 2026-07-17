@@ -376,6 +376,38 @@ describe('ProfilerMiddleware', () => {
       expect(reqData(profile)?.body).toBeUndefined();
     });
 
+    it('applies bodyCaptureLimits to the captured request body', async () => {
+      ({ middleware, cls } = await createMiddleware({
+        collectBody: true,
+        bodyCaptureLimits: { maxStringLength: 4 },
+      }));
+
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'POST', url: '/posts', headers: {}, query: {}, body: { title: 'HelloWorld' } },
+        cls,
+      );
+
+      expect(reqData(profile)?.body).toEqual({ title: 'Hell… [truncated]' });
+    });
+
+    it('keeps the full request body when every cap is disabled', async () => {
+      ({ middleware, cls } = await createMiddleware({
+        collectBody: true,
+        maxBodySize: 0,
+        bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 },
+      }));
+
+      const long = 'x'.repeat(5000);
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'POST', url: '/posts', headers: {}, query: {}, body: { title: long } },
+        cls,
+      );
+
+      expect(reqData(profile)?.body).toEqual({ title: long });
+    });
+
     it('always uses an internal UUID token, never the client x-request-id (no traversal/collision)', async () => {
       const profile = await runMiddleware(
         middleware,

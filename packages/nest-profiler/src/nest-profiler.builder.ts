@@ -5,6 +5,7 @@ import type { ProfilerRequestFilter } from './filters';
 import type { PerformanceRule } from './analysis/performance-rule.interface';
 import type { ProfilerErrorOptions } from './analysis/profiler-error';
 import type { PlatformRequest, PlatformResponse } from './types/http';
+import type { SafeDataOptions } from './utils/safe-data.utils';
 
 /**
  * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the
@@ -112,6 +113,19 @@ export interface ProfilerModuleOptions {
    * Set to `0` (or negative) to disable truncation.
    */
   maxBodySize?: number;
+
+  /**
+   * Inner content caps applied to each captured request/response body **before** the
+   * {@link maxBodySize} size cap. They bound the captured value regardless of `maxBodySize`:
+   * - `maxStringLength` — strings longer than this are truncated (default 2048).
+   * - `maxItems` — arrays / objects / Map / Set are capped to this many entries (default 64).
+   * - `maxDepth` — anything nested deeper collapses to `[Object]` / `[Array]` (default 4).
+   *
+   * Each cap can be disabled individually with `0` (or negative). Disabling every cap here
+   * **and** setting `maxBodySize: 0` captures the full body verbatim — at the cost of larger
+   * stored profiles and slower detail-page rendering for big payloads.
+   */
+  bodyCaptureLimits?: SafeDataOptions;
 
   /**
    * Maximum time in milliseconds a single collector may spend in `collect()`

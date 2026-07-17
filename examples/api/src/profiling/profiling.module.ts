@@ -152,9 +152,11 @@ export class ProfilingModule {
           useFactory: (config: ConfigService) => ({
             ...resolveStorageOptions(config),
             // Demo captures bodies for a richer UI. In production, prefer `collectBody: false`
-            // (or a small `maxBodySize`) and ALWAYS lock the dashboard — which exposes captured
-            // requests — behind `security` (see `resolveProfilerSecurity` above).
+            // (or a small `maxBodySize` / tighter `bodyCaptureLimits`) and ALWAYS lock the dashboard
+            // — which exposes captured requests — behind `security` (see `resolveProfilerSecurity`).
             collectBody: true,
+            maxBodySize: 0,
+            bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 },
             security: resolveProfilerSecurity(config),
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
