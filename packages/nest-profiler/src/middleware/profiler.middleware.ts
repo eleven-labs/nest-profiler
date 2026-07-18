@@ -16,6 +16,7 @@ import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
 import { redact } from '../utils/redact.utils';
+import { nowMs, sinceMs } from '../utils/clock';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
 import type { SafeDataOptions } from '../utils/safe-data.utils';
 
@@ -139,7 +140,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         },
       },
       performance: {
-        startTime: Date.now(),
+        startTime: nowMs(),
         heapUsed: process.memoryUsage().heapUsed,
       },
       logs: [],
@@ -207,7 +208,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         return;
       }
 
-      profile.performance.duration = Date.now() - profile.performance.startTime;
+      profile.performance.duration = sinceMs(profile.performance.startTime);
       profile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},

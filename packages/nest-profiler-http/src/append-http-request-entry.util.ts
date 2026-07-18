@@ -1,6 +1,6 @@
 import type { ClsService } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readActiveSpanId } from '@eleven-labs/nest-profiler';
 import type { HttpRequestEntry } from './http-request.interface';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
 
@@ -18,6 +18,7 @@ export function appendHttpRequestEntry(cls: ClsService | undefined, entry: HttpR
   try {
     const profile = cls?.get<Profile | undefined>('profiler.profile');
     if (profile) {
+      entry.parentSpanId ??= readActiveSpanId(cls);
       appendCollectorEntry<HttpRequestEntry>(profile, HTTP_CLIENT_REQUESTS_KEY, entry);
     }
   } catch {

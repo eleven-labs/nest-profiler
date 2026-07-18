@@ -17,3 +17,6 @@ export {
   createIgnoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
 } from './filters';
+export { createProfilerFieldMiddleware } from './tracing/field-tracing.middleware';
+export type { FieldTracingOptions } from './tracing/field-tracing.middleware';
+export { GraphqlFieldTraceContributor } from './tracing/graphql-field-trace.contributor';

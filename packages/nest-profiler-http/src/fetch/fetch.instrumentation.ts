@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { nowMs, sinceMs } from '@eleven-labs/nest-profiler';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
 
@@ -25,7 +26,7 @@ export class FetchInstrumentation implements HttpInstrumentation {
     if (typeof original !== 'function' || original.__profilerPatched) return;
 
     const patched: PatchableFetch = async (input, init) => {
-      const startedAt = Date.now();
+      const startedAt = nowMs();
       const method = resolveMethod(input, init);
       const url = resolveUrl(input);
       const requestHeaders = resolveRequestHeaders(input, init);
@@ -42,7 +43,7 @@ export class FetchInstrumentation implements HttpInstrumentation {
           method,
           url,
           startedAt,
-          duration: Date.now() - startedAt,
+          duration: sinceMs(startedAt),
           statusCode: response.status,
           requestHeaders,
           requestBody,
@@ -55,7 +56,7 @@ export class FetchInstrumentation implements HttpInstrumentation {
           method,
           url,
           startedAt,
-          duration: Date.now() - startedAt,
+          duration: sinceMs(startedAt),
           error: error instanceof Error ? error.message : String(error),
           requestHeaders,
           requestBody,

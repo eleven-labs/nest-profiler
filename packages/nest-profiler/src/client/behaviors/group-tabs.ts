@@ -31,6 +31,17 @@ export function initGroupTabs(api: NestProfilerApi): void {
   api.delegate('click', '[data-group-tab]', (tab) => {
     const groupId = tab.getAttribute('data-group-tab');
     const target = tab.getAttribute('data-panel');
-    if (groupId && target) activateTab(groupId, target);
+    if (!groupId || !target) return;
+    activateTab(groupId, target);
+    // Reflect the active sub-panel in the URL so it stays linkable, and drop any `?q=`
+    // deep-link highlight that pointed at the previously-selected sub-tab's query — clearing
+    // the persistent marker too, so it no longer flags a query once `?q=` is gone.
+    document
+      .querySelectorAll('.query-target')
+      .forEach((row) => row.classList.remove('query-target'));
+    const url = new URL(window.location.href);
+    url.searchParams.set('subtab', target);
+    url.searchParams.delete('q');
+    window.history.replaceState(null, '', url);
   });
 }

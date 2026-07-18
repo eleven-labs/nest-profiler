@@ -54,6 +54,19 @@ export class MongooseCollector extends AbstractQueryCollector<MongooseQueryEntry
     }));
   }
 
+  protected traceLabel(entry: MongooseQueryEntry): string {
+    return `${entry.collection}.${entry.operation}`;
+  }
+
+  protected traceMeta(
+    entry: MongooseQueryEntry,
+  ): Record<string, string | number | boolean> | undefined {
+    const meta: Record<string, string | number | boolean> = { operation: entry.operation };
+    if (entry.count !== undefined) meta.count = entry.count;
+    if (entry.connection) meta.connection = entry.connection;
+    return meta;
+  }
+
   /** Feeds the core performance-rule engine the thresholds configured on this module. */
   getTagConfig(): TagConfig {
     return {

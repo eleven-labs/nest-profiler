@@ -6,6 +6,7 @@ import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
 import { GraphqlRouteSource } from './graphql-route-source';
 import { buildGraphqlEntrypointType } from './graphql-entrypoint';
+import { GraphqlFieldTraceContributor } from './tracing/graphql-field-trace.contributor';
 import {
   ConfigurableModuleClass,
   GRAPHQL_COLLECTOR_OPTIONS,
@@ -48,6 +49,8 @@ export class GraphQLCollectorModule extends ConfigurableModuleClass implements O
       // Render GraphQL operations in their own list table and detail tab, and add
       // the "GraphQL" option to the list page's "Type" filter.
       core.registerEntrypointType(buildGraphqlEntrypointType(this.options.error));
+      // Drain the per-field spans captured by the field middleware into the unified trace.
+      core.registerTraceContributor(new GraphqlFieldTraceContributor());
       // Contribute a GraphQL group to the Routes panel (rendered only if that package is installed).
       if (this.routeSource) core.registerRouteSource(this.routeSource);
     } catch {

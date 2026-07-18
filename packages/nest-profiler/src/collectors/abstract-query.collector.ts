@@ -3,6 +3,7 @@ import type { Profile } from '../interfaces/profile.interface';
 import { getCollectorEntries } from '../utils/collector.utils';
 import { maxTagSeverity } from '../analysis/profiler-tag.interface';
 import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import type { RawSpan, TraceContributor } from '../trace/build-trace';
 import type {
   TagConfig,
   TaggableCollector,
@@ -31,7 +32,7 @@ const DEFAULT_TAG_CONFIG: TagConfig = {
  * and — when they need to post-process drained entries — a `transform` override.
  */
 export abstract class AbstractQueryCollector<TEntry extends TaggableEntry>
-  implements IProfilerCollector, TaggableCollector
+  implements IProfilerCollector, TaggableCollector, TraceContributor
 {
   /** Collector name — used as the panel id and the post-collect storage key. */
   abstract readonly name: string;
@@ -69,6 +70,33 @@ export abstract class AbstractQueryCollector<TEntry extends TaggableEntry>
   /** The collected entries, for the performance-rule engine (post-`collect`). */
   getTaggableEntries(profile: Profile): TEntry[] | undefined {
     return profile.collectors[this.name] as TEntry[] | undefined;
+  }
+
+  /** Maps the collected queries into `db` trace spans; reads existing startedAt/duration. */
+  getTraceSpans(profile: Profile): RawSpan[] {
+    const entries = this.getTaggableEntries(profile) ?? [];
+    const tab = (this as IProfilerCollector).group ?? this.name;
+    return entries.map((entry, index) => ({
+      kind: 'db',
+      label: this.traceLabel(entry),
+      startedAt: (entry as TEntry & { startedAt?: number }).startedAt ?? 0,
+      duration: entry.duration,
+      status: entry.error ? 'error' : 'ok',
+      parentId: (entry as TEntry & { parentSpanId?: string }).parentSpanId,
+      source: { collector: this.name, index, tab },
+      tags: entry.tags,
+      meta: this.traceMeta(entry),
+    }));
+  }
+
+  /** Waterfall label for one query. Override per ORM (a one-line SQL, a `coll.op`). */
+  protected traceLabel(_entry: TEntry): string {
+    return 'query';
+  }
+
+  /** Display-only extras attached to a query's trace span. Override per ORM. */
+  protected traceMeta(_entry: TEntry): Record<string, string | number | boolean> | undefined {
+    return undefined;
   }
 
   /** Thresholds for this collector's domain — override to read module options. */

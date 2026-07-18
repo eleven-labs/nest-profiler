@@ -4,7 +4,14 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import type { DataSource, QueryRunner } from 'typeorm';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  appendCollectorEntry,
+  nowMs,
+  readActiveSpanId,
+  redact,
+  sinceMs,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type { QueryEntry } from './typeorm-collector.interface';
 import { detectQueryType } from './typeorm-collector.interface';
 import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
@@ -149,7 +156,9 @@ export class TypeOrmDriverPatch implements OnModuleInit {
         const query = String(args[0]);
         const parameters = Array.isArray(args[1]) ? args[1] : undefined;
         const rest = args.slice(2);
-        const startedAt = Date.now();
+        const startedAt = nowMs();
+        // Capture the active field span now, in the caller's CLS scope: the driver's pool context drops it.
+        const parentSpanId = readActiveSpanId(cls);
         let error: string | undefined;
         let rowCount: number | undefined;
         try {
@@ -160,7 +169,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
           error = err instanceof Error ? err.message : String(err);
           throw err;
         } finally {
-          const duration = Date.now() - startedAt;
+          const duration = sinceMs(startedAt);
           try {
             const profile = cls?.get<Profile | undefined>('profiler.profile');
             if (profile) {
@@ -176,6 +185,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
                 rowCount,
                 connection,
                 database,
+                parentSpanId,
               };
               appendCollectorEntry<QueryEntry>(profile, TYPEORM_QUERIES_KEY, entry);
             }
@@ -202,7 +212,8 @@ export class TypeOrmDriverPatch implements OnModuleInit {
           const parameters = Array.isArray(args[1]) ? args[1] : undefined;
           // Capture the profile synchronously, before awaiting, so we stay in the CLS context.
           const profile = cls?.get<Profile | undefined>('profiler.profile');
-          const startedAt = Date.now();
+          const startedAt = nowMs();
+          const parentSpanId = readActiveSpanId(cls);
           let recorded = false;
           const record = (error?: string): void => {
             if (recorded || !profile) return;
@@ -210,13 +221,14 @@ export class TypeOrmDriverPatch implements OnModuleInit {
             const entry: QueryEntry = {
               sql: query,
               parameters: redact(parameters ?? []),
-              duration: Date.now() - startedAt,
+              duration: sinceMs(startedAt),
               type: detectQueryType(query),
               startedAt,
               streaming: true,
               error,
               connection,
               database,
+              parentSpanId,
             };
             appendCollectorEntry<QueryEntry>(profile, TYPEORM_QUERIES_KEY, entry);
           };

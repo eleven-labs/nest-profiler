@@ -26,8 +26,31 @@ export interface QueryEntry {
    * repeated executions (the N+1 signal). Filled by the SQL collector.
    */
   fingerprint?: string;
+  /** Id of the GraphQL field span this query ran under, when resolved inside one. */
+  parentSpanId?: string;
   /** Performance tags applied by the rule engine (slow, N+1, error…). */
   tags?: ProfilerTag[];
+}
+
+/** Where a statement sits in a transaction, or `null` for an ordinary query. */
+export type TransactionBoundary = 'begin' | 'commit' | 'rollback';
+
+const BEGIN_RE = /^(BEGIN|START\s+TRANSACTION)\b/;
+const COMMIT_RE = /^(COMMIT|END\s+TRANSACTION)\b/;
+const ROLLBACK_RE = /^ROLLBACK\b/;
+
+/**
+ * Classifies a statement as a transaction boundary. Savepoints (`SAVEPOINT`,
+ * `ROLLBACK TO SAVEPOINT`) are deliberately not boundaries: they nest inside the
+ * enclosing transaction rather than opening or closing one.
+ */
+export function detectTransactionBoundary(sql: string): TransactionBoundary | null {
+  const upper = sql.trim().toUpperCase();
+  if (upper.startsWith('ROLLBACK TO')) return null;
+  if (BEGIN_RE.test(upper)) return 'begin';
+  if (COMMIT_RE.test(upper)) return 'commit';
+  if (ROLLBACK_RE.test(upper)) return 'rollback';
+  return null;
 }
 
 export function detectQueryType(sql: string): QueryType {

@@ -4,10 +4,12 @@ import { ProfilerCollector } from '@eleven-labs/nest-profiler';
 import type {
   IProfilerCollector,
   Profile,
+  RawSpan,
   TagConfig,
   TaggableCollector,
   TaggableEntry,
   TagSeverity,
+  TraceContributor,
 } from '@eleven-labs/nest-profiler';
 import {
   getCollectorEntries,
@@ -34,7 +36,9 @@ const HTTP_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" st
  */
 @Injectable()
 @ProfilerCollector({ name: 'http-client', label: 'HTTP Client', icon: HTTP_ICON, priority: 20 })
-export class HttpClientCollector implements IProfilerCollector, TaggableCollector {
+export class HttpClientCollector
+  implements IProfilerCollector, TaggableCollector, TraceContributor
+{
   readonly name = 'http-client';
   readonly label = 'HTTP Client';
   readonly icon = HTTP_ICON;
@@ -85,6 +89,26 @@ export class HttpClientCollector implements IProfilerCollector, TaggableCollecto
   /** The collected calls, for the performance-rule engine (post-`collect`). */
   getTaggableEntries(profile: Profile): HttpRequestEntry[] | undefined {
     return profile.collectors[this.name] as HttpRequestEntry[] | undefined;
+  }
+
+  /** Maps each outgoing call into an `http` trace span for the unified waterfall. */
+  getTraceSpans(profile: Profile): RawSpan[] {
+    return this.entriesOf(profile).map((entry, index) => {
+      const failed = Boolean(entry.error) || (entry.statusCode ?? 0) >= 500;
+      const meta: Record<string, string | number | boolean> = {};
+      if (entry.statusCode !== undefined) meta.statusCode = entry.statusCode;
+      return {
+        kind: 'http',
+        label: `${entry.method} ${entry.url}`,
+        startedAt: entry.startedAt,
+        duration: entry.duration,
+        status: failed ? 'error' : 'ok',
+        parentId: entry.parentSpanId,
+        source: { collector: this.name, index, tab: this.name },
+        ...(entry.tags?.length ? { tags: entry.tags } : {}),
+        ...(Object.keys(meta).length ? { meta } : {}),
+      };
+    });
   }
 
   /** Feeds the core performance-rule engine the thresholds configured on this module. */

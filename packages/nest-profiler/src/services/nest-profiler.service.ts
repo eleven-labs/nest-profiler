@@ -1,7 +1,9 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from './profiler-core.service';
+import { readActiveSpanId } from '../trace/active-span';
 import type { Profile } from '../interfaces/profile.interface';
+import { nowMs, sinceMs } from '../utils/clock';
 
 /**
  * The main entry point for interacting with the profiler from your own code.
@@ -106,12 +108,15 @@ export class ProfilerService {
    * ```
    */
   startSpan(phase: string): () => void {
-    const startedAt = Date.now();
+    const startedAt = nowMs();
+    // Capture the active field span (if any) at start, so a phase opened inside a
+    // GraphQL resolver nests under that field rather than by time containment.
+    const parentSpanId = readActiveSpanId(this.cls);
     return () => {
-      const duration = Date.now() - startedAt;
+      const duration = sinceMs(startedAt);
       const profile = this.getProfile();
       if (!profile) return;
-      (profile.spans ??= []).push({ phase, startedAt, duration });
+      (profile.spans ??= []).push({ phase, startedAt, duration, parentSpanId });
     };
   }
 }

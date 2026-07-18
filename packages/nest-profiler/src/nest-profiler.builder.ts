@@ -137,6 +137,14 @@ export interface ProfilerModuleOptions {
   collectorTimeout?: number;
 
   /**
+   * Assemble the flat request-lifecycle band (`guards`, `validation`, `controller`) shown above the
+   * Timeline waterfall — a Symfony-profiler-style breakdown. `validation` is filled by
+   * `@eleven-labs/nest-profiler-validator` when installed. `middleware` and the network send have no
+   * clean NestJS hook and are omitted. Default: `true`. Set to `false` to skip the band entirely.
+   */
+  lifecycleSpans?: boolean;
+
+  /**
    * Storage backend.
    * - `'memory'` (default): in-process LRU map, cleared on restart.
    * - `'file'`: persists profiles as JSON files in `storagePath`. Survives restarts.

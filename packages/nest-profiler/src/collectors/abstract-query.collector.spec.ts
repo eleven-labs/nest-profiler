@@ -127,4 +127,26 @@ describe('AbstractQueryCollector', () => {
       expect(collector.getBadgeValue(profile)).toBe('2q');
     });
   });
+
+  describe('getTraceSpans (defaults)', () => {
+    it('maps entries to db spans with the generic label and no meta, falling back startedAt to 0', () => {
+      const collector = new PlainCollector();
+      const profile = makeProfile({ collectors: { plain: [makeEntry({ duration: 7 })] } });
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'db',
+          label: 'query',
+          startedAt: 0,
+          duration: 7,
+          status: 'ok',
+          source: { collector: 'plain', index: 0, tab: 'plain' },
+          meta: undefined,
+        },
+      ]);
+    });
+
+    it('returns an empty array when nothing was collected', () => {
+      expect(new PlainCollector().getTraceSpans(makeProfile())).toEqual([]);
+    });
+  });
 });

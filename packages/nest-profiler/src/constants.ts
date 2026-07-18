@@ -20,6 +20,14 @@ export const PROFILER_CLS_KEYS = {
   profile: 'profiler.profile',
   /** The active transport request object (Express/Fastify) for the current context. */
   request: 'profiler.request',
+  /**
+   * The id of the trace span currently being resolved (a GraphQL field), set in a nested
+   * CLS scope so DB/HTTP calls issued within it stamp it as their parent. Unset outside a
+   * field, so those entries fall back to time-containment nesting. A flat (dot-free) key so
+   * `cls.run({ ifNested: 'inherit' })` isolates it per field — a dotted key would mutate the
+   * shared nested object and leak across sibling fields.
+   */
+  activeSpanId: 'profilerActiveSpanId',
 } as const;
 
 /** The (fixed) base path where the profiler UI is mounted. */

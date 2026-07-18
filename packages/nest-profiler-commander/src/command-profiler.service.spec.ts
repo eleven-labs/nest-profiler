@@ -40,10 +40,12 @@ function createCore(crossProcess = true): {
   });
   const collectAll = jest.fn(() => Promise.resolve());
   const registerEntrypointType = jest.fn();
+  const finalizeProfile = jest.fn();
   const core = {
     storage: { save, crossProcess },
     collectorRegistry: { collectAll },
     registerEntrypointType,
+    finalizeProfile,
   } as unknown as ProfilerCoreService;
   return {
     core,

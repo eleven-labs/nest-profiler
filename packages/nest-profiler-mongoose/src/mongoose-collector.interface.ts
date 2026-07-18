@@ -26,6 +26,8 @@ export interface MongooseQueryEntry {
    * performance-rule engine to group repeated operations (the N+1 signal).
    */
   fingerprint?: string;
+  /** Id of the GraphQL field span this operation ran under, when resolved inside one. */
+  parentSpanId?: string;
   /** Performance tags applied by the rule engine (slow, N+1, error…). */
   tags?: ProfilerTag[];
 }

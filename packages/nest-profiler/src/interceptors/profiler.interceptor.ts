@@ -15,10 +15,12 @@ import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import { PROFILER_BASE_PATH, PROFILER_DEFER_COLLECTION } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import { lifecycleMarks } from '../trace/build-lifecycle';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
 import type { SafeDataOptions } from '../utils/safe-data.utils';
+import { nowMs, sinceMs } from '../utils/clock';
 
 function normalizeHeaders(
   raw: Record<string, string | number | string[]>,
@@ -114,6 +116,8 @@ export class ProfilerInterceptor implements NestInterceptor {
     const httpCtx = ctx.switchToHttp();
     const res = httpCtx.getResponse<PlatformResponse>();
     const req = httpCtx.getRequest<PlatformRequest>();
+    // Runs right after the guards, so this marks the controller phase start for the lifecycle band.
+    lifecycleMarks(capturedProfile).controllerAt ??= nowMs();
 
     // Safety net: Apollo bypasses Express next() so the Observable never fires — rely on finish event.
     type FinishableResponse = {
@@ -123,7 +127,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     const rawRes = res as FinishableResponse;
     rawRes.once?.('finish', () => {
       if (capturedProfile.response) return; // normal path already ran
-      capturedProfile.performance.duration = Date.now() - capturedProfile.performance.startTime;
+      capturedProfile.performance.duration = sinceMs(capturedProfile.performance.startTime);
       capturedProfile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},
@@ -145,6 +149,8 @@ export class ProfilerInterceptor implements NestInterceptor {
         if (this.isToolbarEligible(res, body)) {
           return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
             map(() => {
+              // Same analysis + trace assembly as the deferred path, so the HTML profile has them.
+              this.core.finalizeProfile(capturedProfile);
               this.core.scheduleSave(capturedProfile);
               return this.injectToolbar(res, body, capturedProfile);
             }),
@@ -220,7 +226,7 @@ export class ProfilerInterceptor implements NestInterceptor {
   }
 
   private finalize(profile: Profile, res: PlatformResponse | null, body: unknown): void {
-    profile.performance.duration = Date.now() - profile.performance.startTime;
+    profile.performance.duration = sinceMs(profile.performance.startTime);
     if (res) {
       profile.response = {
         statusCode: res.statusCode,

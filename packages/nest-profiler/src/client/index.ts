@@ -3,6 +3,8 @@
 import { initCopy } from './behaviors/copy';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
+import { initQueryHighlight } from './behaviors/query-highlight';
+import { initTraceWaterfall } from './behaviors/trace-waterfall';
 import { bootTheme, initTheme } from './behaviors/theme';
 import { createRuntime } from './runtime';
 
@@ -19,4 +21,6 @@ api.onReady(() => {
   initCopy(api);
   initFilters(api);
   initGroupTabs(api);
+  initTraceWaterfall(api);
+  initQueryHighlight(api);
 });

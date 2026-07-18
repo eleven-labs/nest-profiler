@@ -1,5 +1,5 @@
 import { TimelineCollector } from './timeline.collector';
-import type { Profile, TimelineSpan } from '../../interfaces/profile.interface';
+import type { Profile, TraceSpan } from '../../interfaces/profile.interface';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -29,13 +29,37 @@ describe('TimelineCollector', () => {
   });
 
   describe('collect', () => {
-    it('returns the spans recorded on the profile', () => {
-      const spans: TimelineSpan[] = [{ phase: 'db', startedAt: 1, duration: 5 }];
-      expect(collector.collect(makeProfile({ spans }))).toBe(spans);
+    it('returns the assembled trace recorded on the profile', () => {
+      const trace: TraceSpan[] = [
+        { id: 'root', kind: 'entrypoint', label: 'GET /', startedAt: 0, duration: 10 },
+      ];
+      expect(collector.collect(makeProfile({ trace }))).toBe(trace);
     });
 
-    it('returns an empty array when no spans are present', () => {
+    it('returns an empty array when no trace is present', () => {
       expect(collector.collect(makeProfile())).toEqual([]);
+    });
+  });
+
+  describe('getBadgeSeverity', () => {
+    it('flags danger when any span failed', () => {
+      const trace: TraceSpan[] = [
+        { id: 'root', kind: 'entrypoint', label: 'GET /', startedAt: 0, duration: 10 },
+        {
+          id: 'db-0',
+          parentId: 'root',
+          kind: 'db',
+          label: 'SELECT 1',
+          startedAt: 1,
+          duration: 2,
+          status: 'error',
+        },
+      ];
+      expect(collector.getBadgeSeverity(makeProfile({ trace }))).toBe('danger');
+    });
+
+    it('returns null when every span is ok', () => {
+      expect(collector.getBadgeSeverity(makeProfile())).toBeNull();
     });
   });
 

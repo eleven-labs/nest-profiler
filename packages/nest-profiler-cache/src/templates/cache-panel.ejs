@@ -51,7 +51,7 @@
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[op.operation] || 'badge-default' %>"><%= op.operation %></span>
             </td>
             <td class="py-2 px-4 text-foreground-secondary text-xs font-mono break-all"><%= op.key %></td>
-            <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= op.duration %>ms</td>
+            <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= ms(op.duration) %></td>
             <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(op.startedAt) %></td>
           </tr>
         <% } %>

@@ -136,4 +136,41 @@ describe('HttpClientCollector', () => {
     expect(p).toMatch(/http-client-panel\.ejs$/);
     expect(path.isAbsolute(p)).toBe(true);
   });
+
+  describe('getTraceSpans', () => {
+    it('maps each call to an http trace span with its status and source ref', () => {
+      const entry = makeRequest({ startedAt: 1000, duration: 42 });
+      const profile = makeProfile({ collectors: { [collector.name]: [entry] } });
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'http',
+          label: 'GET https://api.example.com/data',
+          startedAt: 1000,
+          duration: 42,
+          status: 'ok',
+          source: { collector: 'http-client', index: 0, tab: 'http-client' },
+          meta: { statusCode: 200 },
+        },
+      ]);
+    });
+
+    it('marks a 5xx or thrown call as an error span', () => {
+      const profile = makeProfile({
+        collectors: {
+          [collector.name]: [
+            makeRequest({ statusCode: 503 }),
+            makeRequest({ statusCode: undefined, error: 'ECONNREFUSED' }),
+          ],
+        },
+      });
+      const spans = collector.getTraceSpans(profile);
+      expect(spans.map((s) => s.status)).toEqual(['error', 'error']);
+      // No statusCode → no meta key.
+      expect(spans[1]!.meta).toBeUndefined();
+    });
+
+    it('returns an empty array when no calls were recorded', () => {
+      expect(collector.getTraceSpans(makeProfile())).toEqual([]);
+    });
+  });
 });

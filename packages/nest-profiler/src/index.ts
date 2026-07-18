@@ -104,6 +104,7 @@ export type {
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
+export { nowMs, sinceMs, roundMs, formatMs } from './utils/clock';
 export { tryResolve } from './utils/resolve.utils';
 export {
   toSafeData,
@@ -139,9 +140,18 @@ export type {
   LogLevel,
   RouteInfo,
   TimelineSpan,
+  TraceSpan,
+  TraceSpanKind,
+  TraceSpanStatus,
+  LifecyclePhase,
   SecurityContext,
   GraphQLInfo,
 } from './interfaces/profile.interface';
+export { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './trace/build-trace';
+export type { RawSpan, TraceContributor } from './trace/build-trace';
+export { readActiveSpanId } from './trace/active-span';
+export { buildLifecycle, lifecycleMarks } from './trace/build-lifecycle';
+export type { LifecycleMarks } from './trace/build-lifecycle';
 export { HTTP_ENTRYPOINT_TYPE } from './interfaces/profile.interface';
 export { PROFILER_ENTRYPOINT_TYPES } from './entrypoints/profiler-entrypoint-type.interface';
 export type {
