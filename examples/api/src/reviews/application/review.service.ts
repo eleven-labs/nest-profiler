@@ -61,6 +61,21 @@ export class ReviewService implements OnApplicationBootstrap {
     return reviews;
   }
 
+  /** Batched lookup for the DataLoader — one query for many products, grouped back by productId. */
+  async findByProducts(productIds: string[]): Promise<Map<string, Review[]>> {
+    this.logger.log(`Batch-fetching reviews for ${productIds.length} products`);
+    const stop = this.profiler.startSpan('db.reviews.findByProducts');
+    const reviews = await this.repo.findByProductIds(productIds);
+    stop();
+    const grouped = new Map<string, Review[]>();
+    for (const review of reviews) {
+      const list = grouped.get(review.productId) ?? [];
+      list.push(review);
+      grouped.set(review.productId, list);
+    }
+    return grouped;
+  }
+
   async findOne(id: string): Promise<Review> {
     this.logger.log(`Fetching review ${id}`);
     const stop = this.profiler.startSpan('db.reviews.findOne');

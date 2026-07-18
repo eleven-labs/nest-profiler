@@ -5,7 +5,10 @@ import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import type { Request } from 'express';
-import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
+import {
+  GraphQLCollectorModule,
+  createProfilerFieldMiddleware,
+} from '@eleven-labs/nest-profiler-graphql';
 import { isProfilerEnabled } from '../../config/profiler.config.js';
 
 /**
@@ -17,18 +20,29 @@ import { isProfilerEnabled } from '../../config/profiler.config.js';
 @Module({
   imports: [
     ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
+    // forRootAsync (not forRoot): the field middleware is decided in the factory, which runs
+    // once the .env is loaded. A sync forRoot evaluates buildSchemaOptions too early — before
+    // the config — so the profiler-enabled flag would not yet be reliable there.
+    GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: true,
-      introspection: true,
-      playground: false,
-      // Apollo Sandbox playground — available at GET /graphql in dev.
-      plugins: [
-        ApolloServerPluginLandingPageLocalDefault({ embed: true }),
-      ] as ApolloDriverConfig['plugins'],
-      // Required for the profiler: exposes the Express request in the GraphQL context
-      // so the profiler adapter can retrieve the profile created by the HTTP middleware.
-      context: ({ req }: { req: Request }) => ({ req }),
+      useFactory: () => ({
+        autoSchemaFile: true,
+        introspection: true,
+        playground: false,
+        // Apollo Sandbox playground — available at GET /graphql in dev.
+        plugins: [
+          ApolloServerPluginLandingPageLocalDefault({ embed: true }),
+        ] as ApolloDriverConfig['plugins'],
+        // Required for the profiler: exposes the Express request in the GraphQL context
+        // so the profiler adapter can retrieve the profile created by the HTTP middleware.
+        context: ({ req }: { req: Request }) => ({ req }),
+        // Times each resolveField and nests its DB/HTTP calls under it — but only wired when the
+        // profiler is on, so graphql-js runs nothing per field otherwise (it invokes every
+        // registered field middleware for each resolved field, even a profiler-off passthrough).
+        buildSchemaOptions: {
+          fieldMiddleware: isProfilerEnabled(process.env) ? [createProfilerFieldMiddleware()] : [],
+        },
+      }),
     }),
   ],
 })

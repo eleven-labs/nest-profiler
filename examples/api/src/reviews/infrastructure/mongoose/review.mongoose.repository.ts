@@ -51,6 +51,14 @@ export class MongooseReviewRepository implements ReviewRepository {
     return reviews.map(toDomain);
   }
 
+  async findByProductIds(productIds: string[]): Promise<Review[]> {
+    const reviews = await this.model
+      .find({ productId: { $in: productIds } })
+      .sort({ rating: -1 })
+      .exec();
+    return reviews.map(toDomain);
+  }
+
   async findById(id: string): Promise<Review | null> {
     const review = await this.model.findById(id).exec();
     return review ? toDomain(review) : null;
