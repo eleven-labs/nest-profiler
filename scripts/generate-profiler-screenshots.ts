@@ -169,7 +169,19 @@ const TARGETS: Target[] = [
       httpGet(api('/articles')),
     ],
   },
-  { file: 'timeline.png', tab: 'timeline', preds: [httpGet(api('/slow'))] },
+  {
+    // The `{ products { reviews } }` query is the richest trace: an SQL root resolver, a
+    // GraphQL field span per product and its MongoDB reviews query nested underneath — an
+    // N+1 the waterfall surfaces with per-field `N+1` tags. `timeline-dataloader.png` (its
+    // own FEATURE_DATALOADER pass below) shows the same query batched for contrast.
+    file: 'timeline.png',
+    tab: 'timeline',
+    preds: [
+      (p) => typeOf(p) === 'graphql' && gqlOpOf(p) === 'query' && hasTag(p, 'n-plus-one'),
+      (p) => typeOf(p) === 'graphql' && hasTag(p, 'n-plus-one'),
+      httpGet(api('/slow')),
+    ],
+  },
   {
     file: 'database.png',
     tab: 'database',
@@ -570,8 +582,50 @@ async function main(): Promise<void> {
       }
     }
 
+    // 10. DataLoader batching — the same `{ products { reviews } }` query as timeline.png,
+    //     but with FEATURE_DATALOADER on so the per-product reviews queries collapse into a
+    //     single batched load. Boot with the flag on, run the query, wait for its graphql
+    //     profile and shoot the Timeline tab as `timeline-dataloader.png` — the optimized
+    //     counterpart of the N+1 waterfall, with no N+1 tag and one reviews query.
+    if (!skip('SKIP_APP') && wanted('timeline-dataloader.png')) {
+      console.log('  • timeline-dataloader.png (FEATURE_DATALOADER pass)');
+      stopApp(app);
+      app = undefined;
+      const dlDir = mkdtempSync(join(tmpdir(), 'profiler-dataloader-'));
+      try {
+        app = await bootApp(logFile, dlDir, {
+          SQL_ORM: process.env.SQL_ORM ?? 'typeorm',
+          FEATURE_MONGOOSE: 'true',
+          FEATURE_GRAPHQL: 'true',
+          FEATURE_DATALOADER: 'true',
+          FEATURE_PINO_LOGGER: 'false',
+        });
+        await fetch(`${API_URL}/graphql`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            query:
+              'query Products { products { id name price reviews { id author rating createdAt } } }',
+          }),
+        });
+        const batched = await waitForProfileIn(
+          dlDir,
+          (p) => typeOf(p) === 'graphql' && gqlOpOf(p) === 'query',
+        );
+        capture('timeline-dataloader.png', `${PROFILER_URL}/${batched.token}?tab=timeline`);
+      } catch (error) {
+        console.warn(
+          `  ⚠ SKIPPED DataLoader shot (${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        stopApp(app);
+        app = undefined;
+        rmSync(dlDir, { recursive: true, force: true });
+      }
+    }
+
     console.log(
-      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config + MikroORM/RabbitMQ passes → ${OUT_DIR}`,
+      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config + MikroORM/RabbitMQ/DataLoader passes → ${OUT_DIR}`,
     );
   } finally {
     if (app?.exitCode === null) {
