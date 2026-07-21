@@ -1,4 +1,4 @@
-import { isPlainObject } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
 
 /** Sentinel written in place of a redacted value across the whole profiler ecosystem. */
 export const REDACTED = '[REDACTED]';
@@ -94,7 +94,8 @@ function redactInner(
     // Well-known non-plain types: serialize them meaningfully instead of enumerating their
     // (usually empty) own-enumerable keys, which would collapse them to `{}` or mangle them.
     if (value instanceof Date) return value.toISOString();
-    if (value instanceof RegExp || value instanceof URL) return String(value);
+    const exotic = stringifyExotic(value);
+    if (exotic !== undefined) return exotic;
     if (value instanceof Error) {
       return { name: value.name, message: value.message, stack: value.stack };
     }
@@ -115,10 +116,8 @@ function redactInner(
     }
     // A remaining class instance: prefer its `toJSON()` projection, else enumerate its own
     // enumerable properties like a plain object (previous behavior).
-    const toJSON = (value as { toJSON?: unknown }).toJSON;
-    if (typeof toJSON === 'function') {
-      return redactInner((toJSON as () => unknown).call(value), depth, seen, options);
-    }
+    const toJSON = getToJSON(value);
+    if (toJSON) return redactInner(toJSON.call(value), depth, seen, options);
     return redactEntries(Object.entries(value as Record<string, unknown>), depth, seen, options);
   } finally {
     seen.delete(value);

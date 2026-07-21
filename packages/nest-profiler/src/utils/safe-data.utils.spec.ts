@@ -50,6 +50,36 @@ describe('toSafeData', () => {
     expect(toSafeData(new Set([1, 2]))).toEqual([1, 2]);
   });
 
+  it('serializes URL and RegExp to their string form instead of [Object]', () => {
+    expect(toSafeData(new URL('https://example.com/path?q=1'))).toBe(
+      'https://example.com/path?q=1',
+    );
+    expect(toSafeData({ uri: new URL('https://example.com/path') })).toEqual({
+      uri: 'https://example.com/path',
+    });
+    expect(toSafeData(/ab+c/gi)).toBe('/ab+c/gi');
+  });
+
+  it('projects a class instance through its toJSON() when present', () => {
+    class Money {
+      constructor(private readonly amount: number) {}
+      toJSON(): { amount: number; currency: string } {
+        return { amount: this.amount, currency: 'EUR' };
+      }
+    }
+    expect(toSafeData(new Money(42))).toEqual({ amount: 42, currency: 'EUR' });
+  });
+
+  it('enumerates a plain class instance own-enumerable props instead of [Object]', () => {
+    class Point {
+      constructor(
+        public x: number,
+        public y: number,
+      ) {}
+    }
+    expect(toSafeData(new Point(1, 2))).toEqual({ x: 1, y: 2 });
+  });
+
   it('collapses values beyond maxDepth', () => {
     const value = { l1: { l2: { l3: [1] } } };
     expect(toSafeData(value, { maxDepth: 2 })).toEqual({ l1: { l2: '[Object]' } });

@@ -1,4 +1,4 @@
-import { isPlainObject } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
 
 export interface SafeDataOptions {
   /** Maximum nesting depth before collapsing to `'[Object]'` / `'[Array]'`. */
@@ -29,6 +29,21 @@ function serializeError(error: Error, maxLength: number): Record<string, unknown
     message: truncate(error.message, maxLength),
     ...(error.stack === undefined ? {} : { stack: truncate(error.stack, maxLength) }),
   };
+}
+
+/** Sanitizes own-enumerable entries, keeping up to `maxItems` and marking the rest as `'…': '+N more'`. */
+function sanitizeEntries(
+  entries: [string, unknown][],
+  child: (item: unknown) => unknown,
+  maxItems: number,
+): Record<string, unknown> {
+  const result = Object.fromEntries(
+    entries.slice(0, maxItems).map(([key, entry]): [string, unknown] => [key, child(entry)]),
+  );
+  if (entries.length > maxItems) {
+    result['…'] = `+${entries.length - maxItems} more`;
+  }
+  return result;
 }
 
 /** Maps up to `maxItems` items, then appends a `… +N more` marker for the rest. */
@@ -78,6 +93,10 @@ function sanitize(
   if (value instanceof Date) {
     return value.toISOString();
   }
+  const exotic = stringifyExotic(value);
+  if (exotic !== undefined) {
+    return truncate(exotic, options.maxStringLength);
+  }
   if (ArrayBuffer.isView(value)) {
     return `[Bytes ${value.byteLength}]`;
   }
@@ -103,18 +122,17 @@ function sanitize(
       return capItems(value, value.size, options.maxItems, child);
     }
     if (isPlainObject(value)) {
-      const entries = Object.entries(value);
-      const result = Object.fromEntries(
-        entries
-          .slice(0, options.maxItems)
-          .map(([key, entry]): [string, unknown] => [key, child(entry)]),
-      );
-      if (entries.length > options.maxItems) {
-        result['…'] = `+${entries.length - options.maxItems} more`;
-      }
-      return result;
+      return sanitizeEntries(Object.entries(value), child, options.maxItems);
     }
-    return '[Object]';
+    // A remaining class instance: prefer its `toJSON()` projection, else enumerate its
+    // own-enumerable props instead of collapsing to `'[Object]'`.
+    const toJSON = getToJSON(value);
+    if (toJSON) return sanitize(toJSON.call(value), depth, seen, options);
+    return sanitizeEntries(
+      Object.entries(value as Record<string, unknown>),
+      child,
+      options.maxItems,
+    );
   } finally {
     seen.delete(value);
   }
