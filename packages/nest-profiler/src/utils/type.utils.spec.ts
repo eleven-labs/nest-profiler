@@ -1,4 +1,4 @@
-import { isPlainObject } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
 
 describe('isPlainObject', () => {
   it('returns true for a plain object', () => {
@@ -34,5 +34,29 @@ describe('isPlainObject', () => {
     expect(isPlainObject(/re/)).toBe(false);
     expect(isPlainObject(new Error('x'))).toBe(false);
     expect(isPlainObject(new Foo())).toBe(false);
+  });
+});
+
+describe('stringifyExotic', () => {
+  it('stringifies URL and RegExp', () => {
+    expect(stringifyExotic(new URL('https://example.com/p?q=1'))).toBe('https://example.com/p?q=1');
+    expect(stringifyExotic(/ab+c/gi)).toBe('/ab+c/gi');
+  });
+
+  it('returns undefined for other objects', () => {
+    expect(stringifyExotic({})).toBeUndefined();
+    expect(stringifyExotic(new Date())).toBeUndefined();
+  });
+});
+
+describe('getToJSON', () => {
+  it('returns the toJSON method when callable', () => {
+    const value = { toJSON: () => 42 };
+    expect(getToJSON(value)?.call(value)).toBe(42);
+  });
+
+  it('returns undefined when there is no callable toJSON', () => {
+    expect(getToJSON({})).toBeUndefined();
+    expect(getToJSON({ toJSON: 'nope' })).toBeUndefined();
   });
 });
