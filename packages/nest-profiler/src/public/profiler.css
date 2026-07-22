@@ -241,3 +241,21 @@
   background: transparent !important;
   padding: 0 !important;
 }
+
+/* Flash a database query row when deep-linked from the Timeline waterfall (?q=<index>). */
+@keyframes profiler-query-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--color-nest) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.query-flash {
+  animation: profiler-query-flash 1.6s ease-out;
+}
+/* Persistent marker on the deep-linked query row: a subtle tint + a brand accent bar. */
+.query-target {
+  background-color: color-mix(in srgb, var(--color-nest) 8%, transparent) !important;
+  box-shadow: inset 3px 0 0 0 var(--color-nest);
+}

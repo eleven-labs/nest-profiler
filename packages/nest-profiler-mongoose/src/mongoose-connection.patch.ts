@@ -4,7 +4,14 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import { ClsService } from 'nestjs-cls';
 import type { Connection } from 'mongoose';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  appendCollectorEntry,
+  nowMs,
+  readActiveSpanId,
+  redact,
+  sinceMs,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type { MongooseQueryEntry } from './mongoose-collector.interface';
 import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
 import { MONGOOSE_COLLECTOR_OPTIONS } from './mongoose-collector.module';
@@ -141,13 +148,14 @@ export class MongooseConnectionPatch implements OnModuleInit {
       operation: string,
       collection: string,
       startedAt: number,
+      parentSpanId: string | undefined,
       count: number | undefined,
       error: string | undefined,
     ): void => {
       try {
         const profile = cls?.get<Profile | undefined>('profiler.profile');
         if (!profile) return;
-        const duration = Date.now() - startedAt;
+        const duration = sinceMs(startedAt);
         appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, {
           collection,
           operation,
@@ -157,6 +165,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
           connection: meta.connection,
           database: meta.database,
           error,
+          parentSpanId,
         });
       } catch {
         // Outside CLS context — ignore
@@ -165,7 +174,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
 
     const wrap = (operation: string, countOf: (args: unknown[]) => number | undefined) =>
       async function (this: unknown, original: PatchableExec, args: unknown[]): Promise<unknown> {
-        const startedAt = Date.now();
+        const startedAt = nowMs();
+        const parentSpanId = readActiveSpanId(cls);
         const collection = collectionNameOf(this);
         let error: string | undefined;
         try {
@@ -174,7 +184,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
           error = err instanceof Error ? err.message : String(err);
           throw err;
         } finally {
-          record(operation, collection, startedAt, countOf(args), error);
+          record(operation, collection, startedAt, parentSpanId, countOf(args), error);
         }
       };
 
@@ -234,7 +244,9 @@ export class MongooseConnectionPatch implements OnModuleInit {
       this: PatchableQuery & { exec: PatchableExec },
       ...args: unknown[]
     ): Promise<unknown> {
-      const startedAt = Date.now();
+      const startedAt = nowMs();
+      // Capture the active field span at call time (in the resolver's CLS scope); the pool context lacks it.
+      const parentSpanId = readActiveSpanId(cls);
       const collection = this.model?.collection?.name ?? 'unknown';
       const operation = this.op ?? 'unknown';
       let filter: Record<string, unknown> | undefined;
@@ -253,7 +265,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         error = err instanceof Error ? err.message : String(err);
         throw err;
       } finally {
-        const duration = Date.now() - startedAt;
+        const duration = sinceMs(startedAt);
         try {
           const profile = cls?.get<Profile | undefined>('profiler.profile');
           if (profile) {
@@ -269,6 +281,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
               error,
               connection: meta.connection,
               database: meta.database,
+              parentSpanId,
             };
             appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, entry);
           }
@@ -292,7 +305,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
       this: PatchableAggregate & { exec: PatchableExec },
       ...args: unknown[]
     ): Promise<unknown> {
-      const startedAt = Date.now();
+      const startedAt = nowMs();
+      const parentSpanId = readActiveSpanId(cls);
       const collection = this._model?.collection?.name ?? 'unknown';
       const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
       let resultArray: unknown[] | undefined;
@@ -305,7 +319,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         error = err instanceof Error ? err.message : String(err);
         throw err;
       } finally {
-        const duration = Date.now() - startedAt;
+        const duration = sinceMs(startedAt);
         try {
           const profile = cls?.get<Profile | undefined>('profiler.profile');
           if (profile) {
@@ -319,6 +333,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
               error,
               connection: meta.connection,
               database: meta.database,
+              parentSpanId,
             };
             appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, entry);
           }
@@ -346,7 +361,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
     const originalCursor = cursorFn;
 
     const patched: PatchableCursor = function (this: PatchableQuery, ...args: unknown[]): unknown {
-      const startedAt = Date.now();
+      const startedAt = nowMs();
+      const parentSpanId = readActiveSpanId(cls);
       const collection = this.model?.collection?.name ?? 'unknown';
       const operation = this.op ?? 'find';
       let filter: Record<string, unknown> | undefined;
@@ -363,6 +379,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         filter: filter ? redact(filter) : undefined,
         connection: meta.connection,
         database: meta.database,
+        parentSpanId,
       });
       return cursor;
     };
@@ -386,7 +403,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
       this: PatchableAggregate,
       ...args: unknown[]
     ): unknown {
-      const startedAt = Date.now();
+      const startedAt = nowMs();
+      const parentSpanId = readActiveSpanId(cls);
       const collection = this._model?.collection?.name ?? 'unknown';
       const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
       const profile = cls?.get<Profile | undefined>('profiler.profile');
@@ -397,6 +415,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         pipeline: pipeline ? redact(pipeline) : undefined,
         connection: meta.connection,
         database: meta.database,
+        parentSpanId,
       });
       return cursor;
     };
@@ -421,7 +440,7 @@ function recordCursorLifecycle(
   startedAt: number,
   meta: Pick<
     MongooseQueryEntry,
-    'collection' | 'operation' | 'filter' | 'pipeline' | 'connection' | 'database'
+    'collection' | 'operation' | 'filter' | 'pipeline' | 'connection' | 'database' | 'parentSpanId'
   >,
 ): void {
   if (!profile) return;
@@ -434,7 +453,7 @@ function recordCursorLifecycle(
   const finalize = (error?: string): void => {
     if (finalized) return;
     finalized = true;
-    entry.duration = Date.now() - startedAt;
+    entry.duration = sinceMs(startedAt);
     if (error !== undefined) entry.error = error;
   };
   emitter.once('close', () => finalize());

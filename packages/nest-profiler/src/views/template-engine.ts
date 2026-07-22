@@ -2,6 +2,7 @@ import * as path from 'path';
 import { buildCurlCommand } from './copy/build-curl';
 import { interpolateSql } from '../collectors/sql/interpolate-sql';
 import { safeStringify } from '../utils/safe-data.utils';
+import { formatMs } from '../utils/clock';
 
 export const TEMPLATES_DIR = path.join(__dirname, '../templates');
 
@@ -184,6 +185,9 @@ export const HELPERS = {
   tagBadges: (tags: TagLike[] | undefined): string =>
     (tags ?? []).map((tag) => HELPERS.tagBadge(tag)).join(' '),
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
+  // Durations are captured with sub-ms precision and rendered in the unit that keeps them
+  // readable — milliseconds, then microseconds (see utils/clock).
+  ms: formatMs,
   isoDate: (ts: number): string => new Date(ts).toISOString().replace('T', ' ').slice(0, 19),
   timeOnly: (ts: number): string => new Date(ts).toISOString().slice(11, 23),
   // Defensive: a captured body/log payload may contain circular references or BigInt, both of

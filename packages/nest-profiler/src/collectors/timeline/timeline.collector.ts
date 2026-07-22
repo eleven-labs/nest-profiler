@@ -1,7 +1,9 @@
 import * as path from 'path';
 import { ProfilerCollector } from '../collector.decorator';
 import type { IProfilerCollector } from '../collector.interface';
-import type { Profile, TimelineSpan } from '../../interfaces/profile.interface';
+import type { Profile, TraceSpan } from '../../interfaces/profile.interface';
+import type { TagSeverity } from '../../analysis/profiler-tag.interface';
+import { formatMs } from '../../utils/clock';
 
 const TIMELINE_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="5" width="3" height="6" rx="0.5"/><rect x="5" y="3" width="3" height="10" rx="0.5" opacity="0.7"/><rect x="9" y="6" width="3" height="5" rx="0.5" opacity="0.5"/><rect x="13" y="4" width="2" height="7" rx="0.5" opacity="0.6"/></svg>`;
 
@@ -14,14 +16,19 @@ export class TimelineCollector implements IProfilerCollector {
 
   getBadgeValue(profile: Profile): string | null {
     const dur = profile.performance.duration;
-    return dur !== undefined ? `${dur}ms` : null;
+    return dur !== undefined ? formatMs(dur) : null;
+  }
+
+  /** Turns the tab red when any span in the trace failed, so a broken call stands out. */
+  getBadgeSeverity(profile: Profile): TagSeverity | null {
+    return (profile.trace ?? []).some((span) => span.status === 'error') ? 'danger' : null;
   }
 
   getTemplatePath(): string {
     return path.join(__dirname, 'templates', 'timeline-panel.ejs');
   }
 
-  collect(profile: Profile): TimelineSpan[] {
-    return profile.spans ?? [];
+  collect(profile: Profile): TraceSpan[] {
+    return profile.trace ?? [];
   }
 }

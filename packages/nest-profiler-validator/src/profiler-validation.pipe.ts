@@ -2,7 +2,7 @@ import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, lifecycleMarks, nowMs } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
 import { VALIDATOR_KEY } from './validator-collector.interface';
 import type { ValidationViolationExtractor } from './violation-extractor.interface';
@@ -35,7 +35,7 @@ export class ProfilerValidationPipe implements PipeTransform {
   ) {}
 
   async transform(value: unknown, metadata: ArgumentMetadata): Promise<unknown> {
-    const startedAt = Date.now();
+    const startedAt = nowMs();
     const capture = this.shouldCaptureMetadata(metadata);
 
     try {
@@ -104,6 +104,11 @@ export class ProfilerValidationPipe implements PipeTransform {
       const profile = this.cls.get<Profile | undefined>(PROFILE_KEY);
       if (!profile) return;
       appendCollectorEntry<ValidationEntry>(profile, VALIDATOR_KEY, entry);
+      // Widen the request's aggregate `validation` lifecycle window (the pipe runs once per
+      // validated argument); buildLifecycle turns it into a single bar.
+      const marks = lifecycleMarks(profile);
+      marks.validationStart = Math.min(marks.validationStart ?? entry.timestamp, entry.timestamp);
+      marks.validationEnd = Math.max(marks.validationEnd ?? nowMs(), nowMs());
     } catch {
       // Outside CLS context
     }

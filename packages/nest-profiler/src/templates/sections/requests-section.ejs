@@ -56,7 +56,7 @@
               <% } %>
             </td>
             <td class="py-2.5 px-4 text-xs tabular-nums">
-              <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
+              <span class="<%= durClass %>"><%= dur !== undefined ? ms(dur) : '—' %></span>
             </td>
             <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
           </tr>

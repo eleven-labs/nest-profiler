@@ -108,6 +108,37 @@ describe('MongooseCollector', () => {
     });
   });
 
+  describe('getTraceSpans', () => {
+    it('maps queries to db spans labelled `collection.operation` with count/connection meta', () => {
+      const q = makeQuery({
+        collection: 'reviews',
+        operation: 'find',
+        startedAt: 1000,
+        duration: 12,
+        count: 3,
+        connection: 'localhost:27017',
+      });
+      const profile = makeProfile({ collectors: { [collector.name]: [q] } });
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'db',
+          label: 'reviews.find',
+          startedAt: 1000,
+          duration: 12,
+          status: 'ok',
+          source: { collector: 'mongoose', index: 0, tab: 'database' },
+          meta: { operation: 'find', count: 3, connection: 'localhost:27017' },
+        },
+      ]);
+    });
+
+    it('marks an errored query as an error span', () => {
+      const q = makeQuery({ error: 'boom' });
+      const profile = makeProfile({ collectors: { [collector.name]: [q] } });
+      expect(collector.getTraceSpans(profile)[0]!.status).toBe('error');
+    });
+  });
+
   it('getBadgeValue reads from profile.collectors[name] after collect() has run', () => {
     const q = makeQuery();
     const profile = makeProfile({ collectors: { [MONGOOSE_QUERIES_KEY]: [q, q] } });

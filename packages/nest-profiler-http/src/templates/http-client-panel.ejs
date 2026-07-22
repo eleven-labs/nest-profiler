@@ -12,7 +12,7 @@
 <div class="flex items-center justify-between mb-4">
   <div class="flex items-center gap-4 text-xs text-foreground-muted">
     <span><strong class="text-foreground"><%= requests.length %></strong> request<%= requests.length !== 1 ? 's' : '' %></span>
-    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <span><strong class="text-foreground"><%= ms(totalDuration) %></strong> total</span>
     <% if (errCount > 0) { %><span class="text-danger"><strong><%= errCount %></strong> err</span><% } %>
     <% if (slowCount > 0) { %><span class="<%= sevTextClass(slowSev) %>"><strong><%= slowCount %></strong> slow</span><% } %>
     <% if (dupGroups.size > 0) { %><span class="<%= sevTextClass(nPlusOneSev) %>"><strong><%= dupGroups.size %></strong> N+1</span><% } %>
@@ -86,7 +86,7 @@
               <% } %>
             </td>
             <% const slowTag = (r.tags || []).find(t => t.id === 'slow'); %>
-            <td class="py-2 px-4 text-right text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= r.duration %>ms</td>
+            <td class="py-2 px-4 text-right text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= ms(r.duration) %></td>
             <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
           </tr>
 

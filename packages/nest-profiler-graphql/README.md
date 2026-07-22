@@ -130,6 +130,40 @@ Each profiled GraphQL request shows a **GQL** badge in `/_profiler` and records:
 
 Registering this module installs the `graphql` entrypoint type: GraphQL operations get their own **GraphQL** view on `/_profiler`, with a filter bar including an **Operation** filter (query / mutation / subscription).
 
+## Field-level tracing (resolveField)
+
+To time each `@ResolveField` and see the DB/HTTP calls it triggers nested under it in the profiler's **Timeline** waterfall, add the field middleware to your schema. It is **code-first only** (`buildSchemaOptions.fieldMiddleware`), and wired with no dependency injection:
+
+```ts
+import { createProfilerFieldMiddleware } from '@eleven-labs/nest-profiler-graphql';
+
+GraphQLModule.forRoot<ApolloDriverConfig>({
+  driver: ApolloDriver,
+  autoSchemaFile: true,
+  context: ({ req }) => ({ req }),
+  buildSchemaOptions: { fieldMiddleware: [createProfilerFieldMiddleware()] },
+});
+```
+
+Each traced field opens a nested CLS scope, so a query issued while it resolves is stamped as its child — an N+1 then reads as one field with its repeated child queries. It is a passthrough when the profiler is off. By default only fields returning a composite type (object/interface/union) or resolved on a root operation type are traced (that is where fan-out lives); widen or narrow it:
+
+```ts
+createProfilerFieldMiddleware(undefined, {
+  traceFields: 'all', // 'object' (default) | 'all' | (info) => boolean
+  minFieldMs: 1, // drop field spans shorter than this (ms)
+});
+```
+
+> **Running nothing when the profiler is off.** Once it sits in `buildSchemaOptions.fieldMiddleware`, graphql-js invokes the middleware for every resolved field, so the profiler-off passthrough is still one function call per field. To execute nothing at all on the GraphQL side when the profiler is disabled, register it only when your profiler-enabled flag is on:
+>
+> ```ts
+> buildSchemaOptions: {
+>   fieldMiddleware: profilerEnabled ? [createProfilerFieldMiddleware()] : [],
+> },
+> ```
+>
+> `buildSchemaOptions` is read while the schema is built — before a `.env` file is necessarily loaded — so when the flag comes from one, resolve it inside `GraphQLModule.forRootAsync` (injecting `ConfigService`) rather than reading `process.env` synchronously here.
+
 GraphQL-level errors (schema validation failures, resolver errors) appear in the **Exceptions** tab with an amber `GraphQLError` badge, distinct from NestJS runtime exceptions. Since GraphQL names every error `GraphQLError`, its `extensions.code` is shown alongside — that code is what the **Exception** filter lists and what decides whether the operation counts as an error.
 
 ![Exceptions tab showing an amber GraphQLError badge with its BAD_REQUEST code, validation message and location](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/graphql-error.png)

@@ -28,6 +28,7 @@ ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled
   - Mercurius: `context: ({ request }) => ({ request })`
   - graphql-yoga: `context: ({ req }) => ({ req })`
 - Also exports `ignoreGraphQLPlayground` / `ignoreGraphQLIntrospection` to compose with the core `ignoreRequest` via `combineFilters(...)`, so playground/introspection noise is skipped.
+- **Field-level tracing (optional, code-first):** add `createProfilerFieldMiddleware()` to `buildSchemaOptions.fieldMiddleware` to time each `resolveField` and nest its DB/HTTP calls under it in the **Timeline** waterfall — an N+1 then reads as one field with its repeated child queries. graphql-js invokes every registered field middleware per field, so register it conditionally — `fieldMiddleware: isProfilerEnabled ? [createProfilerFieldMiddleware()] : []` (resolve the flag in `forRootAsync` when it comes from `.env`) — to run nothing on the GraphQL side when the profiler is off.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-graphql> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/graphql-collector>
 
 ```ts

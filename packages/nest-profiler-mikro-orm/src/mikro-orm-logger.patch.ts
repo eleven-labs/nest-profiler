@@ -5,7 +5,13 @@ import type { LogContext, Logger, LoggerNamespace } from '@mikro-orm/core';
 import { getMikroORMToken } from '@mikro-orm/nestjs';
 import { ClsService } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  appendCollectorEntry,
+  nowMs,
+  readActiveSpanId,
+  redact,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type {
   QueryEntry,
   MikroOrmCollectorModuleOptions,
@@ -119,12 +125,13 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
               parameters: redact(context.params ? [...context.params] : []),
               duration,
               type,
-              startedAt: Date.now() - duration,
+              startedAt: nowMs() - duration,
               error: context.level === 'error' ? extractLogError(context) : undefined,
               streaming: streaming || undefined,
               rowCount: typeof rowCount === 'number' ? rowCount : undefined,
               connection: meta.connection ?? context.connection?.name,
               database: meta.database,
+              parentSpanId: readActiveSpanId(cls),
             };
             appendCollectorEntry<QueryEntry>(profile, MIKRO_ORM_QUERIES_KEY, entry);
           }

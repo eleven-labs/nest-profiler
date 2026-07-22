@@ -6,6 +6,9 @@ import { RouteCollector } from '../collectors/route.collector';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { analyzeProfile } from '../analysis/profiler-analyzer';
+import { buildTrace, isTraceContributor } from '../trace/build-trace';
+import type { TraceContributor } from '../trace/build-trace';
+import { buildLifecycle } from '../trace/build-lifecycle';
 import { BUILTIN_PERFORMANCE_RULES } from '../analysis/builtin-rules';
 import type { PerformanceRule } from '../analysis/performance-rule.interface';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
@@ -36,6 +39,8 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly listFilters: ProfilerListFilter[] = [...BUILTIN_LIST_FILTERS];
   /** Performance rules evaluated once per profile; seeded with the built-ins. */
   private readonly performanceRules: PerformanceRule[] = [...BUILTIN_PERFORMANCE_RULES];
+  /** Trace contributors registered directly (not via a collector), e.g. GraphQL field spans. */
+  private readonly traceContributors: TraceContributor[] = [];
   private readonly listSections: ProfilerListSection[] = [];
   /** Registered entrypoint types, keyed by {@link ProfilerEntrypointType.type}. */
   private readonly entrypointTypes = new Map<string, ProfilerEntrypointType>();
@@ -46,6 +51,8 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
   private readonly pending = new Set<Promise<unknown>>();
   private readonly logger = new Logger(ProfilerCoreService.name);
+  /** Whether to assemble the flat request-lifecycle band (guards/validation/controller). */
+  private readonly lifecycleEnabled: boolean;
 
   constructor(
     readonly storage: ProfilerStorageService,
@@ -63,6 +70,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     // host's error classification. `getEntrypointType` prefers this registered instance over
     // the unconfigured `HTTP_ENTRYPOINT_TYPE_DEF`, so the option also governs unknown kinds.
     this.registerEntrypointType(buildHttpEntrypointType(options.error));
+    this.lifecycleEnabled = options.lifecycleSpans ?? true;
     // Seed any custom performance rules contributed via the module option.
     for (const rule of options.performance?.rules ?? []) {
       this.registerPerformanceRule(rule);
@@ -100,16 +108,40 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.track(
       this.collectorRegistry
         .collectAll(profile)
-        .then(() => {
-          // The entrypoint kind owns what "failed" means; the engine stays protocol-agnostic.
-          const entrypointType = this.getEntrypointType(profile.entrypoint.type);
-          analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules, {
-            isError: entrypointType.isError?.bind(entrypointType),
-            severity: entrypointType.errorSeverity,
-          });
-        })
+        .then(() => this.finalizeProfile(profile))
         .then(() => this.storage.save(profile)),
     );
+  }
+
+  /**
+   * Runs the post-collection passes on an already-collected profile: {@link analyzeProfile}
+   * (tags) then {@link buildTrace} (the unified span tree). Called from {@link schedulePersist}
+   * and, so the HTML/toolbar path carries the same data, from the interceptor. Both mutate the
+   * profile in place and never throw.
+   */
+  finalizeProfile(profile: Profile): void {
+    const entrypointType = this.getEntrypointType(profile.entrypoint.type);
+    analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules, {
+      isError: entrypointType.isError?.bind(entrypointType),
+      severity: entrypointType.errorSeverity,
+    });
+    buildTrace(profile, this.getTraceContributors());
+    if (this.lifecycleEnabled) buildLifecycle(profile);
+  }
+
+  /**
+   * Registers a {@link TraceContributor} feeding the unified trace from outside the collector
+   * registry (e.g. the GraphQL package's per-field spans). Collectors implementing the contract
+   * are discovered automatically. Not deduplicated — call once per contributor.
+   */
+  registerTraceContributor(contributor: TraceContributor): void {
+    this.traceContributors.push(contributor);
+  }
+
+  /** The collectors implementing {@link TraceContributor}, plus the registered ones. */
+  getTraceContributors(): TraceContributor[] {
+    const fromCollectors = this.collectorRegistry.getCollectors().filter(isTraceContributor);
+    return [...fromCollectors, ...this.traceContributors];
   }
 
   /**

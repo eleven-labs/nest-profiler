@@ -3,7 +3,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCoreService, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  nowMs,
+  ProfilerCoreService,
+  redact,
+  sinceMs,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
@@ -84,6 +90,9 @@ export class CommandProfiler implements OnModuleInit {
       // swallow + log storage/collect failures so `if (error) throw error` below always wins.
       try {
         await core.collectorRegistry.collectAll(profile);
+        // Run the same analysis + trace/lifecycle assembly as the HTTP path so commands get
+        // performance tags and a Timeline waterfall (the entrypoint root plus any DB/HTTP spans).
+        core.finalizeProfile(profile);
         await core.storage.save(profile);
       } catch (persistErr) {
         const message = persistErr instanceof Error ? persistErr.message : String(persistErr);
@@ -110,7 +119,7 @@ export class CommandProfiler implements OnModuleInit {
   }
 
   private buildProfile(meta: CommandProfileMeta): Profile<CommandInfo> {
-    const startTime = Date.now();
+    const startTime = nowMs();
     const data: CommandInfo = {
       name: meta.name,
       // CLI args/options routinely carry secrets (`--password=…`, `--token=…`); redact them.
@@ -140,7 +149,7 @@ export class CommandProfiler implements OnModuleInit {
     _meta: CommandProfileMeta,
     error: Error | undefined,
   ): void {
-    profile.performance.duration = Date.now() - profile.performance.startTime;
+    profile.performance.duration = sinceMs(profile.performance.startTime);
     profile.response = {
       statusCode: error ? 500 : 200,
       headers: {},

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
-import { redact } from '@eleven-labs/nest-profiler';
+import { nowMs, redact } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 import {
   DEFAULT_MASK_HEADERS,
@@ -94,7 +94,7 @@ export class RabbitMqContextAdapter implements IContextAdapter {
   ) {}
 
   recoverProfile(): Profile {
-    const startTime = Date.now();
+    const startTime = nowMs();
     return {
       token: randomUUID(),
       createdAt: startTime,

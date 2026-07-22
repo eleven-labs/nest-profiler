@@ -68,9 +68,21 @@ The **Exceptions** tab lists what the profile captured, each with its message an
 
 ## Collectors
 
-The **Timeline** collector displays spans created with `startSpan()` as synchronized bars.
+The **Timeline** collector renders a **unified trace waterfall** — one nested, causal view that merges every timed operation of the request on a single time axis: the lifecycle phases you add with `startSpan()`, outgoing HTTP calls, database queries, and (with [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)) each GraphQL `resolveField`. Spans nest by causality — a query issued while resolving a field appears under that field — with collapsible subtrees, so an N+1 shows up as one field with its repeated child queries.
 
-![Timeline tab showing slow.step.fetch, slow.step.process, and slow.step.serialize spans](/screenshots/profiler/timeline.png)
+![Timeline waterfall of a GraphQL products query — an SQL root resolver, one GraphQL field span per product and its nested MongoDB reviews query, each flagged N+1](/screenshots/profiler/timeline.png)
+
+Spans come in two families, and the distinction is what makes the numbers add up. **Containers** — the request root, the phases you open with `startSpan()`, and GraphQL field spans — group the work they triggered: their duration _overlaps_ their children's instead of adding to it, and their own cost is the **self-time** shown under the total. **Leaves** — HTTP calls and database statements — are where the time is actually spent; a `transaction` row is the one synthetic container the SQL collectors add, wrapping a `BEGIN … COMMIT/ROLLBACK` run around the statements it delimits. This is also why the `% of total` column does not sum to 100%: containers overlap their children, and concurrent spans (anything fired with `Promise.all`) overlap each other. Concurrency is never mistaken for nesting — two calls that merely overlap in time stay siblings; only an explicitly reported parent or a genuine container adopts a span.
+
+Durations are captured with a sub-millisecond clock (`performance.timeOrigin + performance.now()`) and displayed in the unit that fits them — `400ns`, `421µs`, `7.12ms`, `1.23s`, up to `2m 5s` for a long-running command or consumer — so a value is never rounded into a misleading `0ms` nor into an unreadable pile of digits. A container that stopped being timed before the work it triggered resolved is widened onto its subtree, so a parent bar always covers what hangs under it.
+
+Each bar shows its **self-time** (its own duration minus its children) next to the total, carries the same **performance tags** as its source entry (a repeated query is badged `N+1`, a slow one `slow`), and — for HTTP and database spans — links straight to the matching panel and highlights the exact row (the Database group even opens the right TypeORM/MongoDB sub-tab). Click a span's label to expand its full SQL/URL and metadata inline.
+
+The waterfall makes an optimisation legible at a glance. Batching the same `products { reviews }` query with a per-request DataLoader collapses the four repeated reviews queries into a single load: the `N+1` tags and the Performance banner disappear, and the field spans that resolved from the loader's cache have no child query at all.
+
+![Same query with DataLoader batching — one reviews query for all products, no N+1 tags and no Performance banner](/screenshots/profiler/timeline-dataloader.png)
+
+Above the waterfall, a flat **Request Lifecycle** band breaks the request into its phases — `guards`, then `controller`, plus `validation` when [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator) is installed. It is a Symfony-profiler-style overview that stays out of the causal tree. `middleware` and the network send have no dedicated NestJS hook, so they are not shown; disable the band entirely with `lifecycleSpans: false`.
 
 The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration, plus a metadata line per query — rows affected/returned and the connection, rendered as a chip (`localhost:5432 / shop`). The panel header sums the rows read.
 

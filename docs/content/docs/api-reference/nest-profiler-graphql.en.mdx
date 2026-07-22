@@ -15,6 +15,24 @@ Options passed to `GraphQLCollectorModule.forRoot()` / `forRootAsync()`.
   name="GraphQLCollectorModuleOptions"
 />
 
+## createProfilerFieldMiddleware
+
+```ts
+function createProfilerFieldMiddleware(
+  cls?: ClsService,
+  options?: FieldTracingOptions,
+): FieldMiddleware;
+```
+
+A code-first `@nestjs/graphql` field middleware that times each `resolveField` as a `graphql-field` span in the Timeline trace and nests the DB/HTTP calls it issues under it. Wire it into `GraphQLModule.forRoot` via `buildSchemaOptions.fieldMiddleware`; `cls` is optional (the shared `nestjs-cls` instance is used when omitted). A passthrough when the profiler is off — but graphql-js still calls it per field once registered, so to run nothing on the GraphQL side when disabled, register it conditionally: `fieldMiddleware: profilerEnabled ? [createProfilerFieldMiddleware()] : []` (resolve the flag in `forRootAsync` when it comes from a `.env` file, as `buildSchemaOptions` is read before that file is loaded).
+
+### FieldTracingOptions
+
+<AutoTypeTable
+  path="packages/nest-profiler-graphql/src/tracing/field-tracing.middleware.ts"
+  name="FieldTracingOptions"
+/>
+
 ## GraphQLInfo
 
 GraphQL metadata attached to `profile.entrypoint.data.graphql` for every profiled GraphQL operation.
@@ -96,12 +114,16 @@ ProfilerModule.forRoot({
 ```ts
 import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 import { GraphQLContextAdapter } from '@eleven-labs/nest-profiler-graphql';
+import { createProfilerFieldMiddleware } from '@eleven-labs/nest-profiler-graphql';
 import {
   ignoreGraphQLPlayground,
   ignoreGraphQLIntrospection,
 } from '@eleven-labs/nest-profiler-graphql';
 
-import type { GraphQLCollectorModuleOptions } from '@eleven-labs/nest-profiler-graphql';
+import type {
+  GraphQLCollectorModuleOptions,
+  FieldTracingOptions,
+} from '@eleven-labs/nest-profiler-graphql';
 ```
 
 Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).

@@ -14,6 +14,8 @@ export abstract class ReviewRepository {
   abstract streamCsv(): Promise<string>;
   abstract findApproved(): Promise<Review[]>;
   abstract findByProduct(productId: string): Promise<Review[]>;
+  /** Batched lookup: all reviews for the given products in one query (for the DataLoader). */
+  abstract findByProductIds(productIds: string[]): Promise<Review[]>;
   abstract findById(id: string): Promise<Review | null>;
   abstract create(data: NewReview): Promise<Review>;
   abstract delete(id: string): Promise<void>;

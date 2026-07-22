@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, nowMs, sinceMs, tryResolve } from '@eleven-labs/nest-profiler';
 import type { CacheOperationEntry } from './cache-collector.interface';
 import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
 
@@ -60,7 +60,7 @@ export class CacheManagerPatch implements OnModuleInit, OnModuleDestroy {
 
     const patched: PatchableMethod = async function (...args: unknown[]): Promise<unknown> {
       const key = String(args[0]);
-      const startedAt = Date.now();
+      const startedAt = nowMs();
       let result: unknown;
       let error: string | undefined;
       try {
@@ -71,7 +71,7 @@ export class CacheManagerPatch implements OnModuleInit, OnModuleDestroy {
         error = err instanceof Error ? err.message : String(err);
         throw err;
       } finally {
-        const duration = Date.now() - startedAt;
+        const duration = sinceMs(startedAt);
         let operation: CacheOperationEntry['operation'];
         if (method === 'get') {
           operation =

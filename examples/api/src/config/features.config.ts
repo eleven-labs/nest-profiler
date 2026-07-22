@@ -64,6 +64,10 @@ export const isGraphQLEnabled = enabled('FEATURE_GRAPHQL', true);
 export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER');
 // Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
 export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
+// Batches the GraphQL `Product.reviews` resolver with a per-request DataLoader, so a `products`
+// query issues one `reviews.find({ productId: $in })` instead of one query per product (N+1). Off by
+// default so the profiler's trace shows the N+1 shape unless you opt in to see the batched shape.
+export const isDataLoaderEnabled = enabled('FEATURE_DATALOADER');
 
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),
@@ -73,4 +77,5 @@ export default registerAs('features', () => ({
   graphql: isGraphQLEnabled(process.env),
   pinoLogger: isPinoLoggerEnabled(process.env),
   rabbitmq: isRabbitMqEnabled(process.env),
+  dataLoader: isDataLoaderEnabled(process.env),
 }));

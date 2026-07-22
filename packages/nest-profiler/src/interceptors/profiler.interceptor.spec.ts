@@ -70,6 +70,7 @@ interface CoreMock {
   findContextAdapter: jest.Mock;
   registerContextAdapter: jest.Mock;
   enrichHttpResponse: jest.Mock;
+  finalizeProfile: jest.Mock;
   schedulePersist: jest.Mock;
   scheduleSave: jest.Mock;
 }
@@ -85,6 +86,7 @@ function makeCore(adapter?: IContextAdapter): CoreMock {
     findContextAdapter: jest.fn().mockReturnValue(adapter ?? undefined),
     registerContextAdapter: jest.fn(),
     enrichHttpResponse: jest.fn(),
+    finalizeProfile: jest.fn(),
     // Mirror the real methods synchronously so assertions on collectAll/save stay deterministic.
     schedulePersist: jest.fn((profile: Profile) => {
       void core.collectorRegistry.collectAll(profile);

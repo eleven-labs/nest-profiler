@@ -147,6 +147,21 @@ Entry written by `ProfilerService.startSpan()`.
   name="TimelineSpan"
 />
 
+### TraceSpan
+
+One node of the unified, causally-nested trace on `profile.trace`, assembled from the lifecycle phases, outgoing HTTP calls, database queries and GraphQL fields — rendered as the nested waterfall in the **Timeline** panel.
+
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="TraceSpan" />
+
+### LifecyclePhase
+
+One bar of the flat request-lifecycle band on `profile.lifecycle` (`guards`, `controller`, `validation`), shown above the waterfall.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
+  name="LifecyclePhase"
+/>
+
 ### LogEntry
 
 <AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="LogEntry" />

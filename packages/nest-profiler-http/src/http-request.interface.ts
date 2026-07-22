@@ -24,6 +24,8 @@ export interface HttpRequestEntry {
    * to group repeated calls (the N+1 signal). Filled by the collector.
    */
   fingerprint?: string;
+  /** Id of the GraphQL field span this call ran under, when issued inside one. */
+  parentSpanId?: string;
   /** Performance tags applied by the rule engine (slow, N+1, error, large-payload). */
   tags?: ProfilerTag[];
 }

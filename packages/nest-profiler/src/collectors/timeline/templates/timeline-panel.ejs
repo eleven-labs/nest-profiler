@@ -1,70 +1,259 @@
 <%
-  const spans = data || [];
+  // Read the trace off the profile, not the collector snapshot (`data`): buildTrace() runs after
+  // collectAll() snapshotted this panel, so `data` is empty here — profile.trace is the source.
+  const spans = profile.trace || [];
+  const startTime = profile.performance.startTime;
   const totalDur = profile.performance.duration || 1;
-  const phaseColors = {
-    middleware:   '#6366f1',
-    guards:       '#f59e0b',
-    interceptors: '#8b5cf6',
-    pipes:        '#f97316',
-    controller:   '#10b981',
-    serialization:'#06b6d4',
+
+  // Colour + label per span kind. Inline (like the former phase map) so the single
+  // shipped stylesheet needs no per-kind utility classes.
+  const kindColors = {
+    entrypoint:      'var(--color-nest)',
+    phase:           '#6366f1',
+    http:            '#06b6d4',
+    db:              '#10b981',
+    'graphql-field': '#8b5cf6',
+    custom:          '#64748b',
   };
-  function phaseColor(phase) {
-    const lower = phase.toLowerCase();
-    for (const [key, color] of Object.entries(phaseColors)) {
-      if (lower.includes(key)) return color;
+  const kindLabels = {
+    entrypoint: 'Request',
+    phase: 'Phase',
+    http: 'HTTP',
+    db: 'Database',
+    'graphql-field': 'GraphQL',
+    custom: 'Custom',
+  };
+  // What each kind *is*, so the nesting reads unambiguously: containers group the work
+  // happening inside them, leaves are the actual I/O. Only leaves consume time on their
+  // own — a container's own cost is its self-time.
+  const kindHints = {
+    entrypoint: 'The profiled request, command or message — the whole time budget.',
+    phase: 'A section of your code, opened with profilerService.startSpan(). It groups the work it triggered; its own cost is its self-time.',
+    http: 'One outgoing HTTP call — a leaf, timed from send to response.',
+    db: 'One database statement — a leaf. A "transaction" row groups a BEGIN … COMMIT run.',
+    'graphql-field': 'One resolved GraphQL field; it groups the calls that resolving it issued.',
+    custom: 'A span contributed by a custom collector.',
+  };
+  function kindHint(kind) { return kindHints[kind] || ''; }
+  function kindColor(kind) { return kindColors[kind] || kindColors.custom; }
+  function kindLabel(kind) { return kindLabels[kind] || kind; }
+
+  // Rebuild the tree from the flat, parentId-linked array, then flatten it depth-first
+  // so rows render in causal order with an indentation level.
+  const byId = new Map(spans.map((s) => [s.id, s]));
+  const children = new Map();
+  const roots = [];
+  for (const s of spans) {
+    const parent = s.parentId && byId.has(s.parentId) ? s.parentId : null;
+    if (parent) {
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(s);
+    } else {
+      roots.push(s);
     }
-    return '#64748b';
   }
+  // buildTrace already emits spans chronologically (emission order breaking ties), so the
+  // flat array order is the causal order — re-sorting on duration would put a 0ms COMMIT
+  // ahead of the START TRANSACTION it closes.
+  // Wall-clock time the children actually cover, as the union of their intervals — not the sum
+  // of their durations. Children overlap all the time (calls fired together, a phase and the
+  // query it wraps reported side by side), and summing would count that overlap twice and
+  // collapse every self-time to 0.
+  function coveredBy(kids) {
+    const intervals = kids
+      .map((k) => [k.startedAt, k.startedAt + k.duration])
+      .sort((a, b) => a[0] - b[0]);
+    let covered = 0;
+    let [start, end] = [0, -Infinity];
+    for (const [from, to] of intervals) {
+      if (from > end) {
+        covered += Math.max(end - start, 0);
+        [start, end] = [from, to];
+      } else if (to > end) {
+        end = to;
+      }
+    }
+    return covered + Math.max(end - start, 0);
+  }
+
+  const rows = [];
+  function walk(node, depth) {
+    const kids = children.get(node.id) || [];
+    // Self-time: the stretch of this span no child accounts for — waiting, driver/ORM
+    // overhead, application code between two calls.
+    const selfTime = Math.max(node.duration - coveredBy(kids), 0);
+    rows.push({ span: node, depth, hasChildren: kids.length > 0, selfTime });
+    for (const kid of kids) walk(kid, depth + 1);
+  }
+  for (const root of roots) walk(root, 0);
+
+  const usedKinds = [...new Set(spans.map((s) => s.kind))];
+
+  // Flat request-lifecycle band (Symfony-style), rendered above the causal waterfall on the same
+  // time axis. Non-nested, so it never competes with the trace's containment nesting.
+  const lifecycle = profile.lifecycle || [];
+  const lifecycleColors = { guards: '#f59e0b', validation: '#f97316', controller: '#8b5cf6' };
 %>
+
+<% if (lifecycle.length) { %>
+  <div class="mb-6">
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Request Lifecycle</h2>
+    <div class="space-y-1.5">
+      <% for (const ph of lifecycle) { %>
+        <%
+          const lOffset = Math.min(Math.max(((ph.startedAt - startTime) / totalDur) * 100, 0), 100);
+          const lWidth = Math.min(Math.max((ph.duration / totalDur) * 100, 0.5), 100 - lOffset);
+          const lColor = lifecycleColors[ph.name] || '#64748b';
+        %>
+<%# Same column geometry as a trace row below (label / track / badges / duration), so both
+    bands really do read against one time axis. %>
+        <div class="flex items-center gap-3">
+          <div class="w-56 shrink-0 text-foreground-secondary text-xs capitalize truncate" title="<%= ph.name %>"><%= ph.name %></div>
+          <div class="flex-1 relative h-4 bg-surface-muted border border-line rounded overflow-hidden">
+            <div class="absolute top-0 h-full rounded" style="left:<%= lOffset.toFixed(2) %>%;width:<%= lWidth.toFixed(2) %>%;background:<%= lColor %>;opacity:0.85;min-width:2px;"></div>
+          </div>
+          <div class="w-24 shrink-0 hidden sm:block"></div>
+          <div class="w-20 shrink-0 text-right text-foreground-secondary text-xs tabular-nums"><%= ms(ph.duration) %></div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+<% } %>
 
 <div class="mb-6">
   <div class="flex items-center justify-between mb-2">
-    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Execution Timeline</h2>
-    <span class="text-foreground-faint text-xs tabular-nums"><%= totalDur %>ms total</span>
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Execution Trace</h2>
+    <span class="text-foreground-faint text-xs tabular-nums"><%= ms(totalDur) %> total</span>
   </div>
 
   <% if (spans.length === 0) { %>
     <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
       <p class="text-foreground-muted text-sm mb-2">No spans recorded.</p>
-      <p class="text-foreground-faint text-xs">Use <code class="bg-surface border border-line px-1.5 py-0.5 rounded">profilerService.startSpan('phase')</code> to instrument your code.</p>
+      <p class="text-foreground-faint text-xs">Outgoing HTTP calls and database queries appear here automatically; use <code class="bg-surface border border-line px-1.5 py-0.5 rounded">profilerService.startSpan('phase')</code> to add your own.</p>
     </div>
   <% } else { %>
-    <div class="space-y-2">
-      <% for (const span of spans) { %>
+    <% if (usedKinds.length > 1) { %>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
+        <% for (const kind of usedKinds) { %>
+          <span class="inline-flex items-center gap-1.5 text-2xs text-foreground-muted cursor-help" title="<%= kindHint(kind) %>">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:<%= kindColor(kind) %>;"></span>
+            <%= kindLabel(kind) %>
+          </span>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="space-y-1">
+      <% for (const row of rows) { %>
         <%
-          const widthPct = Math.max((span.duration / totalDur) * 100, 0.5).toFixed(2);
-          const offsetPct = ((span.startedAt - profile.performance.startTime) / totalDur * 100).toFixed(2);
-          const color = phaseColor(span.phase);
+          const span = row.span;
+          const offsetPct = Math.min(Math.max(((span.startedAt - startTime) / totalDur) * 100, 0), 100);
+          const widthPct = Math.min(Math.max((span.duration / totalDur) * 100, 0.5), 100 - offsetPct);
+          const color = kindColor(span.kind);
+          const indent = row.depth * 14;
+          const isError = span.status === 'error';
+          const source = span.source;
+          const tab = source && source.tab;
+          const labelClass = 'text-xs truncate min-w-0 flex-1 ' + (isError ? 'text-danger' : 'text-foreground-secondary');
         %>
-        <div class="flex items-center gap-3">
-          <div class="w-28 shrink-0 text-foreground-muted text-xs truncate" title="<%= span.phase %>"><%= span.phase %></div>
+        <div class="flex items-center gap-3 group"
+             data-trace-node="<%= span.id %>"
+             <% if (span.parentId) { %>data-trace-parent="<%= span.parentId %>"<% } %>>
+          <div class="w-56 shrink-0 flex items-center gap-1" style="padding-left:<%= indent %>px;">
+            <% if (row.hasChildren) { %>
+              <button type="button"
+                      class="trace-caret shrink-0 w-4 h-4 flex items-center justify-center text-foreground-faint hover:text-foreground"
+                      style="transform:rotate(90deg);transition:transform .15s;"
+                      data-trace-toggle="<%= span.id %>"
+                      aria-label="Toggle children">
+                <svg viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M6 4l4 4-4 4z"/></svg>
+              </button>
+            <% } else { %>
+              <span class="shrink-0 w-4"></span>
+            <% } %>
+            <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" style="background:<%= color %>;"></span>
+            <% if (source) { %>
+              <button type="button" class="<%= labelClass %> text-left hover:text-nest transition-colors cursor-pointer"
+                      data-trace-detail="<%= span.id %>" title="<%= span.label %>"><%= span.label %></button>
+            <% } else { %>
+              <span class="<%= labelClass %>" title="<%= span.label %>"><%= span.label %></span>
+            <% } %>
+          </div>
           <div class="flex-1 relative h-5 bg-surface-muted border border-line rounded overflow-hidden">
             <div class="absolute top-0 h-full rounded"
-                 style="left:<%= offsetPct %>%;width:<%= widthPct %>%;background:<%= color %>;opacity:0.85;min-width:2px;">
+                 style="left:<%= offsetPct.toFixed(2) %>%;width:<%= widthPct.toFixed(2) %>%;background:<%= color %>;opacity:<%= isError ? '0.95' : '0.85' %>;min-width:2px;<%= isError ? 'outline:1px solid var(--color-danger);' : '' %>">
             </div>
           </div>
-          <div class="w-14 shrink-0 text-right text-foreground-secondary text-xs tabular-nums"><%= span.duration %>ms</div>
+<%# Fixed width, rendered even when empty: the track above is flex-1, so a badge appearing on
+    some rows only would shorten their time axis and shift their bar against the rows around it. %>
+          <div class="w-24 shrink-0 hidden sm:flex items-center justify-end gap-1 overflow-hidden">
+            <% if (span.tags && span.tags.length) { %><%- tagBadges(span.tags) %><% } %>
+          </div>
+          <div class="w-20 shrink-0 text-right text-xs tabular-nums leading-tight whitespace-nowrap">
+            <div class="text-foreground-secondary"><%= ms(span.duration) %></div>
+            <% if (row.hasChildren && row.selfTime > 0 && row.selfTime < span.duration) { %>
+              <div class="text-2xs text-foreground-faint cursor-help"
+                   title="Self time — <%= ms(row.selfTime) %> of this span's <%= ms(span.duration) %> is not covered by its children: waiting, driver or ORM overhead, application code in between.">
+                self <%= ms(row.selfTime) %>
+              </div>
+            <% } %>
+          </div>
         </div>
+        <% if (source) { %>
+          <div class="hidden" data-trace-detail-panel="<%= span.id %>">
+            <div class="rounded border border-line bg-surface-muted p-3" style="margin-left:<%= indent + 24 %>px;">
+              <% if (span.kind === 'db' && typeof highlightSql === 'function') { %>
+                <pre class="overflow-x-auto m-0 mb-2 text-xs"><code class="text-code-text"><%- highlightSql(span.label) %></code></pre>
+              <% } else { %>
+                <p class="break-all m-0 mb-2 text-xs text-foreground-secondary"><%= span.label %></p>
+              <% } %>
+              <% if (span.meta && Object.keys(span.meta).length) { %>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-2xs text-foreground-muted mb-2">
+                  <% for (const [k, v] of Object.entries(span.meta)) { %>
+                    <span><span class="text-foreground-faint"><%= k %>:</span> <%= v %></span>
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (tab) {
+                // Deep-link to the source panel: the grouped Database tab needs its sub-tab
+                // (typeorm/mongoose) selected, plus the query index so the client highlights the row.
+                const collector = source.collector;
+                let href = '?tab=' + encodeURIComponent(tab);
+                if (collector && collector !== tab) href += '&subtab=' + encodeURIComponent(collector);
+                if (source.index != null) href += '&q=' + source.index;
+              %>
+                <a href="<%= href %>" class="text-2xs text-nest hover:underline">Open in <%= kindLabel(span.kind) %> panel →</a>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
       <% } %>
     </div>
 
     <div class="mt-6 rounded-lg border border-line overflow-x-auto">
-      <table class="w-full min-w-[520px]">
+      <table class="w-full min-w-[560px]">
         <thead>
           <tr class="bg-surface-muted border-b border-line">
-            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Phase</th>
+            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Span</th>
+            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest cursor-help" title="Request, Phase and GraphQL group the work under them; HTTP and Database are the leaves that spend the time.">Kind</th>
             <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Started at</th>
             <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
-            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">% of total</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest cursor-help" title="Share of the total request time. Containers overlap their children and concurrent spans overlap each other, so these do not add up to 100%.">% of total</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-line-subtle">
-          <% for (const span of spans) { %>
+          <% for (const row of rows) { %>
+            <% const span = row.span; %>
             <tr class="hover:bg-surface-muted transition-colors">
-              <td class="py-2 px-4 text-foreground text-xs font-medium"><%= span.phase %></td>
+              <td class="py-2 px-4 text-foreground text-xs font-medium">
+                <span style="padding-left:<%= row.depth * 14 %>px;" class="inline-flex items-center gap-1.5">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full" style="background:<%= kindColor(span.kind) %>;"></span>
+                  <span class="truncate max-w-[280px] inline-block align-bottom <%= span.status === 'error' ? 'text-danger' : '' %>" title="<%= span.label %>"><%= span.label %></span>
+                </span>
+              </td>
+              <td class="py-2 px-4 text-foreground-muted text-xs cursor-help" title="<%= kindHint(span.kind) %>"><%= kindLabel(span.kind) %></td>
               <td class="py-2 px-4 text-foreground-muted text-xs tabular-nums"><%= timeOnly(span.startedAt) %></td>
-              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= span.duration %>ms</td>
+              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= ms(span.duration) %></td>
               <td class="py-2 px-4 text-right text-foreground-faint text-xs tabular-nums"><%= ((span.duration / totalDur) * 100).toFixed(1) %>%</td>
             </tr>
           <% } %>

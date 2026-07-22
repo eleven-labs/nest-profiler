@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { nowMs, sinceMs } from '@eleven-labs/nest-profiler';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
 
@@ -47,7 +48,7 @@ export class AxiosInstrumentation implements HttpInstrumentation {
     axiosRef.__profilerPatched = true;
 
     axiosRef.interceptors.request.use((config: ProfilerAxiosConfig) => {
-      config._profilerStart = Date.now();
+      config._profilerStart = nowMs();
       // Stash the body before axios serialises it (transformRequest runs after request
       // interceptors), so the panel shows the original payload.
       config._profilerRequestBody = config.data;
@@ -75,8 +76,8 @@ export class AxiosInstrumentation implements HttpInstrumentation {
     recorder.capture({
       method: typeof config.method === 'string' ? config.method : 'GET',
       url: resolveRequestUrl(config),
-      startedAt: config._profilerStart ?? Date.now(),
-      duration: config._profilerStart ? Date.now() - config._profilerStart : 0,
+      startedAt: config._profilerStart ?? nowMs(),
+      duration: config._profilerStart ? sinceMs(config._profilerStart) : 0,
       statusCode: response?.status,
       error,
       requestHeaders: config.headers,

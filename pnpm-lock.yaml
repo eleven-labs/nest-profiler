@@ -197,13 +197,13 @@ importers:
         version: 0.17.4
       '@mikro-orm/core':
         specifier: ^7.1.5
-        version: 7.1.5
+        version: 7.1.5(dataloader@2.2.3)
       '@mikro-orm/nestjs':
         specifier: ^7.0.2
-        version: 7.0.2(@mikro-orm/core@7.1.5)(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)
+        version: 7.0.2(@mikro-orm/core@7.1.5(dataloader@2.2.3))(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)
       '@mikro-orm/postgresql':
         specifier: ^7.1.5
-        version: 7.1.5(@mikro-orm/core@7.1.5)
+        version: 7.1.5(@mikro-orm/core@7.1.5(dataloader@2.2.3))
       '@nestjs/apollo':
         specifier: ^13.0.3
         version: 13.4.2(@apollo/server@5.5.1(graphql@16.14.2))(@as-integrations/express5@1.1.2(@apollo/server@5.5.1(graphql@16.14.2))(express@5.2.1))(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(@nestjs/graphql@13.4.2(@fastify/websocket@11.2.0)(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(class-transformer@0.5.1)(class-validator@0.15.1)(graphql@16.14.2)(reflect-metadata@0.2.2)(ts-morph@28.0.0))(graphql@16.14.2)
@@ -252,6 +252,9 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      dataloader:
+        specifier: ^2.2.3
+        version: 2.2.3
       graphql:
         specifier: ^16.14.2
         version: 16.14.2
@@ -865,10 +868,10 @@ importers:
         version: link:../nest-profiler
       '@mikro-orm/core':
         specifier: ^7.1.5
-        version: 7.1.5
+        version: 7.1.5(dataloader@2.2.3)
       '@mikro-orm/nestjs':
         specifier: ^7.0.2
-        version: 7.0.2(@mikro-orm/core@7.1.5)(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)
+        version: 7.0.2(@mikro-orm/core@7.1.5(dataloader@2.2.3))(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)
       '@nestjs/common':
         specifier: ^11.1.24
         version: 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -3655,18 +3658,8 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@turbo/darwin-64@2.10.5':
-    resolution: {integrity: sha512-ENvPwy3x5yS7MwNYHeWjqOBXkwIMp39Pd+/zXC6PoiNzF8EIvvLZOZZ+ny6L9x4WgS5vxUii2LM5gM+zjPdnWw==}
-    cpu: [x64]
-    os: [darwin]
-
   '@turbo/darwin-arm64@2.10.4':
     resolution: {integrity: sha512-VQ1Yxs5zkPT+2z7t1P4mvn6JmcKLkOCAsPuK9XbOvuVj0DlTlETfIXNisX0771v/vTWHOQqiwoGi+TtAUq8efw==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@turbo/darwin-arm64@2.10.5':
-    resolution: {integrity: sha512-rqROo9zsF/P9RqsdtbLD1nFJicjSrYyvQ9kNJC38AbxA3pAs6VAlATvtvOFx7bqOv6vicf20SP9kF33avJjy2w==}
     cpu: [arm64]
     os: [darwin]
 
@@ -3675,18 +3668,8 @@ packages:
     cpu: [x64]
     os: [linux]
 
-  '@turbo/linux-64@2.10.5':
-    resolution: {integrity: sha512-RoSSiNFUxi27zLJuM9F6GyWWjHgLch9t6nwD6K0FkXRirZkTLlzIj6IhFnK8H9++nefLtdFqylE4vGjZAv6AAA==}
-    cpu: [x64]
-    os: [linux]
-
   '@turbo/linux-arm64@2.10.4':
     resolution: {integrity: sha512-rfujSQkP5aYiRn0PgTM7F00WkJCP/bKDVZbOx3WmrZwa/vHA0bplhCl328kpX7VI9HH2vI90ISGwuSVgJgoqTw==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@turbo/linux-arm64@2.10.5':
-    resolution: {integrity: sha512-4ZComcpzmHGmVynQqvvi+iZOSq/tBvY1SltXB8g4NZRsrA01W8E+yRL8RNM+PLoyWsrCnJa8xa+DkWkv+xg4iQ==}
     cpu: [arm64]
     os: [linux]
 
@@ -3695,18 +3678,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@turbo/windows-64@2.10.5':
-    resolution: {integrity: sha512-eL2Iyj4DbMINq1Sr1w0iAi6nAiZOF16KSlRGwCJpVh+IWZeY33MAsLHVOBMj1xoFtncVJXclCVpTPL2nBoYkFg==}
-    cpu: [x64]
-    os: [win32]
-
   '@turbo/windows-arm64@2.10.4':
     resolution: {integrity: sha512-Iv02YgOpaEShc2OkG7mgCJ2pEw1RUKiKbs0h8W5wAf4jZ5vpmraTEjuGTgHRuOORQnC1GN3KHo5WB+hu1abRMA==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@turbo/windows-arm64@2.10.5':
-    resolution: {integrity: sha512-sog+wP+8YSJrdWZ/rUJg8xghVTrwoG+BrSlDQpnK5fzSgJHn1INRWXbVWRH0d3vX8dBI01E3yxXRre9Dn+OXQA==}
     cpu: [arm64]
     os: [win32]
 
@@ -4801,6 +4774,9 @@ packages:
   data-urls@5.0.0:
     resolution: {integrity: sha512-ZYP5VBHshaDAiVZxjbRVcFJpc+4xGgT0bK3vzy1HLN8jTO975HEbuYzZJcHoQEY5K1a0z8YayJkyVETa08eNTg==}
     engines: {node: '>=18'}
+
+  dataloader@2.2.3:
+    resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
 
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
@@ -10164,19 +10140,21 @@ snapshots:
 
   '@microsoft/tsdoc@0.16.0': {}
 
-  '@mikro-orm/core@7.1.5': {}
+  '@mikro-orm/core@7.1.5(dataloader@2.2.3)':
+    optionalDependencies:
+      dataloader: 2.2.3
 
-  '@mikro-orm/nestjs@7.0.2(@mikro-orm/core@7.1.5)(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)':
+  '@mikro-orm/nestjs@7.0.2(@mikro-orm/core@7.1.5(dataloader@2.2.3))(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(reflect-metadata@0.2.2)':
     dependencies:
-      '@mikro-orm/core': 7.1.5
+      '@mikro-orm/core': 7.1.5(dataloader@2.2.3)
       '@nestjs/common': 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 11.1.27(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.27)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       reflect-metadata: 0.2.2
 
-  '@mikro-orm/postgresql@7.1.5(@mikro-orm/core@7.1.5)':
+  '@mikro-orm/postgresql@7.1.5(@mikro-orm/core@7.1.5(dataloader@2.2.3))':
     dependencies:
-      '@mikro-orm/core': 7.1.5
-      '@mikro-orm/sql': 7.1.5(@mikro-orm/core@7.1.5)
+      '@mikro-orm/core': 7.1.5(dataloader@2.2.3)
+      '@mikro-orm/sql': 7.1.5(@mikro-orm/core@7.1.5(dataloader@2.2.3))
       kysely: 0.29.2
       pg: 8.21.0
       pg-cursor: 2.20.0(pg@8.21.0)
@@ -10186,9 +10164,9 @@ snapshots:
     transitivePeerDependencies:
       - pg-native
 
-  '@mikro-orm/sql@7.1.5(@mikro-orm/core@7.1.5)':
+  '@mikro-orm/sql@7.1.5(@mikro-orm/core@7.1.5(dataloader@2.2.3))':
     dependencies:
-      '@mikro-orm/core': 7.1.5
+      '@mikro-orm/core': 7.1.5(dataloader@2.2.3)
       kysely: 0.29.2
 
   '@mongodb-js/saslprep@1.4.12':
@@ -11149,37 +11127,19 @@ snapshots:
   '@turbo/darwin-64@2.10.4':
     optional: true
 
-  '@turbo/darwin-64@2.10.5':
-    optional: true
-
   '@turbo/darwin-arm64@2.10.4':
-    optional: true
-
-  '@turbo/darwin-arm64@2.10.5':
     optional: true
 
   '@turbo/linux-64@2.10.4':
     optional: true
 
-  '@turbo/linux-64@2.10.5':
-    optional: true
-
   '@turbo/linux-arm64@2.10.4':
-    optional: true
-
-  '@turbo/linux-arm64@2.10.5':
     optional: true
 
   '@turbo/windows-64@2.10.4':
     optional: true
 
-  '@turbo/windows-64@2.10.5':
-    optional: true
-
   '@turbo/windows-arm64@2.10.4':
-    optional: true
-
-  '@turbo/windows-arm64@2.10.5':
     optional: true
 
   '@tybys/wasm-util@0.10.2':
@@ -12334,6 +12294,8 @@ snapshots:
     dependencies:
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
+
+  dataloader@2.2.3: {}
 
   dateformat@4.6.3: {}
 
@@ -16247,14 +16209,7 @@ snapshots:
       '@turbo/windows-64': 2.10.4
       '@turbo/windows-arm64': 2.10.4
 
-  turbo@2.10.5:
-    optionalDependencies:
-      '@turbo/darwin-64': 2.10.5
-      '@turbo/darwin-arm64': 2.10.5
-      '@turbo/linux-64': 2.10.5
-      '@turbo/linux-arm64': 2.10.5
-      '@turbo/windows-64': 2.10.5
-      '@turbo/windows-arm64': 2.10.5
+  turbo@2.10.5: {}
 
   type-check@0.4.0:
     dependencies:

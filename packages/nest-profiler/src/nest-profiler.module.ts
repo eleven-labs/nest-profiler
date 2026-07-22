@@ -6,7 +6,13 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR, ApplicationConfig, DiscoveryModule } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  APP_INTERCEPTOR,
+  ApplicationConfig,
+  DiscoveryModule,
+} from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import {
   ConfigurableModuleClass,
@@ -22,6 +28,7 @@ import { ProfilerInterceptor } from './interceptors/profiler.interceptor';
 import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
 import { ProfilerController } from './controllers/profiler.controller';
 import { ProfilerGuard } from './guards/profiler.guard';
+import { ProfilerLifecycleGuard } from './guards/profiler-lifecycle.guard';
 import { CollectorRegistry } from './collectors/collector-registry.service';
 import { RouteCollector } from './collectors/route.collector';
 import { TemplateRendererService } from './services/template-renderer.service';
@@ -147,6 +154,8 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         TimelineCollector,
         ProfilerInterceptor,
         { provide: APP_INTERCEPTOR, useExisting: ProfilerInterceptor },
+        ProfilerLifecycleGuard,
+        { provide: APP_GUARD, useExisting: ProfilerLifecycleGuard },
         ProfilerExceptionFilter,
         { provide: APP_FILTER, useExisting: ProfilerExceptionFilter },
       ],

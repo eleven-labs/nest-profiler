@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, Scope } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
-import { isRabbitMqEnabled } from '../config/features.config.js';
+import { isDataLoaderEnabled, isRabbitMqEnabled } from '../config/features.config.js';
 import { not } from '../config/env-condition.js';
 import { ReviewController } from './http/review.controller.js';
 import { ReviewService } from './application/review.service.js';
 import { ProductReviewsResolver } from './graphql/product-reviews.resolver.js';
+import { ReviewsDataLoader } from './graphql/reviews.dataloader.js';
 import { ReviewMongooseModule } from './infrastructure/mongoose/review.mongoose.module.js';
 import { NotificationsRabbitMqModule } from '../notifications/infrastructure/rabbitmq/notifications.rabbitmq.module.js';
 import { NotificationsNoopModule } from '../notifications/infrastructure/noop/notifications.noop.module.js';
@@ -28,6 +29,18 @@ import { NotificationsNoopModule } from '../notifications/infrastructure/noop/no
     ConditionalModule.registerWhen(NotificationsNoopModule, not(isRabbitMqEnabled)),
   ],
   controllers: [ReviewController],
-  providers: [ReviewService, ProductReviewsResolver],
+  providers: [
+    ReviewService,
+    ProductReviewsResolver,
+    {
+      // Request-scoped so the DataLoader cache is per request; yields `undefined` when
+      // FEATURE_DATALOADER is off, so the resolver falls back to the per-product query.
+      provide: ReviewsDataLoader,
+      scope: Scope.REQUEST,
+      useFactory: (reviewService: ReviewService) =>
+        isDataLoaderEnabled(process.env) ? new ReviewsDataLoader(reviewService) : undefined,
+      inject: [ReviewService],
+    },
+  ],
 })
 export class ReviewsModule {}
