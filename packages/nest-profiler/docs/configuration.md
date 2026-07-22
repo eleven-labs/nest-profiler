@@ -143,6 +143,7 @@ Note `enabled` is a **synchronous, top-level** bootstrap flag — with `forRootA
 | `storage`               | `IProfilerStorageAdapter`    | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                                                             |
 | `collectBody`           | `boolean`                    | `false`     | Capture request/response bodies (use with caution).                                                                                                                                                                                               |
 | `maxBodySize`           | `number`                     | `65536`     | Max serialized size (chars) of a captured body before it is truncated to a placeholder. `0` disables truncation.                                                                                                                                  |
+| `bodyCaptureLimits`     | `SafeDataOptions`            | see below   | Inner content caps applied to each captured body **before** `maxBodySize`: `maxStringLength` (`2048`), `maxItems` (`64`), `maxDepth` (`4`). Each is disabled with `0` (or negative). See [Capturing full bodies](#capturing-full-bodies).         |
 | `maskCookies`           | `string[]`                   | `[]`        | Cookie names whose value is replaced with `[REDACTED]` in the captured request.                                                                                                                                                                   |
 | `maskHeaders`           | `string[]`                   | sensitive   | Request header names whose value is replaced with `[REDACTED]` at capture. Defaults to `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`.                                                               |
 | `emitDebugHeaders`      | `boolean`                    | `true`      | Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses. Turn off in shared/staging environments.                                                                                                                  |
@@ -155,6 +156,26 @@ Note `enabled` is a **synchronous, top-level** bootstrap flag — with `forRootA
 | `performance`           | `ProfilerPerformanceOptions` | —           | Custom rules for the tagging engine. See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).                                                                                                  |
 
 The storage-related options (`storageType`, `storagePath`, `storage`, `maxProfiles`, `ttl`) are detailed on the [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage) page.
+
+## Capturing full bodies
+
+Captured bodies pass through two independent truncation layers. `maxBodySize` is the outer size cap: once the serialized body exceeds it, the whole body is replaced by a small placeholder. `bodyCaptureLimits` are the inner content caps, applied **first**, and they bound the body regardless of `maxBodySize`:
+
+- `maxStringLength` (default `2048`) — strings longer than this are truncated with `… [truncated]`.
+- `maxItems` (default `64`) — arrays, objects, `Map` and `Set` are capped, with a `… +N more` marker.
+- `maxDepth` (default `4`) — anything nested deeper collapses to `[Object]` / `[Array]`.
+
+Each cap (including `maxBodySize`) is disabled individually with `0` (or a negative value). To keep a genuinely complete body you must disable **all** of them — disabling only `maxBodySize` still lets the inner caps cut the content:
+
+```ts
+ProfilerModule.forRoot({
+  collectBody: true,
+  maxBodySize: 0, // no outer size cap
+  bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 }, // no inner caps
+});
+```
+
+Truncation happens at capture time, before the profile is stored — the full body is never persisted separately. Disabling the caps therefore captures everything, at the cost of larger stored profiles and slower detail-page rendering for big payloads. Raise individual caps instead of disabling them all when you only need a bit more headroom.
 
 ## What counts as an error
 
