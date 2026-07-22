@@ -50,6 +50,7 @@
     "release:alpha": "tsx scripts/changesets/publish.ts alpha",
     "release:beta": "tsx scripts/changesets/publish.ts beta",
     "release:stable": "tsx scripts/changesets/publish.ts stable",
+    "release:promote-latest": "tsx scripts/changesets/promote-prerelease-to-latest.ts",
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
     "test:e2e": "turbo run test:e2e",
