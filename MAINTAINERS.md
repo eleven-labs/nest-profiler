@@ -57,6 +57,22 @@ git push                     # CI opens the version PR; merging publishes `alpha
 
 `pnpm release` resolves the dist-tag from `.changeset/pre.json`, so CI publishes under the matching tag automatically. Consumers install with `pnpm add @eleven-labs/nest-profiler@alpha`.
 
+### Pointing `latest` at the newest prerelease
+
+**Manual step, to run after every prerelease publish** — until the first stable version ships.
+
+A `npm publish` sets a single dist-tag, so in prerelease mode CI only moves `alpha`/`beta`; `latest` stays wherever npm left it on each package's first-ever publish. A bare `npm install @eleven-labs/nest-profiler` therefore resolves to a stale alpha. Moving `latest` is a separate registry write, and npm trusted publishing (OIDC) authenticates `npm publish` only — automating it in CI would mean storing a long-lived, publish-capable npm token, which is exactly the credential OIDC removes. So it stays a local, manually authenticated step:
+
+```bash
+git pull                                  # get the versions published by CI
+pnpm release:promote-latest --dry-run     # review the planned dist-tag moves
+pnpm release:promote-latest               # asks for one OTP, then moves them all
+```
+
+All registry reads happen before the prompt and the writes are fired concurrently with the same `--otp`, so a single one-time password covers the whole lockstep group. Pass `--otp=<code>` (or set `NPM_CONFIG_OTP`) to skip the prompt; leave it empty if your npm account requires 2FA for authorization only. The command is idempotent — re-run it after a partial failure and it only retries what is still pending.
+
+It skips any package whose `latest` already points at a stable version, so it turns into a no-op on its own once the stable release ships and nothing needs to be removed then.
+
 Leave prerelease mode before resuming stable releases. This is a rare, one-off step done manually from `main` by a maintainer:
 
 ```bash
