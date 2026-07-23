@@ -36,6 +36,8 @@ pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 
 `nestjs-cls` is a required peer dependency used for per-execution context propagation.
 
+> Want the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate below.
+
 ## Quick start
 
 The recommended way to wire the profiler is to gate it with Nest's `ConditionalModule.registerWhen`, so it loads only when you want it:

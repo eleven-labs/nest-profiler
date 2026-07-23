@@ -128,6 +128,96 @@ ProfilerModule.forRoot({ isGlobal: true, enabled: process.env.NODE_ENV !== 'prod
 
 Note `enabled` is a **synchronous, top-level** bootstrap flag — with `forRootAsync` it is not resolved by `useFactory` (it must be known before the async factory runs), so it stays outside the factory. The same holds for every **collector** (`-http`, `-typeorm`, `-config`, …): their `forRootAsync` resolves option _values_ only, never `enabled`. So to set `enabled` **together with** options in a single call, use `forRoot({ enabled, ...options })`; to drive options from `ConfigService` while toggling per environment — the **recommended** approach — gate `forRootAsync` with `ConditionalModule.registerWhen(...)` instead. This is the only place in the docs that details the `enabled` option; prefer `ConditionalModule` everywhere else.
 
+### `devDependency`-only: the dev-entry split
+
+The two strategies above keep the profiler in your production `dependencies` and toggle it at runtime — the right default, and what `ConditionalModule` is for. If instead you want the profiler in `devDependencies` **only**, with a strictly zero production footprint (the package is never installed in prod, never bundled, never imported), use a **dev-entry split** instead of a runtime gate.
+
+The idea: the _entrypoint_ is the switch. Production runs a profiler-free `main.ts` + `AppModule`; a separate `main-dev.ts` + `AppDevModule` — the only files that import the profiler — add it on top for local development. No `PROFILER_ENABLED` gate, no `@nestjs/config`, and no `ProfilerNoopModule`.
+
+> **Requirement:** no production code may inject `ProfilerService`, import a `@eleven-labs/nest-profiler*` package, or import `nestjs-cls`. If a service injects `ProfilerService`, its DI can't resolve when the package is absent in prod — so this strategy fits apps that only want request / log / exception / query profiling in development and never call `ProfilerService` directly. (Those apps need no `ProfilerNoopModule` either.)
+
+**Install as a dev dependency** — every `@eleven-labs/nest-profiler*` package plus `nestjs-cls`:
+
+```bash
+pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls
+```
+
+**Production entry** — no profiler anywhere on the always-executed path:
+
+```ts title="src/main.ts"
+import { ConsoleLogger, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new ConsoleLogger('App'));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  await app.listen(3000);
+}
+void bootstrap();
+```
+
+`AppModule` and every feature module stay **free of any profiler import**.
+
+**Dev entry** — the only place the profiler is referenced. A tiny dev-only root module composes `AppModule` with the profiler bundle:
+
+```ts title="src/app.dev.module.ts"
+import { Module } from '@nestjs/common';
+import { AppModule } from './app.module.js';
+import { ProfilingModule } from './profiling/profiling.module.js';
+
+@Module({ imports: [AppModule, ProfilingModule.forWeb()] })
+export class AppDevModule {}
+```
+
+```ts title="src/main-dev.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import {
+  createProfilerValidationPipe,
+  createClassValidatorPipe,
+} from '@eleven-labs/nest-profiler-validator';
+import { AppDevModule } from './app.dev.module.js';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppDevModule, { bufferLogs: true });
+  // Profiler logger + validation pipe live only here, so production main.ts never references them.
+  app.useLogger(createProfilerLogger(new ConsoleLogger('App')));
+  app.useGlobalPipes(
+    createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
+  );
+  await app.listen(3000);
+}
+void bootstrap();
+```
+
+`ProfilingModule` here bundles the core `ProfilerModule.forRoot({ isGlobal: true, ... })` and **every** collector you use (see [Keep the root tidy](#keep-the-root-tidy-bundle-into-a-profilingmodule)) — no runtime gate, since the module is only ever loaded through `main-dev.ts`.
+
+**Collectors need no feature-module wiring here.** They resolve across the whole DI container, so putting them all in the dev-only bundle is enough:
+
+- The **HTTP** collector's `AxiosInstrumentation` finds axios instances by scanning DI providers (duck-typing `axiosRef`) via `DiscoveryService`; because `AppDevModule` imports `AppModule`, it patches your feature modules' `HttpService` automatically. `FetchInstrumentation` patches the global `fetch`.
+- **TypeORM** self-resolves the `DataSource` by connection token; **cache** proxy-wraps the global `CACHE_MANAGER`; **Mongoose** patches `Query`/`Aggregate` execution.
+- **GraphQL** only needs your `GraphQLModule` `context` to expose the request (`context: ({ req }) => ({ req })`) — that's plain application config, not a profiler import, so it can stay in the production module.
+- **Validation** stays app-owned: production `main.ts` uses a plain `ValidationPipe`; `main-dev.ts` swaps in `createProfilerValidationPipe(createClassValidatorPipe(...))` with the same options, and the panel module (`ValidatorCollectorModule.forRoot()`) goes in the bundle.
+
+**Run and build:**
+
+```jsonc title="package.json"
+{
+  "scripts": {
+    "start:dev": "nest start --entryFile main-dev --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+  },
+}
+```
+
+The dev-only files (`main-dev.ts`, `app.dev.module.ts`, `profiling/**`) reference the dev dependencies, so **compile with the dev dependencies installed** (the standard CI/build environment has them). At runtime production runs `dist/main.js` alone — `dist/main-dev.js` is emitted but never loaded — so the profiler packages can be pruned from the production `node_modules` with no effect.
+
+If a deployment pipeline installs with `--omit=dev` **before** building, `tsc` will fail on the dev-only files. Either exclude them from a production `tsconfig.build.json`, or build with the dev dependencies present and prune afterwards (`npm prune --omit=dev`).
+
 ## Options
 
 | Option                  | Type                         | Default     | Description                                                                                                                                                                                                                                       |

@@ -26,5 +26,17 @@
   {
     "query": "One of my services injects ProfilerService and calls profiler.startSpan('db.query') around a repository call. I'm wiring Approach A. What do I need so the app still boots when PROFILER_ENABLED is unset?",
     "expected_behavior": "Must read references/enable-strategies.md. Because a service injects ProfilerService directly (startSpan), the injection would fail to resolve when the active module is gated out. Register ProfilerNoopModule.forRoot({ isGlobal: true }) — same isGlobal as the active module — as a second ConditionalModule.registerWhen gated on not(isProfilerEnabled), so ProfilerService resolves to the zero-dependency no-op when off. (Log capture would not require this; startSpan does.)"
+  },
+  {
+    "query": "I never want the profiler shipped to production — it must live in devDependencies only, with zero production footprint. My app never injects ProfilerService. How do I set it up?",
+    "expected_behavior": "Must read references/enable-strategies.md. Recommend Approach C — the devDependency-only dev-entry split. Install with the package manager's dev flag (pnpm add -D / npm install -D / yarn add -D). Keep production main.ts + AppModule profiler-free (plain ConsoleLogger + ValidationPipe); put the profiler bundle in a dev-only AppDevModule imported only by main-dev.ts, which wires createProfilerLogger + createProfilerValidationPipe. No PROFILER_ENABLED gate, no @nestjs/config, no ProfilerNoopModule, no env-condition helpers. The entrypoint is the switch (node dist/main.js = prod without profiler; nest start --entryFile main-dev = dev with it). State the hard requirement: no production code may inject ProfilerService or import a profiler package."
+  },
+  {
+    "query": "package.json:\n{\n  \"dependencies\": {\n    \"@nestjs/common\": \"^11.0.0\",\n    \"@nestjs/core\": \"^11.0.0\"\n  }\n}\nUser: Add nest-profiler. I'm fine keeping it in production dependencies.",
+    "expected_behavior": "Must NOT present Approach C — the user is fine keeping the profiler in production dependencies, so C is skipped. Present only Approach A (recommended, first) and Approach B (alternative), in fixed order. C is a conditional third option offered only when the user wants a devDependency-only / zero-prod-footprint install."
+  },
+  {
+    "query": "With the dev-entry split (Approach C), where do the TypeORM, HTTP (axios) and GraphQL collectors go — in my feature modules or somewhere else?",
+    "expected_behavior": "Must read references/enable-strategies.md. All collectors go in the dev-only bundle (ProfilingModule imported by AppDevModule), NOT in the production feature modules — they resolve across the whole DI container: AxiosInstrumentation scans providers for axiosRef via DiscoveryService (AppDevModule imports AppModule, so feature HttpService instances are patched automatically), TypeORM self-resolves the DataSource by connection token. The only production-side requirement is app-owned config: GraphQL's context must expose the request (context: ({ req }) => ({ req })), which is not a profiler import. Feature modules stay profiler-free."
   }
 ]

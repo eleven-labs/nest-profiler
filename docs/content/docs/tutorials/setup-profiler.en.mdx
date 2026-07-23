@@ -21,6 +21,8 @@ pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
 
 `nestjs-cls` is required for per-request context propagation.
 
+> Want the profiler in `devDependencies` only, with no production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls` and follow the [dev-entry split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate used below.
+
 ## Step 2 - Register the module
 
 Import `ProfilerModule` in your root module. The recommended way is to gate it with `ConditionalModule.registerWhen`, so the profiler loads only when you want it:
