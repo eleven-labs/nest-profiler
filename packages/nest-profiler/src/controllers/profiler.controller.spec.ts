@@ -2,6 +2,7 @@ import { ProfilerController } from './profiler.controller';
 import type { ProfilerCoreService } from '../services/profiler-core.service';
 import type { TemplateRendererService } from '../services/template-renderer.service';
 import type { ClientAssetRegistry } from '../services/client-asset-registry.service';
+import type { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service';
 import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
 import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerQuery } from '../storage/profiler-query';
@@ -56,6 +57,7 @@ function setup(
     listPageSize?: number;
     profiles?: Profile[];
     security?: { linkQuery?: (request: PlatformRequest) => string };
+    explainRunner?: unknown;
   } = {},
 ): {
   controller: ProfilerController;
@@ -91,7 +93,13 @@ function setup(
     resolve: jest.fn(),
   } as unknown as ClientAssetRegistry;
 
-  const controller = new ProfilerController(core, renderer, clientAssets, options);
+  const explainRunners = {
+    get: jest.fn().mockReturnValue(options.explainRunner),
+    names: jest.fn().mockReturnValue(options.explainRunner ? ['typeorm'] : []),
+    register: jest.fn(),
+  } as unknown as ExplainRunnerRegistry;
+
+  const controller = new ProfilerController(core, renderer, clientAssets, explainRunners, options);
 
   return { controller, rendered, core: core as never };
 }
@@ -373,6 +381,80 @@ describe('ProfilerController (unit)', () => {
       const section = rendered[0]?.ctx.activeSection as RenderedSection;
       expect(section.pagination.pageSize).toBe(25);
       expect(section.profiles).toHaveLength(25);
+    });
+  });
+
+  describe('explainQuery', () => {
+    function profileWithQuery(): Profile {
+      const profile = makeProfile('exp-token-123');
+      profile.collectors['typeorm'] = [
+        {
+          sql: 'SELECT * FROM products WHERE sku = $1',
+          parameters: ['abc'],
+          duration: 12,
+          type: 'SELECT',
+          startedAt: 0,
+        },
+      ];
+      return profile;
+    }
+
+    it('404s when no runner is registered for the collector', async () => {
+      const { controller } = setup({ profiles: [profileWithQuery()] });
+      await expect(controller.explainQuery('exp-token-123', 'typeorm', '0')).rejects.toThrow(
+        /No EXPLAIN runner/,
+      );
+    });
+
+    it('runs the runner and renders the plan fragment', async () => {
+      const explain = jest.fn().mockResolvedValue({
+        dialect: 'postgres',
+        analyzed: false,
+        raw: [
+          {
+            Plan: {
+              'Node Type': 'Sort',
+              Plans: [{ 'Node Type': 'Seq Scan', 'Relation Name': 'products' }],
+            },
+          },
+        ],
+      });
+      const { controller, rendered } = setup({
+        profiles: [profileWithQuery()],
+        explainRunner: { collectorName: 'typeorm', explain },
+      });
+
+      await controller.explainQuery('exp-token-123', 'typeorm', '0');
+
+      expect(explain).toHaveBeenCalledWith('SELECT * FROM products WHERE sku = $1', ['abc']);
+      const call = rendered.find((r) => r.template === 'explain-fragment');
+      expect(call?.ctx.plan).toMatchObject({ hasSeqScan: true, seqScanRelations: ['products'] });
+      // The raw plan is serialized at full depth — the nested Plans tree must not collapse.
+      expect(call?.ctx.rawJson).toContain('Seq Scan');
+      expect(call?.ctx.rawJson).not.toContain('[Object]');
+    });
+
+    it('renders an error fragment when the runner throws', async () => {
+      const explain = jest.fn().mockRejectedValue(new Error('boom'));
+      const { controller, rendered } = setup({
+        profiles: [profileWithQuery()],
+        explainRunner: { collectorName: 'typeorm', explain },
+      });
+
+      await controller.explainQuery('exp-token-123', 'typeorm', '0');
+
+      const call = rendered.find((r) => r.template === 'explain-fragment');
+      expect(call?.ctx.error).toBe('boom');
+    });
+
+    it('404s when the query index is out of range', async () => {
+      const { controller } = setup({
+        profiles: [profileWithQuery()],
+        explainRunner: { collectorName: 'typeorm', explain: jest.fn() },
+      });
+      await expect(controller.explainQuery('exp-token-123', 'typeorm', '5')).rejects.toThrow(
+        /Query "5" not found/,
+      );
     });
   });
 });

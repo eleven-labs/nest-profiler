@@ -119,6 +119,25 @@ At module initialization the collector wraps MikroORM's `Logger.logQuery` to rec
   you use.
 </Callout>
 
+## Explain slow queries
+
+Each query in the Database panel has an **Explain** button. Click it and the profiler runs `EXPLAIN` for that one query over the MikroORM connection and renders the execution plan inline — the top plan node, a ⚠ warning on a full-table (sequential) scan, the scanned relations, estimated rows/cost, and the raw plan. Supported dialects: **PostgreSQL**, **MySQL/MariaDB** and **SQLite**.
+
+It runs **on demand only** — nothing happens until you click, so the profiled request is never slowed. `EXPLAIN` alone does not execute the statement; the opt-in `analyze` variant (`EXPLAIN ANALYZE`) _does_ run the query and is therefore restricted to `SELECT`.
+
+```ts title="app.module.ts"
+MikroOrmCollectorModule.forRoot({
+  explain: { enabled: true }, // default; set `enabled: false` to hide the button
+  // explain: { analyze: true }, // dev only — runs the query to measure real timings (SELECT only)
+});
+```
+
+<Callout type="info" title="Runs against your database">
+  The captured SQL and its parameters are replayed on the live connection when you click, so the
+  action sits behind the profiler's `security`. Values that looked like credentials were redacted at
+  capture, so a plan for such a query may differ slightly from production.
+</Callout>
+
 ## Inspect the schema
 
 Alongside the per-request Database panel, the package ships `MikroOrmSchemaCollectorModule` — a global collector that adds a **Schema · MikroORM** panel to the profiler home page. It introspects the ORM metadata **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.

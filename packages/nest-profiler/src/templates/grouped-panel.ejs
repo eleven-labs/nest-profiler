@@ -13,7 +13,7 @@
     <p class="text-foreground-muted text-sm">No data available.</p>
   </div>
 <% } else if (subPanels.length === 1) { %>
-  <%- include(subPanels[0].templatePath, { data: subPanels[0].data, panel, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+  <%- include(subPanels[0].templatePath, { data: subPanels[0].data, collectorName: subPanels[0].name, panel, profile, highlightSql, toJson, isoDate, timeOnly, link, profilerPath, explainCollectors }) %>
 <% } else { %>
   <div class="mb-5">
     <div class="flex gap-0 border-b border-line mb-5" id="<%= groupId %>-tabs">
@@ -45,7 +45,7 @@
         data-group-panel="<%= groupId %>"
         data-panel="<%= sp.name %>"
         class="<%= i !== activeIdx ? 'hidden' : '' %>">
-        <%- include(sp.templatePath, { data: sp.data, panel, profile, highlightSql, toJson, isoDate, timeOnly }) %>
+        <%- include(sp.templatePath, { data: sp.data, collectorName: sp.name, panel, profile, highlightSql, toJson, isoDate, timeOnly, link, profilerPath, explainCollectors }) %>
       </div>
     <% } %>
   </div>

@@ -20,6 +20,9 @@ import { ClientAssetRegistry } from '../services/client-asset-registry.service';
 import { PUBLIC_DIR } from '../views/template-engine';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { GlobalPanelInfo } from '../collectors/collector-registry.service';
+import { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service';
+import { parseExplainPlan } from '../collectors/sql/explain/parse-explain';
+import type { QueryEntry } from '../collectors/sql/sql-query.interface';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
@@ -82,6 +85,7 @@ export class ProfilerController {
     private readonly core: ProfilerCoreService,
     private readonly templateRenderer: TemplateRendererService,
     private readonly clientAssets: ClientAssetRegistry,
+    private readonly explainRunners: ExplainRunnerRegistry,
     @Inject(NEST_PROFILER_MODULE_OPTIONS) options: ProfilerModuleOptions,
   ) {
     this.pageSize = options.listPageSize ?? DEFAULT_LIST_PAGE_SIZE;
@@ -426,6 +430,9 @@ export class ProfilerController {
       summary,
       collectorPanels,
       collectorData,
+      // Collectors with a registered EXPLAIN runner — the SQL panel shows the "Explain"
+      // action only for these (empty unless a SQL collector opted in via `explain.enabled`).
+      explainCollectors: this.explainRunners.names(),
       // The list view to return to from the detail page's "back" link.
       listView: listSection?.key,
       listLabel: listSection?.title,
@@ -433,5 +440,52 @@ export class ProfilerController {
       // is initially active; honoured server-side so a sub-panel is linkable/screenshot-able.
       activeSubTab: subtab ?? null,
     });
+  }
+
+  /**
+   * Renders a single query's execution plan as an HTML fragment, injected into the SQL panel
+   * when a user clicks "Explain". The EXPLAIN runs **on demand** here — never during the
+   * profiled request — via the ORM's own connection ({@link ExplainRunnerRegistry}), so it
+   * adds no latency to the app. The captured SQL and (redaction-preserved) parameters are
+   * replayed; `EXPLAIN` alone never executes the statement (`ANALYZE`, opt-in, is SELECT-only).
+   */
+  @Get(`${PROFILER_BASE_PATH}/:token/explain/:collector/:index`)
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async explainQuery(
+    @Param('token') token: string,
+    @Param('collector') collector: string,
+    @Param('index') index: string,
+  ): Promise<string> {
+    const runner = this.explainRunners.get(collector);
+    if (!runner) throw new NotFoundException(`No EXPLAIN runner for collector "${collector}".`);
+
+    const profile = await this.core.storage.findOne(token);
+    if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
+
+    const entries = profile.collectors[collector];
+    const i = Number.parseInt(index, 10);
+    const entry = Array.isArray(entries) ? (entries[i] as QueryEntry | undefined) : undefined;
+    if (!entry || typeof entry.sql !== 'string') {
+      throw new NotFoundException(`Query "${index}" not found for collector "${collector}".`);
+    }
+
+    try {
+      const raw = await runner.explain(entry.sql, entry.parameters);
+      const plan = parseExplainPlan(raw);
+      // The raw plan is plain JSON from the driver — serialize it at full depth (unlike `toJson`,
+      // whose safe-data depth cap would collapse the nested `Plans` tree to `[Object]`).
+      let rawJson: string;
+      try {
+        rawJson = JSON.stringify(plan.raw, null, 2) ?? String(plan.raw);
+      } catch {
+        rawJson = String(plan.raw);
+      }
+      return this.templateRenderer.render('explain-fragment', { plan, rawJson });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return this.templateRenderer.render('explain-fragment', { error: message });
+    }
   }
 }

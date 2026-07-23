@@ -1,6 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { TagSeverity } from '@eleven-labs/nest-profiler';
+import type { ExplainOptions, TagSeverity } from '@eleven-labs/nest-profiler';
 
 // SQL query types are shared across ORM collectors and live in the core package.
 // Re-exported here to keep this package's public API self-contained.
@@ -27,6 +27,13 @@ export interface MikroOrmCollectorModuleOptions {
   zeroRowsSeverity?: TagSeverity;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
+  /**
+   * On-demand SQL `EXPLAIN` for captured queries: adds an "Explain" action in the SQL panel
+   * that runs `EXPLAIN` over the MikroORM connection on click (never during the profiled
+   * request). Supported dialects: PostgreSQL, MySQL/MariaDB, SQLite. Default: `{ enabled: true }`;
+   * set `enabled: false` to hide the action, or `analyze: true` for `EXPLAIN ANALYZE` (SELECT-only).
+   */
+  explain?: ExplainOptions;
   /**
    * Name of the MikroORM context to instrument. Omit for the default. Set this in apps that
    * only register named contexts (otherwise the default `MikroORM` token would be missing).

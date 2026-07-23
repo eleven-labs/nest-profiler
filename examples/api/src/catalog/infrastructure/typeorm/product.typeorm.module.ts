@@ -51,6 +51,10 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
           slowSeverity: config.get<'info' | 'warning' | 'danger'>(
             'profiler.performance.slowSeverity',
           ),
+          // On-demand EXPLAIN: the SQL panel gets an "Explain" button per query. The demo DB is
+          // PostgreSQL; a scan of the unindexed `products` table shows a Seq Scan in the plan.
+          // `analyze: true` (dev only) runs EXPLAIN ANALYZE on SELECTs for real timings/rows.
+          explain: { enabled: true, analyze: true },
         }),
       }),
       isProfilerEnabled,

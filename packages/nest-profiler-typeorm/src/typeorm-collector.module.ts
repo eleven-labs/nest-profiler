@@ -8,6 +8,7 @@ import type {
 } from './typeorm-collector.interface';
 import { TypeOrmCollector } from './typeorm.collector';
 import { TypeOrmDriverPatch } from './typeorm-driver.patch';
+import { TypeOrmExplainRunner } from './typeorm-explain.runner';
 
 export { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
 export type {
@@ -16,7 +17,10 @@ export type {
 } from './typeorm-collector.interface';
 
 // The patch resolves the (optionally named) DataSource + ClsService lazily via ModuleRef.
-const SHAPE: CollectorModuleShape = { providers: [TypeOrmDriverPatch, TypeOrmCollector] };
+// The explain runner registers itself with the core ExplainRunnerRegistry on init.
+const SHAPE: CollectorModuleShape = {
+  providers: [TypeOrmDriverPatch, TypeOrmCollector, TypeOrmExplainRunner],
+};
 
 @Module({})
 export class TypeOrmCollectorModule extends ConfigurableModuleClass {

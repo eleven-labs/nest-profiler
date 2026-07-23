@@ -128,6 +128,8 @@ interface Target {
   tab: string;
   /** Optional grouped-panel sub-tab to activate (e.g. `mongoose` within Database). */
   subtab?: string;
+  /** Optional URL hash appended to the capture URL (e.g. `#explain` to auto-open a plan). */
+  hash?: string;
   /** Tried in order; first matching profile wins (preferred → fallback). */
   preds: Predicate[];
 }
@@ -174,6 +176,18 @@ const TARGETS: Target[] = [
     file: 'database.png',
     tab: 'database',
     preds: [(p) => httpGet(api('/products'))(p) && statusOf(p) === 200],
+  },
+  {
+    // The on-demand EXPLAIN plan: `#explain` auto-opens the first query's plan on load (the
+    // client fetches it live from the explain route), so the shot shows the plan panel — the
+    // Seq Scan badge, plan type, estimated rows/cost and the raw plan — expanded under the query.
+    file: 'database-explain.png',
+    tab: 'database',
+    hash: '#explain',
+    preds: [
+      (p) => httpGet(api('/products'))(p) && statusOf(p) === 200 && hasCollector(p, 'typeorm'),
+      (p) => httpGet(api('/products'))(p) && statusOf(p) === 200,
+    ],
   },
   {
     // A silent zero-row write — PATCH /products/:id with a non-matching id issues an
@@ -408,7 +422,7 @@ async function main(): Promise<void> {
     if (!skip('SKIP_APP')) {
       if (!skip('SKIP_BUILD')) {
         console.log('▶ Building packages and the example API…');
-        run('pnpm', ['build']);
+        run('pnpm', ['build', '--filter=example-api']);
       }
 
       console.log(`▶ Starting the example API on port ${PORT}…`);
@@ -442,7 +456,8 @@ async function main(): Promise<void> {
       }
       console.log(`  • ${target.file}`);
       const subtab = target.subtab ? `&subtab=${target.subtab}` : '';
-      capture(target.file, `${PROFILER_URL}/${profile.token}?tab=${target.tab}${subtab}`);
+      const hash = target.hash ?? '';
+      capture(target.file, `${PROFILER_URL}/${profile.token}?tab=${target.tab}${subtab}${hash}`);
       resolved += 1;
     }
 

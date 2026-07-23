@@ -8,9 +8,13 @@ import {
   type MikroOrmCollectorModuleAsyncOptions,
 } from './mikro-orm-collector.interface.js';
 import { MikroOrmLoggerPatch } from './mikro-orm-logger.patch.js';
+import { MikroOrmExplainRunner } from './mikro-orm-explain.runner.js';
 
 // The patch resolves the (optionally named) MikroORM context + ClsService lazily via ModuleRef.
-const SHAPE: CollectorModuleShape = { providers: [MikroOrmLoggerPatch, MikroOrmCollector] };
+// The explain runner registers itself with the core ExplainRunnerRegistry on init.
+const SHAPE: CollectorModuleShape = {
+  providers: [MikroOrmLoggerPatch, MikroOrmCollector, MikroOrmExplainRunner],
+};
 
 @Module({})
 export class MikroOrmCollectorModule extends ConfigurableModuleClass {

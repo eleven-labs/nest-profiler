@@ -23,6 +23,7 @@ import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.
 import { ProfilerController } from './controllers/profiler.controller';
 import { ProfilerGuard } from './guards/profiler.guard';
 import { CollectorRegistry } from './collectors/collector-registry.service';
+import { ExplainRunnerRegistry } from './collectors/sql/explain/explain-runner-registry.service';
 import { RouteCollector } from './collectors/route.collector';
 import { TemplateRendererService } from './services/template-renderer.service';
 import { ClientAssetRegistry } from './services/client-asset-registry.service';
@@ -140,6 +141,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         ProfilerMiddleware,
         ProfilerGuard,
         CollectorRegistry,
+        ExplainRunnerRegistry,
         RouteCollector,
         TemplateRendererService,
         ClientAssetRegistry,
@@ -154,6 +156,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         ProfilerService,
         ProfilerStorageService,
         CollectorRegistry,
+        ExplainRunnerRegistry,
         TemplateRendererService,
         ClientAssetRegistry,
         ProfilerCoreService,
