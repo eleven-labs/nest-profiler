@@ -1,5 +1,32 @@
 # @eleven-labs/nest-profiler
 
+## 1.0.0-alpha.13
+
+### Minor Changes
+
+- 33fe3cb: Make the body-capture truncation limits fully configurable, and allow capturing an untruncated body.
+
+  The inner content caps applied to every captured request/response body (`maxStringLength`, `maxItems`, `maxDepth`) were hard-coded and never exposed, so `maxBodySize: 0` looked like it disabled truncation but the body content was still cut. They are now configurable via the new `bodyCaptureLimits` module option and threaded through the middleware and interceptor (request **and** response) to `normalizeBody` / `toSafeData`.
+
+  Each cap — including `maxBodySize` — can be disabled individually with `0` (or a negative value); disabling all of them captures the full body verbatim. Defaults are unchanged (64 KB / 2048 / 64 / 4), so behaviour is identical without opting in. The truncation marker's `_note` no longer claims the raw JSON export holds the full body, since the full body is never persisted — it now points at raising or disabling the caps instead.
+
+- 4ebf169: Add on-demand SQL `EXPLAIN` plan analysis to the Database panel.
+
+  Every query in the SQL panel now has an **Explain** button. Clicking it runs `EXPLAIN` for that single query over the ORM's own connection and renders the execution plan inline — top plan node, a warning when the plan does a full-table (sequential) scan, the scanned relations, estimated rows/cost, and the raw plan. Supported dialects: PostgreSQL, MySQL/MariaDB and SQLite.
+
+  The analysis runs **on demand only** — nothing executes until a user clicks — so it adds no latency to the profiled request. `EXPLAIN` alone does not execute the statement; the opt-in `analyze` variant (`EXPLAIN ANALYZE`) does, and is restricted to `SELECT`.
+
+  - core: new `ExplainRunnerRegistry`, dialect-aware `parseExplainPlan` helper, `ExplainOptions`/`ExplainPlan`/`ExplainRunner` types, a secured `GET /_profiler/:token/explain/:collector/:index` route rendering the plan fragment, and the SQL panel UI (Explain button, seq-scan badge, collapsible raw plan).
+  - `nest-profiler-typeorm` / `nest-profiler-mikro-orm`: new `explain?: ExplainOptions` module option (default `{ enabled: true }`) and an EXPLAIN runner that executes over the DataSource / EntityManager connection and registers with the core registry.
+
+### Patch Changes
+
+- 30e97ef: Serialize non-plain values meaningfully in `toSafeData()` instead of collapsing them to `'[Object]'`.
+
+  - `toSafeData()` (used for captured log payloads, request/response bodies, and any `safeStringify` sink) fell through to the literal `'[Object]'` for every object that was not a plain object, `Error`, `Date`, `Map`, `Set` or typed array. A logged `URL`/`URI` therefore rendered as `"uri": "[Object]"`, and `RegExp` and other class instances were collapsed the same way — the exact bug already fixed in `redact()`.
+  - `URL`/`RegExp` are now stringified (`URL` → its href, `RegExp` → its source form), aligned with `redact()`.
+  - Remaining class instances prefer their `toJSON()` projection when present, else fall back to own-enumerable enumeration (capped by `maxItems`) instead of being dropped as `'[Object]'`.
+
 ## 1.0.0-alpha.12
 
 ### Minor Changes
