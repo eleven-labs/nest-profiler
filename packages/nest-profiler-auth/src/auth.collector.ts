@@ -36,6 +36,23 @@ export class AuthCollector implements IProfilerCollector, OnModuleInit {
     const sec = profile.security;
     if (!sec) return null;
     if (!sec.isAuthenticated) return 'anon';
+
+    // A custom resolver takes precedence over the built-in modes for authenticated requests.
+    if (this.options.badgeValue) return this.options.badgeValue(sec);
+
+    switch (this.options.badge ?? 'status') {
+      case 'identifier':
+        return this.identifierBadge(sec);
+      case 'role':
+        return sec.roles?.[0] ?? 'auth';
+      case 'status':
+      default:
+        return 'auth';
+    }
+  }
+
+  /** Legacy badge content: the first usable user identifier, falling back to `auth`. */
+  private identifierBadge(sec: SecurityContext): string {
     const user = sec.user;
     if (user) {
       const identifier = user['username'] ?? user['email'] ?? user['sub'] ?? user['id'];

@@ -154,53 +154,129 @@ describe('AuthCollector', () => {
   });
 
   describe('getBadgeValue', () => {
+    /** Builds an AuthCollector with the given module options, CLS-ready. */
+    function collectorWith(options: ConstructorParameters<typeof AuthCollector>[1]): AuthCollector {
+      const c = new AuthCollector(moduleRefFor(mockClsService), options);
+      c.onModuleInit();
+      return c;
+    }
+
     it('returns null when no security context is present', () => {
       expect(collector.getBadgeValue(makeProfile())).toBeNull();
-    });
-
-    it('returns the username when authenticated', () => {
-      const profile = makeProfile({
-        security: { isAuthenticated: true, user: { username: 'alice' } },
-      });
-      expect(collector.getBadgeValue(profile)).toBe('alice');
-    });
-
-    it('falls back to email, then sub, then id', () => {
-      expect(
-        collector.getBadgeValue(
-          makeProfile({ security: { isAuthenticated: true, user: { email: 'a@b.c' } } }),
-        ),
-      ).toBe('a@b.c');
-      expect(
-        collector.getBadgeValue(
-          makeProfile({ security: { isAuthenticated: true, user: { sub: 'sub-1' } } }),
-        ),
-      ).toBe('sub-1');
-    });
-
-    it('stringifies a numeric identifier', () => {
-      const profile = makeProfile({ security: { isAuthenticated: true, user: { id: 42 } } });
-      expect(collector.getBadgeValue(profile)).toBe('42');
-    });
-
-    it('returns "auth" when authenticated without a usable identifier', () => {
-      expect(
-        collector.getBadgeValue(
-          makeProfile({ security: { isAuthenticated: true, user: { id: { nested: true } } } }),
-        ),
-      ).toBe('auth');
-    });
-
-    it('returns "auth" when authenticated with no user object', () => {
-      expect(collector.getBadgeValue(makeProfile({ security: { isAuthenticated: true } }))).toBe(
-        'auth',
-      );
     });
 
     it('returns "anon" when not authenticated', () => {
       expect(collector.getBadgeValue(makeProfile({ security: { isAuthenticated: false } }))).toBe(
         'anon',
       );
+    });
+
+    describe('default mode ("status")', () => {
+      it('returns the compact "auth" label regardless of the identity', () => {
+        const profile = makeProfile({
+          security: {
+            isAuthenticated: true,
+            user: { email: 'alice@example.com' },
+            roles: ['admin'],
+          },
+        });
+        expect(collector.getBadgeValue(profile)).toBe('auth');
+      });
+
+      it('returns "auth" when authenticated with no user object', () => {
+        expect(collector.getBadgeValue(makeProfile({ security: { isAuthenticated: true } }))).toBe(
+          'auth',
+        );
+      });
+    });
+
+    describe('"role" mode', () => {
+      it('returns the first role when available', () => {
+        const c = collectorWith({ badge: 'role' });
+        const profile = makeProfile({
+          security: { isAuthenticated: true, user: { email: 'a@b.c' }, roles: ['admin', 'user'] },
+        });
+        expect(c.getBadgeValue(profile)).toBe('admin');
+      });
+
+      it('falls back to "auth" when no role is known', () => {
+        const c = collectorWith({ badge: 'role' });
+        const profile = makeProfile({
+          security: { isAuthenticated: true, user: { email: 'a@b.c' } },
+        });
+        expect(c.getBadgeValue(profile)).toBe('auth');
+      });
+    });
+
+    describe('"identifier" mode (legacy)', () => {
+      let c: AuthCollector;
+      beforeEach(() => {
+        c = collectorWith({ badge: 'identifier' });
+      });
+
+      it('returns the username when authenticated', () => {
+        const profile = makeProfile({
+          security: { isAuthenticated: true, user: { username: 'alice' } },
+        });
+        expect(c.getBadgeValue(profile)).toBe('alice');
+      });
+
+      it('falls back to email, then sub, then id', () => {
+        expect(
+          c.getBadgeValue(
+            makeProfile({ security: { isAuthenticated: true, user: { email: 'a@b.c' } } }),
+          ),
+        ).toBe('a@b.c');
+        expect(
+          c.getBadgeValue(
+            makeProfile({ security: { isAuthenticated: true, user: { sub: 'sub-1' } } }),
+          ),
+        ).toBe('sub-1');
+      });
+
+      it('stringifies a numeric identifier', () => {
+        const profile = makeProfile({ security: { isAuthenticated: true, user: { id: 42 } } });
+        expect(c.getBadgeValue(profile)).toBe('42');
+      });
+
+      it('returns "auth" when authenticated without a usable identifier', () => {
+        expect(
+          c.getBadgeValue(
+            makeProfile({ security: { isAuthenticated: true, user: { id: { nested: true } } } }),
+          ),
+        ).toBe('auth');
+      });
+
+      it('returns "auth" when authenticated with no user object', () => {
+        expect(c.getBadgeValue(makeProfile({ security: { isAuthenticated: true } }))).toBe('auth');
+      });
+    });
+
+    describe('custom "badgeValue" resolver', () => {
+      it('takes precedence over the badge mode for authenticated requests', () => {
+        const c = collectorWith({
+          badge: 'identifier',
+          badgeValue: (security) => security.roles?.[0] ?? 'auth',
+        });
+        const profile = makeProfile({
+          security: { isAuthenticated: true, user: { email: 'a@b.c' }, roles: ['editor'] },
+        });
+        expect(c.getBadgeValue(profile)).toBe('editor');
+      });
+
+      it('may return null to hide the badge', () => {
+        const c = collectorWith({ badgeValue: () => null });
+        expect(
+          c.getBadgeValue(makeProfile({ security: { isAuthenticated: true, user: { id: 1 } } })),
+        ).toBeNull();
+      });
+
+      it('never runs for unauthenticated requests (badge stays "anon")', () => {
+        const badgeValue = jest.fn(() => 'x');
+        const c = collectorWith({ badgeValue });
+        expect(c.getBadgeValue(makeProfile({ security: { isAuthenticated: false } }))).toBe('anon');
+        expect(badgeValue).not.toHaveBeenCalled();
+      });
     });
   });
 

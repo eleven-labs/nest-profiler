@@ -72,7 +72,27 @@ Note: The JWT is decoded **without verification** (display only). Never rely on 
 
 ## Toolbar badge
 
-The authenticated user's identifier (`username`, `email`, `sub`, or `id`) or `anon` for unauthenticated requests.
+Unauthenticated requests always show a compact `anon`. For **authenticated** requests, the badge content is configurable via the `badge` option (default: `'status'`), so a long email no longer wraps the sidebar row — the full identity stays in the panel detail:
+
+| `badge`        | Authenticated badge                                              |
+| -------------- | ---------------------------------------------------------------- |
+| `'status'`     | A fixed, compact `auth` label (default) — mirrors `anon`.        |
+| `'role'`       | The first role (`admin`, `user`, …), falling back to `auth`.     |
+| `'identifier'` | Legacy behaviour: `username ?? email ?? sub ?? id`, else `auth`. |
+
+```ts
+AuthCollectorModule.forRoot({
+  badge: 'role', // 'status' (default) | 'role' | 'identifier'
+});
+```
+
+For full control, provide a `badgeValue` resolver — it takes precedence over `badge`, receives the collected `SecurityContext`, and may return `null` to hide the badge. It runs only for authenticated requests (unauthenticated stays `anon`):
+
+```ts
+AuthCollectorModule.forRoot({
+  badgeValue: (security) => security.roles?.[0] ?? 'auth',
+});
+```
 
 ## How it works
 
