@@ -1,11 +1,32 @@
 import { ConfigurableModuleBuilder, DynamicModule, Module } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
-import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleShape, SecurityContext } from '@eleven-labs/nest-profiler';
 import { AuthCollector } from './auth.collector';
+
+/**
+ * What the Security sidebar badge shows for an authenticated request.
+ *
+ * - `'status'` (default): a fixed, compact `auth` label — mirrors the `anon` shown when
+ *   unauthenticated. The full identity stays in the panel detail.
+ * - `'role'`: the first role (`admin`, `user`, …), falling back to `auth` when none is known.
+ * - `'identifier'`: the legacy behaviour — `username ?? email ?? sub ?? id`, else `auth`.
+ */
+export type AuthBadgeMode = 'status' | 'role' | 'identifier';
 
 export interface AuthCollectorModuleOptions {
   maskUserFields?: string[];
+  /**
+   * Badge content for authenticated requests. Default: `'status'`.
+   * Ignored when {@link AuthCollectorModuleOptions.badgeValue} is provided.
+   */
+  badge?: AuthBadgeMode;
+  /**
+   * Custom badge resolver for authenticated requests, for full control. Takes precedence over
+   * {@link AuthCollectorModuleOptions.badge}. Return `null` to hide the badge. Unauthenticated
+   * requests always show `anon` and never reach this resolver.
+   */
+  badgeValue?: (security: SecurityContext) => string | null;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
 }
