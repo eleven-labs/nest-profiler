@@ -10,6 +10,7 @@
       "@eleven-labs/nest-profiler-cache",
       "@eleven-labs/nest-profiler-commander",
       "@eleven-labs/nest-profiler-config",
+      "@eleven-labs/nest-profiler-event-emitter",
       "@eleven-labs/nest-profiler-graphql",
       "@eleven-labs/nest-profiler-mikro-orm",
       "@eleven-labs/nest-profiler-mongoose",

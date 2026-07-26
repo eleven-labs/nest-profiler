@@ -102,6 +102,8 @@ The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/do
 
 ![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
+The **Events** collector (requires [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter)) profiles the domain events dispatched through `@nestjs/event-emitter`. The publishing profile gains an **Events** panel listing each emission with its listener count, duration and payload — an emission with **no listener** is flagged in amber. Each `@OnEvent` execution then becomes its own profile in a dedicated **Events** view, with an **Event** detail tab and the logs, queries and HTTP calls the handler made.
+
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 
 ![Security tab showing an authenticated demo_user with the admin role](/screenshots/profiler/security.png)

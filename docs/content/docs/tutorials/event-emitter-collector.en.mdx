@@ -1,0 +1,141 @@
+---
+title: Domain event profiling
+description: Profile the events dispatched through @nestjs/event-emitter and see what each @OnEvent handler actually did.
+seo:
+  title: How to profile @nestjs/event-emitter events
+  description: 'A step-by-step guide to profiling NestJS domain events: record every EventEmitter2 emission with its listeners, duration and payload, list your @OnEvent subscriptions, and give each handler execution its own profile.'
+---
+
+This tutorial shows how to profile the domain events an application dispatches with [`@nestjs/event-emitter`](https://docs.nestjs.com/techniques/events). Events are the classic blind spot of a request trace: the controller answers, and whatever the listeners did happens somewhere off to the side. This collector closes that gap on three fronts — an **Events** panel on the emitting profile, an **Event Listeners** group in the Routes panel, and one profile per `@OnEvent` execution.
+
+## Prerequisites
+
+- `@eleven-labs/nest-profiler` installed and configured
+- `@nestjs/event-emitter` registered with `EventEmitterModule.forRoot()`
+
+## Step 1 - Install the package
+
+```bash
+pnpm add @eleven-labs/nest-profiler-event-emitter@alpha
+```
+
+## Step 2 - Register the module
+
+Add `EventEmitterCollectorModule` next to the `EventEmitterModule` registration, gated like every other profiler module:
+
+```ts title="notifications.module.ts"
+import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { EventEmitterCollectorModule } from '@eleven-labs/nest-profiler-event-emitter';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),
+    ConditionalModule.registerWhen(EventEmitterCollectorModule.forRoot(), isProfilerEnabled),
+  ],
+})
+export class NotificationsModule {}
+```
+
+## Step 3 - Keep your emitters and listeners unchanged
+
+Nothing about your code changes. Emit as usual:
+
+```ts title="product.service.ts"
+await this.emitter.emitAsync('product.created', { id: product.id, name: product.name });
+```
+
+…and subscribe as usual:
+
+```ts title="notification.listener.ts"
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+
+@Injectable()
+export class NotificationListener {
+  @OnEvent('product.created')
+  async onProductCreated(payload: { id: number; name: string }): Promise<void> {
+    // … send the notification …
+  }
+}
+```
+
+## Step 4 - Inspect the emission
+
+Trigger the flow and open `/_profiler`. On the profile that published the event, the **Events** panel lists each emission with:
+
+- the event name, and an `async` chip when it went through `emitAsync`
+- how many listeners were subscribed — **`0 · no listener`** in amber, the cheapest way to catch a typo in an event name
+- the duration (the awaited handlers for `emitAsync`, the synchronous dispatch for `emit`)
+- the redacted payload, expandable per row
+
+## Step 5 - Inspect the handler
+
+Pick **Events** in the sidebar (`?view=event`): each `@OnEvent` execution has its own profile, listed with its status and duration. Open one to find:
+
+- **Event** — the event, the `Provider.method()` that handled it, the received payload, and the error when it failed
+- **Logs**, **Database**, **HTTP Client**, … — everything the handler itself did, no longer buried in the publishing request
+
+The home page's **Routes** panel also gains an **Event Listeners** group listing every subscription as `ON product.created → NotificationListener.onProductCreated`.
+
+## Try it in the example app
+
+The example API needs no infrastructure for this one — the in-process emitter is the default messaging adapter:
+
+```bash
+pnpm example:dev
+```
+
+Create a product, then open `/_profiler`:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/products \
+  -H 'content-type: application/json' \
+  -d '{ "name": "Profiled product", "price": 42 }'
+```
+
+The POST profile shows `product.created` in its **Events** panel, and the **Events** view lists the `NotificationListener.onProductCreated` execution it triggered.
+
+## Configuration
+
+```ts
+EventEmitterCollectorModule.forRoot({
+  capturePayload: true, // redacted payload per emission - disable if payloads hold PII
+  maxPayloadLength: 2000, // bound the stringified payload
+  ignoreEvents: ['heartbeat', /^internal\./], // never recorded
+  profileListeners: true, // one profile per @OnEvent execution
+  slowThreshold: 100, // an emission at or above this (ms) is tagged `slow`
+});
+```
+
+Set `profileListeners: false` to keep only the per-request Events panel — lighter storage, at the cost of losing what the handlers did.
+
+## Driving options from ConfigService
+
+Use `forRootAsync()` to resolve the values from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConditionalModule, ConfigService } from '@nestjs/config';
+
+ConditionalModule.registerWhen(
+  EventEmitterCollectorModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      capturePayload: config.get<boolean>('profiler.capturePayload') ?? true,
+      slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
+    }),
+  }),
+  isProfilerEnabled,
+);
+```
+
+## Performance tags
+
+Emissions feed the core rule engine under their own `event` domain, so the usual tags apply without inheriting the query thresholds: `slow` past `slowThreshold`, `n-plus-one` when the same event name repeats `nPlusOneThreshold` times in one profile, and `chatty` past `chattyThreshold` emissions. See [Performance tags](/docs/packages/nest-profiler/performance-tags).
+
+## How it works
+
+The collector wraps the app's `EventEmitter2` (`emit` and `emitAsync`) and reads the active profile synchronously at emit entry. For listener profiling it scans the DI container at bootstrap — providers **and** controllers — and wraps each `@OnEvent` method so the execution runs in its own CLS branch with its own profile. See [How it works](/docs/packages/nest-profiler-event-emitter#how-it-works) on the package page, and its [Limitations](/docs/packages/nest-profiler-event-emitter#limitations) for request-scoped subscribers.

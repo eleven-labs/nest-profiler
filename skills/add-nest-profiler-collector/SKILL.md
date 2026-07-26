@@ -3,7 +3,7 @@ name: add-nest-profiler-collector
 description: |
   Add one optional @eleven-labs/nest-profiler collector package to a NestJS app that already has the core profiler configured.
   Matches the app's existing enable strategy and placement rules, and applies the collector's wiring gotcha.
-  Use when a project gains a new integration (TypeORM, MikroORM, Mongoose, HTTP client, cache, auth, config, GraphQL, class-validator/zod, nest-commander, RabbitMQ, routes) and the user wants its dedicated profiler panel.
+  Use when a project gains a new integration (TypeORM, MikroORM, Mongoose, HTTP client, cache, auth, config, GraphQL, class-validator/zod, nest-commander, RabbitMQ, @nestjs/event-emitter, routes) and the user wants its dedicated profiler panel.
 ---
 
 # Add a nest-profiler collector
@@ -18,13 +18,14 @@ Wire a single `@eleven-labs/nest-profiler-*` collector into an app whose core `P
 2. **Identify the collector** — from the integration the user named or the new dependency in `package.json`, look it up in [references/collectors-matrix.md](references/collectors-matrix.md) and open its family reference. Confirm the host lib is actually a dependency. If no `@eleven-labs/nest-profiler-*` package instruments it, say so — do not invent one (point to the `custom-collector` skill instead).
 3. **Install** — `<pm> add <collector-package>@alpha` with the project's package manager (from the lockfile). The profiler has **no stable release yet**, so every `@eleven-labs/nest-profiler*` package must be pinned to the `@alpha` dist-tag (`@latest` resolves to nothing).
 4. **Ask the collector's key question(s)** — each family reference lists them (e.g. ORM: add the Schema panel? / HTTP: which client(s) to instrument? / validator: class-validator or zod?). Use `AskUserQuestion` with `header` ≤ 12 chars.
-5. **Place, gate, and apply the gotcha** — put it where the matrix says (`config`/`validator`/`routes`/`commander` at the root; database / http / cache / rabbitmq / graphql co-located with their host module) and gate it with the **same** strategy as the core. Collectors need no no-op counterpart. Key gotchas:
+5. **Place, gate, and apply the gotcha** — put it where the matrix says (`config`/`validator`/`routes`/`commander` at the root; database / http / cache / rabbitmq / event-emitter / graphql co-located with their host module) and gate it with the **same** strategy as the core. Collectors need no no-op counterpart. Key gotchas:
    - **TypeORM** — `TypeOrmCollectorModule` self-resolves the `DataSource` (via `connectionName`); **no `inject: [DataSource]`**. Add `TypeOrmSchemaCollectorModule` for the entity panel.
    - **MikroORM** — ESM-only; import after `MikroOrmModule`.
    - **HTTP** — nothing is captured without an `instrumentations` entry (`AxiosInstrumentation` from `/axios`, `FetchInstrumentation` from `/fetch`); axios needs `HttpModule` alongside.
    - **GraphQL** — the module is `GraphQLCollectorModule`; the `context` must expose the request.
    - **validator** — replaces the global `ValidationPipe` (remove any second one) and needs value imports of DTOs.
    - **commander** — a cross-process store (`storageType: 'file'`, or the SQLite `storage` adapter — there is no `storageType: 'sqlite'`) and imported in both the CLI and HTTP processes.
+   - **event-emitter** — goes next to `EventEmitterModule.forRoot()`; request-scoped subscribers cannot be profiled.
 
 ## Verify
 

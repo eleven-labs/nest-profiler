@@ -12,20 +12,21 @@ Detection confidence:
 
 ## Matrix
 
-| Consumer dependency (signal)                | Confidence                                     | Collector package                      | Family reference            |
-| ------------------------------------------- | ---------------------------------------------- | -------------------------------------- | --------------------------- |
-| `typeorm` + `@nestjs/typeorm`               | hard                                           | `@eleven-labs/nest-profiler-typeorm`   | `collectors-orm.md`         |
-| `@mikro-orm/core` + `@mikro-orm/nestjs`     | hard                                           | `@eleven-labs/nest-profiler-mikro-orm` | `collectors-orm.md`         |
-| `mongoose` + `@nestjs/mongoose`             | hard                                           | `@eleven-labs/nest-profiler-mongoose`  | `collectors-orm.md`         |
-| `@nestjs/axios` / `axios` (any HTTP client) | optional                                       | `@eleven-labs/nest-profiler-http`      | `collectors-http.md`        |
-| `class-validator` / `nestjs-zod`            | heuristic (deliberately not a peer)            | `@eleven-labs/nest-profiler-validator` | `collectors-validator.md`   |
-| `@nestjs/config`                            | hard                                           | `@eleven-labs/nest-profiler-config`    | `collectors-config-auth.md` |
-| `@nestjs/passport` / `@nestjs/jwt`          | heuristic (dependency-free)                    | `@eleven-labs/nest-profiler-auth`      | `collectors-config-auth.md` |
-| `@nestjs/cache-manager`                     | hard                                           | `@eleven-labs/nest-profiler-cache`     | `collectors-simple.md`      |
-| `@nestjs/graphql` + `graphql`               | hard (`graphql`), optional (`@nestjs/graphql`) | `@eleven-labs/nest-profiler-graphql`   | `collectors-simple.md`      |
-| `nest-commander`                            | optional                                       | `@eleven-labs/nest-profiler-commander` | `collectors-simple.md`      |
-| `@golevelup/nestjs-rabbitmq` + `amqplib`    | optional                                       | `@eleven-labs/nest-profiler-rabbitmq`  | `collectors-simple.md`      |
-| _(any REST/GraphQL/microservice/CLI app)_   | always available (opt-in panel)                | `@eleven-labs/nest-profiler-routes`    | `collectors-simple.md`      |
+| Consumer dependency (signal)                | Confidence                                     | Collector package                          | Family reference            |
+| ------------------------------------------- | ---------------------------------------------- | ------------------------------------------ | --------------------------- |
+| `typeorm` + `@nestjs/typeorm`               | hard                                           | `@eleven-labs/nest-profiler-typeorm`       | `collectors-orm.md`         |
+| `@mikro-orm/core` + `@mikro-orm/nestjs`     | hard                                           | `@eleven-labs/nest-profiler-mikro-orm`     | `collectors-orm.md`         |
+| `mongoose` + `@nestjs/mongoose`             | hard                                           | `@eleven-labs/nest-profiler-mongoose`      | `collectors-orm.md`         |
+| `@nestjs/axios` / `axios` (any HTTP client) | optional                                       | `@eleven-labs/nest-profiler-http`          | `collectors-http.md`        |
+| `class-validator` / `nestjs-zod`            | heuristic (deliberately not a peer)            | `@eleven-labs/nest-profiler-validator`     | `collectors-validator.md`   |
+| `@nestjs/config`                            | hard                                           | `@eleven-labs/nest-profiler-config`        | `collectors-config-auth.md` |
+| `@nestjs/passport` / `@nestjs/jwt`          | heuristic (dependency-free)                    | `@eleven-labs/nest-profiler-auth`          | `collectors-config-auth.md` |
+| `@nestjs/cache-manager`                     | hard                                           | `@eleven-labs/nest-profiler-cache`         | `collectors-simple.md`      |
+| `@nestjs/graphql` + `graphql`               | hard (`graphql`), optional (`@nestjs/graphql`) | `@eleven-labs/nest-profiler-graphql`       | `collectors-simple.md`      |
+| `nest-commander`                            | optional                                       | `@eleven-labs/nest-profiler-commander`     | `collectors-simple.md`      |
+| `@golevelup/nestjs-rabbitmq` + `amqplib`    | optional                                       | `@eleven-labs/nest-profiler-rabbitmq`      | `collectors-simple.md`      |
+| `@nestjs/event-emitter`                     | hard                                           | `@eleven-labs/nest-profiler-event-emitter` | `collectors-simple.md`      |
+| _(any REST/GraphQL/microservice/CLI app)_   | always available (opt-in panel)                | `@eleven-labs/nest-profiler-routes`        | `collectors-simple.md`      |
 
 ## Gating
 
@@ -34,7 +35,7 @@ Every collector is gated the same way as the core module. The per-collector snip
 ## Placement rule
 
 - **Root / global collectors** — `config`, `validator`, `routes`, `commander` contribute global panels (bootstrap snapshot, discovery panels). They belong at the composition root; bundle them with the core into a single `ProfilingModule` (see `enable-strategies.md`) to keep the root tidy. `validator`'s pipe is app-owned in `main.ts` (`createProfilerValidationPipe`), so its panel gates like the others (see `collectors-validator.md`).
-- **Infra-scoped collectors** — database (typeorm/mikro-orm/mongoose incl. their Schema companion), `http`, `cache`, `rabbitmq`, and the GraphQL transport stay co-located in the feature module that owns their infrastructure, each with its own gate.
+- **Infra-scoped collectors** — database (typeorm/mikro-orm/mongoose incl. their Schema companion), `http`, `cache`, `rabbitmq`, `event-emitter`, and the GraphQL transport stay co-located in the feature module that owns their infrastructure, each with its own gate.
 
 ## Asking which to add
 

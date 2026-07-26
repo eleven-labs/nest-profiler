@@ -45,17 +45,17 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 The app uses flags to conditionally load infrastructure-dependent contexts. All infra-backed features are **off by default**, so a bare run needs no database or broker. Set them in `.env`:
 
-| Variable                | Default     | Description                                                                        |
-| ----------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`               |
-| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                         |
-| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                           |
-| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)        |
-| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`) |
-| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                |
-| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                          |
-| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                           |
-| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`          |
+| Variable                | Default     | Description                                                                                                                 |
+| ----------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                                                        |
+| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                  |
+| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                    |
+| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                 |
+| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer (`nest-profiler-rabbitmq`); off, reviews use the in-process emitter |
+| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                         |
+| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                                                                   |
+| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                    |
+| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                   |
 
 `PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
@@ -84,7 +84,7 @@ pnpm example:dev
 FEATURE_GRAPHQL=false pnpm example:dev
 ```
 
-When `FEATURE_RABBITMQ=true`, creating a review (`POST /api/v1/reviews`) publishes a `review.created` event through the `EventPublisher` port; the RabbitMQ adapter forwards it to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab. With the flag off, the port is bound to a no-op publisher, so reviews still work without a broker.
+Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab.
 
 ### Run the application
 
@@ -187,10 +187,12 @@ AppModule (no controller — only global forRoot + feature modules)
 ├── AuthModule               → AuthCollectorModule (nest-profiler-auth)
 ├── HealthModule             → GET /health
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
+├── CatalogModule → … also publishes product.created via the EventPublisher port:
+│     └── NotificationsEventEmitterModule [always]           → EventEmitterCollectorModule + @OnEvent listener
 └── ReviewsModule [FEATURE_MONGOOSE]  → MongooseCollectorModule (nest-profiler-mongoose)
       └── publishes review.created via the EventPublisher port:
-          ├── NotificationsRabbitMqModule [FEATURE_RABBITMQ] → RabbitMqCollectorModule + consumer
-          └── NotificationsNoopModule     [default]          → no broker
+          ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + consumer
+          └── NotificationsEventEmitterModule  [default]          → in-process, no broker
 
 Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
         / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, opt-in)
@@ -285,7 +287,9 @@ const review = await this.repo.create({ ...data, status: data.status ?? 'pending
 await this.events.publish({ name: 'review.created', payload: { reviewId: review.id /* … */ } });
 ```
 
-`ReviewsModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the no-op adapter (default). The RabbitMQ adapter also registers the `@RabbitSubscribe` consumer that reacts to the event — so `mongoose` and `rabbitmq` collectors light up together through one realistic use case.
+`ReviewsModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
+
+The `NotificationsNoopModule` under `notifications/infrastructure/noop/` is kept as the minimal reference implementation of the port, but it is no longer wired: the in-process adapter needs just as little infrastructure and actually delivers the events.
 
 ## Available endpoints
 

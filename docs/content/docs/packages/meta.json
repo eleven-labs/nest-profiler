@@ -13,6 +13,7 @@
     "nest-profiler-routes",
     "nest-profiler-validator",
     "nest-profiler-graphql",
-    "nest-profiler-rabbitmq"
+    "nest-profiler-rabbitmq",
+    "nest-profiler-event-emitter"
   ]
 }

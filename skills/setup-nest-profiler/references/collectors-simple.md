@@ -89,3 +89,33 @@ ConditionalModule.registerWhen(RoutesCollectorModule.forRoot(), isProfilerEnable
 ```ts
 ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
 ```
+
+---
+
+## Event emitter — `@eleven-labs/nest-profiler-event-emitter`
+
+- **Peers (required):** `@nestjs/event-emitter@^3`, `nestjs-cls@^6`.
+- **Module:** `EventEmitterCollectorModule` (`forRoot` + `forRootAsync`).
+- **Placement:** the module that registers `EventEmitterModule.forRoot()`, alongside it (infra-scoped, not a root panel).
+- **Behaviour:** patches `EventEmitter2`'s `emit`/`emitAsync` for an **Events** panel on the emitting profile, adds an **Event Listeners** group to the Routes panel, and — unless `profileListeners: false` — turns each `@OnEvent` execution into its own `event` profile (list view + **Event** detail tab) carrying the handler's own logs, queries and HTTP calls.
+- **⚠️ Gotcha:** **request-scoped** subscribers are not profiled — `@nestjs/event-emitter` resolves a fresh instance per event, so there is no stable handler to wrap. They still appear in the Routes panel.
+- **⚠️ Gotcha:** `EventEntry.error` is rarely populated: `@OnEvent` defaults to `suppressErrors: true`, so a throwing handler is logged by `@nestjs/event-emitter` and never surfaces to the emitter. The handler's own `event` profile records the failure either way.
+- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-event-emitter> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/event-emitter-collector>
+
+| Option              | Type                      | Default         | Notes                                                     |
+| ------------------- | ------------------------- | --------------- | --------------------------------------------------------- |
+| `enabled`           | `boolean`                 | `true`          | Synchronous.                                              |
+| `capturePayload`    | `boolean`                 | `true`          | Redacted; turn off when payloads may hold PII.            |
+| `maxPayloadLength`  | `number`                  | `2000`          | Bounds the stringified payload per event.                 |
+| `ignoreEvents`      | `Array<string \| RegExp>` | `[]`            | `newListener`/`removeListener` are always ignored on top. |
+| `emitterToken`      | `InjectionToken`          | `EventEmitter2` | Only when the emitter is bound to a custom token.         |
+| `profileListeners`  | `boolean`                 | `true`          | `false` keeps the per-request Events panel only.          |
+| `slowThreshold`     | `number`                  | `100`           | ms; tags an emission `slow` (own `event` tag domain).     |
+| `nPlusOneThreshold` | `number`                  | `2`             | Identical event names before the `n-plus-one` tag.        |
+| `chattyThreshold`   | `number`                  | `20`            | Emissions before the profile is tagged `chatty`.          |
+| `error`             | `ProfilerErrorOptions`    | —               | What counts as a failed handler execution.                |
+
+```ts
+EventEmitterModule.forRoot(),
+ConditionalModule.registerWhen(EventEmitterCollectorModule.forRoot(), isProfilerEnabled),
+```
