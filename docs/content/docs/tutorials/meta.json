@@ -15,6 +15,7 @@
     "validator-collector",
     "graphql-collector",
     "rabbitmq-collector",
+    "event-emitter-collector",
     "custom-collector",
     "build-entrypoint-type",
     "file-storage"

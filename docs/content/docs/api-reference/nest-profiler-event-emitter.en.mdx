@@ -1,0 +1,116 @@
+---
+title: nest-profiler-event-emitter
+description: Types and API of the event emitter collector.
+seo:
+  title: Event emitter collector API reference
+  description: 'Complete API reference for @eleven-labs/nest-profiler-event-emitter: the entry and entrypoint types, module options and public exports of the collector that profiles @nestjs/event-emitter emissions and @OnEvent handler executions.'
+---
+
+## EventEntry
+
+One entry per `emit` / `emitAsync` call made during a profiled execution — the rows of the **Events** panel.
+
+<AutoTypeTable
+  path="packages/nest-profiler-event-emitter/src/event-emitter-collector.interface.ts"
+  name="EventEntry"
+/>
+
+Entries implement the core `TaggableEntry` shape (`duration`, `fingerprint`, `tags`, `error`), so the performance-rule engine tags them under the `event` domain.
+
+## EventEmitterCollectorModuleOptions
+
+<AutoTypeTable
+  path="packages/nest-profiler-event-emitter/src/event-emitter-collector.interface.ts"
+  name="EventEmitterCollectorModuleOptions"
+/>
+
+## EventEntrypointData
+
+`Profile.entrypoint.data` for a profile whose entrypoint is one `@OnEvent` handler execution (`entrypoint.type === 'event'`).
+
+<AutoTypeTable
+  path="packages/nest-profiler-event-emitter/src/event-entrypoint.ts"
+  name="EventEntrypointData"
+/>
+
+## DiscoveredListener
+
+One `@OnEvent` subscription found in the DI container, as returned by `scanEventListeners`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-event-emitter/src/event-listener-scan.ts"
+  name="DiscoveredListener"
+/>
+
+## buildEventEntrypointType
+
+```ts
+function buildEventEntrypointType(error?: ProfilerErrorOptions): ProfilerEntrypointType;
+```
+
+Builds the `event` entrypoint type with a host-supplied error classification. A handler execution synthesises a `500` response when it throws, but the status layer is **off by default** for this kind — the verdict rests on the captured exception, so `error: { exceptions: ['TimeoutError'] }` narrows it to the failures that matter when a handler throws routinely as flow control. `EVENT_ENTRYPOINT_TYPE_DEF` is the same type with the default classification.
+
+`EventProfilerService` registers the configured type at bootstrap; you never call this yourself unless you are building a variant.
+
+## Public exports
+
+```ts
+import {
+  EventEmitterCollectorModule,
+  EventEmitterCollector,
+  EventEmitterPatch,
+  EventProfilerService,
+  EventRouteSource,
+  EVENT_EMITTER_EVENTS_KEY,
+  EVENT_ENTRYPOINT_TYPE,
+  EVENT_ENTRYPOINT_TYPE_DEF,
+  EVENT_ICON,
+  buildEventEntrypointType,
+  scanEventListeners,
+} from '@eleven-labs/nest-profiler-event-emitter';
+
+import type {
+  EventEmitterCollectorModuleOptions,
+  EventEmitterCollectorModuleAsyncOptions,
+  EventEntry,
+  EventEntrypointData,
+  DiscoveredListener,
+} from '@eleven-labs/nest-profiler-event-emitter';
+```
+
+## Setup
+
+```ts
+// In the module that registers EventEmitterModule:
+import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { EventEmitterCollectorModule } from '@eleven-labs/nest-profiler-event-emitter';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),
+    ConditionalModule.registerWhen(
+      EventEmitterCollectorModule.forRoot({ ignoreEvents: [/^internal\./] }),
+      isProfilerEnabled,
+    ),
+  ],
+})
+export class NotificationsModule {}
+```
+
+`forRootAsync` resolves the option **values** from DI (thresholds from `ConfigService`, for instance); `enabled` stays a synchronous build-time decision, so gate per environment with `ConditionalModule.registerWhen(...)`.
+
+```ts
+EventEmitterCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
+    capturePayload: config.get<boolean>('profiler.capturePayload'),
+  }),
+});
+```
+
+**Prerequisite:** `EventEmitterModule.forRoot()` from `@nestjs/event-emitter` must be registered (it provides `EventEmitter2` globally). Pass `emitterToken` when the emitter is bound to a custom token.

@@ -30,6 +30,9 @@ flag_management:
     - name: nest-profiler-config
       paths:
         - packages/nest-profiler-config/
+    - name: nest-profiler-event-emitter
+      paths:
+        - packages/nest-profiler-event-emitter/
     - name: nest-profiler-graphql
       paths:
         - packages/nest-profiler-graphql/

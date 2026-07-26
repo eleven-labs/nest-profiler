@@ -75,6 +75,11 @@
       - any-glob-to-any-file:
           - 'packages/nest-profiler-mongoose/**'
 
+'package: nest-profiler-event-emitter':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-event-emitter/**'
+
 'package: nest-profiler-rabbitmq':
   - changed-files:
       - any-glob-to-any-file:

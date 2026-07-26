@@ -178,6 +178,16 @@ const TARGETS: Target[] = [
     preds: [(p) => httpGet(api('/products'))(p) && statusOf(p) === 200],
   },
   {
+    // POST /products publishes `product.created` in-process, so its Events panel lists the
+    // emission with its listener count, duration and payload.
+    file: 'events.png',
+    tab: 'event-emitter',
+    preds: [
+      (p) => isPost(p) && urlOf(p) === api('/products') && hasCollector(p, 'event-emitter'),
+      (p) => hasCollector(p, 'event-emitter'),
+    ],
+  },
+  {
     // The on-demand EXPLAIN plan: `#explain` auto-opens the first query's plan on load (the
     // client fetches it live from the explain route), so the shot shows the plan panel — the
     // Seq Scan badge, plan type, estimated rows/cost and the raw plan — expanded under the query.
@@ -476,6 +486,10 @@ async function main(): Promise<void> {
     if (wanted('command-list.png')) {
       console.log('  • command-list.png');
       capture('command-list.png', `${PROFILER_URL}?view=command`);
+    }
+    if (wanted('events-list.png')) {
+      console.log('  • events-list.png');
+      capture('events-list.png', `${PROFILER_URL}?view=event`);
     }
 
     // Performance-tag filter — the GraphQL list narrowed to the profiles carrying the

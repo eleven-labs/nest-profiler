@@ -55,6 +55,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
 - [`@eleven-labs/nest-profiler-commander`](packages/nest-profiler-commander/README.md) — Command panel (CLI / nest-commander)
 - [`@eleven-labs/nest-profiler-rabbitmq`](packages/nest-profiler-rabbitmq/README.md) — RabbitMQ panel (messages consumed via `@RabbitSubscribe`)
+- [`@eleven-labs/nest-profiler-event-emitter`](packages/nest-profiler-event-emitter/README.md) — Events panel (domain events dispatched via `@nestjs/event-emitter`)
 
 Full guides and API reference live on the documentation site (`pnpm docs:dev`, then http://localhost:3002).
 
@@ -145,7 +146,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander, rabbitmq)
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander, rabbitmq, event-emitter)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled

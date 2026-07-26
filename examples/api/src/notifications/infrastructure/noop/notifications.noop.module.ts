@@ -3,8 +3,12 @@ import { EventPublisher } from '../../domain/event-publisher.js';
 import { NoopEventPublisher } from './noop.publisher.js';
 
 /**
- * No-infrastructure adapter for the notifications context — the default when `FEATURE_RABBITMQ` is
- * off. Sole provider/exporter of the {@link EventPublisher} port, bound to the no-op publisher.
+ * Discard-everything adapter for the notifications context — the smallest possible implementation
+ * of the {@link EventPublisher} port, kept as a reference.
+ *
+ * **Not wired by default.** The in-process `NotificationsEventEmitterModule` took that role: it also
+ * needs zero infrastructure, but actually delivers the events (and gives the profiler something to
+ * show). Swap it back in a bounded context that must publish nothing at all.
  */
 @Module({
   providers: [{ provide: EventPublisher, useClass: NoopEventPublisher }],
