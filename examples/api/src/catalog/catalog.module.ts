@@ -8,6 +8,7 @@ import { CatalogGraphQLModule } from './graphql/catalog-graphql.module.js';
 import { ProductTypeOrmModule } from './infrastructure/typeorm/product.typeorm.module.js';
 import { ProductMikroOrmModule } from './infrastructure/mikro-orm/product.mikro-orm.module.js';
 import { ProductInMemoryModule } from './infrastructure/in-memory/product.in-memory.module.js';
+import { NotificationsEventEmitterModule } from '../notifications/infrastructure/event-emitter/notifications.event-emitter.module.js';
 
 /**
  * Catalog bounded context (products). Owns the application layer + the REST and GraphQL entrypoints,
@@ -25,6 +26,9 @@ import { ProductInMemoryModule } from './infrastructure/in-memory/product.in-mem
     ConditionalModule.registerWhen(ProductTypeOrmModule, isSqlOrm('typeorm')),
     ConditionalModule.registerWhen(ProductMikroOrmModule, isSqlOrm('mikro-orm')),
     ConditionalModule.registerWhen(CatalogGraphQLModule, isGraphQLEnabled),
+    // Always-on, infrastructure-free messaging adapter: `product.created` is emitted and handled
+    // in-process, so the event-emitter collector has data out of the box.
+    NotificationsEventEmitterModule,
   ],
   controllers: [ProductController],
   providers: [ProductService, ProductResolver],

@@ -1,0 +1,61 @@
+<div class="rounded-xl border border-line overflow-x-auto bg-surface">
+  <table class="w-full min-w-[640px]">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Event</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Handler</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Status</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% if (profiles.length === 0) { %>
+        <tr>
+          <td colspan="5" class="py-16 text-center">
+            <p class="text-foreground-muted text-sm mb-1">No event executions found</p>
+            <p class="text-foreground-faint text-xs">Emit an event with a subscribed <code>@OnEvent</code> handler to start collecting data.</p>
+          </td>
+        </tr>
+      <% } else { %>
+      <% for (const p of profiles) { %>
+        <%
+          const ev = p.entrypoint.data;
+          const dur = p.performance.duration;
+          const durClass = dur === undefined ? 'dur-none'
+            : dur < 100  ? 'dur-fast'
+            : dur < 500  ? 'dur-medium'
+            : 'dur-slow';
+        %>
+        <%# The row is the link — no cell owns it. `tabindex` makes it reachable by keyboard. %>
+        <tr data-row-href="<%= link(profilerPath + '/' + p.token) %>" tabindex="0"
+            class="group cursor-pointer hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nest transition-colors">
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap group-hover:text-nest transition-colors">
+            <%= isoDate(p.createdAt) %>
+          </td>
+          <td class="py-2.5 px-4 text-xs tabular-nums">
+            <span class="<%= durClass %>"><%= dur !== undefined ? formatDuration(dur) + 'ms' : '—' %></span>
+          </td>
+          <td class="py-2.5 px-4">
+            <div class="flex items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default">EVENT</span>
+              <code class="text-foreground-secondary text-xs"><%= ev.event %></code>
+            </div>
+            <% if (p.tags && p.tags.length > 0) { %>
+              <div class="mt-1 flex flex-wrap gap-1"><%- tagBadges(p.tags) %></div>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-faint text-xs max-w-xs truncate" title="<%= ev.provider %>.<%= ev.method %>()">
+            <code><%= ev.provider %>.<%= ev.method %>()</code>
+          </td>
+          <td class="py-2.5 px-4">
+            <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= ev.success ? 'badge-2xx' : 'badge-5xx' %>">
+              <%= ev.success ? 'OK' : 'FAILED' %>
+            </span>
+          </td>
+        </tr>
+      <% } %>
+      <% } %>
+    </tbody>
+  </table>
+</div>

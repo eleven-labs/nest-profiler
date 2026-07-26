@@ -85,7 +85,7 @@ pnpm example:dev
 FEATURE_GRAPHQL=false pnpm example:dev
 ```
 
-When `FEATURE_RABBITMQ=true`, creating a review (`POST /api/v1/reviews`) publishes a `review.created` event through the `EventPublisher` port; the RabbitMQ adapter forwards it to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab. With the flag off, the port is bound to a no-op publisher, so reviews still work without a broker.
+Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab.
 
 ### Run the application
 
@@ -188,10 +188,12 @@ AppModule (no controller — only global forRoot + feature modules)
 ├── AuthModule               → AuthCollectorModule (nest-profiler-auth)
 ├── HealthModule             → GET /health
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
+├── CatalogModule → … also publishes product.created via the EventPublisher port:
+│     └── NotificationsEventEmitterModule [always]           → EventEmitterCollectorModule + @OnEvent listener
 └── ReviewsModule [FEATURE_MONGOOSE]  → MongooseCollectorModule (nest-profiler-mongoose)
       └── publishes review.created via the EventPublisher port:
-          ├── NotificationsRabbitMqModule [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
-          └── NotificationsNoopModule     [default]          → no broker
+          ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
+          └── NotificationsEventEmitterModule  [default]          → in-process, no broker
 
 Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
         / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, opt-in)
@@ -286,7 +288,9 @@ const review = await this.repo.create({ ...data, status: data.status ?? 'pending
 await this.events.publish({ name: 'review.created', payload: { reviewId: review.id /* … */ } });
 ```
 
-`ReviewsModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the no-op adapter (default). The RabbitMQ adapter also registers the `@RabbitSubscribe` consumer that reacts to the event — so `mongoose` and `rabbitmq` collectors light up together through one realistic use case.
+`ReviewsModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
+
+The `NotificationsNoopModule` under `notifications/infrastructure/noop/` is kept as the minimal reference implementation of the port, but it is no longer wired: the in-process adapter needs just as little infrastructure and actually delivers the events.
 
 ## Available endpoints
 

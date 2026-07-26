@@ -1,0 +1,95 @@
+<%
+  const events = data || [];
+  const totalDuration = events.reduce((sum, e) => sum + (e.duration || 0), 0);
+  const errCount = events.filter(e => e.error).length;
+  const listenerless = events.filter(e => e.listenerCount === 0).length;
+  const uniqueNames = new Set(events.map(e => e.event)).size;
+%>
+
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-4 text-xs text-foreground-muted">
+    <span><strong class="text-foreground"><%= events.length %></strong> event<%= events.length !== 1 ? 's' : '' %></span>
+    <span><strong class="text-foreground"><%= uniqueNames %></strong> name<%= uniqueNames !== 1 ? 's' : '' %></span>
+    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% if (errCount > 0) { %><span class="text-danger"><strong><%= errCount %></strong> err</span><% } %>
+    <% if (listenerless > 0) { %><span class="text-warning"><strong><%= listenerless %></strong> no listener</span><% } %>
+  </div>
+</div>
+
+<% if (events.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No events were emitted during this request.</p>
+  </div>
+<% } else { %>
+  <div class="rounded-lg border border-line overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Event</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Listeners</th>
+          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line-subtle">
+        <% for (let i = 0; i < events.length; i++) { %>
+          <% const e = events[i]; %>
+          <%
+            const hasPayload = e.payload !== undefined && e.payload !== null;
+            const hasDetails = hasPayload || Boolean(e.error);
+            const detailsRowId = `event-row-details-${i}`;
+          %>
+          <tr
+            class="<%= hasDetails ? 'cursor-pointer hover:bg-surface-muted' : 'hover:bg-surface-muted' %> transition-colors align-top"
+            <% if (hasDetails) { %>
+              data-toggle-details
+              data-details-id="<%= detailsRowId %>"
+              aria-expanded="false"
+              role="button"
+              tabindex="0"
+            <% } %>
+          >
+            <td class="py-2 px-4 text-foreground-secondary text-xs break-all">
+              <div class="inline-flex items-center gap-2">
+                <% if (hasDetails) { %>
+                  <span class="inline-flex h-5 w-5 items-center justify-center rounded border border-line-subtle text-foreground-faint">
+                    <span data-event-indicator="true" class="text-2xs leading-none">▸</span>
+                  </span>
+                <% } else { %>
+                  <span class="inline-flex h-5 w-5 items-center justify-center text-foreground-faint text-2xs">•</span>
+                <% } %>
+                <span class="font-mono text-foreground"><%= e.event %></span>
+                <% if (e.async) { %><span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide bg-surface-muted text-foreground-muted">async</span><% } %>
+              </div>
+              <% if (e.error) { %><span class="block text-danger text-2xs mt-0.5 ml-7"><%= e.error %></span><% } %>
+            </td>
+            <td class="py-2 px-4 whitespace-nowrap">
+              <% if (e.listenerCount === 0) { %>
+                <span class="px-1.5 py-0.5 rounded text-2xs font-bold text-warning">0 · no listener</span>
+              <% } else { %>
+                <span class="text-foreground-secondary text-xs tabular-nums"><%= e.listenerCount %></span>
+              <% } %>
+            </td>
+            <td class="py-2 px-4 text-right text-xs tabular-nums text-foreground-secondary"><%= e.duration %>ms</td>
+            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(e.startedAt) %></td>
+          </tr>
+
+          <% if (hasDetails) { %>
+            <tr id="<%= detailsRowId %>" class="hidden bg-surface-subtle" data-event-details="true">
+              <td colspan="4" class="px-4 py-3">
+                <% if (hasPayload) { %>
+                  <section class="bg-surface border border-line-subtle rounded p-2.5">
+                    <p class="text-2xs text-foreground-faint uppercase tracking-widest font-semibold mb-1.5">Payload</p>
+                    <pre class="bg-surface-muted border border-line rounded p-2 overflow-x-auto text-2xs leading-relaxed"><code class="language-json"><%= toJson(e.payload) %></code></pre>
+                  </section>
+                <% } else { %>
+                  <p class="text-foreground-muted text-2xs">No payload captured for this event.</p>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
