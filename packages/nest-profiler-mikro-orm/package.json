@@ -71,7 +71,7 @@
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.13.2",
+    "@types/node": "^24.13.3",
     "jest": "^30.4.2",
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
