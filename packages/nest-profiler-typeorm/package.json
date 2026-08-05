@@ -70,7 +70,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.13.2",
+    "@types/node": "^24.13.3",
     "better-sqlite3": "^12.11.1",
     "jest": "^30.4.2",
     "nestjs-cls": "^6.2.1",
