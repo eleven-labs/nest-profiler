@@ -57,9 +57,6 @@ export const RABBITMQ_ENTRYPOINT_TYPE = 'rabbitmq';
 /** golevelup's `ExecutionContext` type string for `@RabbitSubscribe` handlers. */
 export const RMQ_CONTEXT_TYPE = 'rmq';
 
-/** Header names (lowercase) masked by default in the captured AMQP headers. */
-export const DEFAULT_MASK_HEADERS = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
-
 /** Payload of a `rabbitmq` entrypoint — the consumed AMQP message a profile describes. */
 export interface RabbitMqInfo {
   /** Exchange the message was published to (empty string for the default exchange). */

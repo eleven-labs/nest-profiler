@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
-import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+import {
+  RabbitMqCollectorModule,
+  RabbitMqPublishCollectorModule,
+} from '@eleven-labs/nest-profiler-rabbitmq';
 import { isProfilerEnabled } from '../../../config/profiler.config.js';
 import rabbitmqConfig from '../../../config/rabbitmq.config.js';
 import { EventPublisher } from '../../domain/event-publisher.js';
@@ -12,8 +15,9 @@ import { NOTIFICATIONS_EXCHANGE } from './rabbitmq.constants.js';
 
 /**
  * RabbitMQ adapter for the notifications context. Selected when `FEATURE_RABBITMQ=true`. Wires the
- * broker connection + the RabbitMQ collector, binds/exports the {@link EventPublisher} port and
- * registers the consumer that reacts to `review.created` events.
+ * broker connection + both RabbitMQ collectors (consumed messages, published ones),
+ * binds/exports the {@link EventPublisher} port and registers the consumer that reacts to
+ * `review.created` events.
  */
 @Module({
   imports: [
@@ -32,6 +36,8 @@ import { NOTIFICATIONS_EXCHANGE } from './rabbitmq.constants.js';
     }),
     // Profiles each consumed message as a `rabbitmq` entrypoint.
     ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
+    // Lists the events this context publishes in the AMQP panel of the profile that emitted them.
+    ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [
     NotificationService,

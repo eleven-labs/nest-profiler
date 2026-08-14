@@ -8,3 +8,10 @@ export type {
   RabbitMqCollectorModuleAsyncOptions,
 } from './rabbitmq-collector.interface';
 export { RABBITMQ_ENTRYPOINT_TYPE_DEF, buildRabbitMqEntrypointType } from './rabbitmq-entrypoint';
+export { RabbitMqPublishCollectorModule } from './rabbitmq-publish-collector.module';
+export { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
+export type {
+  AmqpPublishEntry,
+  RabbitMqPublishCollectorModuleOptions,
+  RabbitMqPublishCollectorModuleAsyncOptions,
+} from './rabbitmq-publish-collector.interface';

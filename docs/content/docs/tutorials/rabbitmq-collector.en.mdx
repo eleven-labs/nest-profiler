@@ -6,7 +6,7 @@ seo:
   description: 'A step-by-step guide to profiling RabbitMQ messages consumed via @RabbitSubscribe and inspecting their routing key, payload and timing in the web profiler, from install to live inspection.'
 ---
 
-This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile - with a **Message** panel plus any HTTP, cache, or database activity the handler triggered - that appears in a dedicated **RabbitMQ** view at `/_profiler`.
+This tutorial shows how to profile RabbitMQ messages consumed with [`@golevelup/nestjs-rabbitmq`](https://github.com/golevelup/nestjs/tree/master/packages/rabbitmq). Each consumed message produces a profile - with a **Message** panel plus any HTTP, cache, or database activity the handler triggered - that appears in a dedicated **RabbitMQ** view at `/_profiler`. The last steps cover the other direction: the messages your app publishes.
 
 ## Prerequisites
 
@@ -124,6 +124,26 @@ ConditionalModule.registerWhen(
 );
 ```
 
+## Profiling what you publish, too
+
+The same package ships `RabbitMqPublishCollectorModule`, which lists the messages a profiled request **published** in an **AMQP** panel. It is independent of the module above — register it on its own in a publish-only API, or alongside it to also see the messages your consumers republish:
+
+```ts title="app.module.ts"
+import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled);
+```
+
+Nothing changes in your publishers: keep injecting `AmqpConnection` and calling `publish()`. Each row shows the exchange, routing key, AMQP properties, masked headers, payload, duration and outcome, tagged `slow` / `n-plus-one` / `error` by the rule engine — publishing the same message once per loop iteration is exactly the N+1 the panel makes visible.
+
+```ts
+RabbitMqPublishCollectorModule.forRoot({
+  captureBody: true, // the published message - disable if payloads are large
+  maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
+  slowThreshold: 50, // ms before a publish is tagged `slow`
+});
+```
+
 ## How it works
 
-A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list view and **Message** detail tab). See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.
+A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list view and **Message** detail tab). The publish collector works the other way around: it patches `AmqpConnection.prototype.publish` and appends to whatever profile is active. See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.

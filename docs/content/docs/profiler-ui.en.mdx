@@ -102,6 +102,8 @@ The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/do
 
 ![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
+The **AMQP** collector (same package, `RabbitMqPublishCollectorModule`) covers the other direction: the messages the profiled request **published** through `AmqpConnection.publish`, one row each with its exchange, routing key, AMQP properties, headers, payload, duration and outcome — plus a copy button holding a runnable `channel.publish(...)` snippet.
+
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 
 ![Security tab showing an authenticated demo_user with the admin role](/screenshots/profiler/security.png)

@@ -22,7 +22,12 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-rabbitmq` captures RabbitMQ messages consumed via `@RabbitSubscribe` (`@golevelup/nestjs-rabbitmq`) and surfaces each one as its own profile — a dedicated **RabbitMQ** view on the profiler home and a built-in **Message** detail tab.
+`@eleven-labs/nest-profiler-rabbitmq` brings RabbitMQ (`@golevelup/nestjs-rabbitmq`) into the profiler, in both directions:
+
+- **Messages you consume** — `RabbitMqCollectorModule` turns every `@RabbitSubscribe` delivery into its own profile: a dedicated **RabbitMQ** view on the profiler home and a built-in **Message** detail tab.
+- **Messages you publish** — `RabbitMqPublishCollectorModule` lists every `AmqpConnection.publish` made during a profiled request in an **AMQP** panel, with its exchange, routing key, headers, payload, duration and outcome.
+
+The two are independent: register the one that matches what your application does, or both when it does both.
 
 ![RabbitMQ view — consumed messages with delivery, exchange, routing-key and handler filters](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq-list.png)
 
@@ -36,9 +41,9 @@ pnpm add @eleven-labs/nest-profiler-rabbitmq@alpha
 
 > There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
-**Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to consume messages). They are optional — when no RabbitMQ consumer runs, the module simply never produces a profile.
+**Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to talk to the broker). They are optional — when no RabbitMQ traffic runs, the modules simply never produce a profile or a panel entry.
 
-## Setup
+## Consuming messages — `RabbitMqCollectorModule`
 
 Register the module in the application that consumes your messages (the same process that hosts the profiler), alongside your RabbitMQ module:
 
@@ -66,7 +71,7 @@ async createGeneration(message: ArticleEvent, raw: ConsumeMessage): Promise<void
 }
 ```
 
-## Configuration
+### Configuration
 
 ```ts
 RabbitMqCollectorModule.forRoot({
@@ -83,7 +88,7 @@ RabbitMqCollectorModule.forRoot({
 
 > **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
-## What it collects
+### What it collects
 
 Each consumed message becomes a profile with a `rabbitmq` entrypoint (`entrypoint.type = 'rabbitmq'`, with this payload on `entrypoint.data`):
 
@@ -100,9 +105,85 @@ Each consumed message becomes a profile with a `rabbitmq` entrypoint (`entrypoin
 
 The masked headers and the payload are stored on `entrypoint.data.headers` / `entrypoint.data.payload`.
 
-## How it works
+### How it works
 
 A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` execution context that **creates** a fresh profile per message. The core `ProfilerInterceptor` wraps the handler in a CLS context — so profile-scoped collectors (HTTP client, database, …) keep capturing — then persists the profile. The module registers the `rabbitmq` entrypoint type, so the profiler renders it in a dedicated **RabbitMQ** sidebar view and a built-in **Message** detail tab; the HTTP Request/Response tabs are hidden, exactly like CLI commands.
+
+## Publishing messages — `RabbitMqPublishCollectorModule`
+
+Register it wherever the profiler runs — a publish-only API needs nothing else from this package:
+
+```ts title="app.module.ts"
+import { ConditionalModule } from '@nestjs/config';
+import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+
+@Module({
+  imports: [
+    ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled),
+    // your RabbitMQModule.forRoot(...)
+  ],
+})
+export class AppModule {}
+```
+
+Your publishers need no changes — keep injecting `AmqpConnection`:
+
+```ts
+await this.amqp.publish('articles.events', event.name, event.payload);
+```
+
+### Configuration
+
+```ts
+RabbitMqPublishCollectorModule.forRoot({
+  captureHeaders: true, // default — publish headers (sensitive ones masked)
+  captureBody: true, // default — the published message
+  maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
+  payloadLimits: { maxStringLength: 512 }, // depth / size caps on the captured payload
+  slowThreshold: 50, // default — a publish at or above this duration is tagged `slow`
+  nPlusOneThreshold: 2, // default — identical publishes repeated this many times are tagged N+1
+  chattyThreshold: 10, // default — a request publishing this many messages is tagged `chatty`
+});
+```
+
+Use `forRootAsync` to resolve any of these from `ConfigService`, and the same
+`ConditionalModule.registerWhen(..., isProfilerEnabled)` gate as above to keep the panel out of
+production.
+
+### What it collects
+
+One entry per publish, listed in the **AMQP** panel:
+
+| Field                       | Description                                                               |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `exchange` / `routingKey`   | Where the message was sent (`(default)` for the default exchange)         |
+| `payload`                   | The published message, redacted and size-capped (when `captureBody`)      |
+| `headers`                   | Publish headers, sensitive ones masked (when `captureHeaders`)            |
+| `messageId` / `appId`       | AMQP properties, when the publisher set them                              |
+| `correlationId` / `replyTo` | AMQP properties of an RPC call                                            |
+| `duration`                  | Time spent in `publish()`                                                 |
+| `accepted`                  | `false` when the channel buffered the message (its write buffer was full) |
+| `error`                     | The message `publish()` rejected with, when it failed                     |
+
+Entries are tagged by the core rule engine: `slow`, `n-plus-one` (the same message published once
+per loop iteration) and `error`. Each row carries a copy button with a runnable amqplib
+`channel.publish(...)` snippet that re-emits the message.
+
+### How it works
+
+The module patches `AmqpConnection.prototype.publish` and records every call made while a profile
+is active — reading the profile from the profiler's CLS context, so a publish outside a profiled
+request (at bootstrap, from a cron job) records nothing. Patching the prototype covers every
+connection the application registers, plus the publishes golevelup itself routes through
+`publish`: `AmqpConnection.request()` for RPC calls and the reply an `@RabbitRPC` handler sends.
+
+Because the panel is profile-scoped, it works under any entrypoint — an HTTP request, a CLI
+command, or a consumed message when `RabbitMqCollectorModule` is registered too, which is how you
+see the messages a consumer republishes.
+
+Only the caller's publish options are captured, not the connection's `defaultPublishOptions`.
 
 ---
 
