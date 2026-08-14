@@ -113,6 +113,12 @@
                   <% } %>
                 </div>
               <% } %>
+              <% if (q.result !== undefined) { %>
+                <details class="mt-1.5">
+                  <summary class="cursor-pointer text-2xs text-foreground-muted hover:text-foreground select-none">Result</summary>
+                  <pre class="mt-1 bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.result) %></code></pre>
+                </details>
+              <% } %>
               <% if (q.error) { %>
                 <div class="mt-1 text-danger text-2xs">Error: <%= q.error %></div>
               <% } %>

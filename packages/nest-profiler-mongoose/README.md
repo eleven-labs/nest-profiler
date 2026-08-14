@@ -69,22 +69,38 @@ export class AppModule {}
 
 For each Mongoose query or aggregation executed during a request:
 
-| Field         | Description                                                          |
-| ------------- | -------------------------------------------------------------------- |
-| `collection`  | MongoDB collection name (e.g. `reviews`)                             |
-| `operation`   | Mongoose operation (e.g. `find`, `aggregate`)                        |
-| `filter`      | Query filter object (if applicable)                                  |
-| `duration`    | Execution time in ms                                                 |
-| `startedAt`   | Unix timestamp                                                       |
-| `count`       | Documents returned (reads) or affected (writes)                      |
-| `error`       | Error message if the query failed                                    |
-| `streaming`   | `true` for streaming reads (`Query.cursor()` / `Aggregate.cursor()`) |
-| `connection`  | Connection endpoint `host:port` (no credentials)                     |
-| `database`    | Target database name                                                 |
-| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping            |
-| `tags`        | Performance tags applied by the core rule engine                     |
+| Field         | Description                                                           |
+| ------------- | --------------------------------------------------------------------- |
+| `collection`  | MongoDB collection name (e.g. `reviews`)                              |
+| `operation`   | Mongoose operation (e.g. `find`, `aggregate`)                         |
+| `filter`      | Query filter object (if applicable)                                   |
+| `duration`    | Execution time in ms                                                  |
+| `startedAt`   | Unix timestamp                                                        |
+| `count`       | Documents returned (reads) or affected (writes)                       |
+| `result`      | Documents the operation resolved to — only when `captureResult` is on |
+| `error`       | Error message if the query failed                                     |
+| `streaming`   | `true` for streaming reads (`Query.cursor()` / `Aggregate.cursor()`)  |
+| `connection`  | Connection endpoint `host:port` (no credentials)                      |
+| `database`    | Target database name                                                  |
+| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping             |
+| `tags`        | Performance tags applied by the core rule engine                      |
+
+`count` is derived from what the operation resolved to: the array length for `find` / `distinct` / `aggregate`, the number itself for `countDocuments` / `estimatedDocumentCount`, `1` or `0` for single-document reads (`findOne`, `findById`, `findOneAnd*`), and the write acknowledgement for `update*` / `delete*` / `replace*` (`deletedCount`, or `modifiedCount` plus `upsertedCount` so an upsert counts as affected). When the shape is not recognized the field stays unset and the panel omits it rather than showing a wrong figure. Streamed row counts are not captured.
 
 Slow queries, N+1 patterns and silent zero-count `delete`/`update`s (the `zero-rows` tag) are flagged by the core rule engine and shown as coloured pills (and filterable on the list page). See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).
+
+## Capturing results
+
+The documents an operation returned are **not** captured by default — a result set carries the very data the query read. Enable `captureResult` to display them in a collapsible **Result** block under each row:
+
+```ts
+MongooseCollectorModule.forRoot({
+  captureResult: true, // off by default
+  resultLimits: { maxItems: 20, maxDepth: 4, maxStringLength: 512 },
+});
+```
+
+Captured documents are flattened through their `toJSON()` projection, capped by `resultLimits` (`maxItems` bounds both the documents kept and the keys kept per document, the rest collapsing to a `… +N more` marker) and passed through the shared redaction, so a field named `password`, `token`, `secret`… is masked before it reaches the profile. They are still written to profile storage: keep this off outside local development.
 
 ## Toolbar badge
 

@@ -30,6 +30,22 @@ describe('MongooseCollectorModule.forRoot', () => {
   });
 });
 
+describe('MongooseConnectionPatch options injection', () => {
+  /**
+   * Guards the import cycle regression: the patch used to import the options token from
+   * `./mongoose-collector.module`, which imports the patch back — the token was still
+   * undefined when the decorators ran, so `@Inject(undefined)` fell through to the
+   * `@Optional()` default and every option was silently ignored.
+   */
+  it('decorates the options parameter with the resolved token', () => {
+    const injected = Reflect.getMetadata('self:paramtypes', MongooseConnectionPatch) as {
+      index: number;
+      param?: unknown;
+    }[];
+    expect(injected).toEqual([{ index: 1, param: MONGOOSE_COLLECTOR_OPTIONS }]);
+  });
+});
+
 describe('MongooseCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}

@@ -1,0 +1,8 @@
+---
+'@eleven-labs/nest-profiler-mongoose': minor
+---
+
+Report the result count for every Mongoose operation, and optionally capture the documents.
+
+- **`count` is no longer limited to array results.** It was read as `result.length`, so it stayed unset for every operation that does not resolve to an array — `countDocuments`, `estimatedDocumentCount`, `findOne`/`findById`/`findOneAnd*`, `updateOne`/`updateMany`, `deleteOne`/`deleteMany`, `replaceOne` — and the MongoDB panel silently omitted the figure for all of them. It is now derived from the shape the operation resolved to: the array length for `find`/`distinct`/`aggregate`, the number itself for the counting operations, `1`/`0` for single-document reads, and the write acknowledgement for writes (`deletedCount`, or `modifiedCount` plus `upsertedCount` so an upsert is not reported as affecting nothing). Unrecognized shapes still leave the field unset, so the panel omits it instead of showing a wrong number. This also makes the `zero-rows` tag effective on Mongoose writes — it could never fire before, since it keys on `count === 0` for `update*`/`delete*`.
+- **New `captureResult` option (default `false`)** displaying the documents an operation returned in a collapsible **Result** block under each panel row, alongside the new `result` field on `MongooseQueryEntry`. Captured documents are flattened through their `toJSON()` projection, bounded by the new `resultLimits` option (`SafeDataOptions`, defaulting to the core caps) and passed through the shared redaction, so secret-looking fields are masked before they reach profile storage. Opt-in, like the HTTP collector's body capture — a result set carries the very data the query read.

@@ -1,6 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ProfilerTag, TagSeverity } from '@eleven-labs/nest-profiler';
+import type { ProfilerTag, SafeDataOptions, TagSeverity } from '@eleven-labs/nest-profiler';
 
 export interface MongooseQueryEntry {
   collection: string;
@@ -12,6 +12,11 @@ export interface MongooseQueryEntry {
   startedAt: number;
   /** Documents affected (writes) or returned (reads) — the MongoDB row-count analog. */
   count?: number;
+  /**
+   * Documents (or write acknowledgement) the operation resolved to, captured only when
+   * `captureResult` is enabled. Redacted and size-capped before being persisted.
+   */
+  result?: unknown;
   /** Connection endpoint, host:port only (no credentials). e.g. `"localhost:27017"`. */
   connection?: string;
   /** Target database name. */
@@ -53,6 +58,20 @@ export interface MongooseCollectorModuleOptions {
   zeroRowsSeverity?: TagSeverity;
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
   enabled?: boolean;
+  /**
+   * Capture the documents each operation resolved to, exposed as {@link MongooseQueryEntry.result}
+   * in the MongoDB panel. Default: `false` — a result set carries the very data the query read, so
+   * it is opt-in like the HTTP collector's body capture. Captured documents go through the shared
+   * redaction and the {@link MongooseCollectorModuleOptions.resultLimits} caps.
+   */
+  captureResult?: boolean;
+  /**
+   * Depth / size caps applied to captured results, forwarded to the core's `toSafeData`. Defaults
+   * to the core defaults (`maxDepth: 4`, `maxItems: 64`, `maxStringLength: 2048`); `maxItems` caps
+   * both the number of documents kept and the number of keys kept per document.
+   * Only meaningful when {@link MongooseCollectorModuleOptions.captureResult} is enabled.
+   */
+  resultLimits?: SafeDataOptions;
   /**
    * Name of the Mongoose connection to instrument. Omit for the default connection. Set this in
    * apps that only register named connections (otherwise the default token would be missing).

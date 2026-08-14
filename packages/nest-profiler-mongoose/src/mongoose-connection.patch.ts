@@ -3,12 +3,17 @@ import { ModuleRef } from '@nestjs/core';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { ClsService } from 'nestjs-cls';
 import type { Connection } from 'mongoose';
-import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
-import type { MongooseQueryEntry } from './mongoose-collector.interface';
-import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
-import { MONGOOSE_COLLECTOR_OPTIONS } from './mongoose-collector.module';
-import type { MongooseCollectorModuleOptions } from './mongoose-collector.module';
+import type { Profile, SafeDataOptions } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, redact, toSafeData, tryResolve } from '@eleven-labs/nest-profiler';
+// Import the options token from the interface module, never from `./mongoose-collector.module`:
+// that module imports this file, and the resulting cycle leaves the re-exported token
+// undefined when the decorators below run — `@Inject(undefined)` then silently degrades to the
+// `@Optional()` default, so every option (captureResult, connectionName…) would be ignored.
+import type {
+  MongooseCollectorModuleOptions,
+  MongooseQueryEntry,
+} from './mongoose-collector.interface';
+import { MONGOOSE_COLLECTOR_OPTIONS, MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
 
 /** Narrow surface of mongoose.Query used during patching. */
 interface PatchableQuery {
@@ -91,6 +96,59 @@ function collectionNameOf(source: unknown): string {
   return holder?.collection?.name ?? holder?.constructor?.collection?.name ?? 'unknown';
 }
 
+/** Write acknowledgement as returned by `update*` / `delete*` / `replace*` operations. */
+interface WriteAcknowledgement {
+  deletedCount?: unknown;
+  modifiedCount?: unknown;
+  upsertedCount?: unknown;
+  matchedCount?: unknown;
+}
+
+/** Operations whose result is a write acknowledgement rather than documents. */
+const WRITE_OPERATIONS = /^(update|delete|replace)/i;
+
+/** Operations resolving to a single document, or `null` when nothing matched. */
+const SINGLE_DOCUMENT_OPERATIONS = /^(findOne|findById)/i;
+
+/** Documents affected by a write, read off its acknowledgement. */
+function acknowledgedCount(result: unknown): number | undefined {
+  if (result === null || typeof result !== 'object') return undefined;
+  const ack = result as WriteAcknowledgement;
+  if (typeof ack.deletedCount === 'number') return ack.deletedCount;
+  if (typeof ack.modifiedCount === 'number') {
+    // An upsert modifies nothing yet still writes a document — it counts as affected,
+    // otherwise the zero-rows rule would flag a successful upsert as a silent failure.
+    return ack.modifiedCount + (typeof ack.upsertedCount === 'number' ? ack.upsertedCount : 0);
+  }
+  if (typeof ack.matchedCount === 'number') return ack.matchedCount;
+  return undefined;
+}
+
+/**
+ * Derives the documents-affected count from whatever the operation resolved to. Arrays report
+ * their length (`find`, `distinct`, `aggregate`), counting operations report the number itself
+ * (`countDocuments`, `estimatedDocumentCount`), writes report their acknowledgement, and
+ * single-document reads collapse to `1` / `0`. Anything unrecognized stays `undefined` so the
+ * panel omits the figure rather than displaying a wrong one.
+ */
+export function resultCount(operation: string, result: unknown): number | undefined {
+  if (Array.isArray(result)) return result.length;
+  if (typeof result === 'number') return Number.isFinite(result) ? result : undefined;
+  if (WRITE_OPERATIONS.test(operation)) return acknowledgedCount(result);
+  if (SINGLE_DOCUMENT_OPERATIONS.test(operation)) return result == null ? 0 : 1;
+  return undefined;
+}
+
+/**
+ * Projects an operation result into something safe to persist and display: hydrated documents
+ * are flattened through `toSafeData` (which honors their `toJSON`, caps depth/size and keeps the
+ * payload JSON-serializable), then run through the shared redaction so a document field holding
+ * a token or a password never lands in a profile.
+ */
+export function safeResult(result: unknown, limits: SafeDataOptions | undefined): unknown {
+  return redact(toSafeData(result, limits ?? {}));
+}
+
 type PatchableConnection = Connection & { base: MongooseBase };
 
 @Injectable()
@@ -136,12 +194,15 @@ export class MongooseConnectionPatch implements OnModuleInit {
     if (!model) return;
     const cls = this.cls;
     const meta = this.connMeta;
+    const capture = this.options.captureResult === true;
+    const limits = this.options.resultLimits;
 
     const record = (
       operation: string,
       collection: string,
       startedAt: number,
       count: number | undefined,
+      captured: unknown,
       error: string | undefined,
     ): void => {
       try {
@@ -154,6 +215,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
           duration,
           startedAt,
           count,
+          result: captured,
           connection: meta.connection,
           database: meta.database,
           error,
@@ -167,14 +229,17 @@ export class MongooseConnectionPatch implements OnModuleInit {
       async function (this: unknown, original: PatchableExec, args: unknown[]): Promise<unknown> {
         const startedAt = Date.now();
         const collection = collectionNameOf(this);
+        let captured: unknown;
         let error: string | undefined;
         try {
-          return await original.apply(this, args);
+          const result = await original.apply(this, args);
+          if (capture && result !== undefined) captured = safeResult(result, limits);
+          return result;
         } catch (err) {
           error = err instanceof Error ? err.message : String(err);
           throw err;
         } finally {
-          record(operation, collection, startedAt, countOf(args), error);
+          record(operation, collection, startedAt, countOf(args), captured, error);
         }
       };
 
@@ -228,6 +293,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
     if (mongoose.Query.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
     const meta = this.connMeta;
+    const capture = this.options.captureResult === true;
+    const limits = this.options.resultLimits;
     const originalExec = mongoose.Query.prototype.exec;
 
     const patched: PatchableExec = async function (
@@ -243,11 +310,13 @@ export class MongooseConnectionPatch implements OnModuleInit {
       } catch {
         // not all query types support getFilter()
       }
-      let resultArray: unknown[] | undefined;
+      let count: number | undefined;
+      let captured: unknown;
       let error: string | undefined;
       try {
         const result = await originalExec.apply(this, args as []);
-        if (Array.isArray(result)) resultArray = result;
+        count = resultCount(operation, result);
+        if (capture && result !== undefined) captured = safeResult(result, limits);
         return result;
       } catch (err) {
         error = err instanceof Error ? err.message : String(err);
@@ -265,7 +334,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
               filter: filter ? redact(filter) : undefined,
               duration,
               startedAt,
-              count: resultArray?.length,
+              count,
+              result: captured,
               error,
               connection: meta.connection,
               database: meta.database,
@@ -286,6 +356,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
     if (mongoose.Aggregate.prototype.exec.__profilerPatched) return;
     const cls = this.cls;
     const meta = this.connMeta;
+    const capture = this.options.captureResult === true;
+    const limits = this.options.resultLimits;
     const originalExec = mongoose.Aggregate.prototype.exec;
 
     const patched: PatchableExec = async function (
@@ -295,11 +367,13 @@ export class MongooseConnectionPatch implements OnModuleInit {
       const startedAt = Date.now();
       const collection = this._model?.collection?.name ?? 'unknown';
       const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
-      let resultArray: unknown[] | undefined;
+      let count: number | undefined;
+      let captured: unknown;
       let error: string | undefined;
       try {
         const result = await originalExec.apply(this, args as []);
-        if (Array.isArray(result)) resultArray = result;
+        count = resultCount('aggregate', result);
+        if (capture && result !== undefined) captured = safeResult(result, limits);
         return result;
       } catch (err) {
         error = err instanceof Error ? err.message : String(err);
@@ -315,7 +389,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
               pipeline: pipeline ? redact(pipeline) : undefined,
               duration,
               startedAt,
-              count: resultArray?.length,
+              count,
+              result: captured,
               error,
               connection: meta.connection,
               database: meta.database,
