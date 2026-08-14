@@ -72,6 +72,7 @@
     "profiler-sidebar-navigation",
     "profiler-table-horizontal-scroll",
     "query-row-count-and-connection",
+    "rabbitmq-publish-collector",
     "redact-non-plain-values",
     "reliability-fixes",
     "routes-graphql-source",
