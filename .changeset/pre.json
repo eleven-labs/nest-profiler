@@ -26,6 +26,7 @@
   "changesets": [
     "add-rabbitmq-collector",
     "api-and-packaging",
+    "auth-badge-status",
     "capture-error-response-body",
     "capture-guard-exceptions",
     "capture-streaming-reads",
@@ -41,6 +42,7 @@
     "docs-install-alpha-tag",
     "extensible-entrypoint-types",
     "extensible-list-filters",
+    "fix-collector-options-import-cycle",
     "fix-graphql-field-resolver-collection",
     "fix-graphql-redos",
     "fix-release-blockers",
@@ -50,6 +52,7 @@
     "http-client-agnostic",
     "http-pluggable-instrumentations",
     "minor-fixes-and-improvements",
+    "mongoose-result-count-and-capture",
     "nav-badgeless-tabs-active",
     "nest-profiler-auth",
     "nest-profiler-cache",

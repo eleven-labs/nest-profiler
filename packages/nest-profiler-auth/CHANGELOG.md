@@ -1,5 +1,23 @@
 # @eleven-labs/nest-profiler-auth
 
+## 1.0.0-alpha.14
+
+### Minor Changes
+
+- d7e1749: Make the Security collector badge a compact auth status instead of the raw user identifier.
+
+  - Authenticated requests now show a concise badge instead of the full identifier (often a long email that wrapped the sidebar row). The complete identity stays in the panel detail.
+  - New `badge` option (default `'status'`): `'status'` shows a fixed `auth` label (mirrors `anon`), `'role'` shows the first role and falls back to `auth`, `'identifier'` keeps the legacy `username ?? email ?? sub ?? id` behaviour.
+  - New `badgeValue` resolver for full control — receives the `SecurityContext`, takes precedence over `badge`, and may return `null` to hide the badge. It runs only for authenticated requests; unauthenticated requests always show `anon`.
+  - New export: `AuthBadgeMode`.
+  - Behaviour change: the default authenticated badge is now `auth` instead of the user identifier. Set `badge: 'identifier'` to restore the previous output.
+
+### Patch Changes
+
+- 4895cbb: Fix the collector options that an import cycle was silently dropping.
+
+  `MongooseConnectionPatch`, `ConfigCollector` and `AuthCollector` imported their options token from their own module file, which imports them back: the token was still `undefined` when the class decorators ran, so `@Inject(undefined)` left no token in the injection metadata and the `@Optional()` parameter default took over — the class always received `{}`. `maskKeys` (config), `badge` / `badgeValue` / `maskUserFields` (auth) and `connectionName` (the Mongoose connection patch) were therefore inert, so a key you asked to mask was rendered in clear in the Config panel. Each token now lives next to its `ConfigurableModuleBuilder` in a cycle-free `*-collector.interface.ts` — the layout `nest-profiler-mongoose` already used for `MongooseCollector` — and a regression test asserts the resolved token is present in each class's injection metadata. The module files keep re-exporting the token, so the public API is unchanged.
+
 ## 1.0.0-alpha.13
 
 ### Patch Changes
