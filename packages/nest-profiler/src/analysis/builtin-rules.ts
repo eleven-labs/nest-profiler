@@ -7,8 +7,16 @@ import type { TaggableEntry } from './taggable-collector.interface';
 const defaultEntryIsError = resolveEntryErrorClassifier();
 
 /** Fallback `chattyThreshold` when a collector exposes none, per domain. */
-const DEFAULT_CHATTY_THRESHOLD: Record<string, number> = { query: 20, http: 10 };
+const DEFAULT_CHATTY_THRESHOLD: Record<string, number> = { query: 20, http: 10, amqp: 10 };
 const DEFAULT_CHATTY_FALLBACK = 20;
+
+/**
+ * What a repeated call is called in a given rule domain, used in the N+1 detail. Domains
+ * absent from the map fall back to {@link DEFAULT_NPLUSONE_SUBJECT} — the wording that fits
+ * every query collector (SQL, Mongo, …).
+ */
+const NPLUSONE_SUBJECT: Record<string, string> = { http: 'request', amqp: 'message' };
+const DEFAULT_NPLUSONE_SUBJECT = 'query';
 
 /** Structural view of an HTTP entry — the fields the error/payload rules read. */
 interface HttpLikeEntry extends TaggableEntry {
@@ -56,8 +64,8 @@ export const nPlusOneRule: PerformanceRule = {
         groups.set(entry.fingerprint, group);
       }
       // Repeated identical calls are the N+1 anti-pattern in every domain — same label
-      // for SQL/Mongo queries and outgoing HTTP calls ("N+1 API calls").
-      const subject = domain === 'http' ? 'request' : 'query';
+      // for SQL/Mongo queries, outgoing HTTP calls ("N+1 API calls") and published messages.
+      const subject = NPLUSONE_SUBJECT[domain] ?? DEFAULT_NPLUSONE_SUBJECT;
       const severity = config.nPlusOneSeverity ?? 'danger';
       for (const group of groups.values()) {
         if (group.length < threshold) continue;

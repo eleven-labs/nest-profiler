@@ -1,15 +1,27 @@
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+/**
+ * The fields {@link buildAmqpPublish} reads. Structurally satisfied by both
+ * `RabbitMqInfo` (a consumed message, replayed) and `AmqpPublishEntry` (a published one,
+ * re-published), so the two sides share one snippet builder.
+ */
+export interface AmqpPublishSnippetInput {
+  exchange?: string;
+  routingKey?: string;
+  payload?: unknown;
+  headers?: Record<string, string>;
+  messageId?: string;
+  appId?: string;
+}
 
 /**
  * Builds a runnable amqplib `channel.publish(...)` snippet that re-emits the
- * consumed message, mirroring the Symfony Web Profiler "copy" affordance.
+ * message, mirroring the Symfony Web Profiler "copy" affordance.
  *
  * The payload is embedded as `Buffer.from(JSON.stringify(...))` and the AMQP
  * options (headers, messageId, appId) are included when present.
  *
  * Exported for unit testing; not part of the package's public API.
  */
-export function buildAmqpPublish(info: RabbitMqInfo): string {
+export function buildAmqpPublish(info: AmqpPublishSnippetInput): string {
   const exchange = JSON.stringify(info.exchange ?? '');
   const routingKey = JSON.stringify(info.routingKey ?? '');
   const payload = `Buffer.from(JSON.stringify(${JSON.stringify(info.payload ?? null)}))`;

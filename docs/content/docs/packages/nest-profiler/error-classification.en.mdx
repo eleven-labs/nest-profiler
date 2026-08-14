@@ -88,6 +88,17 @@ The calls your app makes are judged one by one, independently of whether the inc
 HttpCollectorModule.forRoot({ error: { httpStatus: 400 } });
 ```
 
+### Published AMQP messages
+
+Same idea for the messages your app publishes: each row of the **AMQP** panel is judged on its own. A publish carries no status code, so the default rests on `publish()` having rejected — a message the channel merely buffered is a warning, not a failure.
+
+```ts
+// A publish that failed while the broker was reconnecting is not an incident here.
+RabbitMqPublishCollectorModule.forRoot({
+  error: { classify: (entry) => (entry.error?.includes('Channel closed') ? false : undefined) },
+});
+```
+
 ### Commands
 
 `command` is the one kind with nothing to configure: a command either exited zero or it did not, and nobody disagrees about which is a failure. Its list also hides the **Errors** checkbox, since the `Status: Success/Failed` filter already asks exactly that question under a clearer name.

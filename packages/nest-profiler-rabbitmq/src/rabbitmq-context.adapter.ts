@@ -4,7 +4,6 @@ import type { ConsumeMessage } from 'amqplib';
 import { redact } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 import {
-  DEFAULT_MASK_HEADERS,
   RABBITMQ_COLLECTOR_OPTIONS,
   RABBITMQ_ENTRYPOINT_TYPE,
   RMQ_CONTEXT_TYPE,
@@ -12,64 +11,7 @@ import {
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
 import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface';
 import { buildAmqpPublish } from './build-amqp-publish';
-
-/**
- * Formats a single AMQP header value as a display string. Buffers are decoded
- * as UTF-8, arrays are joined, objects are JSON-stringified.
- *
- * Exported for unit testing; not part of the package's public API.
- */
-export function formatHeaderValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.map((item) => formatHeaderValue(item)).join(', ');
-  }
-
-  if (Buffer.isBuffer(value)) {
-    return value.toString('utf8');
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return '[Unserializable object]';
-    }
-  }
-
-  return '[Unknown value]';
-}
-
-/**
- * Normalizes an AMQP header bag into a flat, JSON-safe, masked record.
- *
- * Exported for unit testing; not part of the package's public API.
- */
-export function extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string> {
-  if (!headers || typeof headers !== 'object') return {};
-
-  return Object.fromEntries(
-    Object.entries(headers as Record<string, unknown>)
-      .filter(
-        ([key, value]) => !key.startsWith('_') && value != null && typeof value !== 'function',
-      )
-      .map(([key, value]) => [
-        key,
-        maskHeaders.includes(key.toLowerCase()) ? '[REDACTED]' : formatHeaderValue(value),
-      ]),
-  );
-}
+import { extractHeaders, resolveMaskHeaders } from './amqp-headers.util';
 
 /**
  * Context adapter that lets the profiler capture `@RabbitSubscribe` messages.
@@ -111,7 +53,7 @@ export class RabbitMqContextAdapter implements IContextAdapter {
 
   enrichProfile(profile: Profile, ctx: ExecutionContext): void {
     const opts = this.options;
-    const maskHeaders = [...DEFAULT_MASK_HEADERS, ...(opts.maskHeaders ?? [])];
+    const maskHeaders = resolveMaskHeaders(opts.maskHeaders);
 
     const rpc = ctx.switchToRpc();
     const message = rpc.getContext<ConsumeMessage>();

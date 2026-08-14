@@ -1,10 +1,14 @@
 ---
 title: nest-profiler-rabbitmq
-description: Types and API of the RabbitMQ message collector.
+description: Types and API of the RabbitMQ message collectors.
 seo:
   title: RabbitMQ collector API reference
-  description: 'Complete API reference for @eleven-labs/nest-profiler-rabbitmq: the types and options of the RabbitMQ message collector built on @golevelup/nestjs-rabbitmq for profiling consumed messages.'
+  description: 'Complete API reference for @eleven-labs/nest-profiler-rabbitmq: the types and options of the RabbitMQ collectors built on @golevelup/nestjs-rabbitmq for profiling consumed and published messages.'
 ---
+
+The package ships two independent modules: `RabbitMqCollectorModule` profiles the messages the
+application **consumes** (one profile per `@RabbitSubscribe` delivery), and
+`RabbitMqPublishCollectorModule` lists the messages it **publishes** in an **AMQP** panel.
 
 ## RabbitMqInfo
 
@@ -21,16 +25,31 @@ registers a `rabbitmq` entrypoint type, so the profiler renders a dedicated **Ra
   name="RabbitMqInfo"
 />
 
+## AmqpPublishEntry
+
+One row of the **AMQP** panel — a message the profiled request published through
+`AmqpConnection.publish`. Collected by `RabbitMqPublishCollectorModule`.
+
+<AutoTypeTable
+  path="packages/nest-profiler-rabbitmq/src/rabbitmq-publish-collector.interface.ts"
+  name="AmqpPublishEntry"
+/>
+
 ## Public exports
 
 ```ts
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqContextAdapter } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RABBITMQ_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RabbitMqPublishCollector } from '@eleven-labs/nest-profiler-rabbitmq';
 
 import type { RabbitMqCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqInfo } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { AmqpPublishEntry } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { RabbitMqPublishCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { RabbitMqPublishCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 ```
 
 ## RabbitMqCollectorModuleOptions
@@ -52,7 +71,42 @@ A consumed message carries no status code, so `error` rests on whether the handl
 
 Gate the module per environment with `ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot({ … }), isProfilerEnabled)` — the same pattern used for every profiler module.
 
-## Setup
+## RabbitMqPublishCollectorModuleOptions
+
+```ts
+interface RabbitMqPublishCollectorModuleOptions {
+  /** Capture the headers passed to `publish()` (masked). Default: `true`. */
+  captureHeaders?: boolean;
+  /** Capture the published message. Default: `true`. */
+  captureBody?: boolean;
+  /** Extra header names (lowercase) to mask, merged with the built-in list. */
+  maskHeaders?: string[];
+  /** Depth / size caps on the captured payload, forwarded to `toSafeData`. */
+  payloadLimits?: SafeDataOptions;
+  /** A publish at or above this duration (ms) is tagged `slow`. Default: `50`. */
+  slowThreshold?: number;
+  /** Identical publishes repeated this many times are tagged `n-plus-one`. Default: `2`. */
+  nPlusOneThreshold?: number;
+  /** A profile publishing this many messages is tagged `chatty`. Default: `10`. */
+  chattyThreshold?: number;
+  /** Severities of the `slow` / `n-plus-one` / `chatty` tags. */
+  slowSeverity?: TagSeverity;
+  nPlusOneSeverity?: TagSeverity;
+  chattySeverity?: TagSeverity;
+  /** What counts as a failed publish. Default: `publish()` rejected. */
+  error?: EntryErrorOptions;
+}
+```
+
+A publish carries no status code either, so `error` rests on `publish()` having rejected; a message the channel buffered (`accepted: false`) is a warning, not a failure.
+
+Registering the module is enough — publishers keep injecting `AmqpConnection` unchanged, and `AmqpConnection.request()` (RPC) is captured too, since golevelup routes it through `publish`.
+
+```ts title="app.module.ts"
+ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled);
+```
+
+## Setup — consuming
 
 Register the module in the application that consumes your messages (the same process that hosts the profiler):
 
@@ -92,7 +146,33 @@ ConditionalModule.registerWhen(
 Wire the core `ProfilerModule` once at the root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler). If a service injects `ProfilerService` directly, also register its `ProfilerNoopModule` fallback.
 
 `@golevelup/nestjs-rabbitmq` and `amqplib` are optional peer dependencies - the ones you already
-install to consume messages. The module needs no changes to your `@RabbitSubscribe` handlers.
+install to talk to the broker. Neither module needs changes to your `@RabbitSubscribe` handlers or
+your publishers.
+
+## Setup — publishing
+
+`RabbitMqPublishCollectorModule` stands alone: a publish-only API registers it and nothing else
+from this package. It patches `AmqpConnection.prototype.publish` and records the calls made while a
+profile is active, so a publish outside a profiled request (at bootstrap, from a cron job) records
+nothing.
+
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
+import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
+
+@Module({
+  imports: [
+    ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled),
+    // your RabbitMQModule.forRoot(...)
+  ],
+})
+export class AppModule {}
+```
+
+The panel is profile-scoped, so it works under any entrypoint: an HTTP request, a CLI command, or a
+consumed message when `RabbitMqCollectorModule` is registered too — which is how the messages a
+consumer republishes show up.
 
 ## How a message profile is shaped
 

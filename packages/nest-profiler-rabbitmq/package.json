@@ -55,6 +55,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "amqplib": "^0.10.0",
+    "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0"
   },
   "peerDependenciesMeta": {
@@ -81,6 +82,7 @@
     "@types/node": "^24.13.3",
     "amqplib": "^0.10.0",
     "jest": "^30.4.2",
+    "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
     "ts-jest": "^29.4.12",
