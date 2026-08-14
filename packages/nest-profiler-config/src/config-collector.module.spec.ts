@@ -27,6 +27,22 @@ describe('ConfigCollectorModule.forRoot', () => {
   });
 });
 
+describe('ConfigCollector options injection', () => {
+  /**
+   * Guards the import cycle regression: the collector used to import the options token from
+   * `./config-collector.module`, which imports the collector back — the token was still
+   * undefined when the decorators ran, so `@Inject(undefined)` fell through to the
+   * `@Optional()` default and `maskKeys` was silently ignored.
+   */
+  it('decorates the options parameter with the resolved token', () => {
+    const injected = Reflect.getMetadata('self:paramtypes', ConfigCollector) as {
+      index: number;
+      param?: unknown;
+    }[];
+    expect(injected).toEqual([{ index: 1, param: CONFIG_COLLECTOR_OPTIONS }]);
+  });
+});
+
 describe('ConfigCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}

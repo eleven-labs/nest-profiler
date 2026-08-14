@@ -8,8 +8,12 @@ import {
   REDACTED,
 } from '@eleven-labs/nest-profiler';
 import type { IProfilerCollector, Profile } from '@eleven-labs/nest-profiler';
-import { CONFIG_COLLECTOR_OPTIONS } from './config-collector.module';
-import type { ConfigCollectorModuleOptions } from './config-collector.module';
+// Import the options token from the interface module, never from `./config-collector.module`:
+// that module imports this file, and the resulting cycle leaves the token undefined when the
+// decorators below run — `@Inject(undefined)` then silently degrades to the `@Optional()`
+// default, so `maskKeys` would be ignored.
+import { CONFIG_COLLECTOR_OPTIONS } from './config-collector.interface';
+import type { ConfigCollectorModuleOptions } from './config-collector.interface';
 
 const CONFIG_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 10a4 4 0 110-8 4 4 0 010 8z" opacity="0.4"/><circle cx="8" cy="8" r="2"/></svg>`;
 const SECRET_RE = /password|secret|key|token|credential|api_key|apikey/i;

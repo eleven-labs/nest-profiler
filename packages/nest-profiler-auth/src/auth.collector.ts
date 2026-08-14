@@ -5,8 +5,12 @@ import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCollector, isPlainObject, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { IProfilerCollector, Profile, SecurityContext } from '@eleven-labs/nest-profiler';
-import { AUTH_COLLECTOR_OPTIONS } from './auth-collector.module';
-import type { AuthCollectorModuleOptions } from './auth-collector.module';
+// Import the options token from the interface module, never from `./auth-collector.module`:
+// that module imports this file, and the resulting cycle leaves the token undefined when the
+// decorators below run — `@Inject(undefined)` then silently degrades to the `@Optional()`
+// default, so `badge`, `badgeValue` and `maskUserFields` would be ignored.
+import { AUTH_COLLECTOR_OPTIONS } from './auth-collector.interface';
+import type { AuthCollectorModuleOptions } from './auth-collector.interface';
 
 const AUTH_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L2 4v4c0 3.3 2.5 6.4 6 7 3.5-.6 6-3.7 6-7V4L8 1z" opacity="0.9"/></svg>`;
 

@@ -26,6 +26,22 @@ describe('AuthCollectorModule.forRoot', () => {
   });
 });
 
+describe('AuthCollector options injection', () => {
+  /**
+   * Guards the import cycle regression: the collector used to import the options token from
+   * `./auth-collector.module`, which imports the collector back — the token was still
+   * undefined when the decorators ran, so `@Inject(undefined)` fell through to the
+   * `@Optional()` default and `badge` / `badgeValue` / `maskUserFields` were silently ignored.
+   */
+  it('decorates the options parameter with the resolved token', () => {
+    const injected = Reflect.getMetadata('self:paramtypes', AuthCollector) as {
+      index: number;
+      param?: unknown;
+    }[];
+    expect(injected).toEqual([{ index: 1, param: AUTH_COLLECTOR_OPTIONS }]);
+  });
+});
+
 describe('AuthCollectorModule.forRootAsync', () => {
   it('provides the options token from the factory and forwards imports/inject', () => {
     class FakeImport {}
