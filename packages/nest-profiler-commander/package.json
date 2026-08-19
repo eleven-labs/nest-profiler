@@ -58,9 +58,9 @@
   },
   "devDependencies": {
     "@eleven-labs/nest-profiler": "workspace:*",
-    "@nestjs/common": "^11.1.28",
-    "@nestjs/core": "^11.1.28",
-    "@nestjs/testing": "^11.1.28",
+    "@nestjs/common": "^11.1.29",
+    "@nestjs/core": "^11.1.29",
+    "@nestjs/testing": "^11.1.29",
     "@repo/build": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-config": "workspace:*",
