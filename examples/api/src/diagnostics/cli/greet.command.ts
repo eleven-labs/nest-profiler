@@ -9,7 +9,14 @@ interface GreetOptions {
 }
 
 /** A minimal command — also demonstrates how a failing command is profiled (use `--fail`). */
-@Command({ name: 'demo:greet', description: 'Print a greeting' })
+@Command({
+  name: 'demo:greet',
+  description: 'Print a greeting',
+  // A positional argument — distinct from an `--option`: it reaches `run()` as `passedParams`,
+  // and the Routes panel lists it under "Arguments" rather than "Options".
+  arguments: '[name]',
+  argsDescription: { name: 'Name to greet, when --name is not passed' },
+})
 export class GreetCommand extends CommandRunner {
   // Wrap a console logger so log lines are captured into the active profile — no ProfilerService
   // injection needed, so the command resolves cleanly whether the profiler is on or off.

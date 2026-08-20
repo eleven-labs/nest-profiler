@@ -37,14 +37,14 @@ describe('GraphqlRouteSource', () => {
         path: 'createUser',
         controller: 'Mutation',
         handler: 'createUser',
-        inputs: { query: ['input'] },
+        inputs: { groups: [{ label: 'Arguments', items: [{ name: 'input' }] }] },
       },
       {
         method: 'query',
         path: 'user',
         controller: 'Query',
         handler: 'user',
-        inputs: { query: ['id'] },
+        inputs: { groups: [{ label: 'Arguments', items: [{ name: 'id' }] }] },
       },
       { method: 'query', path: 'users', controller: 'Query', handler: 'users' },
     ]);

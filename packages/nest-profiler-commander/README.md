@@ -81,16 +81,20 @@ Each command run sets a `command` entrypoint on the profile (`entrypoint.type = 
 | Field       | Description                                    |
 | ----------- | ---------------------------------------------- |
 | `name`      | Command name from `@Command({ name })`         |
-| `arguments` | Positional parameters (`passedParams`)         |
-| `options`   | Parsed flag options                            |
+| `arguments` | Positional operands (`run(passedParams)`)      |
+| `options`   | Parsed flags (`run(_, options)`)               |
 | `exitCode`  | `0` on success, `1` when the command threw     |
 | `success`   | Whether the command completed without throwing |
+
+`arguments` and `options` are two distinct things, and the **Command** tab shows them as two sections: for `mycli demo:greet Grace --name Ada`, `arguments` is `['Grace']` (the positional operands declared by `@Command({ arguments })`) and `options` is `{ name: 'Ada' }` (the flags declared by `@Option()`, with their defaults applied). Both are redacted before storage — CLI values routinely carry secrets (`--token=…`).
 
 Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-http`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there.
+
+It also contributes a **Commands** group to the Routes panel (`@eleven-labs/nest-profiler-routes`), listing every `@Command()` class with its description and, per command, its positional **Arguments** (from `@Command({ arguments, argsDescription })`) and its **Options** (from `@Option({ flags, description, defaultValue, required })`) — so the panel documents the CLI the same way `--help` does. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
 
 ---
 

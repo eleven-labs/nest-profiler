@@ -42,6 +42,8 @@ export type {
   RouteGroup,
   RouteEntry,
   RouteInputs,
+  RouteInputGroup,
+  RouteInputItem,
   RouteDtoInfo,
   RouteDtoProperty,
 } from './routes/route-source.interface';

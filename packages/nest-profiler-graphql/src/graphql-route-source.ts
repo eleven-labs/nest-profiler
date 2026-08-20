@@ -59,13 +59,17 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
   private fieldsOf(type: GraphQLObjectType | null | undefined, operation: string): RouteEntry[] {
     if (!type) return [];
     return Object.values(type.getFields()).map((field): RouteEntry => {
-      const args = field.args.map((arg) => arg.name);
+      const args = field.args.map((arg) => ({
+        name: arg.name,
+        ...(arg.description ? { description: arg.description } : {}),
+      }));
       return {
         method: operation,
         path: field.name,
         controller: type.name,
         handler: field.name,
-        ...(args.length > 0 ? { inputs: { query: args } } : {}),
+        ...(field.description ? { description: field.description } : {}),
+        ...(args.length > 0 ? { inputs: { groups: [{ label: 'Arguments', items: args }] } } : {}),
       };
     });
   }
