@@ -22,7 +22,7 @@ Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configu
 
 `enabled` and `isGlobal` are synchronous: decided at module-build time, never inside `forRootAsync`'s `useFactory`.
 
-**Less common** (rarely set during initial setup) — `listPageSize`, `maxBodySize`, `ignorePaths` / `useDefaultIgnorePaths`, `emitDebugHeaders`, `ignoreRequest`, and `performance.rules`. They exist; reach for the full table in the [configuration docs](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration) when you need one. (`ignorePaths` / `ignoreRequest` and `performance.rules` still come up in the production and performance sections below and in the `interpret-performance-tags` skill.)
+**Less common** (rarely set during initial setup) — `listPageSize`, `maxBodySize`, `timezone` (IANA zone the UI renders timestamps in; defaults to the host's, worth setting when the app runs in a UTC container), `ignorePaths` / `useDefaultIgnorePaths`, `emitDebugHeaders`, `ignoreRequest`, and `performance.rules`. They exist; reach for the full table in the [configuration docs](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration) when you need one. (`ignorePaths` / `ignoreRequest` and `performance.rules` still come up in the production and performance sections below and in the `interpret-performance-tags` skill.)
 
 ## Storage backends
 

@@ -4,7 +4,13 @@
       <div class="w-6 h-6 rounded bg-nest flex items-center justify-center font-black text-white text-2xs shrink-0 group-hover:bg-nest-light transition-colors">N</div>
       <span class="text-foreground font-semibold text-sm tracking-tight">NestJS Profiler</span>
     </a>
-    <div class="ml-auto">
+    <div class="ml-auto flex items-center gap-3">
+      <% if (typeof displayTimezone !== 'undefined' && displayTimezone) { %>
+        <span class="hidden sm:inline text-foreground-faint text-2xs tracking-wide"
+              title="Every timestamp in the profiler is rendered in this timezone">
+          Times in <span class="text-foreground-muted font-semibold"><%= displayTimezone %></span>
+        </span>
+      <% } %>
       <button type="button" data-action="toggle-theme"
               class="flex items-center justify-center w-8 h-8 rounded-lg text-foreground-faint hover:text-foreground hover:bg-surface-muted transition-colors"
               title="Toggle theme" aria-label="Toggle light/dark theme">

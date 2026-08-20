@@ -2,6 +2,9 @@ import * as path from 'path';
 import { buildCurlCommand } from './copy/build-curl';
 import { interpolateSql } from '../collectors/sql/interpolate-sql';
 import { safeStringify } from '../utils/safe-data.utils';
+import { createDateHelpers } from './date-helpers';
+
+const HOST_DATE_HELPERS = createDateHelpers();
 
 export const TEMPLATES_DIR = path.join(__dirname, '../templates');
 
@@ -184,8 +187,10 @@ export const HELPERS = {
   tagBadges: (tags: TagLike[] | undefined): string =>
     (tags ?? []).map((tag) => HELPERS.tagBadge(tag)).join(' '),
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
-  isoDate: (ts: number): string => new Date(ts).toISOString().replace('T', ' ').slice(0, 19),
-  timeOnly: (ts: number): string => new Date(ts).toISOString().slice(11, 23),
+  // Host-timezone defaults. `TemplateRendererService` overrides both with helpers bound to the
+  // configured `timezone` before handing the locals to a template.
+  isoDate: HOST_DATE_HELPERS.isoDate,
+  timeOnly: HOST_DATE_HELPERS.timeOnly,
   // Defensive: a captured body/log payload may contain circular references or BigInt, both of
   // which make a raw JSON.stringify throw and 500 the detail page. safeStringify never throws.
   toJson: (val: unknown): string => safeStringify(val, 2),

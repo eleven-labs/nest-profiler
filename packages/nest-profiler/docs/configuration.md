@@ -228,6 +228,7 @@ If a deployment pipeline installs with `--omit=dev` **before** building, `tsc` w
 | `listPageSize`          | `number`                     | `25`        | Profiles shown per page in each dashboard list section (HTTP, GraphQL, RabbitMQ, Commands…). Each section paginates independently.                                                                                                                |
 | `ttl`                   | `number`                     | `3600`      | Profile time-to-live in seconds. `0` or negative: never expire.                                                                                                                                                                                   |
 | `isGlobal`              | `boolean`                    | `false`     | Register the module as a global NestJS module.                                                                                                                                                                                                    |
+| `timezone`              | `string`                     | `TZ`        | IANA timezone the UI renders every timestamp in (`'Europe/Paris'`, `'UTC'`…). Defaults to the timezone the process runs in, i.e. the one `TZ` selects. See [Timezone of displayed timestamps](#timezone-of-displayed-timestamps).                 |
 | `storageType`           | `'memory' \| 'file'`         | `'memory'`  | Built-in storage backend.                                                                                                                                                                                                                         |
 | `storagePath`           | `string`                     | `.profiler` | Directory for file storage (relative or absolute).                                                                                                                                                                                                |
 | `storage`               | `IProfilerStorageAdapter`    | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                                                             |
@@ -246,6 +247,22 @@ If a deployment pipeline installs with `--omit=dev` **before** building, `tsc` w
 | `performance`           | `ProfilerPerformanceOptions` | —           | Custom rules for the tagging engine. See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).                                                                                                  |
 
 The storage-related options (`storageType`, `storagePath`, `storage`, `maxProfiles`, `ttl`) are detailed on the [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage) page.
+
+## Timezone of displayed timestamps
+
+Profiles store epoch milliseconds and every page is rendered **server-side**, so timestamps are displayed in the timezone the process runs in — the one Node resolves from the `TZ` environment variable, or the system zone when `TZ` is unset, and the one the Config panel reports. That is what you want in local development, where the application and the browser share a machine, and misleading as soon as they do not: an application running in a `TZ=UTC` container shows UTC times to someone reading the dashboard from Paris.
+
+Set `timezone` to the zone the people reading the profiler are in:
+
+```ts
+ProfilerModule.forRoot({
+  timezone: 'Europe/Paris', // default: the timezone the process runs in
+});
+```
+
+It takes any IANA name the runtime knows (`Europe/Paris`, `UTC`, `America/New_York`…); an unknown name is ignored, a warning is logged and the host timezone is used. The option only affects rendering — stored profiles keep their epoch timestamps, and the JSON export is unchanged. Whatever the effective zone, it is displayed in the dashboard header (*Times in Europe/Paris*), so a time on screen is never ambiguous.
+
+Nothing to declare when the container and the reader already agree, either because the application runs on the reader's machine or because the container carries the right `TZ`. Setting `TZ` moves the whole process — logs, `Date`, scheduled jobs — while `timezone` moves the profiler UI alone; reach for `TZ` when you want them to match, and for `timezone` when you only want to read the dashboard in your own time.
 
 ## Capturing full bodies
 

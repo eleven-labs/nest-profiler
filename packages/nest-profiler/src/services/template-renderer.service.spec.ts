@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
+import { Logger } from '@nestjs/common';
 import { TemplateRendererService } from './template-renderer.service';
 import { ClientAssetRegistry } from './client-asset-registry.service';
 import { TEMPLATES_DIR } from '../views/template-engine';
@@ -159,6 +160,72 @@ describe('TemplateRendererService', () => {
       // …and every <script> is an external reference (has a src=), never an inline block.
       expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
     }
+  });
+
+  describe('display timezone', () => {
+    // 2026-07-01T22:30:15.250Z — 00:30 the next day in Europe/Paris (the pinned host zone),
+    // 07:30 in Asia/Tokyo.
+    const startedAt = Date.UTC(2026, 6, 1, 22, 30, 15, 250);
+
+    const renderSqlPanel = (renderer: TemplateRendererService): Promise<string> => {
+      renderer.registerDir(path.join(TEMPLATES_DIR, '..', 'collectors', 'sql', 'templates'));
+      return renderer.render('sql-panel', {
+        data: [{ type: 'SELECT', sql: 'SELECT 1', duration: 5, startedAt }],
+      });
+    };
+
+    it('renders timestamps in the host timezone when no timezone is configured', async () => {
+      await expect(renderSqlPanel(service)).resolves.toContain('00:30:15.250');
+    });
+
+    it('renders timestamps in the configured timezone', async () => {
+      const tokyo = new TemplateRendererService(new ClientAssetRegistry(), {
+        timezone: 'Asia/Tokyo',
+      });
+      await expect(renderSqlPanel(tokyo)).resolves.toContain('07:30:15.250');
+    });
+
+    it('labels the effective timezone in the dashboard header', async () => {
+      const tokyo = new TemplateRendererService(new ClientAssetRegistry(), {
+        timezone: 'Asia/Tokyo',
+      });
+      const html = await tokyo.render('list', MINIMAL_LIST_DATA);
+      expect(html).toContain('Times in');
+      expect(html).toContain('Asia/Tokyo');
+
+      // With nothing configured the header still tells which zone the times are in.
+      await expect(service.render('list', MINIMAL_LIST_DATA)).resolves.toContain('Europe/Paris');
+    });
+
+    it('renders without a header label when the runtime cannot name the host zone', async () => {
+      // `TZ=` / `TZ=:/etc/localtime`: the runtime keeps a working offset but no zone name, and
+      // feeding that name back to `Intl` would throw — the renderer must survive it.
+      const spy = jest
+        .spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+        .mockReturnValue({ timeZone: 'Etc/Unknown' } as Intl.ResolvedDateTimeFormatOptions);
+      try {
+        const nameless = new TemplateRendererService(new ClientAssetRegistry());
+        const html = await nameless.render('list', MINIMAL_LIST_DATA);
+        expect(html).not.toContain('Times in');
+        // Timestamps still render, on the runtime's own offset.
+        await expect(renderSqlPanel(nameless)).resolves.toMatch(/\d{2}:\d{2}:\d{2}\.250/);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('warns and falls back to the host timezone when the name is unknown', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      try {
+        const bogus = new TemplateRendererService(new ClientAssetRegistry(), {
+          timezone: 'Middle/Earth',
+        });
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Middle/Earth'));
+        await expect(renderSqlPanel(bogus)).resolves.toContain('00:30:15.250');
+      } finally {
+        warn.mockRestore();
+      }
+    });
   });
 
   it('throws when template name does not exist', async () => {
