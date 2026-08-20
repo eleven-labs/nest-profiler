@@ -8,6 +8,17 @@ export interface MongooseQueryEntry {
   filter?: Record<string, unknown>;
   /** Aggregation pipeline stages, captured for `aggregate` operations. */
   pipeline?: unknown[];
+  /**
+   * Bulk write operations, captured for `bulkWrite`. Like {@link MongooseQueryEntry.filter}, it
+   * is an operation input: captured in full and redacted, never size-capped.
+   */
+  operations?: unknown[];
+  /**
+   * Documents written, captured for `save` (the saved document) and `insertMany`. Like
+   * {@link MongooseQueryEntry.filter}, they are operation inputs: captured in full and redacted,
+   * never size-capped.
+   */
+  documents?: unknown[];
   duration: number;
   startedAt: number;
   /** Documents affected (writes) or returned (reads) — the MongoDB row-count analog. */

@@ -44,9 +44,13 @@ interface LifecycleCursor {
   once(event: string, listener: (...args: unknown[]) => void): unknown;
 }
 
-/** Narrow surface of the base Model used to patch write operations. */
+/**
+ * Narrow surface of the base Model used to patch write operations. `$save` is a frozen alias of
+ * `save`, taken at mongoose load time — it is what `Model.create()` and `Model.insertOne()` call
+ * internally, so it has to be patched alongside `save`.
+ */
 interface PatchableModel {
-  prototype: { save?: PatchableExec };
+  prototype: { save?: PatchableExec; $save?: PatchableExec };
   insertMany?: PatchableExec;
   bulkWrite?: PatchableExec;
 }
@@ -95,6 +99,13 @@ function collectionNameOf(source: unknown): string {
   };
   return holder?.collection?.name ?? holder?.constructor?.collection?.name ?? 'unknown';
 }
+
+/**
+ * What a patched write contributes to its entry: the documents affected and the payload it was
+ * called with — the written documents (`save`, `insertMany`) or the bulk operations
+ * (`bulkWrite`).
+ */
+type WrittenPayload = Pick<MongooseQueryEntry, 'count' | 'documents' | 'operations'>;
 
 /** Write acknowledgement as returned by `update*` / `delete*` / `replace*` operations. */
 interface WriteAcknowledgement {
@@ -149,6 +160,26 @@ export function safeResult(result: unknown, limits: SafeDataOptions | undefined)
   return redact(toSafeData(result, limits ?? {}));
 }
 
+/**
+ * Projects the payload a write was called with — the documents of a `save` / `insertMany`, the
+ * operations of a `bulkWrite` — into a JSON-safe, redacted array. A single value is wrapped so
+ * the panel always renders an array, matching how `mongosh` takes these arguments.
+ *
+ * Like a query filter, the payload is an *input* to the operation and is captured in full: the
+ * depth/size caps stay off, otherwise the default `maxDepth` of 4 would already collapse the
+ * `$set` of a `bulkWrite` operation (`[{ updateOne: { update: { $set: … } } }]`) to `[Object]`.
+ * `toSafeData` is still applied so hydrated documents go through their `toJSON` projection and
+ * a circular reference or an `ObjectId` cannot break persistence.
+ */
+export function safeWritePayload(values: unknown): unknown[] {
+  const safe = safeResult(Array.isArray(values) ? values : [values], {
+    maxDepth: 0,
+    maxItems: 0,
+    maxStringLength: 0,
+  });
+  return Array.isArray(safe) ? safe : [safe];
+}
+
 type PatchableConnection = Connection & { base: MongooseBase };
 
 @Injectable()
@@ -201,7 +232,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       operation: string,
       collection: string,
       startedAt: number,
-      count: number | undefined,
+      written: WrittenPayload,
       captured: unknown,
       error: string | undefined,
     ): void => {
@@ -214,7 +245,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
           operation,
           duration,
           startedAt,
-          count,
+          ...written,
           result: captured,
           connection: meta.connection,
           database: meta.database,
@@ -225,10 +256,17 @@ export class MongooseConnectionPatch implements OnModuleInit {
       }
     };
 
-    const wrap = (operation: string, countOf: (args: unknown[]) => number | undefined) =>
+    const wrap = (
+      operation: string,
+      writtenOf: (args: unknown[], self: unknown) => WrittenPayload,
+    ) =>
       async function (this: unknown, original: PatchableExec, args: unknown[]): Promise<unknown> {
         const startedAt = Date.now();
         const collection = collectionNameOf(this);
+        // Snapshot the payload before the write runs: mongoose mutates what it writes (a saved
+        // document gets its `_id` and its dirty state cleared), so capturing afterwards would
+        // no longer describe the operation that was issued.
+        const written = writtenOf(args, this);
         let captured: unknown;
         let error: string | undefined;
         try {
@@ -239,54 +277,55 @@ export class MongooseConnectionPatch implements OnModuleInit {
           error = err instanceof Error ? err.message : String(err);
           throw err;
         } finally {
-          record(operation, collection, startedAt, countOf(args), captured, error);
+          record(operation, collection, startedAt, written, captured, error);
         }
       };
 
-    // document.save() — also covers Model.create() for single documents.
-    const save = model.prototype.save;
-    if (typeof save === 'function' && !save.__profilerPatched) {
-      const runner = wrap('save', () => 1);
-      const patched: PatchableExec = function (
-        this: unknown,
-        ...args: unknown[]
-      ): Promise<unknown> {
-        return runner.call(this, save, args);
+    /**
+     * Installs `runner` over `holder[key]`, once. The wrapper targets the original function it
+     * replaced, so patching two aliases of the same implementation (`save` / `$save`) still
+     * records one entry per call. No-ops when the underlying mongoose build does not expose it.
+     */
+    const install = (
+      holder: object,
+      key: string,
+      operation: string,
+      writtenOf: (args: unknown[], self: unknown) => WrittenPayload,
+    ): void => {
+      const methods = holder as Record<string, PatchableExec | undefined>;
+      const original = methods[key];
+      if (typeof original !== 'function' || original.__profilerPatched === true) return;
+      const runner = wrap(operation, writtenOf);
+      const patched: PatchableExec = function (this: unknown, ...args: unknown[]) {
+        return runner.call(this, original, args);
       };
       patched.__profilerPatched = true;
-      model.prototype.save = patched;
-    }
+      methods[key] = patched;
+    };
 
-    // Static Model.insertMany / Model.bulkWrite.
-    const insertMany = model.insertMany;
-    if (typeof insertMany === 'function' && !insertMany.__profilerPatched) {
-      const runner = wrap('insertMany', (args) =>
-        Array.isArray(args[0]) ? args[0].length : undefined,
-      );
-      const patched: PatchableExec = function (
-        this: unknown,
-        ...args: unknown[]
-      ): Promise<unknown> {
-        return runner.call(this, insertMany, args);
-      };
-      patched.__profilerPatched = true;
-      model.insertMany = patched;
-    }
+    // The document written by a `save` is the receiver, not an argument (`save()` only takes
+    // options).
+    const savedDocument = (_args: unknown[], self: unknown): WrittenPayload => ({
+      count: 1,
+      documents: safeWritePayload(self),
+    });
 
-    const bulkWrite = model.bulkWrite;
-    if (typeof bulkWrite === 'function' && !bulkWrite.__profilerPatched) {
-      const runner = wrap('bulkWrite', (args) =>
-        Array.isArray(args[0]) ? args[0].length : undefined,
-      );
-      const patched: PatchableExec = function (
-        this: unknown,
-        ...args: unknown[]
-      ): Promise<unknown> {
-        return runner.call(this, bulkWrite, args);
-      };
-      patched.__profilerPatched = true;
-      model.bulkWrite = patched;
-    }
+    // `document.save()`, and its `$save` alias: `Model.create()` / `Model.insertOne()` call
+    // `$save`, which mongoose copied off `save` at load time, so patching `save` alone would
+    // leave the most common write path uninstrumented.
+    install(model.prototype, 'save', 'save', savedDocument);
+    install(model.prototype, '$save', 'save', savedDocument);
+
+    // Static Model.insertMany / Model.bulkWrite. `Model.bulkSave()` routes through bulkWrite.
+    install(model, 'insertMany', 'insertMany', (args) => ({
+      count: Array.isArray(args[0]) ? args[0].length : 1,
+      documents: safeWritePayload(args[0]),
+    }));
+    install(model, 'bulkWrite', 'bulkWrite', (args) =>
+      Array.isArray(args[0])
+        ? { count: args[0].length, operations: safeWritePayload(args[0]) }
+        : {},
+    );
   }
 
   private patchQueryExec(mongoose: MongooseBase): void {

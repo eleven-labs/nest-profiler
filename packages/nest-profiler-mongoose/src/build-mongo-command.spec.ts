@@ -30,6 +30,24 @@ describe('buildMongoCommand', () => {
   it('falls back to an empty pipeline when none was captured', () => {
     expect(buildMongoCommand(entry({ operation: 'aggregate' }))).toBe('db.users.aggregate([])');
   });
+
+  it('builds db.<collection>.bulkWrite([...]) from the captured operations', () => {
+    const operations = [{ updateOne: { filter: { name: 'ada' }, update: { $set: { n: 1 } } } }];
+    const cmd = buildMongoCommand(entry({ operation: 'bulkWrite', operations }));
+    expect(cmd).toBe(`db.users.bulkWrite(${JSON.stringify(operations, null, 2)})`);
+  });
+
+  it('builds db.<collection>.save(<document>) from the single saved document', () => {
+    const documents = [{ _id: 'abc', name: 'ada' }];
+    const cmd = buildMongoCommand(entry({ operation: 'save', documents }));
+    expect(cmd).toBe(`db.users.save(${JSON.stringify(documents[0], null, 2)})`);
+  });
+
+  it('builds db.<collection>.insertMany([...]) from the captured documents', () => {
+    const documents = [{ name: 'ada' }, { name: 'grace' }];
+    const cmd = buildMongoCommand(entry({ operation: 'insertMany', documents }));
+    expect(cmd).toBe(`db.users.insertMany(${JSON.stringify(documents, null, 2)})`);
+  });
 });
 
 describe('buildMongoFingerprint', () => {
@@ -45,6 +63,32 @@ describe('buildMongoFingerprint', () => {
     const b = buildMongoFingerprint(entry({ filter: { name: 'alice', age: { $gt: 65 } } }));
     expect(a).toBe(b);
     expect(a).toBe('find users {"age":{"$gt":"?"},"name":"?"}');
+  });
+
+  it('uses the operations shape for a bulkWrite', () => {
+    const a = buildMongoFingerprint(
+      entry({
+        operation: 'bulkWrite',
+        operations: [{ updateOne: { filter: { name: 'ada' }, update: { $set: { n: 1 } } } }],
+      }),
+    );
+    const b = buildMongoFingerprint(
+      entry({
+        operation: 'bulkWrite',
+        operations: [{ updateOne: { filter: { name: 'grace' }, update: { $set: { n: 2 } } } }],
+      }),
+    );
+    expect(a).toBe(b);
+    expect(a).toBe(
+      'bulkWrite users [{"updateOne":{"filter":{"name":"?"},"update":{"$set":{"n":"?"}}}}]',
+    );
+  });
+
+  it('uses the documents shape for an insertMany', () => {
+    const fp = buildMongoFingerprint(
+      entry({ operation: 'insertMany', documents: [{ name: 'ada' }] }),
+    );
+    expect(fp).toBe('insertMany users [{"name":"?"}]');
   });
 
   it('uses the pipeline shape for aggregations', () => {

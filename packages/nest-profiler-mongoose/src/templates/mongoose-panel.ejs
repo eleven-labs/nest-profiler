@@ -86,6 +86,12 @@
                     <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.pipeline) %></code></pre>
                   <% } else if (q.operation === 'aggregate') { %>
                     <span class="text-xs text-foreground-faint italic">pipeline</span>
+                  <% } else if (q.operations && q.operations.length > 0) { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-0.5">Operations:</div>
+                    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.operations) %></code></pre>
+                  <% } else if (q.documents && q.documents.length > 0) { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-0.5">Documents:</div>
+                    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.documents) %></code></pre>
                   <% } else { %>
                     <span class="text-xs text-foreground-faint">—</span>
                   <% } %>
