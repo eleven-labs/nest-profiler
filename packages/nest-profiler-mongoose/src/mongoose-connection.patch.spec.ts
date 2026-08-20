@@ -187,3 +187,139 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
     expect(entry.result).toEqual([{ _id: 1 }, '… +2 more']);
   });
 });
+
+/** Minimal Model surface (statics + prototype) the write patch reaches for. */
+function makeModel() {
+  const save = (): Promise<unknown> => Promise.resolve(undefined);
+  return {
+    // mongoose aliases `$save` onto `save` at load time — the same function object.
+    prototype: { save, $save: save },
+    insertMany: (docs: unknown): Promise<unknown> => Promise.resolve(docs),
+    bulkWrite: (_operations: unknown[]): Promise<unknown> => Promise.resolve({ upsertedCount: 1 }),
+    collection: { name: 'users' },
+  };
+}
+
+type FakeModel = ReturnType<typeof makeModel>;
+
+/** A document hydrated off the patched model prototype, the way mongoose builds one. */
+function makeDocument(
+  model: FakeModel,
+  fields: Record<string, unknown>,
+  toJSON?: () => unknown,
+): { save: (...args: unknown[]) => Promise<unknown> } {
+  const document = Object.assign(Object.create(model.prototype) as object, fields);
+  Object.defineProperty(document, 'constructor', { value: model, enumerable: false });
+  if (toJSON) Object.defineProperty(document, 'toJSON', { value: toJSON, enumerable: false });
+  return document as unknown as { save: (...args: unknown[]) => Promise<unknown> };
+}
+
+/**
+ * Installs the patch against a fake connection/CLS pair, runs one patched write, and returns
+ * the entry it appended to the profile.
+ */
+async function writeEntry(
+  run: (model: FakeModel) => Promise<unknown>,
+  options: MongooseCollectorModuleOptions = {},
+): Promise<MongooseQueryEntry> {
+  const profile = makeProfile();
+  const cls = { get: (): Profile => profile } as unknown as ClsService;
+  const base = { ...makeMongooseBase([]), Model: makeModel() };
+  const connection = { base, host: 'localhost', port: 27017, name: 'test-db' };
+  const moduleRef = {
+    get: (token: unknown): unknown => (token === ClsServiceToken ? cls : connection),
+  } as unknown as ModuleRef;
+
+  new MongooseConnectionPatch(moduleRef, options).onModuleInit();
+  await run(base.Model);
+
+  const entries = profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[];
+  expect(entries).toHaveLength(1);
+  const [entry] = entries;
+  if (entry === undefined) throw new Error('the patch recorded no entry');
+  return entry;
+}
+
+describe('MongooseConnectionPatch — write capture', () => {
+  it('captures the operations passed to bulkWrite', async () => {
+    const operations = [
+      { updateOne: { filter: { name: 'ada' }, update: { $set: { active: true } }, upsert: true } },
+    ];
+    const entry = await writeEntry((model) => model.bulkWrite(operations));
+    expect(entry.operations).toEqual(operations);
+    expect(entry.count).toBe(1);
+    expect(entry.collection).toBe('users');
+  });
+
+  it('captures the documents passed to insertMany', async () => {
+    const documents = [{ name: 'ada' }, { name: 'grace' }];
+    const entry = await writeEntry((model) => model.insertMany(documents));
+    expect(entry.documents).toEqual(documents);
+    expect(entry.count).toBe(2);
+  });
+
+  it('accepts a single document passed to insertMany', async () => {
+    const entry = await writeEntry((model) => model.insertMany({ name: 'ada' }));
+    expect(entry.documents).toEqual([{ name: 'ada' }]);
+    expect(entry.count).toBe(1);
+  });
+
+  it('records a Model.create() / Model.insertOne(), which calls the $save alias', async () => {
+    // Patching `save` alone leaves this path — the most common one — uninstrumented.
+    const entry = await writeEntry((model) =>
+      (
+        makeDocument(model, { name: 'ada' }) as unknown as { $save: () => Promise<unknown> }
+      ).$save(),
+    );
+    expect(entry.operation).toBe('save');
+    expect(entry.documents).toEqual([{ name: 'ada' }]);
+  });
+
+  it('records one entry per call, not one per patched alias', async () => {
+    const profile = makeProfile();
+    const cls = { get: (): Profile => profile } as unknown as ClsService;
+    const base = { ...makeMongooseBase([]), Model: makeModel() };
+    const connection = { base, host: 'localhost', port: 27017, name: 'test-db' };
+    const moduleRef = {
+      get: (token: unknown): unknown => (token === ClsServiceToken ? cls : connection),
+    } as unknown as ModuleRef;
+    new MongooseConnectionPatch(moduleRef, {}).onModuleInit();
+
+    await makeDocument(base.Model, { name: 'ada' }).save();
+
+    expect(profile.collectors[MONGOOSE_QUERIES_KEY]).toHaveLength(1);
+  });
+
+  it('captures the saved document', async () => {
+    const entry = await writeEntry((model) => makeDocument(model, { name: 'ada' }).save());
+    expect(entry.documents).toEqual([{ name: 'ada' }]);
+    expect(entry.count).toBe(1);
+  });
+
+  it('flattens a saved document through its toJSON projection', async () => {
+    const entry = await writeEntry((model) =>
+      makeDocument(model, { name: 'ada' }, () => ({ _id: 'abc', name: 'Ada' })).save(),
+    );
+    expect(entry.documents).toEqual([{ _id: 'abc', name: 'Ada' }]);
+  });
+
+  it('redacts sensitive fields in a captured write payload', async () => {
+    const entry = await writeEntry((model) =>
+      model.insertMany([{ name: 'ada', password: 'hunter2' }]),
+    );
+    expect(entry.documents).toEqual([{ name: 'ada', password: '[REDACTED]' }]);
+  });
+
+  it('keeps a write payload in full, past the default depth and item caps', async () => {
+    // A bulkWrite operation is naturally 5 levels deep — the core's default maxDepth of 4 would
+    // collapse its `$set` to '[Object]' — and a bulk of more than 64 operations would be capped.
+    const operations = Array.from({ length: 65 }, (_, i) => ({
+      updateOne: { filter: { i }, update: { $set: { nested: { deep: i } } } },
+    }));
+    const entry = await writeEntry((model) => model.bulkWrite(operations), {
+      resultLimits: { maxItems: 1, maxDepth: 2 },
+    });
+    expect(entry.operations).toEqual(operations);
+    expect(entry.count).toBe(65);
+  });
+});

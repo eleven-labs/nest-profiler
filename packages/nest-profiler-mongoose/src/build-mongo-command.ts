@@ -2,26 +2,36 @@ import { safeStringify } from '@eleven-labs/nest-profiler';
 import type { MongooseQueryEntry } from './mongoose-collector.interface';
 
 /**
+ * The argument an operation was called with, as rendered in the panel and in the `mongosh`
+ * command: the pipeline of an aggregation, the operations of a `bulkWrite`, the documents of a
+ * `save` / `insertMany`, and the filter of every other query. Falls back to an empty filter when
+ * nothing was captured.
+ */
+export function commandArgument(entry: MongooseQueryEntry): unknown {
+  if (entry.operation === 'aggregate') return entry.pipeline ?? [];
+  if (entry.operations) return entry.operations;
+  if (entry.documents) {
+    // A `save` writes exactly one document — unwrap it so the command mirrors the call.
+    const [document] = entry.documents;
+    return entry.operation === 'save' && entry.documents.length === 1 ? document : entry.documents;
+  }
+  return entry.filter ?? {};
+}
+
+/**
  * Builds a runnable `mongosh` command from a captured query, mirroring the
  * Symfony Web Profiler "copy query" feature:
  *
  * - aggregations → `db.<collection>.aggregate([<pipeline>])`
+ * - writes → `db.<collection>.<operation>([<documents|operations>])`
  * - everything else → `db.<collection>.<operation>(<filter>)`
  *
  * The argument is rendered as indented JSON so it pastes cleanly into a shell. `safeStringify`
- * is used so a circular reference or `BigInt` in a filter/pipeline can't throw and drop the
- * whole MongoDB panel.
+ * is used so a circular reference or `BigInt` in an argument can't throw and drop the whole
+ * MongoDB panel.
  */
 export function buildMongoCommand(entry: MongooseQueryEntry): string {
-  const target = `db.${entry.collection}`;
-
-  if (entry.operation === 'aggregate') {
-    const pipeline = entry.pipeline ?? [];
-    return `${target}.aggregate(${safeStringify(pipeline, 2)})`;
-  }
-
-  const filter = entry.filter ?? {};
-  return `${target}.${entry.operation}(${safeStringify(filter, 2)})`;
+  return `db.${entry.collection}.${entry.operation}(${safeStringify(commandArgument(entry), 2)})`;
 }
 
 /**
@@ -43,12 +53,10 @@ function shapeOf(value: unknown): unknown {
 
 /**
  * Builds a value-free fingerprint for a Mongo operation — `operation collection <shape>`
- * where `<shape>` is the filter (or aggregation pipeline) with concrete values stripped.
- * Two executions of the same operation with different bound values share a fingerprint,
- * so the engine can flag them as an N+1 pattern.
+ * where `<shape>` is the operation's argument (filter, pipeline, or written payload) with
+ * concrete values stripped. Two executions of the same operation with different bound values
+ * share a fingerprint, so the engine can flag them as an N+1 pattern.
  */
 export function buildMongoFingerprint(entry: MongooseQueryEntry): string {
-  const shape =
-    entry.operation === 'aggregate' ? shapeOf(entry.pipeline ?? []) : shapeOf(entry.filter ?? {});
-  return `${entry.operation} ${entry.collection} ${JSON.stringify(shape)}`;
+  return `${entry.operation} ${entry.collection} ${JSON.stringify(shapeOf(commandArgument(entry)))}`;
 }

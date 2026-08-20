@@ -283,7 +283,7 @@ describe('MongooseConnectionPatch', () => {
       expect(entries.find((e) => e.operation === 'save')?.error).toContain('E11000');
     });
 
-    it('falls back to "unknown" collection and undefined count for odd call shapes', async () => {
+    it('falls back to "unknown" collection for odd call shapes', async () => {
       const { base, profile } = setupWithModel();
       const model = base['Model'] as {
         prototype: { save: (this: unknown) => Promise<unknown> };
@@ -291,13 +291,14 @@ describe('MongooseConnectionPatch', () => {
       };
       // save on a `this` with neither collection nor constructor.collection → 'unknown'.
       await model.prototype.save.call({});
-      // insertMany with a non-array first arg → count undefined.
+      // mongoose also accepts a single document — it counts as one inserted document.
       await model.insertMany.call({}, { a: 1 });
       const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
       const save = entries.find((e) => e.operation === 'save' && e.collection === 'unknown');
       expect(save).toBeDefined();
       const insert = entries.find((e) => e.operation === 'insertMany');
-      expect(insert?.count).toBeUndefined();
+      expect(insert?.count).toBe(1);
+      expect(insert?.documents).toEqual([{ a: 1 }]);
     });
 
     it('skips write patching when the mongoose base exposes no Model', () => {

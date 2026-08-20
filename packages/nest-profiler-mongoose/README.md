@@ -74,6 +74,8 @@ For each Mongoose query or aggregation executed during a request:
 | `collection`  | MongoDB collection name (e.g. `reviews`)                              |
 | `operation`   | Mongoose operation (e.g. `find`, `aggregate`)                         |
 | `filter`      | Query filter object (if applicable)                                   |
+| `documents`   | Documents written by `save` / `insertMany`                            |
+| `operations`  | Bulk operations passed to `bulkWrite`                                 |
 | `duration`    | Execution time in ms                                                  |
 | `startedAt`   | Unix timestamp                                                        |
 | `count`       | Documents returned (reads) or affected (writes)                       |
@@ -82,8 +84,10 @@ For each Mongoose query or aggregation executed during a request:
 | `streaming`   | `true` for streaming reads (`Query.cursor()` / `Aggregate.cursor()`)  |
 | `connection`  | Connection endpoint `host:port` (no credentials)                      |
 | `database`    | Target database name                                                  |
-| `fingerprint` | `collection + operation + filter shape`, for N+1 grouping             |
+| `fingerprint` | `collection + operation + argument shape`, for N+1 grouping           |
 | `tags`        | Performance tags applied by the core rule engine                      |
+
+`filter`, `pipeline`, `documents` and `operations` are the operation's _arguments_: they are always captured (no `captureResult` needed), passed through the shared redaction, and shown in the panel with a **Copy query** button that yields a runnable `mongosh` command. Written documents go through their `toJSON()` projection, and unlike `result` they are never size-capped — a bulk operation is naturally deeper than the default `maxDepth`.
 
 `count` is derived from what the operation resolved to: the array length for `find` / `distinct` / `aggregate`, the number itself for `countDocuments` / `estimatedDocumentCount`, `1` or `0` for single-document reads (`findOne`, `findById`, `findOneAnd*`), and the write acknowledgement for `update*` / `delete*` / `replace*` (`deletedCount`, or `modifiedCount` plus `upsertedCount` so an upsert counts as affected). When the shape is not recognized the field stays unset and the panel omits it rather than showing a wrong figure. Streamed row counts are not captured.
 
@@ -109,6 +113,8 @@ The toolbar badge shows: `{n}q` (e.g., `4q`). When slow queries are present: `4q
 ## How it works
 
 At module initialization, the collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.prototype.exec` on the Mongoose instance retrieved from `connection.base`. This captures all queries regardless of when schemas were registered, and is fully transparent — Mongoose behavior is unchanged.
+
+**Writes** — `document.save()`, `Model.insertMany()` and `Model.bulkWrite()` bypass `Query.exec()`, so they are patched as well, along with `Model.prototype.$save` — the frozen alias of `save` that `Model.create()` and `Model.insertOne()` call internally, and that patching `save` alone would miss (`Model.bulkSave()` routes through `bulkWrite`). Each write records the payload it was called with — the saved / inserted documents under `documents`, the bulk operations under `operations` — snapshotted _before_ the write runs, since Mongoose mutates what it writes.
 
 **Streaming reads** — `Query.cursor()` and `Aggregate.cursor()` bypass `exec()`, so they are patched too. The read is recorded (with `streaming: true`) at cursor creation, so it is captured whatever the consumption pattern. Its `duration` is finalized from the cursor's terminal `close`/`end`/`error` events when they fire — which they do for flowing / `pipe()` / explicit `close()` consumption, but **not** for `for await` or `eachAsync()` on a Mongoose cursor (they emit no terminal event); those keep `duration: 0` and are labelled `not timed (stream)` in the panel's Duration column. Measuring their duration would require wrapping the row iterator, a per-document cost we avoid. Streamed row counts are not captured.
 
