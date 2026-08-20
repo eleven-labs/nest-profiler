@@ -128,6 +128,29 @@ describe('HttpRouteSource', () => {
     expect(source.collect().routes.length).toBe(2);
   });
 
+  it('excludes the profiler UI/API routes from the panel', () => {
+    @Controller('_profiler')
+    class ProfilerController {
+      @Get()
+      listProfiles(): void {}
+
+      @Get(':token')
+      getProfileDetail(): void {}
+    }
+    const { source } = buildSource([
+      petsWrapper,
+      { instance: new ProfilerController(), metatype: ProfilerController },
+    ]);
+    source.onApplicationBootstrap();
+
+    const group = source.collect();
+    expect(group.routes.every((r) => r.controller !== 'ProfilerController')).toBe(true);
+    expect(group.routes.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'POST /pets',
+      'GET /pets/:id',
+    ]);
+  });
+
   it('warns when controllers exist but expose no route-args metadata (shape canary)', () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 

@@ -1,6 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
-import { ProfilerCoreService, scanHttpRoutes } from '@eleven-labs/nest-profiler';
+import {
+  PROFILER_BASE_PATH,
+  ProfilerCoreService,
+  scanHttpRoutes,
+} from '@eleven-labs/nest-profiler';
 import type { ProfilerRouteSource, RouteEntry, RouteGroup } from '@eleven-labs/nest-profiler';
 import { describeHandlerParams, handlerHasRouteArgs } from './describe-handler-params';
 import { readRouteGuards } from './route-guards';
@@ -27,7 +31,10 @@ export class HttpRouteSource implements ProfilerRouteSource, OnApplicationBootst
   ) {}
 
   onApplicationBootstrap(): void {
-    const scanned = scanHttpRoutes(this.discovery, this.metadataScanner);
+    // Exclude the profiler's own UI/API routes — they're internal plumbing, not application routes.
+    const scanned = scanHttpRoutes(this.discovery, this.metadataScanner).filter(
+      (route) => !route.path.startsWith(PROFILER_BASE_PATH),
+    );
 
     let sawRouteArgs = false;
     const routes: RouteEntry[] = scanned.map((route) => {

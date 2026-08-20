@@ -164,7 +164,7 @@ export {
   buildHttpEntrypointType,
 } from './entrypoints/builtin-http-entrypoint';
 export type { IContextAdapter } from './adapters/context-adapter.interface';
-export { PROFILER_REQ_KEY, PROFILER_CLS_KEYS } from './constants';
+export { PROFILER_REQ_KEY, PROFILER_CLS_KEYS, PROFILER_BASE_PATH } from './constants';
 export { combineFilters } from './filters';
 export type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';
 export { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
