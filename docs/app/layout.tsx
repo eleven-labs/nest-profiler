@@ -4,6 +4,8 @@ import './global.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { Geist, Geist_Mono } from 'next/font/google';
+
 import {
   DEFAULT_LANGUAGE,
   GOOGLE_SITE_VERIFICATION,
@@ -13,6 +15,18 @@ import {
   SITE_URL,
   TWITTER_HANDLE,
 } from '@/lib/constants';
+
+const geistSans = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist-sans',
+  display: 'swap',
+});
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -110,7 +124,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang={DEFAULT_LANGUAGE} suppressHydrationWarning>
+    <html
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      lang={DEFAULT_LANGUAGE}
+      suppressHydrationWarning
+    >
       {/* The single Fumadocs RootProvider lives in app/[lang]/layout.tsx with the
           i18n config. Nesting a second one here duplicated the next-themes /
           search providers, so the root layout only renders html/body. */}

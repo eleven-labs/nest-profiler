@@ -1,10 +1,31 @@
 import { ImageResponse } from 'next/og';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { SITE_NAME } from '@/lib/constants';
 
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 };
 
 const MAX_DESCRIPTION_LENGTH = 140;
+
+const FONTS_DIR = join(process.cwd(), 'assets/fonts');
+
+// Satori only ships a regular weight, so every bold style below silently
+// rendered at 400 until both Geist faces were registered explicitly.
+const fonts = [
+  {
+    name: 'Geist',
+    data: await readFile(join(FONTS_DIR, 'Geist-Regular.ttf')),
+    weight: 400 as const,
+    style: 'normal' as const,
+  },
+  {
+    name: 'Geist',
+    data: await readFile(join(FONTS_DIR, 'Geist-Bold.ttf')),
+    weight: 700 as const,
+    style: 'normal' as const,
+  },
+];
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -34,7 +55,7 @@ export function renderOGImage({
           'radial-gradient(circle at 20% 20%, rgba(229,34,90,0.25), transparent 45%)',
         padding: '72px',
         color: '#ffffff',
-        fontFamily: 'sans-serif',
+        fontFamily: 'Geist',
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -49,7 +70,7 @@ export function renderOGImage({
         >
           {SITE_NAME}
         </div>
-        <div style={{ display: 'flex', fontSize: titleFontSize, fontWeight: 800, lineHeight: 1.1 }}>
+        <div style={{ display: 'flex', fontSize: titleFontSize, fontWeight: 700, lineHeight: 1.1 }}>
           {title}
         </div>
         {description ? (
@@ -70,6 +91,6 @@ export function renderOGImage({
         <span style={{ color: '#ffffff', fontWeight: 700, marginLeft: '8px' }}>Eleven Labs</span>
       </div>
     </div>,
-    OG_IMAGE_SIZE,
+    { ...OG_IMAGE_SIZE, fonts },
   );
 }
