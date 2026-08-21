@@ -54,15 +54,70 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       expect(res.text).not.toContain(short(graphqlToken));
     });
 
-    // The global-scope Schema collector contributes its own sidebar view; the home page lists it,
-    // and the view renders the registered entities and their columns/relations.
+    // Both sidebars are the same component: every item carries an icon slot, and a protocol keeps
+    // one glyph whether it is named under Profiling or under Discover.
+    it('gives every sidebar item an icon, shared per protocol between Profiling and Discover', async () => {
+      const home = await request(server(app)).get('/_profiler');
+
+      const items = [
+        ...home.text.matchAll(
+          /\?view=([a-z-]+)"[^>]*>\s*<span class="w-3\.5 h-3\.5 shrink-0">(.*?)<\/span>/gs,
+        ),
+      ];
+      const glyphOf = new Map(items.map(([, view, glyph]) => [view, glyph]));
+
+      // Every registered view — Profiling sections included — resolved a non-empty glyph.
+      for (const view of ['http', 'graphql', 'command', 'discover-http', 'discover-graphql']) {
+        expect(glyphOf.get(view)).toBeTruthy();
+      }
+      // The HTTP list and the HTTP routing table share the globe; same for GraphQL and Commands.
+      expect(glyphOf.get('http')).toBe(glyphOf.get('discover-http'));
+      expect(glyphOf.get('graphql')).toBe(glyphOf.get('discover-graphql'));
+      expect(glyphOf.get('command')).toBe(glyphOf.get('discover-command'));
+    });
+
+    // A protocol also keeps its glyph across pages: the same mark on the home's sidebar and on
+    // the tab of a profile of that kind.
+    it('reuses the home glyph on a profile detail tab of the same protocol', async () => {
+      const home = await request(server(app)).get('/_profiler');
+      const homeGlyph =
+        /\?view=graphql"[^>]*>\s*<span class="w-3\.5 h-3\.5 shrink-0">(.*?)<\/span>/s.exec(
+          home.text,
+        )?.[1];
+      expect(homeGlyph).toBeTruthy();
+
+      const detail = await request(server(app)).get(`/_profiler/${graphqlToken}`);
+      expect(detail.status).toBe(200);
+      expect(detail.text).toContain(homeGlyph);
+    });
+
+    // Each transport's routing table is its own **Discover** view, keyed so it can never collide
+    // with the same-protocol profile list (`?view=graphql` stays the GraphQL list).
+    it('lists one Discover view per transport in the sidebar', async () => {
+      const home = await request(server(app)).get('/_profiler');
+
+      expect(home.text).toContain('>Discover<');
+      expect(home.text).toContain('view=discover-http');
+      expect(home.text).toContain('view=discover-graphql');
+
+      // The view renders that one transport's table, named by its group breadcrumb.
+      const rest = await request(server(app)).get('/_profiler').query({ view: 'discover-http' });
+      expect(rest.status).toBe(200);
+      expect(rest.text).toContain('Discovered at startup');
+      expect(rest.text).toContain('>HTTP<');
+      expect(rest.text).toContain('/health');
+    });
+
+    // The global-scope Schema collector contributes its own sidebar view under the **Schemas**
+    // heading; the home page lists it, and the view renders the entities and their columns.
     it('renders the global Schema panel in its sidebar view for the active ORM', async () => {
       const isMikro = activeSqlOrm() === 'mikro-orm';
-      const label = isMikro ? 'Schema · MikroORM' : 'Schema · TypeORM';
+      const label = isMikro ? 'MikroORM' : 'TypeORM';
       const viewKey = isMikro ? 'mikro-orm-schema' : 'typeorm-schema';
 
-      // The sidebar on the home page links to the Schema view.
+      // The sidebar on the home page groups the ORM views under a Schemas heading.
       const home = await request(server(app)).get('/_profiler');
+      expect(home.text).toContain('>Schemas<');
       expect(home.text).toContain(label);
       expect(home.text).toContain(`view=${viewKey}`);
 

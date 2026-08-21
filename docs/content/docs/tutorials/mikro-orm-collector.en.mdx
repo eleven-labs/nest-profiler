@@ -50,7 +50,7 @@ requires no `debug` flag.
 
 ## Step 3 - Instrument your services with spans
 
-Use `startSpan()` to add meaningful labels to the Timeline panel alongside your MikroORM calls:
+Use `startSpan()` to add meaningful labels to the Performance tab's execution timeline alongside your MikroORM calls:
 
 ```ts
 import { ProfilerService } from '@eleven-labs/nest-profiler';
@@ -140,7 +140,7 @@ MikroOrmCollectorModule.forRoot({
 
 ## Inspect the schema
 
-Alongside the per-request Database panel, the package ships `MikroOrmSchemaCollectorModule` — a global collector that adds a **Schema · MikroORM** panel to the profiler home page. It introspects the ORM metadata **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
+Alongside the per-request Database panel, the package ships `MikroOrmSchemaCollectorModule` — a global collector that adds a **Schemas / MikroORM** view to the profiler home page. It introspects the ORM metadata **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
 
 Register it next to the query collector, gated the same way:
 
@@ -150,8 +150,6 @@ import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-
 ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
 ```
 
-Open `/_profiler` and expand the **Schema · MikroORM** panel:
-
-![Schema panel — MikroORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mikro-orm.png)
+Open `/_profiler` and select the **Schemas / MikroORM** view — it has the same shape as every ORM's, one disclosure per entity over a columns table (see the [TypeORM walkthrough](/docs/tutorials/typeorm-collector) for a shot of it).
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named contexts, redacts secrets embedded in column defaults, and simply does not appear when no MikroORM context is wired.

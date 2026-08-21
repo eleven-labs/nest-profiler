@@ -93,7 +93,7 @@ No exit code is collected: the profiler wraps `run()` from inside the process, s
 
 At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method. The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there.
 
-It also contributes a **Commands** group to the Routes panel (`@eleven-labs/nest-profiler-routes`), listing every `@Command()` class with its description and, per command, its positional **Arguments** (from `@Command({ arguments, argsDescription })`) and its **Options** (from `@Option({ flags, description, defaultValue, required })`) — so the panel documents the CLI the same way `--help` does. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
+It also contributes the **Discover / Commands** view (`@eleven-labs/nest-profiler-routes`), listing every `@Command()` class with its description and, per command, its positional **Arguments** (from `@Command({ arguments, argsDescription })`) and its **Options** (from `@Option({ flags, description, defaultValue, required })`) — so the view documents the CLI the same way `--help` does. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
 
 ---
 

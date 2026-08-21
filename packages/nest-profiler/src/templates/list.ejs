@@ -5,6 +5,49 @@
   <%- include('_nav') %>
   <main class="max-w-7xl mx-auto px-6 py-8">
 
+    <%# Process-wide, not per view: the trend sits above the whole page so it never reads as
+        the heap of the HTTP / GraphQL / Command list it happens to be rendered next to. %>
+    <% if (heapSeries && heapSeries.length >= 2) { %>
+      <%
+        const heapMin  = Math.min(...heapSeries);
+        const heapMax  = Math.max(...heapSeries);
+        const heapSpan = heapMax - heapMin || 1;
+        const heapLast = heapSeries[heapSeries.length - 1];
+        // Trend: compare last 20% vs first 20% of the series.
+        const chunk = Math.max(1, Math.floor(heapSeries.length / 5));
+        const heapAvgFirst = heapSeries.slice(0, chunk).reduce((s, v) => s + v, 0) / chunk;
+        const heapAvgLast  = heapSeries.slice(-chunk).reduce((s, v) => s + v, 0) / chunk;
+        const heapTrend    = heapAvgLast - heapAvgFirst;
+        const trendClass   = heapTrend > 5 * 1024 * 1024 ? 'text-danger' : heapTrend > 1024 * 1024 ? 'dur-medium' : 'text-foreground-muted';
+        const trendLabel   = heapTrend > 5 * 1024 * 1024 ? '↑ potential leak' : heapTrend > 1024 * 1024 ? '↑ growing' : '~ stable';
+      %>
+      <div class="mb-4 bg-surface border border-line rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-foreground">Process heap</span>
+            <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">last <%= heapSeries.length %> requests</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs tabular-nums">
+            <span class="text-foreground-faint">min <span class="text-foreground"><%= mb(heapMin) %></span></span>
+            <span class="text-foreground-faint">max <span class="text-foreground"><%= mb(heapMax) %></span></span>
+            <span class="text-foreground-faint">now <span class="text-foreground font-medium"><%= mb(heapLast) %></span></span>
+            <span class="<%= trendClass %> font-medium"><%= trendLabel %></span>
+          </div>
+        </div>
+        <div class="flex items-end gap-px h-10">
+          <% for (const v of heapSeries) { %>
+            <%
+              const pct = Math.round(((v - heapMin) / heapSpan) * 80) + 20;
+              const barClass = v > heapMin + heapSpan * 0.8 ? 'bg-danger/60' : v > heapMin + heapSpan * 0.5 ? 'bg-amber-400/60' : 'bg-nest/40';
+            %>
+            <div class="flex-1 rounded-t-sm <%= barClass %>" style="height:<%= pct %>%"
+                 title="<%= mb(v) %>"></div>
+          <% } %>
+        </div>
+        <p class="text-foreground-faint text-2xs mt-2">Process-wide V8 heap at request start. A rising trend indicates a memory leak.</p>
+      </div>
+    <% } %>
+
     <div class="mb-6">
       <h1 class="text-base font-semibold text-foreground">Recent Profiles</h1>
       <p class="text-foreground-muted text-xs mt-0.5">Profiles captured by the profiler</p>
@@ -12,11 +55,18 @@
 
     <%
       const sectionViewList = typeof sectionViews !== 'undefined' && sectionViews ? sectionViews : [];
-      const globalViewList = typeof globalViews !== 'undefined' && globalViews ? globalViews : [];
-      // Active/inactive classes for a sidebar link, shared by section sub-items and global items.
+      // Global panels arrive bucketed by sidebar group (Discover, Schemas…); the trailing
+      // unlabelled bucket holds the ungrouped ones (Config).
+      const globalGroups = (typeof globalViewGroups !== 'undefined' && globalViewGroups ? globalViewGroups : [])
+        .filter((g) => g.views && g.views.length > 0);
+      // Active/inactive classes for a sidebar link and its count badge — same scale as the
+      // detail page's nav, so both sidebars read as one component.
       const navLink = (isActive) => isActive
         ? 'border-nest text-nest bg-surface-active'
         : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted';
+      const navBadge = (isActive) => isActive
+        ? 'bg-nest/10 text-nest border-nest/20'
+        : 'bg-surface-muted text-foreground-muted border-line';
     %>
 
     <!-- ── Two-column layout (stacks to one column on mobile) ─────────────── -->
@@ -24,33 +74,33 @@
 
       <!-- ── Left aside — view navigation ─────────────────────────────────── -->
       <aside class="w-full md:w-52 shrink-0 md:sticky md:top-16">
-        <nav class="bg-surface border border-line rounded-xl overflow-hidden py-1">
+        <nav class="bg-surface border border-line rounded-xl overflow-hidden">
 
           <!-- Profiling group — one sub-item per registered list section (HTTP, GraphQL…) -->
-          <div class="px-4 pt-2 pb-1">
+          <div class="px-4 pt-3 pb-1.5">
             <span class="text-2xs text-foreground-faint uppercase tracking-widest font-medium">Profiling</span>
           </div>
           <% for (const v of sectionViewList) { %>
-            <a href="<%= link(profilerPath + '?view=' + v.key) %>"
-               class="flex items-center gap-2.5 pl-6 pr-3 py-2 text-xs font-medium transition-colors border-l-2 <%= navLink(v.key === activeView) %>">
-              <span class="flex-1 truncate"><%= v.label %></span>
-              <% if (typeof v.count === 'number') { %><span class="shrink-0 text-2xs tabular-nums px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint"><%= v.count %></span><% } %>
-            </a>
+            <%- include('_nav-item', { href: link(profilerPath + '?view=' + v.key), view: v, isActive: v.key === activeView, navLink, navBadge }) %>
           <% } %>
 
-          <!-- Global panels (Config, Routes, Schemas…) -->
-          <% if (globalViewList.length > 0) { %>
-            <div class="mx-3 my-1.5 border-t border-line-subtle"></div>
-            <% for (const v of globalViewList) { %>
-              <a href="<%= link(profilerPath + '?view=' + v.key) %>"
-                 class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2 <%= navLink(v.key === activeView) %>">
-                <% if (v.icon) { %><span class="w-3.5 h-3.5 shrink-0"><%- v.icon %></span><% } %>
-                <span class="flex-1 truncate"><%= v.label %></span>
-                <% if (typeof v.count === 'number') { %><span class="shrink-0 text-2xs tabular-nums px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint"><%= v.count %></span><% } %>
-              </a>
+          <!-- Global panels — one bucket per group (Discover, Schemas…), then the ungrouped ones -->
+          <% for (const group of globalGroups) { %>
+            <% if (group.label) { %>
+              <%# The heading carries the separator, exactly as the detail page's Collectors heading does. %>
+              <div class="mt-3 pt-3 border-t border-line px-4 pb-1.5">
+                <span class="text-2xs text-foreground-faint uppercase tracking-widest font-medium"><%= group.label %></span>
+              </div>
+            <% } else { %>
+              <%# The ungrouped bucket (Config…) gets the rule without a heading to sit under. %>
+              <div class="my-2 border-t border-line"></div>
+            <% } %>
+            <% for (const v of group.views) { %>
+              <%- include('_nav-item', { href: link(profilerPath + '?view=' + v.key), view: v, isActive: v.key === activeView, navLink, navBadge }) %>
             <% } %>
           <% } %>
 
+          <div class="h-2"></div>
         </nav>
       </aside>
 
@@ -58,47 +108,6 @@
       <div class="flex-1 min-w-0">
 
         <% if (typeof activeSection !== 'undefined' && activeSection) { %>
-
-          <% if (heapSeries && heapSeries.length >= 2) { %>
-            <%
-              const heapMin  = Math.min(...heapSeries);
-              const heapMax  = Math.max(...heapSeries);
-              const heapSpan = heapMax - heapMin || 1;
-              const heapLast = heapSeries[heapSeries.length - 1];
-              // Trend: compare last 20% vs first 20% of the series.
-              const chunk = Math.max(1, Math.floor(heapSeries.length / 5));
-              const heapAvgFirst = heapSeries.slice(0, chunk).reduce((s, v) => s + v, 0) / chunk;
-              const heapAvgLast  = heapSeries.slice(-chunk).reduce((s, v) => s + v, 0) / chunk;
-              const heapTrend    = heapAvgLast - heapAvgFirst;
-              const trendClass   = heapTrend > 5 * 1024 * 1024 ? 'text-danger' : heapTrend > 1024 * 1024 ? 'dur-medium' : 'text-foreground-muted';
-              const trendLabel   = heapTrend > 5 * 1024 * 1024 ? '↑ potential leak' : heapTrend > 1024 * 1024 ? '↑ growing' : '~ stable';
-            %>
-            <div class="mb-4 bg-surface border border-line rounded-xl p-4">
-              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <div class="flex items-center gap-3">
-                  <span class="text-xs font-semibold text-foreground">Process heap</span>
-                  <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">last <%= heapSeries.length %> requests</span>
-                </div>
-                <div class="flex items-center gap-4 text-xs tabular-nums">
-                  <span class="text-foreground-faint">min <span class="text-foreground"><%= mb(heapMin) %></span></span>
-                  <span class="text-foreground-faint">max <span class="text-foreground"><%= mb(heapMax) %></span></span>
-                  <span class="text-foreground-faint">now <span class="text-foreground font-medium"><%= mb(heapLast) %></span></span>
-                  <span class="<%= trendClass %> font-medium"><%= trendLabel %></span>
-                </div>
-              </div>
-              <div class="flex items-end gap-px h-10">
-                <% for (const v of heapSeries) { %>
-                  <%
-                    const pct = Math.round(((v - heapMin) / heapSpan) * 80) + 20;
-                    const barClass = v > heapMin + heapSpan * 0.8 ? 'bg-danger/60' : v > heapMin + heapSpan * 0.5 ? 'bg-amber-400/60' : 'bg-nest/40';
-                  %>
-                  <div class="flex-1 rounded-t-sm <%= barClass %>" style="height:<%= pct %>%"
-                       title="<%= mb(v) %>"></div>
-                <% } %>
-              </div>
-              <p class="text-foreground-faint text-2xs mt-2">Process-wide V8 heap at request start. A rising trend indicates a memory leak.</p>
-            </div>
-          <% } %>
 
           <%
             // The single active list section (its own page); filter fields are namespaced by key.
@@ -188,10 +197,15 @@
 
         <% } else if (typeof activeGlobalPanel !== 'undefined' && activeGlobalPanel) { %>
 
-          <!-- ── Global-collector panel (Config, Routes, Schemas…) ───────────── -->
+          <!-- ── Global-collector panel (Discover, Schemas, Config…) ─────────── -->
           <div class="bg-surface border border-line rounded-xl overflow-hidden">
             <div class="flex items-center gap-2 px-4 py-3 bg-surface-muted border-b border-line">
               <% if (activeGlobalPanel.icon) { %><span class="w-3.5 h-3.5 shrink-0 text-foreground-muted"><%- activeGlobalPanel.icon %></span><% } %>
+              <%# Grouped panels carry a short label (REST, TypeORM…), so the group names the context. %>
+              <% if (activeGlobalPanel.groupLabel) { %>
+                <span class="text-xs text-foreground-muted"><%= activeGlobalPanel.groupLabel %></span>
+                <span class="text-foreground-faint text-xs">/</span>
+              <% } %>
               <span class="text-xs font-semibold text-foreground"><%= activeGlobalPanel.label %></span>
               <span class="text-foreground-faint text-2xs ml-1 font-normal">— global, captured at startup</span>
             </div>

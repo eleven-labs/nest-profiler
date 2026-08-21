@@ -120,9 +120,7 @@ At module initialization, the collector patches `mongoose.Query.prototype.exec` 
 
 ## Schema panel
 
-`MongooseSchemaCollectorModule` adds a global **Schema · Mongoose** panel to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, columns, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
-
-![Schema panel — Mongoose models with their fields, types, `_id` and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mongoose.png)
+`MongooseSchemaCollectorModule` adds a global **Schemas / Mongoose** view to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, columns, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
 ```ts title="app.module.ts"
 import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoose';

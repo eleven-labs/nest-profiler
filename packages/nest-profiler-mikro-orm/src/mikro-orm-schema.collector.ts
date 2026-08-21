@@ -46,18 +46,18 @@ function toIndexInfo(
 @Injectable()
 @ProfilerCollector({
   name: 'mikro-orm-schema',
-  label: 'Schema · MikroORM',
+  label: 'MikroORM',
   icon: SCHEMA_ICON,
   priority: 80,
   scope: 'global',
-  group: 'database',
-  groupLabel: 'Database',
+  group: 'schema',
+  groupLabel: 'Schemas',
 })
 export class MikroOrmSchemaCollector extends AbstractSchemaCollector {
   readonly name = 'mikro-orm-schema';
-  readonly label = 'Schema · MikroORM';
-  readonly group = 'database';
-  readonly groupLabel = 'Database';
+  readonly label = 'MikroORM';
+  readonly group = 'schema';
+  readonly groupLabel = 'Schemas';
 
   constructor(
     private readonly moduleRef: ModuleRef,

@@ -45,7 +45,7 @@ import { MikroOrmSchemaInitializer } from './product.mikro-orm.schema-initialize
       }),
       isProfilerEnabled,
     ),
-    // Global-scope "Schema · MikroORM" home-page panel listing the registered entities.
+    // Global-scope "Schemas / MikroORM" home-page view listing the registered entities.
     ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [

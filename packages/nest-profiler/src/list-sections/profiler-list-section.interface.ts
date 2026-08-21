@@ -35,6 +35,12 @@ export interface ProfilerListSection {
   readonly key: string;
   /** Heading shown above the section's table. */
   readonly title: string;
+  /**
+   * Inline SVG markup for the sidebar icon. Use the protocol's identity glyph — the same one its
+   * **Discover** view carries — so a protocol reads the same wherever it is named. Absent leaves
+   * the item's label aligned with the others, without an icon.
+   */
+  readonly icon?: string;
   /** Sub-heading shown under the title. */
   readonly description?: string;
   /**

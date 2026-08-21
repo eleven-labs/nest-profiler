@@ -21,14 +21,6 @@ const ESCAPED_SCRIPT = '&lt;script&gt;alert(1)&lt;/script&gt;';
 const ATTR_BREAKOUT = '"><img src=x onerror=alert(1)>';
 
 const SQL_PANEL = path.join(TEMPLATES_DIR, '..', 'collectors', 'sql', 'templates', 'sql-panel.ejs');
-const TIMELINE_PANEL = path.join(
-  TEMPLATES_DIR,
-  '..',
-  'collectors',
-  'timeline',
-  'templates',
-  'timeline-panel.ejs',
-);
 const REQUESTS_SECTION = path.join(TEMPLATES_DIR, 'sections', 'requests-section.ejs');
 
 function baseProfile(): Record<string, unknown> {
@@ -172,25 +164,19 @@ describe('template rendering — XSS regression', () => {
     });
   });
 
-  describe('detail — timeline panel', () => {
+  describe('detail — execution timeline (Performance tab)', () => {
     it('escapes a hostile span phase in both text and the title attribute', async () => {
       const profile = baseProfile();
+      profile.spans = [
+        {
+          phase: `controller${ATTR_BREAKOUT}`,
+          duration: 5,
+          startedAt: (profile.performance as { startTime: number }).startTime,
+        },
+      ];
       const html = await service.render(
         'detail',
-        detailData({
-          activeTab: 'timeline',
-          profile,
-          collectorPanels: [
-            { name: 'timeline', label: 'Timeline', templatePath: TIMELINE_PANEL, badgeValue: 1 },
-          ],
-          collectorData: [
-            {
-              phase: `controller${ATTR_BREAKOUT}`,
-              duration: 5,
-              startedAt: (profile.performance as { startTime: number }).startTime,
-            },
-          ],
-        }),
+        detailData({ activeTab: 'performance', profile }),
       );
 
       // Rendered both as text and inside title="<%= span.phase %>" — neither may break out.

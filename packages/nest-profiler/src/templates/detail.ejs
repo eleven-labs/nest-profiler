@@ -15,11 +15,14 @@
       /* The entrypoint type contributes the primary tabs (Request/Response for
          HTTP, Command for a CLI command, Message for a consumed message…). The
          universal tabs (Performance/Logs/Exceptions) follow for every kind. */
+      const totalDuration = profile.performance.duration;
       const UNIVERSAL_TABS = [
         {
           name: 'performance',
           label: 'Performance',
           icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+          // The total duration — what the former Timeline tab badged, now that this tab owns it.
+          badge: totalDuration !== undefined ? `${totalDuration}ms` : undefined,
         },
         {
           name: 'logs',
@@ -118,7 +121,7 @@
                    : isEmpty
                      ? 'border-transparent text-foreground-faint hover:text-foreground-muted hover:bg-surface-muted'
                      : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted' %>">
-              <% if (bt.icon) { %><span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><%- bt.icon %></span><% } %>
+              <span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><% if (bt.icon) { %><%- bt.icon %><% } %></span>
               <span class="flex-1"><%= bt.label %></span>
               <% if (badge !== null) { %>
                 <span class="px-1.5 py-0.5 rounded-full text-2xs font-bold border
@@ -155,7 +158,7 @@
                      : isEmpty
                        ? 'border-transparent text-foreground-faint hover:text-foreground-muted hover:bg-surface-muted'
                        : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-muted' %>">
-                <% if (panel.icon) { %><span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><%- panel.icon %></span><% } %>
+                <span class="w-3.5 h-3.5 shrink-0 <%= isEmpty && !isActive ? 'opacity-50' : '' %>"><% if (panel.icon) { %><%- panel.icon %><% } %></span>
                 <span class="flex-1"><%= panel.label %></span>
                 <% if (sevDot) { %><span class="w-1.5 h-1.5 rounded-full shrink-0 <%= sevDot %>" title="Performance issue"></span><% } %>
                 <% if (badge !== null) { %>
@@ -204,8 +207,8 @@
               </div>
             </div>
 
-            <section>
-              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Timeline</h2>
+            <section class="mb-8">
+              <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Timestamps</h2>
               <div class="bg-surface-muted border border-line rounded-lg divide-y divide-line-subtle">
                 <div class="flex items-center justify-between px-4 py-2.5 text-xs">
                   <span class="text-foreground-muted">Start</span>
@@ -219,6 +222,12 @@
                 <% } %>
               </div>
             </section>
+
+            <%# The spans from `startSpan()` live here too — rendered only when the profile has
+                any, so an uninstrumented app is never told what it is not missing. %>
+            <% if (profile.spans && profile.spans.length > 0) { %>
+              <%- include('sections/timeline-section', { profile, timeOnly }) %>
+            <% } %>
 
           <% } else if (activeTab === 'logs') { %>
 

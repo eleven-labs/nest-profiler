@@ -8,9 +8,7 @@ import type {
   RouteInputGroup,
   RouteInputItem,
 } from '@eleven-labs/nest-profiler';
-
-/** Inline SVG for the Commands group (a terminal prompt). */
-const COMMAND_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" opacity="0.4"/><path d="M4 6l2.5 2L4 10M8 10h4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+import { COMMAND_ICON } from './icons';
 
 /**
  * nest-commander metadata keys, mirrored locally (they are not part of its public API) — a `@Command`
@@ -40,7 +38,7 @@ interface OptionMetadata {
 }
 
 /**
- * A {@link ProfilerRouteSource} contributing a **Commands** group to the Routes panel. It scans the
+ * A {@link ProfilerRouteSource} contributing the **Discover / Commands** view. It scans the
  * providers for nest-commander `@Command()` classes and lists each command with its name,
  * description, declaring class, positional **arguments** (from `@Command({ arguments })`) and
  * `--option` flags (from `@Option()`, with their descriptions) — the CLI counterpart of the REST
@@ -56,6 +54,7 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
   private group: RouteGroup = {
     source: 'command',
     label: 'Commands',
+    itemLabel: 'command',
     icon: COMMAND_ICON,
     routes: [],
   };
@@ -92,7 +91,13 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
     }
 
     routes.sort((a, b) => a.path.localeCompare(b.path));
-    this.group = { source: 'command', label: 'Commands', icon: COMMAND_ICON, routes };
+    this.group = {
+      source: 'command',
+      label: 'Commands',
+      icon: COMMAND_ICON,
+      itemLabel: 'command',
+      routes,
+    };
 
     try {
       this.moduleRef.get(ProfilerCoreService, { strict: false }).registerRouteSource(this);

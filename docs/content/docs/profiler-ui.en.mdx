@@ -12,7 +12,7 @@ This page is a **visual tour** of the panels and tabs. For the reference side �
 
 ## Profiles list
 
-`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector (Config, Routes, Schemas) is a view of its own — each badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing.
+`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector is a view of its own — grouped under a heading when it belongs to a family (**Discover**, one view per transport; **Schemas**, one per ORM), flat otherwise (Config). Each is badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing. Above the whole page sits the **process-heap trend** — process-wide data, so it is not tied to whichever list is open.
 
 Every list carries its own filter bar and is filtered independently: the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus an **Exception** select and an **Errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**). A kind hides a universal filter that is redundant for it — the Commands list has no **Errors** checkbox, its **Status** filter already asking the same question.
 
@@ -54,9 +54,9 @@ The **Response** tab shows the status, response headers, and body returned by th
 
 ![Response tab showing status, headers, and JSON body](/screenshots/profiler/response.png)
 
-The **Performance** tab groups request duration, memory, and timestamps.
+The **Performance** tab groups everything about the execution's timing: the request duration (also badged on the tab), the process heap, the start/end timestamps, and the **execution timeline** of the spans recorded with `startSpan()` — rendered as synchronized bars plus a per-phase table. A profile with no span simply shows no timeline.
 
-![Performance tab with duration, memory, and request timeline](/screenshots/profiler/performance.png)
+![Performance tab with duration, process heap, timestamps and the execution timeline of the recorded spans](/screenshots/profiler/performance.png)
 
 The **Logs** tab lists entries captured through `createProfilerLogger()`. Each row shows the message first - with structured payloads rendered as a JSON block under it - then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
 
@@ -67,10 +67,6 @@ The **Exceptions** tab lists what the profile captured, each with its message an
 ![Exceptions tab displaying a captured InternalServerErrorException with its stack trace](/screenshots/profiler/exceptions.png)
 
 ## Collectors
-
-The **Timeline** collector displays spans created with `startSpan()` as synchronized bars.
-
-![Timeline tab showing slow.step.fetch, slow.step.process, and slow.step.serialize spans](/screenshots/profiler/timeline.png)
 
 The **Database** collector shows SQL queries (TypeORM or MikroORM) with their SQL type and duration, plus a metadata line per query — rows affected/returned and the connection, rendered as a chip (`localhost:5432 / shop`). The panel header sums the rows read.
 
@@ -115,3 +111,7 @@ The **Validator** collector shows validated DTOs and failing `class-validator` c
 The **Config** collector is global — it describes the application, not one request — so it is a sidebar view of its own, exposing the runtime and the flattened configuration with secrets masked.
 
 ![Config view showing the runtime tiles and the flattened app/database keys with database.password masked](/screenshots/profiler/config.png)
+
+The **Discover** views (requires [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes)) are global too: one view per transport, each listing that transport's routing table as discovered at startup — method, path, controller/handler, a lock on guarded routes, and the per-route inputs when a row is expanded. A transport that discovered nothing gets no view, and the keys are namespaced (`?view=discover-graphql`) so they never collide with the GraphQL profile list.
+
+![Discover / HTTP view listing the application's registered routes with their controllers and handlers](/screenshots/profiler/discover.png)

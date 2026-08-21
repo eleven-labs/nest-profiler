@@ -3,9 +3,7 @@ import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { RABBIT_HANDLER } from '@golevelup/nestjs-rabbitmq';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { ProfilerRouteSource, RouteEntry, RouteGroup } from '@eleven-labs/nest-profiler';
-
-/** Inline SVG for the RabbitMQ group. */
-const RABBITMQ_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M13 7h-2V3a1 1 0 00-1-1H8a1 1 0 00-1 1v4H5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V8a1 1 0 00-1-1zm-1 5h-2v-2h2v2z"/></svg>`;
+import { RABBITMQ_ICON } from './icons';
 
 /** Minimal view of the `@RabbitSubscribe` handler config we read from metadata. */
 interface RabbitHandlerConfig {
@@ -16,7 +14,7 @@ interface RabbitHandlerConfig {
 }
 
 /**
- * A {@link ProfilerRouteSource} contributing a **RabbitMQ** group to the Routes panel. It scans the
+ * A {@link ProfilerRouteSource} contributing the **Discover / RabbitMQ** view. It scans the
  * providers for methods decorated with `@RabbitSubscribe` (`@golevelup/nestjs-rabbitmq` stores the
  * subscription config under the `RABBIT_HANDLER` metadata key) and lists each consumer with its
  * exchange, routing key and handler.
@@ -28,6 +26,7 @@ export class RabbitMqRouteSource implements ProfilerRouteSource, OnApplicationBo
     source: 'rabbitmq',
     label: 'RabbitMQ',
     icon: RABBITMQ_ICON,
+    itemLabel: 'handler',
     routes: [],
   };
 
@@ -64,7 +63,13 @@ export class RabbitMqRouteSource implements ProfilerRouteSource, OnApplicationBo
     }
 
     routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
-    this.group = { source: 'rabbitmq', label: 'RabbitMQ', icon: RABBITMQ_ICON, routes };
+    this.group = {
+      source: 'rabbitmq',
+      label: 'RabbitMQ',
+      icon: RABBITMQ_ICON,
+      itemLabel: 'handler',
+      routes,
+    };
 
     try {
       this.moduleRef.get(ProfilerCoreService, { strict: false }).registerRouteSource(this);

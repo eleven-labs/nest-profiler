@@ -3,6 +3,7 @@ import { Body, Controller, Get, Injectable, Logger, Post, UseGuards } from '@nes
 import type { CanActivate } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
+import { HTTP_ENTRYPOINT_TYPE_DEF, HTTP_ICON } from '@eleven-labs/nest-profiler';
 import { HttpRouteSource } from './http-route-source';
 
 class CreatePetDto {
@@ -58,7 +59,12 @@ describe('HttpRouteSource', () => {
     expect(registerRouteSource).toHaveBeenCalledWith(source);
     const group = source.collect();
     expect(group.source).toBe('http');
-    expect(group.label).toBe('REST');
+    // The protocol is named once: the same label the HTTP list section carries.
+    expect(group.label).toBe('HTTP');
+    expect(HTTP_ENTRYPOINT_TYPE_DEF.listSection.title).toBe('HTTP');
+    // One glyph for the protocol: the REST Discover view and the HTTP list section share it.
+    expect(group.icon).toBe(HTTP_ICON);
+    expect(HTTP_ENTRYPOINT_TYPE_DEF.listSection.icon).toBe(HTTP_ICON);
     expect(group.routes.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /pets',
       'GET /pets/:id',

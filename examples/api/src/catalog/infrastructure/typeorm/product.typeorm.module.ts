@@ -59,7 +59,7 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
       }),
       isProfilerEnabled,
     ),
-    // Global-scope "Schema · TypeORM" home-page panel listing the registered entities.
+    // Global-scope "Schemas / TypeORM" home-page view listing the registered entities.
     ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [{ provide: ProductRepository, useClass: TypeOrmProductRepository }],

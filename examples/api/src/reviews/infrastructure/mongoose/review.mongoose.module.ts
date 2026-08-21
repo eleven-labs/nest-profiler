@@ -28,7 +28,7 @@ import { MongooseReviewRepository } from './review.mongoose.repository.js';
       MongooseCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
-    // Global-scope "Schema · Mongoose" home-page panel listing the registered models.
+    // Global-scope "Schemas / Mongoose" home-page view listing the registered models.
     ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
   ],
   providers: [{ provide: ReviewRepository, useClass: MongooseReviewRepository }],

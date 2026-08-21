@@ -169,11 +169,99 @@ describe('ProfilerController (unit)', () => {
       expect(rendered[0]?.ctx.activeView).toBe('http');
       // Section sub-items carry an unfiltered count badge; global items carry the panel's own badge.
       expect(rendered[0]?.ctx.sectionViews).toEqual([{ key: 'http', label: 'HTTP', count: 0 }]);
-      expect(rendered[0]?.ctx.globalViews).toEqual([
-        { key: 'config', label: 'Config', icon: undefined, count: 12 },
+      // An ungrouped panel lands in the trailing unlabelled bucket, so it stays a flat item.
+      expect(rendered[0]?.ctx.globalViewGroups).toEqual([
+        {
+          label: undefined,
+          views: [
+            {
+              key: 'config',
+              label: 'Config',
+              icon: undefined,
+              count: 12,
+              group: undefined,
+              groupLabel: undefined,
+            },
+          ],
+        },
       ]);
       expect((rendered[0]?.ctx.activeSection as { key: string }).key).toBe('http');
       expect(rendered[0]?.ctx.activeGlobalPanel).toBeUndefined();
+    });
+
+    it('buckets grouped global panels under their heading, ungrouped ones flat at the end', async () => {
+      const { controller, rendered, core } = setup();
+      (
+        core.collectorRegistry as { buildGlobalPanels: jest.Mock }
+      ).buildGlobalPanels.mockResolvedValue([
+        {
+          name: 'discover-http',
+          label: 'HTTP',
+          data: {},
+          badge: 4,
+          group: 'discover',
+          groupLabel: 'Discover',
+        },
+        {
+          name: 'discover-graphql',
+          label: 'GraphQL',
+          data: {},
+          badge: 2,
+          group: 'discover',
+          groupLabel: 'Discover',
+        },
+        {
+          name: 'typeorm-schema',
+          label: 'TypeORM',
+          data: {},
+          badge: 7,
+          group: 'schema',
+          groupLabel: 'Schemas',
+        },
+        { name: 'config', label: 'Config', data: {}, badge: 12 },
+      ]);
+
+      await controller.listProfiles({}, mockReq());
+
+      const groups = rendered[0]?.ctx.globalViewGroups as {
+        label?: string;
+        views: { key: string }[];
+      }[];
+      expect(groups.map((g) => [g.label, g.views.map((v) => v.key)])).toEqual([
+        ['Discover', ['discover-http', 'discover-graphql']],
+        ['Schemas', ['typeorm-schema']],
+        [undefined, ['config']],
+      ]);
+    });
+
+    it('selects a per-transport Discover view without colliding with the same-protocol list section', async () => {
+      const { controller, rendered, core } = setup();
+      (core.getListSections as jest.Mock).mockReturnValue([
+        { key: 'http', title: 'HTTP', isDefault: true, templatePath: '/tmp/http.ejs' },
+        { key: 'graphql', title: 'GraphQL', templatePath: '/tmp/gql.ejs' },
+      ]);
+      (
+        core.collectorRegistry as { buildGlobalPanels: jest.Mock }
+      ).buildGlobalPanels.mockResolvedValue([
+        {
+          name: 'discover-graphql',
+          label: 'GraphQL',
+          data: {},
+          group: 'discover',
+          groupLabel: 'Discover',
+        },
+      ]);
+
+      // `?view=graphql` is the profile list; only `?view=discover-graphql` is the routing table.
+      await controller.listProfiles({ view: 'graphql' }, mockReq());
+      expect((rendered[0]?.ctx.activeSection as { key: string }).key).toBe('graphql');
+      expect(rendered[0]?.ctx.activeGlobalPanel).toBeUndefined();
+
+      await controller.listProfiles({ view: 'discover-graphql' }, mockReq());
+      expect((rendered[1]?.ctx.activeGlobalPanel as { name: string }).name).toBe(
+        'discover-graphql',
+      );
+      expect(rendered[1]?.ctx.activeSection).toBeUndefined();
     });
 
     it('picks the active global panel for ?view=<panel> and builds no section', async () => {

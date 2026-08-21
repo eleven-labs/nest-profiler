@@ -63,18 +63,18 @@ function pathDefault(path: PathType): string | undefined {
 @Injectable()
 @ProfilerCollector({
   name: 'mongoose-schema',
-  label: 'Schema · Mongoose',
+  label: 'Mongoose',
   icon: SCHEMA_ICON,
   priority: 80,
   scope: 'global',
-  group: 'database',
-  groupLabel: 'Database',
+  group: 'schema',
+  groupLabel: 'Schemas',
 })
 export class MongooseSchemaCollector extends AbstractSchemaCollector {
   readonly name = 'mongoose-schema';
-  readonly label = 'Schema · Mongoose';
-  readonly group = 'database';
-  readonly groupLabel = 'Database';
+  readonly label = 'Mongoose';
+  readonly group = 'schema';
+  readonly groupLabel = 'Schemas';
 
   constructor(
     private readonly moduleRef: ModuleRef,

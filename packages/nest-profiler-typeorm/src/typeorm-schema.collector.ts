@@ -63,18 +63,18 @@ function mapIndex(index: IndexMetadata): IndexInfo {
 @Injectable()
 @ProfilerCollector({
   name: 'typeorm-schema',
-  label: 'Schema · TypeORM',
+  label: 'TypeORM',
   icon: SCHEMA_ICON,
   priority: 80,
   scope: 'global',
-  group: 'database',
-  groupLabel: 'Database',
+  group: 'schema',
+  groupLabel: 'Schemas',
 })
 export class TypeOrmSchemaCollector extends AbstractSchemaCollector {
   readonly name = 'typeorm-schema';
-  readonly label = 'Schema · TypeORM';
-  readonly group = 'database';
-  readonly groupLabel = 'Database';
+  readonly label = 'TypeORM';
+  readonly group = 'schema';
+  readonly groupLabel = 'Schemas';
 
   constructor(
     private readonly moduleRef: ModuleRef,

@@ -3,7 +3,12 @@ export type {
   RoutesCollectorModuleOptions,
   RoutesCollectorModuleAsyncOptions,
 } from './routes-collector.module';
-export { RoutesCollector } from './routes.collector';
+export {
+  DISCOVER_GROUP,
+  DISCOVER_GROUP_LABEL,
+  discoverViewKey,
+  RoutesCollector,
+} from './routes.collector';
 export type { RoutesCollectorData } from './routes.collector';
 export { HttpRouteSource } from './http-route-source';
 export { describeHandlerParams, handlerHasRouteArgs } from './describe-handler-params';

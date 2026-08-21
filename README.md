@@ -42,14 +42,14 @@ The ecosystem is built around an **extensible collector architecture**: the core
 
 Each package is a self-contained NestJS module with its own README:
 
-- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core + Timeline panel
+- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, logs, exceptions)
 - [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
 - [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
 - [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (ships axios wiring, bring your own client)
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
-- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Routes panel (REST + GraphQL / RabbitMQ / CLI)
+- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Discover views, one per transport (REST + GraphQL / RabbitMQ / CLI)
 - [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
 - [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
 - [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
@@ -60,16 +60,16 @@ Full guides and API reference live on the documentation site (`pnpm docs:dev`, t
 
 ### Panels at a glance
 
-|                                                                        |                                                                        |                                                                  |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)       |
-| **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                        |
-| ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Timeline panel](docs/public/screenshots/profiler/timeline.png) |
-| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Timeline** (spans)                                             |
-| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)   |
-| **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                     |
-| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Routes panel](docs/public/screenshots/profiler/routes.png)     |
-| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Routes** (REST/GraphQL/RabbitMQ/CLI)                           |
+|                                                                        |                                                                        |                                                                        |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)             |
+| **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                              |
+| ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Performance panel](docs/public/screenshots/profiler/performance.png) |
+| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Performance** (duration, heap, spans)                                |
+| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)         |
+| **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                           |
+| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Discover panel](docs/public/screenshots/profiler/discover.png)       |
+| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Discover** (REST/GraphQL/RabbitMQ/CLI)                               |
 
 ## Quickstart
 

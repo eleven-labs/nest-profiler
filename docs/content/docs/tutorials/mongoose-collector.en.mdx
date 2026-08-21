@@ -124,7 +124,7 @@ The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.pr
 
 ## Inspect the schema
 
-Alongside the per-request MongoDB panel, the package ships `MongooseSchemaCollectorModule` — a global collector that adds a **Schema · Mongoose** panel to the profiler home page. It introspects the connection **once** at startup and lists every registered model with its fields, references and indexes, so you can recall a model's shape without leaving the profiler.
+Alongside the per-request MongoDB panel, the package ships `MongooseSchemaCollectorModule` — a global collector that adds a **Schemas / Mongoose** view to the profiler home page. It introspects the connection **once** at startup and lists every registered model with its fields, references and indexes, so you can recall a model's shape without leaving the profiler.
 
 Register it next to the query collector, gated the same way:
 
@@ -134,8 +134,6 @@ import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoo
 ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
 ```
 
-Open `/_profiler` and expand the **Schema · Mongoose** panel:
-
-![Schema panel — Mongoose models with their fields, types, `_id` and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mongoose.png)
+Open `/_profiler` and select the **Schemas / Mongoose** view — it has the same shape as every ORM's, one disclosure per model over a columns table (see the [TypeORM walkthrough](/docs/tutorials/typeorm-collector) for a shot of it).
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named connections, redacts secrets embedded in field defaults, and simply does not appear when no Mongoose connection is wired.

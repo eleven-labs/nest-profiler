@@ -112,9 +112,9 @@ The collector patches `dataSource.createQueryRunner()` at module initialization 
 
 ## Schema panel
 
-`TypeOrmSchemaCollectorModule` adds a global **Schema · TypeORM** panel to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
+`TypeOrmSchemaCollectorModule` adds a global **Schemas / TypeORM** view to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
-![Schema panel — TypeORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema.png)
+![Schemas / TypeORM view — the registered entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-typeorm.png)
 
 ```ts title="app.module.ts"
 import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';

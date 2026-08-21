@@ -3,6 +3,7 @@ import type { ProfilerErrorOptions } from '../analysis/profiler-error';
 import { resolveErrorSeverity, resolveProfileErrorClassifier } from '../analysis/profiler-error';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
+import { HTTP_ICON } from '../views/icons';
 import { HELPERS } from '../views/template-engine';
 import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
 import type {
@@ -48,6 +49,7 @@ export const HTTP_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   isError: resolveProfileErrorClassifier(),
   listSection: {
     title: 'HTTP',
+    icon: HTTP_ICON,
     description: 'HTTP requests captured by the profiler',
     order: 10,
     itemLabel: 'request',
