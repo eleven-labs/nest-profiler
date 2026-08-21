@@ -151,6 +151,9 @@ export class ProfilingModule {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             ...resolveStorageOptions(config),
+            // Times are rendered server-side: without this the dashboard of a UTC container
+            // shows UTC to whoever reads it. Unset ⇒ the timezone the process runs in.
+            timezone: config.get<string>('profiler.timezone'),
             // Demo captures bodies for a richer UI. In production, prefer `collectBody: false`
             // (or a small `maxBodySize` / tighter `bodyCaptureLimits`) and ALWAYS lock the dashboard
             // — which exposes captured requests — behind `security` (see `resolveProfilerSecurity`).
@@ -184,7 +187,10 @@ export class ProfilingModule {
         ProfilerModule.forRootAsync({
           isGlobal: true,
           inject: [ConfigService],
-          useFactory: (config: ConfigService) => resolveStorageOptions(config),
+          useFactory: (config: ConfigService) => ({
+            ...resolveStorageOptions(config),
+            timezone: config.get<string>('profiler.timezone'),
+          }),
         }),
         CommanderCollectorModule.forRoot(),
       ],

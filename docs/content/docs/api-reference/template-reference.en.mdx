@@ -136,17 +136,19 @@ Colour-code a duration value based on thresholds.
 
 These functions are automatically injected into every template.
 
-| Helper          | Signature                                       | Description                                                         |
-| --------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| `toJson`        | `(value) → string`                              | Pretty-prints any value as indented JSON                            |
-| `isoDate`       | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `YYYY-MM-DD HH:MM:SS`                |
-| `timeOnly`      | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `HH:MM:SS.mmm`                       |
-| `highlightSql`  | `(sql: string) → HTML string`                   | Wraps SQL keywords in `<span class="sql-keyword">` - use with `<%-` |
-| `methodClass`   | `(method: string) → string`                     | Returns the correct `badge-*` class for an HTTP method              |
-| `statusClass`   | `(status: number) → string`                     | Returns the correct `badge-*` class for an HTTP status code         |
-| `logLevelClass` | `(level: string) → string`                      | Returns the correct `badge-*` class for a log level                 |
-| `mb`            | `(bytes: number) → string`                      | Converts bytes to a human-readable `X.XX MB` string                 |
-| `kvTable`       | `(data: Record<string, unknown>) → HTML string` | Renders a key/value table - use with `<%-`                          |
+| Helper          | Signature                                       | Description                                                                   |
+| --------------- | ----------------------------------------------- | ----------------------------------------------------------------------------- |
+| `toJson`        | `(value) → string`                              | Pretty-prints any value as indented JSON                                      |
+| `isoDate`       | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `YYYY-MM-DD HH:MM:SS`, in the display timezone |
+| `timeOnly`      | `(timestamp: number) → string`                  | Formats a Unix ms timestamp as `HH:MM:SS.mmm`, in the display timezone        |
+| `highlightSql`  | `(sql: string) → HTML string`                   | Wraps SQL keywords in `<span class="sql-keyword">` - use with `<%-`           |
+| `methodClass`   | `(method: string) → string`                     | Returns the correct `badge-*` class for an HTTP method                        |
+| `statusClass`   | `(status: number) → string`                     | Returns the correct `badge-*` class for an HTTP status code                   |
+| `logLevelClass` | `(level: string) → string`                      | Returns the correct `badge-*` class for a log level                           |
+| `mb`            | `(bytes: number) → string`                      | Converts bytes to a human-readable `X.XX MB` string                           |
+| `kvTable`       | `(data: Record<string, unknown>) → HTML string` | Renders a key/value table - use with `<%-`                                    |
+
+The **display timezone** is the one the process runs in, unless the application sets the `timezone` module option — panels never need to project a timestamp themselves.
 
 ---
 

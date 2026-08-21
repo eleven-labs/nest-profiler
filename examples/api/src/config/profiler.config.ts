@@ -63,6 +63,9 @@ export default registerAs('profiler', () => {
       // Severity of the `slow` tag — drives the pill / duration / banner colour ('info' | 'warning' | 'danger').
       slowSeverity: process.env['PROFILER_SLOW_SEVERITY'] ?? 'warning',
     },
+    // IANA timezone the dashboard renders timestamps in. Unset ⇒ the timezone the process runs
+    // in, which on a hosted deployment (containers usually run UTC) is rarely the reader's.
+    timezone: process.env['PROFILER_TIMEZONE'],
     // Collector option driven from config to showcase the collectors' `forRootAsync` (see AuthModule).
     maskUserFields: (process.env['PROFILER_MASK_USER_FIELDS'] ?? 'password,refreshToken')
       .split(',')

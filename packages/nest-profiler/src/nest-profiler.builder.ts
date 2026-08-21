@@ -103,6 +103,20 @@ export interface ProfilerModuleOptions {
   /** Register the module as a global NestJS module. Default: false */
   isGlobal?: boolean;
 
+  /**
+   * IANA timezone the UI renders timestamps in — `'Europe/Paris'`, `'UTC'`, `'Asia/Tokyo'`…
+   * Default: the timezone the process runs in — the one `TZ` selects, or the system zone when
+   * `TZ` is unset. That is what the Config panel reports.
+   *
+   * Profiles store epoch milliseconds and every page is rendered server-side, so an
+   * application running in a UTC container shows UTC times to whoever reads the dashboard.
+   * Set this to the timezone the people reading the profiler are in. The effective timezone
+   * is displayed in the dashboard header, so a time is never ambiguous.
+   *
+   * An unknown name is ignored (a warning is logged) and the host timezone is used.
+   */
+  timezone?: string;
+
   /** Capture request and response bodies. Default: false */
   collectBody?: boolean;
 

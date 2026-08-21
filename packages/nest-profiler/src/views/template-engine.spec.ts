@@ -48,14 +48,21 @@ describe('template-engine HELPERS', () => {
   });
 
   describe('isoDate / timeOnly', () => {
-    const ts = Date.UTC(2026, 0, 2, 3, 4, 5, 678);
+    // Profiles store epoch milliseconds and the UI renders server-side, so timestamps must be
+    // formatted in the host timezone — formatting them in UTC shifted every displayed time by
+    // the host's offset. The Jest preset pins TZ to Europe/Paris, so a UTC-formatted
+    // implementation fails these assertions on every machine, CI included.
+    const summer = Date.UTC(2026, 6, 1, 22, 30, 15, 250); // 00:30 the next day in Paris (UTC+2)
+    const winter = Date.UTC(2026, 0, 2, 3, 4, 5, 678); // 04:04 the same day in Paris (UTC+1)
 
-    it('isoDate renders a space-separated date down to seconds', () => {
-      expect(HELPERS.isoDate(ts)).toBe('2026-01-02 03:04:05');
+    it('isoDate renders a space-separated host-local date down to seconds', () => {
+      expect(HELPERS.isoDate(summer)).toBe('2026-07-02 00:30:15');
+      expect(HELPERS.isoDate(winter)).toBe('2026-01-02 04:04:05');
     });
 
-    it('timeOnly renders the time portion with milliseconds', () => {
-      expect(HELPERS.timeOnly(ts)).toBe('03:04:05.678');
+    it('timeOnly renders the host-local time portion with milliseconds', () => {
+      expect(HELPERS.timeOnly(summer)).toBe('00:30:15.250');
+      expect(HELPERS.timeOnly(winter)).toBe('04:04:05.678');
     });
   });
 

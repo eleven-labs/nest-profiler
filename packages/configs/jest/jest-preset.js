@@ -1,3 +1,8 @@
+// Tests run in a fixed, non-UTC timezone (with DST) so date handling is deterministic across
+// machines and CI, and so code that formats a timestamp in UTC instead of the host timezone
+// fails here rather than only on a contributor's machine.
+process.env.TZ = 'Europe/Paris';
+
 /** @type {import('jest').Config} */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
