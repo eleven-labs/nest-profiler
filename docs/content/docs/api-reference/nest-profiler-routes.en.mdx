@@ -1,9 +1,9 @@
 ---
 title: nest-profiler-routes
-description: Types and API of the Routes panel and its route-source extension point.
+description: Types and API of the Discover views and their route-source extension point.
 seo:
-  title: Routes panel API reference
-  description: 'Complete API reference for @eleven-labs/nest-profiler-routes: the Routes panel module options and the ProfilerRouteSource extension point that lets GraphQL, RabbitMQ and CLI packages contribute their own groups to the routing table.'
+  title: Route discovery API reference
+  description: 'Complete API reference for @eleven-labs/nest-profiler-routes: the module options of the Discover views and the ProfilerRouteSource extension point that lets GraphQL, RabbitMQ and CLI packages contribute a view of their own to the routing table.'
 ---
 
 ## RoutesCollectorModuleOptions
@@ -17,9 +17,9 @@ Options passed to `RoutesCollectorModule.forRoot()`.
 
 ## What is captured
 
-At application startup the panel discovers every registered route, grouped by transport. The package ships a built-in **REST** source; other transport packages contribute their own group when installed:
+At application startup every registered route is discovered and grouped by transport, and each group becomes its own **Discover** sidebar view (`?view=discover-<transport>`). The package ships a built-in **HTTP** source; other transport packages contribute their own view when installed:
 
-- **REST** (built-in) — every `@Controller` handler, with its HTTP method, full path and the inputs read from `@Param`, `@Query`, `@Headers` and `@Body`.
+- **HTTP** (built-in) — every `@Controller` handler, with its HTTP method, full path and the inputs read from `@Param`, `@Query`, `@Headers` and `@Body`.
 - **GraphQL** — every query, mutation and subscription field with its argument names ([`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)).
 - **RabbitMQ** — every `@RabbitSubscribe` consumer with its exchange, routing key and handler ([`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)).
 - **Commands** — every nest-commander `@Command()` with its name and `--option` flags ([`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)).
@@ -36,6 +36,9 @@ import {
   RoutesCollector,
   HttpRouteSource,
   describeHandlerParams,
+  discoverViewKey,
+  DISCOVER_GROUP,
+  DISCOVER_GROUP_LABEL,
 } from '@eleven-labs/nest-profiler-routes';
 
 import type {
@@ -72,7 +75,7 @@ ConditionalModule.registerWhen(RoutesCollectorModule.forRoot(), isProfilerEnable
 
 ## Contributing a custom route source
 
-Register a `ProfilerRouteSource` with the core to add your own group to the panel — the same mechanism the GraphQL, RabbitMQ and CLI packages use. Resolve the core via `ModuleRef` (a dynamic module cannot reliably inject a provider exported by another dynamic module):
+Register a `ProfilerRouteSource` with the core to add your own **Discover** view — the same mechanism the GraphQL, RabbitMQ and CLI packages use. Each `RouteGroup` returned becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`. Resolve the core via `ModuleRef` (a dynamic module cannot reliably inject a provider exported by another dynamic module):
 
 ```ts
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
@@ -95,7 +98,7 @@ export class MyRouteSource implements ProfilerRouteSource, OnApplicationBootstra
   }
 
   collect(): RouteGroup {
-    return { source: 'my-transport', label: 'My transport', routes: [] };
+    return { source: 'my-transport', label: 'My transport', itemLabel: 'endpoint', routes: [] };
   }
 }
 ```

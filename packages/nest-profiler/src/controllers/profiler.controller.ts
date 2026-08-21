@@ -42,9 +42,13 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
 
+/** How many recent profiles the process-heap trend spans. */
+const HEAP_TREND_SIZE = 30;
+
 // Home sidebar: each list section (HTTP, GraphQL, Commands, RabbitMQ…) is a view under the
-// **Profiling** group, and each global panel (Config, Routes, Schemas…) is a view too. The active
-// one is server-selected from `?view=` (no client routing), defaulting to the catch-all section.
+// **Profiling** group, and each global panel (Discover, Schemas, Config…) is a view too — filed
+// under its own group heading when the contributing collector declares one. The active view is
+// server-selected from `?view=` (no client routing), defaulting to the catch-all section.
 
 /**
  * Stylesheets the profiler serves same-origin from `public/styles`. The allowlist
@@ -65,6 +69,41 @@ const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
  */
 const PROFILER_CSP =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
+
+/** One global sidebar item; `group`/`groupLabel` file it under a heading when its collector declares one. */
+interface GlobalView {
+  key: string;
+  label: string;
+  icon?: string;
+  count?: number;
+  group?: string;
+  groupLabel?: string;
+}
+
+/** One sidebar bucket of global views; an absent `label` means the ungrouped, flat items. */
+interface GlobalViewGroup {
+  label?: string;
+  views: GlobalView[];
+}
+
+/**
+ * Buckets the global views by their sidebar group, preserving the priority order they arrive in.
+ * Ungrouped views share one trailing unlabelled bucket, so a lone panel (Config) still renders
+ * as a flat item rather than under a heading of its own.
+ */
+function groupGlobalViews(views: GlobalView[]): GlobalViewGroup[] {
+  const buckets = new Map<string, GlobalViewGroup>();
+  for (const view of views) {
+    const key = view.group ?? '';
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { label: view.group ? (view.groupLabel ?? view.group) : undefined, views: [] };
+      buckets.set(key, bucket);
+    }
+    bucket.views.push(view);
+  }
+  return [...buckets.values()];
+}
 
 /**
  * `VERSION_NEUTRAL` keeps the profiler out of the host's API versioning. As a plain `@Controller()`
@@ -148,14 +187,17 @@ export class ProfilerController {
     const requestedView = typeof query.view === 'string' ? query.view : undefined;
 
     // Sidebar model: the **Profiling** group (one sub-item per list section, badged with its total)
-    // and one item per global panel (Config, Routes, Schemas…), badged with its own count.
-    const [sectionCounts, globalPanels] = await Promise.all([
+    // and one item per global panel (Discover, Schemas, Config…), badged with its own count. The
+    // process-heap trend sits above the whole page — it is process-wide, not per view.
+    const [sectionCounts, globalPanels, recentPage] = await Promise.all([
       Promise.all(allSections.map((s) => this.countSection(s, allSections))),
       this.core.collectorRegistry.buildGlobalPanels(),
+      this.core.storage.query({ filters: [], page: 1, pageSize: HEAP_TREND_SIZE }),
     ]);
     const sectionViews = allSections.map((s, i) => ({
       key: s.key,
       label: s.title,
+      icon: s.icon,
       count: sectionCounts[i],
     }));
     const globalViews = globalPanels.map((p) => ({
@@ -163,7 +205,13 @@ export class ProfilerController {
       label: p.label,
       icon: p.icon,
       count: p.badge,
+      group: p.group,
+      groupLabel: p.groupLabel,
     }));
+    const heapSeries = recentPage.items
+      .map((p) => p.performance.heapUsed)
+      .filter((v) => v !== undefined)
+      .reverse();
 
     const sectionKeys = new Set(sectionViews.map((v) => v.key));
     const globalKeys = new Set(globalViews.map((v) => v.key));
@@ -174,19 +222,13 @@ export class ProfilerController {
         ? requestedView
         : defaultView;
 
-    // Materialise only the active view: a list-section page builds that one section + the heap trend;
-    // a global view picks its already-built panel.
+    // Materialise only the active view: a list-section page builds that one section, a global
+    // view picks its already-built panel.
     let activeSection: Record<string, unknown> | undefined;
-    let heapSeries: number[] = [];
     let activeGlobalPanel: GlobalPanelInfo | undefined;
 
     if (activeView && sectionKeys.has(activeView)) {
       const section = allSections.find((s) => s.key === activeView)!;
-      const recentPage = await this.core.storage.query({ filters: [], page: 1, pageSize: 30 });
-      heapSeries = recentPage.items
-        .map((p) => p.performance.heapUsed)
-        .filter((v) => v !== undefined)
-        .reverse();
       activeSection = await this.buildSection(section, allSections, query);
     } else if (activeView) {
       activeGlobalPanel = globalPanels.find((p) => p.name === activeView);
@@ -199,7 +241,7 @@ export class ProfilerController {
       linkQueryPairs: linkQueryPairs(linkQuery),
       clientScripts: this.clientAssets.list(),
       sectionViews,
-      globalViews,
+      globalViewGroups: groupGlobalViews(globalViews),
       activeView,
       activeSection,
       heapSeries,

@@ -32,7 +32,7 @@ const SHAPE: CollectorModuleShape = {
 };
 
 /**
- * Opt-in module contributing the global **Routes** panel to the profiler home page — a
+ * Opt-in module contributing the global **Discover** views to the profiler home page — a
  * Symfony-Routing-style view of every registered route. It ships a built-in REST route source;
  * other transport packages (`@eleven-labs/nest-profiler-graphql`, `-rabbitmq`, `-commander`)
  * contribute their own routes by registering a `ProfilerRouteSource` with the core.

@@ -1,6 +1,7 @@
 /**
- * Types backing the **Routes** global panel — a Symfony-Web-Profiler-style view of the
- * application's routing table. The core ships the built-in HTTP source; protocol packages
+ * Types backing the **Discover** global panels — a Symfony-Web-Profiler-style view of the
+ * application's routing table, one sidebar view per transport. The core ships the built-in
+ * HTTP source; protocol packages
  * (`@eleven-labs/nest-profiler-graphql`, `-rabbitmq`, `-commander`) contribute their own
  * {@link ProfilerRouteSource} by calling {@link ProfilerCoreService.registerRouteSource} from
  * their module lifecycle hook — mirroring how entrypoint types are registered, since a DI
@@ -87,22 +88,32 @@ export interface RouteEntry {
   guards?: string[];
 }
 
-/** One group of routes contributed by a single source (transport). */
+/** One group of routes contributed by a single source (transport), rendered as its own **Discover** view. */
 export interface RouteGroup {
   /** Stable source discriminator, e.g. `'http'`, `'graphql'`, `'rabbitmq'`, `'command'`. */
   source: string;
-  /** Human label, e.g. `'REST'`, `'GraphQL'`. */
+  /**
+   * Human label, e.g. `'HTTP'`, `'GraphQL'`. Use the protocol's own name — the same one its list
+   * section under **Profiling** carries — so a protocol is named once, not twice.
+   */
   label: string;
   /** Inline SVG markup for the group icon. */
   icon?: string;
+  /**
+   * Singular noun naming what the group's entries are, used in its count line — `'command'`
+   * for a CLI, `'field'` for GraphQL. Defaults to `'route'`, so a source whose entries really
+   * are routes needs nothing; anything else avoids calling a command a route.
+   */
+  itemLabel?: string;
   /** The discovered routes for this source. */
   routes: RouteEntry[];
 }
 
 /**
- * A pluggable provider of routes for the {@link RoutesCollector} panel. Implementations discover
- * their routes (typically once, at `onApplicationBootstrap`) and return them from {@link collect},
- * which the panel calls when the profiler home page is rendered.
+ * A pluggable provider of routes for the **Discover** panels. Implementations discover their
+ * routes (typically once, at `onApplicationBootstrap`) and return them from {@link collect},
+ * which the panel calls when the profiler home page is rendered. Each returned group becomes
+ * one sidebar view of its own.
  */
 export interface ProfilerRouteSource {
   /** Stable discriminator, matching the {@link RouteGroup.source} it emits. */

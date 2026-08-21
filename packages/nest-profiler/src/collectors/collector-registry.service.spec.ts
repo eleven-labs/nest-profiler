@@ -431,6 +431,74 @@ describe('CollectorRegistry', () => {
       // No `*Count` field → no badge.
       expect(panels.find((p) => p.name === 'plain')?.badge).toBeUndefined();
     });
+
+    it('orders global panels by collector priority', async () => {
+      registry.register({ name: 'late', scope: 'global', priority: 90, collect: () => ({}) });
+      registry.register({ name: 'early', scope: 'global', priority: 10, collect: () => ({}) });
+
+      const panels = await registry.buildGlobalPanels();
+      expect(panels.map((p) => p.name)).toEqual(['early', 'late']);
+    });
+
+    it('carries the collector group onto its panel, so the sidebar can file it under a heading', async () => {
+      registry.register({
+        name: 'typeorm-schema',
+        label: 'TypeORM',
+        scope: 'global',
+        group: 'schema',
+        groupLabel: 'Schemas',
+        collect: () => ({ entityCount: 3 }),
+      });
+
+      const panels = await registry.buildGlobalPanels();
+      expect(panels[0]).toMatchObject({ group: 'schema', groupLabel: 'Schemas', label: 'TypeORM' });
+    });
+
+    it('expands a global collector into one panel per sub-source, inheriting its group and priority', async () => {
+      registry.register({
+        name: 'routes',
+        label: 'Discover',
+        scope: 'global',
+        priority: 75,
+        group: 'discover',
+        groupLabel: 'Discover',
+        getTemplatePath: () => '/routes.ejs',
+        collect: () => ({ sources: ['http', 'graphql'] }),
+        expandGlobalPanels: (data) =>
+          (data as { sources: string[] }).sources.map((source) => ({
+            name: `discover-${source}`,
+            label: source,
+            data: { source },
+            badge: 1,
+          })),
+      });
+
+      const panels = await registry.buildGlobalPanels();
+      expect(panels.map((p) => p.name)).toEqual(['discover-http', 'discover-graphql']);
+      expect(panels[0]).toMatchObject({
+        label: 'http',
+        data: { source: 'http' },
+        badge: 1,
+        // Not restated per panel: both come from the contributing collector.
+        group: 'discover',
+        groupLabel: 'Discover',
+        templatePath: '/routes.ejs',
+        priority: 75,
+      });
+    });
+
+    it('drops a global collector that expands to nothing, instead of showing an empty panel', async () => {
+      registry.register({
+        name: 'routes',
+        scope: 'global',
+        collect: () => ({ groups: [] }),
+        expandGlobalPanels: () => [],
+      });
+      registry.register({ name: 'config', scope: 'global', collect: () => ({}) });
+
+      const panels = await registry.buildGlobalPanels();
+      expect(panels.map((p) => p.name)).toEqual(['config']);
+    });
   });
 
   it('getCollectors returns the registered collector instances', () => {

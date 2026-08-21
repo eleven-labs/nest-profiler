@@ -1,0 +1,2 @@
+/** GraphQL's identity glyph, shared by its list section and its **Discover** view. */
+export const GRAPHQL_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3.5v7L8 15l-6-3.5v-7L8 1z" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/><circle cx="8" cy="2.2" r="1.1"/><circle cx="13.5" cy="5.1" r="1.1"/><circle cx="13.5" cy="10.9" r="1.1"/><circle cx="8" cy="13.8" r="1.1"/><circle cx="2.5" cy="10.9" r="1.1"/><circle cx="2.5" cy="5.1" r="1.1"/></svg>`;

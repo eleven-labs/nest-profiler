@@ -155,7 +155,8 @@ const TARGETS: Target[] = [
   },
   {
     // /slow has a real, colored duration (nested spans + artificial delay);
-    // /health is ~0ms, so its Performance tab is empty of signal.
+    // /health is ~0ms, so its Performance tab is empty of signal. The tab also carries the
+    // execution timeline of those spans, which is why there is no separate timeline shot.
     file: 'performance.png',
     tab: 'performance',
     preds: [httpGet(api('/slow'))],
@@ -171,7 +172,6 @@ const TARGETS: Target[] = [
       httpGet(api('/articles')),
     ],
   },
-  { file: 'timeline.png', tab: 'timeline', preds: [httpGet(api('/slow'))] },
   {
     file: 'database.png',
     tab: 'database',
@@ -489,13 +489,12 @@ async function main(): Promise<void> {
     //    renders its group disclosures open. Nothing to isolate or force: shoot the URL.
     for (const [file, view] of [
       ['config.png', 'config'],
-      // The Routes panel's transport groups are open; its per-route rows stay collapsed,
-      // which is the overview we want.
-      ['routes.png', 'routes'],
-      // One Schema view per wired ORM. The main pass runs TypeORM + Mongoose; MikroORM
-      // needs its own boot (below), the catalog binding a single SQL adapter per run.
-      ['schema.png', 'typeorm-schema'],
-      ['schema-mongoose.png', 'mongoose-schema'],
+      // The REST routing table — one Discover view per transport; its per-route rows stay
+      // collapsed, which is the overview we want.
+      ['discover.png', 'discover-http'],
+      // One shot for the Schemas group — the ORM-specific views differ only by the entities
+      // they list, so the TypeORM one stands for all of them (named for what it actually shows).
+      ['schema-typeorm.png', 'typeorm-schema'],
     ] as const) {
       if (!wanted(file)) continue;
       console.log(`  • ${file}`);
@@ -505,13 +504,12 @@ async function main(): Promise<void> {
     // The next two passes reboot the app with different feature flags, so they
     // only run when this script manages the app (not under SKIP_APP) and when their
     // views are wanted (an ONLY run for other files skips these costly reboots).
-    if (!skip('SKIP_APP') && (wanted('mikro-orm.png') || wanted('schema-mikro-orm.png'))) {
-      // 8. MikroORM Database + Schema panels — the catalog binds exactly one SQL
-      //    adapter per boot, so MikroORM needs its own run (SQL_ORM=mikro-orm)
-      //    against fresh storage. Drive one GET /products, shoot the Database tab
-      //    as `mikro-orm.png` (mirrors database.png) and the global Schema panel
-      //    as `schema-mikro-orm.png`.
-      console.log('  • mikro-orm.png / schema-mikro-orm.png (SQL_ORM=mikro-orm pass)');
+    if (!skip('SKIP_APP') && wanted('mikro-orm.png')) {
+      // 8. MikroORM Database panel — the catalog binds exactly one SQL adapter per
+      //    boot, so MikroORM needs its own run (SQL_ORM=mikro-orm) against fresh
+      //    storage. Drive one GET /products and shoot the Database tab as
+      //    `mikro-orm.png` (mirrors database.png).
+      console.log('  • mikro-orm.png (SQL_ORM=mikro-orm pass)');
       stopApp(app);
       app = undefined;
       const mikroDir = mkdtempSync(join(tmpdir(), 'profiler-mikro-'));
@@ -529,9 +527,6 @@ async function main(): Promise<void> {
             (p) => httpGet(api('/products'))(p) && hasCollector(p, 'mikro-orm'),
           );
           capture('mikro-orm.png', `${PROFILER_URL}/${mikro.token}?tab=database`);
-        }
-        if (wanted('schema-mikro-orm.png')) {
-          capture('schema-mikro-orm.png', `${PROFILER_URL}?view=mikro-orm-schema`);
         }
       } catch (error) {
         console.warn(

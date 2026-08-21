@@ -108,6 +108,13 @@ describe('GRAPHQL_ENTRYPOINT_TYPE_DEF', () => {
     expect(GRAPHQL_ENTRYPOINT_TYPE_DEF.detailTabs[0]?.templatePath).toMatch(/graphql-detail\.ejs$/);
   });
 
+  it('names GraphQL with one glyph — the list section and the detail tab share it', () => {
+    // Both are "GraphQL"; a second, near-identical mark for the same protocol is dead weight.
+    const icon = GRAPHQL_ENTRYPOINT_TYPE_DEF.listSection.icon;
+    expect(icon).toBeTruthy();
+    expect(GRAPHQL_ENTRYPOINT_TYPE_DEF.detailTabs[0]?.icon).toBe(icon);
+  });
+
   describe('summary', () => {
     it('uses the operation name when present', () => {
       const profile = makeProfile({ operationType: 'mutation', operationName: 'CreateBook' });

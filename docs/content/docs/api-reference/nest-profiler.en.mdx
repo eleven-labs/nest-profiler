@@ -235,6 +235,15 @@ Panel metadata returned by `CollectorRegistry.buildPanels()`, passed to EJS temp
   name="CollectorPanelInfo"
 />
 
+### GlobalPanelDescriptor
+
+One sidebar view returned by `IProfilerCollector.expandGlobalPanels()`, when a `scope: 'global'` collector splits its snapshot into several views instead of a single panel.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/collectors/collector.interface.ts"
+  name="GlobalPanelDescriptor"
+/>
+
 ## Storage
 
 ### IProfilerStorageAdapter
@@ -299,7 +308,7 @@ import {
   ProfilerViewsSetup,
   CollectorRegistry,
   ProfilerCollector,
-  TimelineCollector,
+  HTTP_ICON,
   PROFILER_STORAGE_ADAPTER,
   MemoryStorageAdapter,
   FileStorageAdapter,
@@ -321,6 +330,7 @@ import type {
   FileStorageAdapterOptions,
   MemoryStorageAdapterOptions,
   CollectorPanelInfo,
+  GlobalPanelDescriptor,
   Profile,
   ProfileEntrypoint,
   HttpRequestData,

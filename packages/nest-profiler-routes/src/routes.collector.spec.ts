@@ -1,6 +1,6 @@
 import { ModuleRef } from '@nestjs/core';
 import type { Profile, ProfilerRouteSource, RouteGroup } from '@eleven-labs/nest-profiler';
-import { RoutesCollector } from './routes.collector';
+import { discoverViewKey, RoutesCollector } from './routes.collector';
 
 const EMPTY_PROFILE = {} as Profile;
 
@@ -24,14 +24,71 @@ const healthRoute = {
   controller: 'HealthController',
   handler: 'check',
 };
-const httpGroup: RouteGroup = { source: 'http', label: 'REST', routes: [healthRoute] };
+const httpGroup: RouteGroup = { source: 'http', label: 'HTTP', routes: [healthRoute] };
 
 describe('RoutesCollector', () => {
-  it('is a global-scope panel exposing a template', () => {
+  it('is a global-scope panel exposing a template, filed under the Discover sidebar group', () => {
     const collector = makeCollector([]);
     expect(collector.scope).toBe('global');
     expect(collector.name).toBe('routes');
+    expect(collector.group).toBe('discover');
+    expect(collector.groupLabel).toBe('Discover');
     expect(collector.getTemplatePath()).toMatch(/routes-panel\.ejs$/);
+  });
+
+  describe('expandGlobalPanels', () => {
+    const gqlGroup: RouteGroup = {
+      source: 'graphql',
+      label: 'GraphQL',
+      itemLabel: 'field',
+      routes: [
+        { method: 'query', path: 'users', controller: 'UserResolver', handler: 'users' },
+        { method: 'mutation', path: 'createUser', controller: 'UserResolver', handler: 'create' },
+      ],
+    };
+
+    it('emits one view per transport, each carrying only its own group', () => {
+      const collector = makeCollector([source('http', httpGroup), source('graphql', gqlGroup)]);
+      const panels = collector.expandGlobalPanels(collector.collect(EMPTY_PROFILE));
+
+      expect(panels).toEqual([
+        {
+          name: 'discover-http',
+          label: 'HTTP',
+          icon: collector.icon,
+          data: { groups: [httpGroup], routeCount: 1 },
+          badge: 1,
+        },
+        {
+          name: 'discover-graphql',
+          label: 'GraphQL',
+          icon: collector.icon,
+          data: { groups: [gqlGroup], routeCount: 2 },
+          badge: 2,
+        },
+      ]);
+    });
+
+    it('keys a view so it can never collide with the same-protocol list section', () => {
+      // `?view=graphql` stays the GraphQL profile list; the routing table is its own key.
+      expect(discoverViewKey('graphql')).toBe('discover-graphql');
+    });
+
+    it('prefers the group icon over the collector default when the source ships one', () => {
+      const iconGroup: RouteGroup = { ...httpGroup, icon: '<svg id="rest"/>' };
+      const collector = makeCollector([source('http', iconGroup)]);
+      expect(collector.expandGlobalPanels(collector.collect(EMPTY_PROFILE))[0]?.icon).toBe(
+        '<svg id="rest"/>',
+      );
+    });
+
+    it('emits no view at all when nothing was discovered, or when collection failed', () => {
+      const collector = makeCollector([]);
+      expect(collector.expandGlobalPanels(collector.collect(EMPTY_PROFILE))).toEqual([]);
+      // `safeCollect` substitutes `{ error }` for a collector that threw — not a panel payload.
+      expect(collector.expandGlobalPanels({ error: 'boom' })).toEqual([]);
+      expect(collector.expandGlobalPanels(undefined)).toEqual([]);
+    });
   });
 
   it('aggregates route groups from every registered source with a total count', () => {
@@ -48,6 +105,23 @@ describe('RoutesCollector', () => {
     const data = collector.collect(EMPTY_PROFILE);
     expect(data.groups).toEqual([httpGroup, gqlGroup]);
     expect(data.routeCount).toBe(3);
+  });
+
+  it('lists HTTP first, then the other transports by label, whatever the registration order', () => {
+    const gql: RouteGroup = { source: 'graphql', label: 'GraphQL', routes: [healthRoute] };
+    const cli: RouteGroup = { source: 'command', label: 'Commands', routes: [healthRoute] };
+    // Sources register in DI bootstrap order — here the built-in HTTP source registers last.
+    const collector = makeCollector([
+      source('graphql', gql),
+      source('command', cli),
+      source('http', httpGroup),
+    ]);
+
+    expect(collector.collect(EMPTY_PROFILE).groups.map((g) => g.label)).toEqual([
+      'HTTP',
+      'Commands',
+      'GraphQL',
+    ]);
   });
 
   it('flattens a source that returns multiple groups', () => {

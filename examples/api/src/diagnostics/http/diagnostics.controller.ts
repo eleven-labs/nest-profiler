@@ -19,7 +19,7 @@ export class DiagnosticsController {
 
   @Get('slow')
   @ApiOperation({ summary: 'Simulate a slow request with nested timeline spans' })
-  @ApiResponse({ status: 200, description: 'Completed — check the Timeline panel in /_profiler' })
+  @ApiResponse({ status: 200, description: 'Completed — check the Performance tab in /_profiler' })
   async slowEndpoint(): Promise<Record<string, unknown>> {
     const stopTotal = this.profiler.startSpan('slow.total');
 
@@ -37,7 +37,7 @@ export class DiagnosticsController {
 
     stopTotal();
     this.logger.log('Slow endpoint completed');
-    return { message: 'Slow operation completed — check the Timeline panel in /_profiler' };
+    return { message: 'Slow operation completed — check the Performance tab in /_profiler' };
   }
 
   @Get('crash')

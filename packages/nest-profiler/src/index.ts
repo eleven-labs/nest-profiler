@@ -34,7 +34,7 @@ export { CollectorRegistry } from './collectors/collector-registry.service';
 export type { CollectorPanelInfo, GlobalPanelInfo } from './collectors/collector-registry.service';
 export { ProfilerCollector } from './collectors/collector.decorator';
 export type { ProfilerCollectorMetadata } from './collectors/collector.decorator';
-export type { IProfilerCollector } from './collectors/collector.interface';
+export type { GlobalPanelDescriptor, IProfilerCollector } from './collectors/collector.interface';
 export { scanHttpRoutes } from './routes/scan-http-routes';
 export type { ScannedHttpRoute } from './routes/scan-http-routes';
 export type {
@@ -47,13 +47,13 @@ export type {
   RouteDtoInfo,
   RouteDtoProperty,
 } from './routes/route-source.interface';
-export { TimelineCollector } from './collectors/timeline/timeline.collector';
 export { AbstractQueryCollector } from './collectors/abstract-query.collector';
 export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';
 export {
   AbstractSchemaCollector,
   SCHEMA_ICON,
 } from './collectors/schema/abstract-schema.collector';
+export { HTTP_ICON } from './views/icons';
 export type {
   ColumnInfo,
   RelationInfo,

@@ -85,7 +85,7 @@ export class ProfilerService {
    *
    * Call the returned function once the measured work has finished: the elapsed
    * time is computed and the span is added to the active profile, where the
-   * built-in Timeline collector renders it as a bar in the **Timeline** panel.
+   * profiler renders it as a bar in the **Performance** tab's execution timeline.
    * Wrap the stop call in a `finally` block so the span is recorded even when
    * the work throws. Calling outside a profiled request is a safe no-op — the
    * returned function still works but records nothing.

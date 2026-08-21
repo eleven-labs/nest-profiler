@@ -9,16 +9,26 @@ const ESCAPED_SCRIPT = '&lt;script&gt;alert(1)&lt;/script&gt;';
 const ATTR_BREAKOUT = '"><img src=x onerror=alert(1)>';
 
 function listWith(data: RoutesCollectorData): Record<string, unknown> {
+  // Mirrors `expandGlobalPanels`: the view is labelled by the transport it renders.
+  const label = data.groups[0]?.label ?? 'HTTP';
   return {
     title: 'Profiles',
     profilerPath: '/_profiler',
     clientScripts: ['profiler.js'],
     profiles: [],
-    // The routes panel is a global-scope collector rendered as its own sidebar view.
+    // One **Discover** view per transport, filed under the Discover sidebar group.
     sectionViews: [{ key: 'http', label: 'HTTP', count: 0 }],
-    globalViews: [{ key: 'routes', label: 'Routes', count: 3 }],
-    activeView: 'routes',
-    activeGlobalPanel: { name: 'routes', label: 'Routes', templatePath: ROUTES_PANEL, data },
+    globalViewGroups: [
+      { label: 'Discover', views: [{ key: 'discover-http', label, count: data.routeCount }] },
+    ],
+    activeView: 'discover-http',
+    activeGlobalPanel: {
+      name: 'discover-http',
+      label,
+      groupLabel: 'Discover',
+      templatePath: ROUTES_PANEL,
+      data,
+    },
     heapSeries: [],
     filters: {},
   };
@@ -37,16 +47,40 @@ describe('routes-panel template', () => {
 
   it('renders the empty state when there are no routes', async () => {
     const html = await render(service, { groups: [], routeCount: 0 });
-    expect(html).toContain('No routes discovered.');
+    expect(html).toContain('Nothing discovered.');
   });
 
-  it('renders groups, routes and DTO properties', async () => {
+  it('names the transport it lists, so a short view label stays unambiguous', async () => {
+    const html = await render(service, { groups: [], routeCount: 0 });
+    expect(html).toContain('Discover');
+    expect(html).toContain('HTTP');
+  });
+
+  it('counts the entries with the noun the source chose, not always "route"', async () => {
+    const html = await render(service, {
+      routeCount: 1,
+      groups: [
+        {
+          source: 'command',
+          label: 'Commands',
+          itemLabel: 'command',
+          routes: [
+            { method: 'command', path: 'content:sync', controller: 'SyncCommand', handler: 'run' },
+          ],
+        },
+      ],
+    });
+    expect(html).toContain('1 command');
+    expect(html).not.toContain('1 route');
+  });
+
+  it('renders routes flat — one transport per view means no disclosure to open first', async () => {
     const html = await render(service, {
       routeCount: 1,
       groups: [
         {
           source: 'http',
-          label: 'REST',
+          label: 'HTTP',
           routes: [
             {
               method: 'POST',
@@ -71,7 +105,6 @@ describe('routes-panel template', () => {
       ],
     });
 
-    expect(html).toContain('REST');
     expect(html).toContain('POST');
     expect(html).toContain('/users/:id');
     expect(html).toContain('UsersController');
@@ -79,7 +112,7 @@ describe('routes-panel template', () => {
     expect(html).toContain('email');
     expect(html).toContain('String');
     expect(html).toContain('isEmail');
-    expect(html).toContain('1 routes');
+    expect(html).toContain('1 route');
     // A guarded route surfaces its guard names and a "Protected by …" lock affordance.
     expect(html).toContain('JwtAuthGuard');
     expect(html).toContain('Protected by JwtAuthGuard');

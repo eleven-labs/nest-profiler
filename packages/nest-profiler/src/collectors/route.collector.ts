@@ -30,7 +30,7 @@ export class RouteCollector implements OnApplicationBootstrap {
   // onApplicationBootstrap is called after ALL modules are initialized,
   // ensuring that controllers from consumer modules (e.g. AppModule) are
   // registered in DiscoveryService before we scan them. The discovery walk is
-  // factored into scanHttpRoutes() and shared with the Routes panel's HTTP
+  // factored into scanHttpRoutes() and shared with the Discover panel's HTTP
   // source, so there is a single pass over the controllers.
   onApplicationBootstrap(): void {
     for (const route of scanHttpRoutes(this.discovery, this.metadataScanner)) {

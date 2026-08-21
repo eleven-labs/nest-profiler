@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/comm
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
 import { ProfilerCollector } from './collector.decorator';
 import type { ProfilerCollectorMetadata } from './collector.decorator';
-import type { IProfilerCollector } from './collector.interface';
+import type { GlobalPanelDescriptor, IProfilerCollector } from './collector.interface';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
@@ -48,14 +48,11 @@ export interface CollectorPanelInfo {
   subPanels?: SubPanelInfo[];
 }
 
-export interface GlobalPanelInfo {
-  name: string;
-  label: string;
-  icon?: string;
-  data: unknown;
-  templatePath?: string;
+export interface GlobalPanelInfo extends GlobalPanelDescriptor {
   /** Sidebar count badge, taken by convention from the panel data's `*Count` field (e.g. `routeCount`). */
   badge?: number;
+  /** Sidebar ordering weight, inherited from the contributing collector. */
+  priority: number;
 }
 
 /** The panel's count badge: the first top-level numeric `*Count` field (`keyCount`, `routeCount`…). */
@@ -225,23 +222,40 @@ export class CollectorRegistry implements OnModuleInit {
     };
   }
 
-  /** Builds every global panel (one per global-scope collector) with its data and count badge. */
+  /**
+   * Builds the global sidebar views, ordered by collector priority: one per global-scope
+   * collector, or several when the collector splits its snapshot via `expandGlobalPanels()`
+   * (the Routes collector emits one **Discover** view per transport).
+   */
   async buildGlobalPanels(): Promise<GlobalPanelInfo[]> {
     const globals = [...this.collectors.values()].filter((e) => this.isGlobal(e));
     const emptyProfile = this.emptyGlobalProfile();
-    return Promise.all(
+    const expanded = await Promise.all(
       globals.map(async ({ instance, meta }) => {
         const data = await this.safeCollect(instance, meta.name, emptyProfile);
-        return {
-          name: meta.name,
-          label: meta.label ?? instance.label ?? meta.name,
+        const priority = meta.priority ?? instance.priority ?? 100;
+        const shared = {
           icon: meta.icon ?? instance.icon,
-          data,
           templatePath: instance.getTemplatePath ? instance.getTemplatePath() : undefined,
-          badge: globalPanelBadge(data),
+          group: meta.group ?? instance.group,
+          groupLabel: meta.groupLabel ?? instance.groupLabel,
+          priority,
         };
+        const panels = instance.expandGlobalPanels?.(data);
+        if (panels) return panels.map((panel) => ({ ...shared, ...panel }));
+        return [
+          {
+            ...shared,
+            name: meta.name,
+            label: meta.label ?? instance.label ?? meta.name,
+            data,
+            badge: globalPanelBadge(data),
+          },
+        ];
       }),
     );
+    // Stable sort: same-priority collectors keep their discovery order.
+    return expanded.flat().sort((a, b) => a.priority - b.priority);
   }
 
   private async safeCollect(

@@ -9,6 +9,7 @@ import type {
   ProfilerListFilter,
 } from '@eleven-labs/nest-profiler';
 import { resolveErrorSeverity, resolveProfileErrorClassifier } from '@eleven-labs/nest-profiler';
+import { GRAPHQL_ICON } from './icons';
 
 /** `Profile.entrypoint.type` value for GraphQL operations (HTTP transport). */
 export const GRAPHQL_ENTRYPOINT_TYPE = 'graphql';
@@ -39,9 +40,6 @@ const operationTypeFilter: ProfilerListFilter<string> = {
   parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
   toCriterion: (value) => ({ field: 'attributes.operationType', op: 'eq', value }),
 };
-
-const GRAPHQL_ICON =
-  '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>';
 
 /**
  * The GraphQL error codes that count as a failure by default — the spec-standard code Apollo
@@ -79,6 +77,7 @@ export const GRAPHQL_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   isError: resolveProfileErrorClassifier(undefined, GRAPHQL_ERROR_DEFAULTS),
   listSection: {
     title: 'GraphQL',
+    icon: GRAPHQL_ICON,
     description: 'GraphQL operations captured by the profiler',
     // Between the built-in HTTP section (10) and the commander section (20).
     order: 15,

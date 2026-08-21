@@ -140,8 +140,10 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
       expect(list.text).toContain('demo:greet');
       expect(list.text).toContain(cmdProfile.token.slice(0, 8));
 
-      // The Routes panel documents the command's arguments and options under their own labels.
-      const routes = await request(server(app)).get('/_profiler').query({ view: 'routes' });
+      // The Discover / Commands view documents the arguments and options under their own labels.
+      const routes = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'discover-command' });
       expect(routes.status).toBe(200);
       expect(routes.text).toContain('Arguments');
       expect(routes.text).toContain('Options');

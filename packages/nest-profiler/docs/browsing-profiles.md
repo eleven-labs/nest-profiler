@@ -16,13 +16,21 @@ The home page uses the same two-column layout as the detail page: a sticky left 
 
 Each entrypoint kind is its own dissociated page under a **Profiling** group, and every global-scope collector is a view too:
 
-| View                       | `?view=`                | Content                                                                    |
-| -------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| HTTP (default)             | `http`                  | The HTTP list, its filters, its pager and the process-heap trend           |
-| GraphQL / Commands / …     | the section key         | One page per registered list section (each with its own filters and pager) |
-| Config / Routes / Schemas… | the global panel's name | One entry per installed global-scope collector, rendered on demand         |
+| View                   | `?view=`                | Content                                                                    |
+| ---------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| HTTP (default)         | `http`                  | The HTTP list, its filters and its pager                                   |
+| GraphQL / Commands / … | the section key         | One page per registered list section (each with its own filters and pager) |
+| Discover — HTTP / …    | `discover-<transport>`  | The routing table of one transport, one view per registered route source   |
+| Schemas — TypeORM / …  | the global panel's name | One view per installed ORM schema collector                                |
+| Config                 | `config`                | The remaining global-scope collectors, ungrouped                           |
 
-Every sidebar item carries a **count badge**: a list section shows its unfiltered profile total, and a global panel shows its own count (the first `*Count` field its data exposes, e.g. `routeCount`). The `?view=` parameter coexists with the list filters, so a filtered link keeps its view: `GET /_profiler?view=http&http_method=POST`. Global panels (Config, Routes, DB schemas…) are sidebar destinations rather than inline `<details>` blocks.
+Both sidebars — the home page's views and a profile's tabs — are the same component: the same group headings, the same item padding and the same count-badge scale, with the active item's badge picking up the accent. Each item carries its subject's glyph, and a protocol keeps **one** glyph wherever it is named: the same globe on `Profiling / HTTP` and `Discover / HTTP`, the same GraphQL mark on `Profiling / GraphQL` and `Discover / GraphQL`. A section that registers no `icon` keeps its label aligned with the others.
+
+Views whose collector declares a group (**Discover**, **Schemas**) sit under that heading in the sidebar and carry a short label — the panel header restates the group, so `Discover / HTTP` stays unambiguous. A **Discover** key is prefixed on purpose: `?view=graphql` is the GraphQL profile list, `?view=discover-graphql` its routing table.
+
+Every sidebar item carries a **count badge**: a list section shows its unfiltered profile total, and a global panel shows its own count (the first `*Count` field its data exposes, e.g. `routeCount`). The `?view=` parameter coexists with the list filters, so a filtered link keeps its view: `GET /_profiler?view=http&http_method=POST`.
+
+The **process-heap trend** sits above the page title rather than inside a view: it is process-wide data, not the heap of whichever list happens to be open.
 
 ## Debug headers
 

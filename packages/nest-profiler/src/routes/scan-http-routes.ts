@@ -24,7 +24,7 @@ export interface ScannedHttpRoute {
  * Walks every registered controller (via {@link DiscoveryService}) and, for each request-mapped
  * method (via {@link MetadataScanner}), yields its HTTP method, full path and declaring
  * controller/handler. This is the single route-discovery pass shared by {@link RouteCollector}
- * (request → handler matching) and the HTTP route source (Routes panel).
+ * (request → handler matching) and the HTTP route source (Discover panel).
  *
  * Must run at/after `onApplicationBootstrap` so consumer controllers are registered.
  */

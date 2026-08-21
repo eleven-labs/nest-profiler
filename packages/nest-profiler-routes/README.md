@@ -22,9 +22,11 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its description, guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules). Non-HTTP sources describe their inputs with their own labels — CLI commands list **Arguments** and **Options** with each option's description, GraphQL fields list **Arguments**.
+`@eleven-labs/nest-profiler-routes` adds the **Discover** views to the profiler home page — a Symfony-Routing-style view of the application's routing table, with **one sidebar view per transport** (`Discover / HTTP`, `Discover / GraphQL`, `Discover / Commands`, `Discover / RabbitMQ`) so each transport's table is a subject of its own. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its description, guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules). Non-HTTP sources describe their inputs with their own labels — CLI commands list **Arguments** and **Options** with each option's description, GraphQL fields list **Arguments**.
 
-![Routes view — the application routing table grouped by transport (REST, GraphQL, RabbitMQ, Commands), with per-route inputs, body DTOs and a lock on guarded routes](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/routes.png)
+A transport that discovered nothing gets no view at all, so the sidebar only ever lists what the application actually registered.
+
+![Discover / HTTP view — the application routing table with per-route inputs, body DTOs and a lock on guarded routes](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/discover.png)
 
 ## Installation
 
@@ -54,7 +56,7 @@ export class AppModule {}
 
 ## What it collects
 
-At application startup, the panel discovers every registered route and groups it by transport. The core ships a built-in **REST** source; other transport packages contribute their own group — GraphQL resolvers (`@eleven-labs/nest-profiler-graphql`), RabbitMQ subscribers (`@eleven-labs/nest-profiler-rabbitmq`) and CLI commands (`@eleven-labs/nest-profiler-commander`) — by registering a `ProfilerRouteSource` with the core, so they appear automatically when installed.
+At application startup, every registered route is discovered and grouped by transport, and each group becomes its own **Discover** view — keyed `discover-<transport>` in the `?view=` parameter, so it can never collide with the same-protocol profile list (`?view=graphql` stays the GraphQL list, `?view=discover-graphql` its routing table). The core ships a built-in **HTTP** source; other transport packages contribute their own — GraphQL resolvers (`@eleven-labs/nest-profiler-graphql`), RabbitMQ subscribers (`@eleven-labs/nest-profiler-rabbitmq`) and CLI commands (`@eleven-labs/nest-profiler-commander`) — by registering a `ProfilerRouteSource` with the core, so they appear automatically when installed.
 
 Each REST route is introspected from its decorator metadata:
 
@@ -70,7 +72,7 @@ Sources whose inputs are not HTTP-shaped use `RouteInputs.groups` instead — a 
 
 ## Contributing a custom route source
 
-Any package can add its own group to the panel by registering a `ProfilerRouteSource` with the core (mirroring how entrypoint types are registered):
+Any package can add its own **Discover** view by registering a `ProfilerRouteSource` with the core (mirroring how entrypoint types are registered). Each `RouteGroup` it returns becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`:
 
 ```ts
 import { ModuleRef } from '@nestjs/core';

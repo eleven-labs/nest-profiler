@@ -29,7 +29,6 @@ import { TemplateRendererService } from './services/template-renderer.service';
 import { ClientAssetRegistry } from './services/client-asset-registry.service';
 import { ProfilerCoreService } from './services/profiler-core.service';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
-import { TimelineCollector } from './collectors/timeline/timeline.collector';
 import { PROFILER_BASE_PATH } from './constants';
 
 /** The entry shape `setGlobalPrefix()` stores, read off Nest's own signature. */
@@ -146,7 +145,6 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         TemplateRendererService,
         ClientAssetRegistry,
         ProfilerCoreService,
-        TimelineCollector,
         ProfilerInterceptor,
         { provide: APP_INTERCEPTOR, useExisting: ProfilerInterceptor },
         ProfilerExceptionFilter,

@@ -48,7 +48,7 @@ No other configuration is needed - the collector injects the `DataSource` automa
 
 ## Step 3 - Instrument your services with spans
 
-Use `startSpan()` to add meaningful labels to the Timeline panel alongside your TypeORM calls:
+Use `startSpan()` to add meaningful labels to the Performance tab's execution timeline alongside your TypeORM calls:
 
 ```ts
 import { ProfilerService } from '@eleven-labs/nest-profiler';
@@ -138,7 +138,7 @@ TypeOrmCollectorModule.forRoot({
 
 ## Inspect the schema
 
-Alongside the per-request Database panel, the package ships `TypeOrmSchemaCollectorModule` — a global collector that adds a **Schema · TypeORM** panel to the profiler home page. It introspects the DataSource **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
+Alongside the per-request Database panel, the package ships `TypeOrmSchemaCollectorModule` — a global collector that adds a **Schemas / TypeORM** view to the profiler home page. It introspects the DataSource **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
 
 Register it next to the query collector, gated the same way:
 
@@ -148,8 +148,8 @@ import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm
 ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
 ```
 
-Open `/_profiler` and expand the **Schema · TypeORM** panel:
+Open `/_profiler` and select the **Schemas / TypeORM** view:
 
-![Schema panel — TypeORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema.png)
+![Schemas / TypeORM view — the registered entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-typeorm.png)
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named DataSources, redacts secrets embedded in column defaults, and simply does not appear when no DataSource is wired.

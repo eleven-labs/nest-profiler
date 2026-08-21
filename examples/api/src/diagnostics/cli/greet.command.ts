@@ -13,7 +13,7 @@ interface GreetOptions {
   name: 'demo:greet',
   description: 'Print a greeting',
   // A positional argument — distinct from an `--option`: it reaches `run()` as `passedParams`,
-  // and the Routes panel lists it under "Arguments" rather than "Options".
+  // and the Discover view lists it under "Arguments" rather than "Options".
   arguments: '[name]',
   argsDescription: { name: 'Name to greet, when --name is not passed' },
 })

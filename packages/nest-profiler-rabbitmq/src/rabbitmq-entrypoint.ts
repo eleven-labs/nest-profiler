@@ -10,6 +10,7 @@ import type {
 import { resolveErrorSeverity, resolveProfileErrorClassifier } from '@eleven-labs/nest-profiler';
 import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+import { RABBITMQ_ICON } from './icons';
 
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 
@@ -90,6 +91,7 @@ export const RABBITMQ_ENTRYPOINT_TYPE_DEF: ProfilerEntrypointType = {
   isError: resolveProfileErrorClassifier(),
   listSection: {
     title: 'RabbitMQ',
+    icon: RABBITMQ_ICON,
     description: 'RabbitMQ messages consumed via @RabbitSubscribe',
     order: 30,
     itemLabel: 'message',

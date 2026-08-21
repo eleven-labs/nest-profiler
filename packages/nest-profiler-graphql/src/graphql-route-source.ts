@@ -3,12 +3,10 @@ import { ModuleRef } from '@nestjs/core';
 import { GraphQLSchemaHost } from '@nestjs/graphql';
 import type { GraphQLObjectType, GraphQLSchema } from 'graphql';
 import type { ProfilerRouteSource, RouteEntry, RouteGroup } from '@eleven-labs/nest-profiler';
-
-/** Inline SVG for the GraphQL group. */
-const GRAPHQL_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3.5v7L8 15l-6-3.5v-7L8 1z" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/><circle cx="8" cy="2.2" r="1.1"/><circle cx="13.5" cy="5.1" r="1.1"/><circle cx="13.5" cy="10.9" r="1.1"/><circle cx="8" cy="13.8" r="1.1"/><circle cx="2.5" cy="10.9" r="1.1"/><circle cx="2.5" cy="5.1" r="1.1"/></svg>`;
+import { GRAPHQL_ICON } from './icons';
 
 /**
- * A {@link ProfilerRouteSource} contributing a **GraphQL** group to the Routes panel. It reads the
+ * A {@link ProfilerRouteSource} contributing the **Discover / GraphQL** view. It reads the
  * built schema from `@nestjs/graphql`'s public {@link GraphQLSchemaHost} — rather than private
  * resolver metadata — so it works the same for code-first and schema-first setups, and lists every
  * query, mutation and subscription field with its argument names. The schema is only available once
@@ -31,7 +29,14 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
     const schema = this.readSchema();
     // No schema yet (not built, or @nestjs/graphql absent) — return an empty group without caching,
     // so a later render picks the schema up once it exists.
-    if (!schema) return { source: 'graphql', label: 'GraphQL', icon: GRAPHQL_ICON, routes: [] };
+    if (!schema)
+      return {
+        source: 'graphql',
+        label: 'GraphQL',
+        icon: GRAPHQL_ICON,
+        itemLabel: 'field',
+        routes: [],
+      };
 
     const routes = [
       ...this.fieldsOf(schema.getQueryType(), 'query'),
@@ -39,7 +44,13 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
       ...this.fieldsOf(schema.getSubscriptionType(), 'subscription'),
     ].sort((a, b) => a.method.localeCompare(b.method) || a.path.localeCompare(b.path));
 
-    this.group = { source: 'graphql', label: 'GraphQL', icon: GRAPHQL_ICON, routes };
+    this.group = {
+      source: 'graphql',
+      label: 'GraphQL',
+      icon: GRAPHQL_ICON,
+      itemLabel: 'field',
+      routes,
+    };
     return this.group;
   }
 

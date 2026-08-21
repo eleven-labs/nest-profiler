@@ -1,0 +1,14 @@
+<%#
+  One sidebar item of the home page's view navigation. Kept as a partial so the Profiling
+  sub-items and the global-panel items are literally the same markup — the same padding, icon
+  slot and badge scale as the detail page's nav, which is the other half of the same component.
+%>
+<a href="<%= href %>"
+   class="flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2 <%= navLink(isActive) %>">
+  <%# A fixed-width slot either way, so a view with no icon keeps its label aligned. %>
+  <span class="w-3.5 h-3.5 shrink-0"><% if (view.icon) { %><%- view.icon %><% } %></span>
+  <span class="flex-1 truncate"><%= view.label %></span>
+  <% if (typeof view.count === 'number') { %>
+    <span class="shrink-0 px-1.5 py-0.5 rounded-full text-2xs font-bold tabular-nums border <%= navBadge(isActive) %>"><%= view.count %></span>
+  <% } %>
+</a>

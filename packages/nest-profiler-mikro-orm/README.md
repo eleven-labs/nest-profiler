@@ -111,9 +111,7 @@ This captures all queries issued through the `EntityManager`, repositories and t
 
 ## Schema panel
 
-`MikroOrmSchemaCollectorModule` adds a global **Schema · MikroORM** panel to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the list page next to the Config panel, not inside a profile.
-
-![Schema panel — MikroORM entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-mikro-orm.png)
+`MikroOrmSchemaCollectorModule` adds a global **Schemas / MikroORM** view to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
 ```ts title="app.module.ts"
 import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';

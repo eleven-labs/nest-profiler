@@ -48,7 +48,7 @@ export class GraphQLCollectorModule extends ConfigurableModuleClass implements O
       // Render GraphQL operations in their own list table and detail tab, and add
       // the "GraphQL" option to the list page's "Type" filter.
       core.registerEntrypointType(buildGraphqlEntrypointType(this.options.error));
-      // Contribute a GraphQL group to the Routes panel (rendered only if that package is installed).
+      // Contribute the Discover / GraphQL view (rendered only if the routes package is installed).
       if (this.routeSource) core.registerRouteSource(this.routeSource);
     } catch {
       // ProfilerCoreService unavailable — profiler may not be configured.

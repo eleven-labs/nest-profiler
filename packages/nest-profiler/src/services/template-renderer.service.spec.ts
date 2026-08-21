@@ -12,7 +12,7 @@ const MINIMAL_LIST_DATA = {
   clientScripts: ['profiler.js', 'http.js'],
   profiles: [],
   sectionViews: [{ key: 'http', label: 'HTTP' }],
-  globalViews: [],
+  globalViewGroups: [],
   activeView: 'http',
   heapSeries: [],
   filters: {},
@@ -96,9 +96,128 @@ describe('TemplateRendererService', () => {
     }
   });
 
+  it('puts the process-heap trend above the page title, whatever the active view', async () => {
+    // It is process-wide data: on a global panel view too, and never nested under a list.
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      activeView: 'config',
+      activeGlobalPanel: { name: 'config', label: 'Config', data: {} },
+      heapSeries: [1024 * 1024, 2 * 1024 * 1024, 3 * 1024 * 1024],
+    });
+    expect(html).toContain('Process heap');
+    expect(html.indexOf('Process heap')).toBeLessThan(html.indexOf('Recent Profiles'));
+  });
+
+  it('renders a sidebar item with the same padding and icon slot as the detail page', async () => {
+    const [list, detail] = await Promise.all([
+      service.render('list', {
+        ...MINIMAL_LIST_DATA,
+        sectionViews: [{ key: 'http', label: 'HTTP', icon: '<svg id="globe"/>', count: 3 }],
+      }),
+      service.render('detail', MINIMAL_DETAIL_DATA),
+    ]);
+
+    // The nav item's own classes, shared by both sidebars — never the old pl-6 indent.
+    const item =
+      'flex items-center gap-2.5 pl-3 pr-3 py-2 text-xs font-medium transition-colors border-l-2';
+    expect(list).toContain(item);
+    expect(detail).toContain(item);
+    expect(list).not.toContain('pl-6');
+    // A fixed-width icon slot on both sides, so a view with no icon keeps its label aligned.
+    expect(list).toContain('<span class="w-3.5 h-3.5 shrink-0"><svg id="globe"/></span>');
+    expect(detail).toContain('w-3.5 h-3.5 shrink-0');
+  });
+
+  it('keeps the label aligned for a section that registered no icon', async () => {
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      sectionViews: [{ key: 'custom', label: 'Custom', count: 0 }],
+    });
+    // The empty slot still occupies its 3.5 units, so a mixed sidebar has one text column.
+    expect(html).toContain('<span class="w-3.5 h-3.5 shrink-0"></span>');
+  });
+
+  it('accents the count badge of the active view, like the detail page does', async () => {
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      activeView: 'http',
+      sectionViews: [
+        { key: 'http', label: 'HTTP', count: 3 },
+        { key: 'graphql', label: 'GraphQL', count: 1 },
+      ],
+    });
+    expect(html).toContain('bg-nest/10 text-nest border-nest/20');
+    expect(html).toContain('bg-surface-muted text-foreground-muted border-line');
+  });
+
+  it('groups the global sidebar views under their heading and keeps ungrouped ones flat', async () => {
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      globalViewGroups: [
+        {
+          label: 'Discover',
+          views: [
+            { key: 'discover-http', label: 'HTTP', count: 4 },
+            { key: 'discover-graphql', label: 'GraphQL', count: 2 },
+          ],
+        },
+        { views: [{ key: 'config', label: 'Config', count: 12 }] },
+      ],
+    });
+    expect(html).toContain('>Discover<');
+    expect(html).toContain('?view=discover-graphql');
+    expect(html).toContain('?view=config');
+  });
+
+  it('names the group of a grouped global panel, so a short label stays unambiguous', async () => {
+    const html = await service.render('list', {
+      ...MINIMAL_LIST_DATA,
+      activeView: 'typeorm-schema',
+      activeGlobalPanel: {
+        name: 'typeorm-schema',
+        label: 'TypeORM',
+        groupLabel: 'Schemas',
+        data: {},
+      },
+    });
+    expect(html).toContain('Schemas');
+    expect(html).toContain('TypeORM');
+  });
+
   it('renders the built-in detail template', async () => {
     const html = await service.render('detail', MINIMAL_DETAIL_DATA);
     expect(html).toContain('<!DOCTYPE html>');
+  });
+
+  describe('detail — Performance tab', () => {
+    it('badges the tab with the total duration and shows the recorded spans', async () => {
+      const startTime = Date.now();
+      const html = await service.render('detail', {
+        ...MINIMAL_DETAIL_DATA,
+        activeTab: 'performance',
+        entrypointTabTemplate: undefined,
+        profile: {
+          ...MINIMAL_DETAIL_DATA.profile,
+          performance: { startTime, heapUsed: 1024, duration: 40 },
+          spans: [{ phase: 'controller', startedAt: startTime, duration: 30 }],
+        },
+      });
+      expect(html).toContain('>40ms<');
+      expect(html).toContain('Execution timeline');
+      expect(html).toContain('controller');
+    });
+
+    it('omits the timeline entirely when no span was recorded', async () => {
+      const html = await service.render('detail', {
+        ...MINIMAL_DETAIL_DATA,
+        activeTab: 'performance',
+        entrypointTabTemplate: undefined,
+      });
+      expect(html).toContain('Timestamps');
+      expect(html).not.toContain('Execution timeline');
+      // The removed empty state: an uninstrumented app is not told what it is not missing.
+      expect(html).not.toContain('No spans recorded');
+    });
   });
 
   it('colours a slow query by its tag severity, not a hardcoded red', async () => {

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import * as path from 'path';
-import { ProfilerCollector } from '@eleven-labs/nest-profiler';
+import { HTTP_ICON, ProfilerCollector } from '@eleven-labs/nest-profiler';
 import type {
   IProfilerCollector,
   Profile,
@@ -20,8 +20,6 @@ import type { HttpRequestEntry } from './http-request.interface';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
 import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
 import type { HttpCollectorModuleOptions } from './http-collector.constants';
-
-const HTTP_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c-2 2-3 4-3 6s1 4 3 6M8 2c2 2 3 4 3 6s-1 4-3 6"/></svg>`;
 
 /**
  * Renders the client-agnostic "HTTP Client" panel from {@link HttpRequestEntry}

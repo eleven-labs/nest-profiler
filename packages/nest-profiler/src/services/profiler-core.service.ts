@@ -39,7 +39,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   private readonly listSections: ProfilerListSection[] = [];
   /** Registered entrypoint types, keyed by {@link ProfilerEntrypointType.type}. */
   private readonly entrypointTypes = new Map<string, ProfilerEntrypointType>();
-  /** Registered route sources for the Routes panel, keyed by {@link ProfilerRouteSource.type}. */
+  /** Registered route sources for the Discover panels, keyed by {@link ProfilerRouteSource.type}. */
   private readonly routeSources = new Map<string, ProfilerRouteSource>();
   /** Options contributed to an existing `'select'` filter, keyed by filter key. */
   private readonly filterOptions = new Map<string, ProfilerFilterOption[]>();
@@ -373,7 +373,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   }
 
   /**
-   * Registers a {@link ProfilerRouteSource} contributing to the Routes panel — the core seeds the
+   * Registers a {@link ProfilerRouteSource} contributing to the Discover panels — the core seeds the
    * built-in HTTP source and protocol packages add their own (GraphQL, RabbitMQ, CLI). Registration
    * is idempotent per {@link ProfilerRouteSource.type}, so calling it from a package's lifecycle
    * hook is safe across re-initialization. Packages resolve the core via
@@ -387,7 +387,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.routeSources.set(source.type, source);
   }
 
-  /** Returns every registered route source, for the Routes panel to aggregate. */
+  /** Returns every registered route source, one Discover view each. */
   getRouteSources(): ProfilerRouteSource[] {
     return [...this.routeSources.values()];
   }

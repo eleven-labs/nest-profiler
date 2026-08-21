@@ -1,5 +1,6 @@
 import * as path from 'path';
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { HTTP_ICON } from '@eleven-labs/nest-profiler';
 import { HttpClientCollector } from './http-client.collector';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
 import type { HttpRequestEntry } from './http-request.interface';
@@ -35,6 +36,12 @@ describe('HttpClientCollector', () => {
 
   beforeEach(() => {
     collector = new HttpClientCollector();
+  });
+
+  it('carries the core HTTP glyph, the one the HTTP views use', () => {
+    // The globe is defined once in the core, so this panel, the HTTP list section and the
+    // HTTP routing table cannot drift into three different globes.
+    expect(collector.icon).toBe(HTTP_ICON);
   });
 
   it('collects requests, stamps a fingerprint and removes the internal key', () => {

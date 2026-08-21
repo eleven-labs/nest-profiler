@@ -57,12 +57,12 @@ ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEna
 
 ---
 
-## Routes — `@eleven-labs/nest-profiler-routes`
+## Discover — `@eleven-labs/nest-profiler-routes`
 
 - **Peers:** `class-validator@>=0.14 <1` **optional**. No `nestjs-cls`.
 - **Module:** `RoutesCollectorModule` (`forRoot` + `forRootAsync`), option `enabled` only.
-- **Placement:** the composition root (opt-in global panel). Bundle into `ProfilingModule`.
-- **Behaviour:** adds a global **Routes** panel listing REST, GraphQL, RabbitMQ and CLI entrypoints discovered in the app.
+- **Placement:** the composition root (opt-in global panels). Bundle into `ProfilingModule`.
+- **Behaviour:** adds one global **Discover** view per transport, listing the REST, GraphQL, RabbitMQ and CLI entrypoints discovered in the app.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-routes>
 
 ```ts
