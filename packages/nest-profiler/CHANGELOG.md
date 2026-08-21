@@ -1,5 +1,62 @@
 # @eleven-labs/nest-profiler
 
+## 1.0.0-alpha.16
+
+### Minor Changes
+
+- 0514af8: The Routes panel no longer lists the profiler's own UI/API routes (`/_profiler/...`).
+
+  - `@eleven-labs/nest-profiler` exports `PROFILER_BASE_PATH`, the fixed base path where the profiler UI is mounted.
+  - `HttpRouteSource` filters out any scanned route whose path starts with `PROFILER_BASE_PATH` before building the **REST** group.
+
+- 74d8986: Let a global-scope collector expand into several sidebar views, and file related views under a group heading.
+
+  `IProfilerCollector` gains an optional `expandGlobalPanels(data)` returning one `GlobalPanelDescriptor` per view — a `scope: 'global'` collector whose snapshot holds several independent subjects now becomes several sidebar views instead of one panel aggregating them. It receives the value `collect()` returned, so timeout and error handling are unchanged, and each descriptor only carries what differs from its collector (group, icon, template and priority are inherited). Returning an empty array hides the collector entirely, so an installed package with nothing to show adds no empty view.
+
+  A global collector's `group` / `groupLabel` — previously read only for per-request panels — now files its sidebar view under that heading, and the panel header restates the group so a short label stays unambiguous (`Schemas / TypeORM`). Ungrouped views stay flat at the end of the sidebar. Global views are also ordered by collector priority, instead of by DI discovery order.
+
+  `RouteGroup` gains an optional `itemLabel`, the singular noun a route source uses for its own entries, so a routing table counts `3 commands` rather than `3 routes` (defaults to `route`).
+
+- 8e5df24: New `timezone` option: choose the timezone the UI renders timestamps in.
+
+  Pages are rendered server-side, so timestamps were always projected into the timezone the process runs in — the one `TZ` selects, or the system zone when `TZ` is unset. That is right on a developer machine and wrong as soon as the application and the reader differ (a `TZ=UTC` container shows UTC times to someone in Paris). `ProfilerModule.forRoot({ timezone: 'Europe/Paris' })` now sets the display zone; any IANA name works, and an unknown one logs a warning and falls back to the host timezone. The effective timezone is displayed in the dashboard header ("Times in Europe/Paris"), so a time on screen is never ambiguous even when nothing is configured. Only rendering is affected — stored profiles keep their epoch timestamps and the JSON export is unchanged.
+
+- 74d8986: Merge the Timeline tab into **Performance**, and show the execution timeline only when spans were recorded.
+
+  The Timeline tab badged the request duration and, for the vast majority of profiles, rendered nothing but "No spans recorded. Use profilerService.startSpan('phase') to instrument your code." — an empty tab restating what the Performance tab already owned. The **Performance** tab now carries the whole timing story: it is badged with the total duration, keeps the duration / process-heap cards and the start-end **Timestamps**, and appends the **Execution timeline** (synchronized bars plus the per-phase table) when — and only when — the profile actually recorded spans. A profile with no span shows no timeline at all.
+
+  The `timeline.png` screenshot is retired with the tab — the regenerated `performance.png` now carries the spans, so the two would have been the same shot of the same profile.
+
+  `TimelineCollector` is removed from the public API: it only forwarded `profile.spans`, which the Performance tab reads directly, so nothing consumed it. Custom timeline instrumentation is unchanged — `ProfilerService.startSpan(...)` still records spans, and `profile.spans` still carries them in the exported JSON.
+
+- 0044e45: Describe non-HTTP route inputs with their own labels in the Routes panel, instead of borrowing **Query params**.
+
+  **Core:** `RouteInputs` gains a `groups?: RouteInputGroup[]` field — a list of `{ label, items }` sections whose items are `{ name, description?, required?, defaultValue? }` — and `RouteEntry` gains an optional `description`. Both new types (`RouteInputGroup`, `RouteInputItem`) are exported. The panel renders each group as its own titled section (documented items as a name/description list, bare names as chips) and the route description above the inputs.
+
+  **Commander:** the **Commands** group now lists each command's description (from `@Command({ description })`), its positional **Arguments** (split from `@Command({ arguments })`, documented via `argsDescription`, `<required>` marked) and its **Options** (from `@Option()`, with the description, default value and required marker) — previously only the long `--flag` names, mislabelled as _Query params_. Short-only options such as `-q` are now listed too, with their full flags string as the displayed name.
+
+  **GraphQL:** field arguments now render under an **Arguments** label, and a field's schema description is surfaced on the route.
+
+  The Commands list no longer prints `exit 0` next to the `OK` status — the status already says it. The exit code remains on the **Command** detail tab.
+
+- 74d8986: Make the home page's sidebar identical to a profile's, and give each subject exactly one glyph.
+
+  The two navigations had drifted into two components: the home page indented its items further (`pl-6` against the detail page's `pl-3`), used a thinner separator and its own header padding, rendered a flat count badge where the detail page accents the active one, and carried no icon at all on the **Profiling** items. Both now share one nav-item partial — same padding, same badge scale, same active accent — and both render the icon in a fixed-width slot, so an item that declares no icon still lines its label up with the others.
+
+  `ProfilerListSection` gains an optional `icon`. A protocol now keeps **one** glyph everywhere it is named, across both pages: the HTTP globe is defined once in the core (exported as `HTTP_ICON`) and used by the HTTP list section, the HTTP routing table and the HTTP Client collector panel; the GraphQL mark serves both the GraphQL list section and the GraphQL detail tab. That retires two near-duplicate marks — a second terminal glyph for Commands and a second GraphQL glyph — which existed only because each file defined its own copy. Tabs naming a _content_ rather than a protocol (Request, Response, Message, Performance…) keep their own icon.
+
+  The HTTP routing table is labelled **HTTP** rather than **REST**, so the sidebar names the protocol once: `Profiling / HTTP` and `Discover / HTTP`, same word, same globe. `RouteGroup.label` for the built-in source changes accordingly; the `?view=discover-http` key is unchanged.
+
+### Patch Changes
+
+- 74d8986: Move the process-heap trend above the page title on the profiler home page.
+
+  The trend was rendered inside the active list view, next to the HTTP / GraphQL / Command list it happened to be shown with — which read as "the heap of these profiles" when it is process-wide data, sampled at request start across the 30 most recent profiles regardless of entrypoint. It now sits above the **Recent Profiles** heading, and shows on the global panel views too instead of disappearing whenever a non-list view was open.
+
+- 8e5df24: Render profile timestamps in the host timezone instead of UTC.
+
+  The `isoDate` / `timeOnly` template helpers formatted epoch milliseconds with `toISOString()`, so every date shown in the UI — the list sections, the detail header, the timeline, the log/exception rows and every collector panel (SQL, Mongoose, HTTP client, cache, validator, RabbitMQ) — was shifted by the host's UTC offset (a profile captured at 20:00 in `Europe/Paris` displayed as 18:00), while the Config panel reported the runtime timezone. They now format in the timezone the process runs in, so the times shown match the reported timezone.
+
 ## 1.0.0-alpha.15
 
 ### Patch Changes

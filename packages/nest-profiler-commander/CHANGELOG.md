@@ -1,5 +1,50 @@
 # @eleven-labs/nest-profiler-commander
 
+## 1.0.0-alpha.16
+
+### Major Changes
+
+- 0044e45: Stop collecting a command's exit code.
+
+  **BREAKING:** `CommandInfo.exitCode` is removed, and the **Command** tab no longer shows an _Exit Code_ card. The field was never observed — the collector wraps `run()` from inside the process, so it cannot know the code the CLI eventually exits with; it was derived as `error ? 1 : 0`, saying exactly what `success` already said. Read `entrypoint.data.success`, or the profile's `response.statusCode` (`200` / `500`), instead.
+
+### Minor Changes
+
+- 0044e45: Describe non-HTTP route inputs with their own labels in the Routes panel, instead of borrowing **Query params**.
+
+  **Core:** `RouteInputs` gains a `groups?: RouteInputGroup[]` field — a list of `{ label, items }` sections whose items are `{ name, description?, required?, defaultValue? }` — and `RouteEntry` gains an optional `description`. Both new types (`RouteInputGroup`, `RouteInputItem`) are exported. The panel renders each group as its own titled section (documented items as a name/description list, bare names as chips) and the route description above the inputs.
+
+  **Commander:** the **Commands** group now lists each command's description (from `@Command({ description })`), its positional **Arguments** (split from `@Command({ arguments })`, documented via `argsDescription`, `<required>` marked) and its **Options** (from `@Option()`, with the description, default value and required marker) — previously only the long `--flag` names, mislabelled as _Query params_. Short-only options such as `-q` are now listed too, with their full flags string as the displayed name.
+
+  **GraphQL:** field arguments now render under an **Arguments** label, and a field's schema description is surfaced on the route.
+
+  The Commands list no longer prints `exit 0` next to the `OK` status — the status already says it. The exit code remains on the **Command** detail tab.
+
+### Patch Changes
+
+- 74d8986: Replace the single **Routes** panel with one **Discover** view per transport.
+
+  "Routes" named the panel after one transport's vocabulary while listing four, and answered a question nobody asks that way: you look up the HTTP table, or the CLI's commands, not "all routes". Each registered `ProfilerRouteSource` now contributes its own sidebar view under a **Discover** heading — `Discover / HTTP`, `Discover / GraphQL`, `Discover / Commands`, `Discover / RabbitMQ` — each rendering that transport's table flat, with no group disclosure to open first, and counting its entries with the source's own noun (`4 commands`, `9 fields`). A transport that discovered nothing gets no view, so the sidebar lists only what the application actually registered.
+
+  The `routes.png` screenshot is renamed `discover.png` and reshot on the HTTP view. The views are ordered deterministically — the built-in HTTP source first, then the other transports by label — instead of following the DI bootstrap order, which shuffled the sidebar between runs. They are keyed `discover-<transport>` in `?view=`, so they can never collide with the same-protocol profile list: `?view=graphql` stays the GraphQL list, `?view=discover-graphql` is its routing table. `discoverViewKey()`, `DISCOVER_GROUP` and `DISCOVER_GROUP_LABEL` are exported for consumers building their own links. The GraphQL, RabbitMQ and Commands sources declare the `itemLabel` their entries deserve; nothing else changes in how a source is registered.
+
+- 1afa95c: Profile a command that fails before its `run()` is entered. The collector only wrapped `CommandRunner.run()`, but nest-commander evaluates the `@Option()` value parsers while commander parses the argv — i.e. before the action handler — so a parser that rejects its input (`throw new Error('Unknown site parameter')`) aborted the invocation outside the wrapper and the failed command left **no profile at all**: nothing in the Commands list, nothing under the Status "Failed" filter, while the same command succeeding was profiled normally.
+
+  - Each `@Option()` value parser is now wrapped as well: a parser that throws produces a failed command profile (`success: false`, status `500`) carrying the thrown error in the **Exceptions** tab, then the error is rethrown untouched so the CLI behaves exactly as before.
+  - Such a profile records the options commander had resolved so far (declared defaults included) plus the **raw** value the rejected flag was given — no parsed value exists for it — and empty `arguments`, since commander assigns the positional operands only once every option has parsed.
+  - Persistence goes through the core's deferred queue (`schedulePersist`), drained on application shutdown, because commander's parse phase is synchronous and cannot await a save.
+
+  Commander's own argv errors — an unknown option, a missing required option, an invalid `choices` value, or a parser throwing commander's `InvalidArgumentError` — still leave no profile: commander prints a CLI error and calls `process.exit()` itself, so nothing survives to persist one. This is now documented in the package README and in the troubleshooting guide.
+
+- 1afa95c: Drop the explainers appended to the **Arguments** and **Options** headings of the Command tab. They restated the runner signature (`— positional operands (run(passedParams))`, `— parsed --flags (run(_, options))`) on every profile, competing with the values below them; the two headings now read `Arguments` and `Options`. What each one holds is documented on the package page, not repeated in the panel.
+- 74d8986: Make the home page's sidebar identical to a profile's, and give each subject exactly one glyph.
+
+  The two navigations had drifted into two components: the home page indented its items further (`pl-6` against the detail page's `pl-3`), used a thinner separator and its own header padding, rendered a flat count badge where the detail page accents the active one, and carried no icon at all on the **Profiling** items. Both now share one nav-item partial — same padding, same badge scale, same active accent — and both render the icon in a fixed-width slot, so an item that declares no icon still lines its label up with the others.
+
+  `ProfilerListSection` gains an optional `icon`. A protocol now keeps **one** glyph everywhere it is named, across both pages: the HTTP globe is defined once in the core (exported as `HTTP_ICON`) and used by the HTTP list section, the HTTP routing table and the HTTP Client collector panel; the GraphQL mark serves both the GraphQL list section and the GraphQL detail tab. That retires two near-duplicate marks — a second terminal glyph for Commands and a second GraphQL glyph — which existed only because each file defined its own copy. Tabs naming a _content_ rather than a protocol (Request, Response, Message, Performance…) keep their own icon.
+
+  The HTTP routing table is labelled **HTTP** rather than **REST**, so the sidebar names the protocol once: `Profiling / HTTP` and `Discover / HTTP`, same word, same globe. `RouteGroup.label` for the built-in source changes accordingly; the `?view=discover-http` key is unchanged.
+
 ## 1.0.0-alpha.15
 
 ### Patch Changes
