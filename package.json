@@ -72,8 +72,8 @@
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "publint": "^0.3.23",
-    "tsx": "^4.23.10",
-    "turbo": "^2.10.8",
+    "tsx": "^4.23.12",
+    "turbo": "^2.10.9",
     "typescript": "^6.0.3"
   },
   "contributors": [
