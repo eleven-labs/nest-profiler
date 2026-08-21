@@ -1,6 +1,6 @@
 export { RabbitMqCollectorModule } from './rabbitmq-collector.module';
 export { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
-export { RabbitMqRouteSource } from './rabbitmq-route-source';
+export { RabbitMqDiscoverSource } from './rabbitmq-discover-source';
 export { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
 export type {
   RabbitMqInfo,
@@ -11,7 +11,7 @@ export { RABBITMQ_ENTRYPOINT_TYPE_DEF, buildRabbitMqEntrypointType } from './rab
 export { RabbitMqPublishCollectorModule } from './rabbitmq-publish-collector.module';
 export { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
 export type {
-  AmqpPublishEntry,
+  RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
   RabbitMqPublishCollectorModuleAsyncOptions,
 } from './rabbitmq-publish-collector.interface';

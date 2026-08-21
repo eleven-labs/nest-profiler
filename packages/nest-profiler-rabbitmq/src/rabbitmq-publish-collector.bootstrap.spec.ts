@@ -42,7 +42,7 @@ describe('RabbitMqPublishCollectorModule with an enabled core', () => {
     prototype.publish = original;
   });
 
-  it('registers the AMQP panel and instruments AmqpConnection.publish', async () => {
+  it('registers the RabbitMQ panel and instruments AmqpConnection.publish', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ProfilerModule.forRoot({ isGlobal: true }),

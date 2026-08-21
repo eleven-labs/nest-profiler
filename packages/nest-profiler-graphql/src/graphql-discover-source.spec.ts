@@ -1,5 +1,5 @@
 import { ModuleRef } from '@nestjs/core';
-import { GraphqlRouteSource } from './graphql-route-source';
+import { GraphqlDiscoverSource } from './graphql-discover-source';
 
 interface FakeField {
   name: string;
@@ -25,13 +25,13 @@ const schema = {
   getSubscriptionType: () => null,
 };
 
-describe('GraphqlRouteSource', () => {
+describe('GraphqlDiscoverSource', () => {
   it('lists query/mutation/subscription fields with their argument names', () => {
-    const source = new GraphqlRouteSource(moduleRefWith(schema));
+    const source = new GraphqlDiscoverSource(moduleRefWith(schema));
     const group = source.collect();
 
     expect(group).toMatchObject({ source: 'graphql', label: 'GraphQL' });
-    expect(group.routes).toEqual([
+    expect(group.entries).toEqual([
       {
         method: 'mutation',
         path: 'createUser',
@@ -52,7 +52,7 @@ describe('GraphqlRouteSource', () => {
 
   it('caches the group once the schema has been read', () => {
     const getFields = jest.fn(() => ({}));
-    const source = new GraphqlRouteSource(
+    const source = new GraphqlDiscoverSource(
       moduleRefWith({
         getQueryType: () => ({ name: 'Query', getFields }),
         getMutationType: () => null,
@@ -74,11 +74,11 @@ describe('GraphqlRouteSource', () => {
         },
       }),
     } as unknown as ModuleRef;
-    const source = new GraphqlRouteSource(moduleRef);
+    const source = new GraphqlDiscoverSource(moduleRef);
 
-    expect(source.collect().routes).toEqual([]);
+    expect(source.collect().entries).toEqual([]);
     ready = true;
-    expect(source.collect().routes.length).toBe(3);
+    expect(source.collect().entries.length).toBe(3);
   });
 
   it('returns an empty group when the schema host cannot be resolved', () => {
@@ -87,10 +87,10 @@ describe('GraphqlRouteSource', () => {
         throw new Error('GraphQLSchemaHost not found');
       },
     } as unknown as ModuleRef;
-    const group = new GraphqlRouteSource(moduleRef).collect();
+    const group = new GraphqlDiscoverSource(moduleRef).collect();
     expect(group.source).toBe('graphql');
     expect(group.label).toBe('GraphQL');
-    expect(group.routes).toEqual([]);
+    expect(group.entries).toEqual([]);
     expect(typeof group.icon).toBe('string');
   });
 });

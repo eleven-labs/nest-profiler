@@ -4,11 +4,11 @@ import { ClsService as ClsServiceToken } from 'nestjs-cls';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import type { Options } from 'amqplib';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AmqpPublishPatch, patchAmqpPublish } from './amqp-publish.patch';
-import type { PublishTarget } from './amqp-publish.patch';
+import { RabbitMqPublishPatch, patchRabbitMqPublish } from './rabbitmq-publish.patch';
+import type { PublishTarget } from './rabbitmq-publish.patch';
 import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface';
 import type {
-  AmqpPublishEntry,
+  RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
 } from './rabbitmq-publish-collector.interface';
 
@@ -46,8 +46,8 @@ function makeTarget(accepted = true): PublishTarget & { calls: unknown[][] } {
   };
 }
 
-function entriesOf(profile: Profile): AmqpPublishEntry[] {
-  return (profile.collectors[RABBITMQ_PUBLISHES_KEY] as AmqpPublishEntry[] | undefined) ?? [];
+function entriesOf(profile: Profile): RabbitMqPublishEntry[] {
+  return (profile.collectors[RABBITMQ_PUBLISHES_KEY] as RabbitMqPublishEntry[] | undefined) ?? [];
 }
 
 /** Patches a target, publishes once and returns the entry the patch recorded. */
@@ -55,10 +55,10 @@ async function publishEntry(
   options: RabbitMqPublishCollectorModuleOptions = {},
   message: unknown = { id: 1 },
   publishOptions?: Options.Publish,
-): Promise<AmqpPublishEntry> {
+): Promise<RabbitMqPublishEntry> {
   const profile = makeProfile();
   const target = makeTarget();
-  patchAmqpPublish(target, makeCls(profile), options);
+  patchRabbitMqPublish(target, makeCls(profile), options);
 
   await target.publish('articles.events', 'published.LEFIGARO', message, publishOptions);
 
@@ -69,7 +69,7 @@ async function publishEntry(
   return entry;
 }
 
-describe('patchAmqpPublish', () => {
+describe('patchRabbitMqPublish', () => {
   it('records the exchange, routing key, payload and outcome of a publish', async () => {
     const entry = await publishEntry();
 
@@ -86,7 +86,7 @@ describe('patchAmqpPublish', () => {
 
   it('forwards the arguments and the result untouched', async () => {
     const target = makeTarget(false);
-    patchAmqpPublish(target, makeCls(makeProfile()));
+    patchRabbitMqPublish(target, makeCls(makeProfile()));
 
     const accepted = await target.publish('x', 'y', { id: 1 }, { messageId: 'mid' });
 
@@ -97,7 +97,7 @@ describe('patchAmqpPublish', () => {
   it('flags a publish the channel buffered', async () => {
     const profile = makeProfile();
     const target = makeTarget(false);
-    patchAmqpPublish(target, makeCls(profile));
+    patchRabbitMqPublish(target, makeCls(profile));
 
     await target.publish('articles.events', 'published.LEFIGARO', { id: 1 });
 
@@ -109,7 +109,7 @@ describe('patchAmqpPublish', () => {
     const target = {
       publish: (): Promise<boolean> => Promise.reject(new Error('Channel closed')),
     } as unknown as PublishTarget;
-    patchAmqpPublish(target, makeCls(profile));
+    patchRabbitMqPublish(target, makeCls(profile));
 
     await expect(target.publish('articles.events', 'published.LEFIGARO', {})).rejects.toThrow(
       'Channel closed',
@@ -118,7 +118,7 @@ describe('patchAmqpPublish', () => {
     expect(entriesOf(profile)[0]).toMatchObject({ error: 'Channel closed', accepted: undefined });
   });
 
-  it('captures the AMQP properties the publisher set', async () => {
+  it('captures the message properties the publisher set', async () => {
     const entry = await publishEntry(
       {},
       {},
@@ -165,14 +165,14 @@ describe('patchAmqpPublish', () => {
 
   it('records nothing when the request was not profiled', async () => {
     const target = makeTarget();
-    patchAmqpPublish(target, makeCls(undefined));
+    patchRabbitMqPublish(target, makeCls(undefined));
 
     await expect(target.publish('x', 'y', {})).resolves.toBe(true);
   });
 
   it('records nothing outside a CLS context — a publish at bootstrap or from a job', async () => {
     const target = makeTarget();
-    patchAmqpPublish(target, makeCls('throws'));
+    patchRabbitMqPublish(target, makeCls('throws'));
 
     await expect(target.publish('x', 'y', {})).resolves.toBe(true);
   });
@@ -182,8 +182,8 @@ describe('patchAmqpPublish', () => {
     const target = makeTarget();
     const cls = makeCls(profile);
 
-    patchAmqpPublish(target, cls);
-    patchAmqpPublish(target, cls);
+    patchRabbitMqPublish(target, cls);
+    patchRabbitMqPublish(target, cls);
     await target.publish('articles.events', 'published.LEFIGARO', {});
 
     expect(entriesOf(profile)).toHaveLength(1);
@@ -191,12 +191,12 @@ describe('patchAmqpPublish', () => {
 
   it('ignores a target without a publish method', () => {
     const target = {} as unknown as PublishTarget;
-    expect(() => patchAmqpPublish(target, makeCls(makeProfile()))).not.toThrow();
+    expect(() => patchRabbitMqPublish(target, makeCls(makeProfile()))).not.toThrow();
     expect(target.publish).toBeUndefined();
   });
 });
 
-describe('AmqpPublishPatch', () => {
+describe('RabbitMqPublishPatch', () => {
   // Aliased as a plain property bag: the patch mutates golevelup's real prototype, and this spec
   // only ever snapshots, compares and restores `publish` — it never calls it.
   const prototype = AmqpConnection.prototype as { publish: unknown };
@@ -212,7 +212,7 @@ describe('AmqpPublishPatch', () => {
         token === ClsServiceToken ? makeCls(undefined) : undefined,
     } as unknown as ModuleRef;
 
-    new AmqpPublishPatch(moduleRef).onModuleInit();
+    new RabbitMqPublishPatch(moduleRef).onModuleInit();
 
     expect(prototype.publish).not.toBe(original);
   });
@@ -224,7 +224,7 @@ describe('AmqpPublishPatch', () => {
       },
     } as unknown as ModuleRef;
 
-    new AmqpPublishPatch(moduleRef).onModuleInit();
+    new RabbitMqPublishPatch(moduleRef).onModuleInit();
 
     expect(prototype.publish).toBe(original);
   });

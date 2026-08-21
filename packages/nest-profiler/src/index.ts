@@ -38,15 +38,17 @@ export type { GlobalPanelDescriptor, IProfilerCollector } from './collectors/col
 export { scanHttpRoutes } from './routes/scan-http-routes';
 export type { ScannedHttpRoute } from './routes/scan-http-routes';
 export type {
-  ProfilerRouteSource,
-  RouteGroup,
-  RouteEntry,
-  RouteInputs,
-  RouteInputGroup,
-  RouteInputItem,
-  RouteDtoInfo,
-  RouteDtoProperty,
-} from './routes/route-source.interface';
+  ProfilerDiscoverSource,
+  DiscoverGroup,
+  DiscoverEntry,
+  DiscoverInputs,
+  DiscoverInputGroup,
+  DiscoverInputItem,
+  DiscoverSection,
+  DiscoverSectionItem,
+  DiscoverDtoInfo,
+  DiscoverDtoProperty,
+} from './routes/discover-source.interface';
 export { AbstractQueryCollector } from './collectors/abstract-query.collector';
 export { AbstractSqlQueryCollector } from './collectors/sql/abstract-sql-query.collector';
 export {

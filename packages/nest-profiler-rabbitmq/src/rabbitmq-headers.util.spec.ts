@@ -1,4 +1,4 @@
-import { extractHeaders, formatHeaderValue, resolveMaskHeaders } from './amqp-headers.util';
+import { extractHeaders, formatHeaderValue, resolveMaskHeaders } from './rabbitmq-headers.util';
 
 describe('extractHeaders', () => {
   it('returns an empty object for non-object input', () => {

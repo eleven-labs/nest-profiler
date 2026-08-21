@@ -1,15 +1,15 @@
 /**
- * AMQP header normalisation, shared by the consumer adapter (headers read off a
+ * RabbitMQ header normalisation, shared by the consumer adapter (headers read off a
  * `ConsumeMessage`) and the publish patch (headers passed to `AmqpConnection.publish`).
  *
- * The core ships an HTTP-oriented `extractHeaders`; AMQP needs its own because amqplib
+ * The core ships an HTTP-oriented `extractHeaders`; RabbitMQ needs its own because amqplib
  * hands long-string header values back as `Buffer`s, which the HTTP formatter would render
  * as `{"type":"Buffer","data":[…]}` instead of the string the publisher sent.
  *
  * Exported for unit testing; not part of the package's public API.
  */
 
-/** Header names (lowercase) masked by default in captured AMQP headers. */
+/** Header names (lowercase) masked by default in captured RabbitMQ headers. */
 export const DEFAULT_MASK_HEADERS = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
 
 /** The effective mask list: the built-in names plus the ones a module option adds. */
@@ -18,7 +18,7 @@ export function resolveMaskHeaders(extra: string[] | undefined): string[] {
 }
 
 /**
- * Formats a single AMQP header value as a display string. Buffers are decoded
+ * Formats a single RabbitMQ header value as a display string. Buffers are decoded
  * as UTF-8, arrays are joined, objects are JSON-stringified.
  */
 export function formatHeaderValue(value: unknown): string {
@@ -54,7 +54,7 @@ export function formatHeaderValue(value: unknown): string {
 }
 
 /**
- * Normalizes an AMQP header bag into a flat, JSON-safe, masked record.
+ * Normalizes an RabbitMQ header bag into a flat, JSON-safe, masked record.
  */
 export function extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string> {
   if (!headers || typeof headers !== 'object') return {};

@@ -7,7 +7,7 @@ export interface RabbitMqCollectorModuleOptions {
   enabled?: boolean;
 
   /**
-   * Capture incoming AMQP message headers. Default: `true`.
+   * Capture incoming RabbitMQ message headers. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
    */
   captureHeaders?: boolean;
@@ -57,7 +57,7 @@ export const RABBITMQ_ENTRYPOINT_TYPE = 'rabbitmq';
 /** golevelup's `ExecutionContext` type string for `@RabbitSubscribe` handlers. */
 export const RMQ_CONTEXT_TYPE = 'rmq';
 
-/** Payload of a `rabbitmq` entrypoint — the consumed AMQP message a profile describes. */
+/** Payload of a `rabbitmq` entrypoint — the consumed RabbitMQ message a profile describes. */
 export interface RabbitMqInfo {
   /** Exchange the message was published to (empty string for the default exchange). */
   exchange: string;
@@ -69,15 +69,15 @@ export interface RabbitMqInfo {
   handler?: string;
   /** `true` when the broker redelivered the message (a previous attempt failed). */
   redelivered?: boolean;
-  /** AMQP consumer tag the message was delivered to. */
+  /** RabbitMQ consumer tag the message was delivered to. */
   consumerTag?: string;
-  /** AMQP delivery tag (per-channel monotonic id). */
+  /** RabbitMQ delivery tag (per-channel monotonic id). */
   deliveryTag?: number;
-  /** `messageId` AMQP property, when set by the publisher. */
+  /** `messageId` message property, when set by the publisher. */
   messageId?: string;
-  /** `appId` AMQP property, when set by the publisher. */
+  /** `appId` message property, when set by the publisher. */
   appId?: string;
-  /** Masked AMQP headers captured from the message, when `captureHeaders` is enabled. */
+  /** Masked RabbitMQ headers captured from the message, when `captureHeaders` is enabled. */
   headers?: Record<string, string>;
   /** Deserialized message payload, when `captureBody` is enabled. */
   payload?: unknown;

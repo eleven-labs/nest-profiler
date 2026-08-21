@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { Command, CommandRunner, Option } from 'nest-commander';
-import { CommanderRouteSource } from './commander-route-source';
+import { CommanderDiscoverSource } from './commander-discover-source';
 
 @Command({ name: 'build', description: 'Build the project' })
 class BuildCommand extends CommandRunner {
@@ -53,25 +53,25 @@ function buildSource(providers: { instance: object; metatype: unknown }[]) {
       }
     },
   } as Partial<MetadataScanner> as MetadataScanner;
-  const registerRouteSource = jest.fn();
-  const get = jest.fn().mockReturnValue({ registerRouteSource });
-  const source = new CommanderRouteSource(discovery, scanner, { get } as unknown as ModuleRef);
-  return { source, registerRouteSource, get };
+  const registerDiscoverSource = jest.fn();
+  const get = jest.fn().mockReturnValue({ registerDiscoverSource });
+  const source = new CommanderDiscoverSource(discovery, scanner, { get } as unknown as ModuleRef);
+  return { source, registerDiscoverSource, get };
 }
 
-describe('CommanderRouteSource', () => {
+describe('CommanderDiscoverSource', () => {
   it('lists @Command classes with their description and documented options', () => {
-    const { source, registerRouteSource } = buildSource([
+    const { source, registerDiscoverSource } = buildSource([
       { instance: new BuildCommand(), metatype: BuildCommand },
       { instance: new ServeCommand(), metatype: ServeCommand },
       { instance: new NotACommand(), metatype: NotACommand },
     ]);
     source.onApplicationBootstrap();
 
-    expect(registerRouteSource).toHaveBeenCalledWith(source);
+    expect(registerDiscoverSource).toHaveBeenCalledWith(source);
     const group = source.collect();
     expect(group).toMatchObject({ source: 'command', label: 'Commands' });
-    expect(group.routes).toEqual([
+    expect(group.entries).toEqual([
       {
         method: 'command',
         path: 'build',
@@ -98,7 +98,7 @@ describe('CommanderRouteSource', () => {
     const { source } = buildSource([{ instance: new CopyCommand(), metatype: CopyCommand }]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes[0]?.inputs?.groups).toEqual([
+    expect(source.collect().entries[0]?.inputs?.groups).toEqual([
       {
         label: 'Arguments',
         items: [
@@ -128,7 +128,7 @@ describe('CommanderRouteSource', () => {
     ]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes).toEqual([
+    expect(source.collect().entries).toEqual([
       {
         method: 'command',
         path: 'lint',
@@ -151,7 +151,7 @@ describe('CommanderRouteSource', () => {
     const { source } = buildSource([{ instance: new Anon(), metatype: Anon }]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes).toEqual([
+    expect(source.collect().entries).toEqual([
       { method: 'command', path: 'Anon', controller: 'Anon', handler: 'run' },
     ]);
   });
@@ -162,6 +162,6 @@ describe('CommanderRouteSource', () => {
       throw new Error('no core');
     });
     expect(() => source.onApplicationBootstrap()).not.toThrow();
-    expect(source.collect().routes.length).toBe(1);
+    expect(source.collect().entries.length).toBe(1);
   });
 });

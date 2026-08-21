@@ -4,7 +4,7 @@ import {
   RABBITMQ_PUBLISH_COLLECTOR_OPTIONS,
 } from './rabbitmq-publish-collector.module';
 import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
-import { AmqpPublishPatch } from './amqp-publish.patch';
+import { RabbitMqPublishPatch } from './rabbitmq-publish.patch';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(
@@ -21,7 +21,7 @@ describe('RabbitMqPublishCollectorModule.forRoot', () => {
     const mod = RabbitMqPublishCollectorModule.forRoot({ slowThreshold: 20 });
     expect(mod.module).toBe(RabbitMqPublishCollectorModule);
     expect(mod.providers).toEqual(
-      expect.arrayContaining([AmqpPublishPatch, RabbitMqPublishCollector]),
+      expect.arrayContaining([RabbitMqPublishPatch, RabbitMqPublishCollector]),
     );
     expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({ slowThreshold: 20 });
   });
@@ -30,11 +30,11 @@ describe('RabbitMqPublishCollectorModule.forRoot', () => {
     const mod = RabbitMqPublishCollectorModule.forRoot({ enabled: false });
     expect(mod.module).toBe(RabbitMqPublishCollectorModule);
     expect(mod.providers ?? []).not.toContain(RabbitMqPublishCollector);
-    expect(mod.providers ?? []).not.toContain(AmqpPublishPatch);
+    expect(mod.providers ?? []).not.toContain(RabbitMqPublishPatch);
   });
 });
 
-describe('AmqpPublishPatch options injection', () => {
+describe('RabbitMqPublishPatch options injection', () => {
   /**
    * Guards the import-cycle regression the mongoose patch hit: importing the options token from
    * the module (which imports the patch back) leaves it undefined when the decorators run, so
@@ -42,7 +42,7 @@ describe('AmqpPublishPatch options injection', () => {
    * silently ignored.
    */
   it('decorates the options parameter with the resolved token', () => {
-    const injected = Reflect.getMetadata('self:paramtypes', AmqpPublishPatch) as {
+    const injected = Reflect.getMetadata('self:paramtypes', RabbitMqPublishPatch) as {
       index: number;
       param?: unknown;
     }[];
@@ -61,7 +61,7 @@ describe('RabbitMqPublishCollectorModule.forRootAsync', () => {
     });
     expect(mod.imports).toContain(FakeImport);
     expect(mod.providers).toEqual(
-      expect.arrayContaining([AmqpPublishPatch, RabbitMqPublishCollector]),
+      expect.arrayContaining([RabbitMqPublishPatch, RabbitMqPublishCollector]),
     );
     const opts = optionsProvider(mod) as FactoryProvider;
     expect(opts.useFactory).toBe(useFactory);

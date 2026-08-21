@@ -6,7 +6,7 @@ const UUID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 /** A purely numeric routing-key segment (`article.42.published`). */
 const NUMERIC_SEGMENT = /^\d+$/;
 
-/** Label standing in for the AMQP default exchange (an empty exchange name). */
+/** Label standing in for the RabbitMQ default exchange (an empty exchange name). */
 const DEFAULT_EXCHANGE_LABEL = '(default)';
 
 /**

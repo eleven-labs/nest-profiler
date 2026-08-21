@@ -8,7 +8,7 @@ import type {
 } from '@eleven-labs/nest-profiler';
 
 /** One `AmqpConnection.publish(...)` call made while a profile was active. */
-export interface AmqpPublishEntry {
+export interface RabbitMqPublishEntry {
   /** Exchange the message was published to (empty string for the default exchange). */
   exchange: string;
   /** Routing key the message was published with. */
@@ -19,7 +19,7 @@ export interface AmqpPublishEntry {
    * when it is JSON). Redacted and size-capped before being persisted.
    */
   payload?: unknown;
-  /** Masked AMQP headers passed to `publish()`, when `captureHeaders` is enabled. */
+  /** Masked RabbitMQ headers passed to `publish()`, when `captureHeaders` is enabled. */
   headers?: Record<string, string>;
   /** `messageId` publish option, when the caller set one. */
   messageId?: string;
@@ -59,7 +59,7 @@ export interface RabbitMqPublishCollectorModuleOptions {
   enabled?: boolean;
 
   /**
-   * Capture the AMQP headers passed to `publish()`. Default: `true`.
+   * Capture the RabbitMQ headers passed to `publish()`. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
    */
   captureHeaders?: boolean;

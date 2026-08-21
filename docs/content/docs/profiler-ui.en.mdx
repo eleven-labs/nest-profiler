@@ -98,7 +98,7 @@ The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/do
 
 ![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
-The **AMQP** collector (same package, `RabbitMqPublishCollectorModule`) covers the other direction: the messages the profiled request **published** through `AmqpConnection.publish`, one row each with its exchange, routing key, AMQP properties, headers, payload, duration and outcome — plus a copy button holding a runnable `channel.publish(...)` snippet.
+The **RabbitMQ** publish collector (same package, `RabbitMqPublishCollectorModule`) covers the other direction: the messages the profiled request **published** through `AmqpConnection.publish`, one row each with its exchange, routing key, message properties, headers, payload, duration and outcome — plus a copy button holding a runnable `channel.publish(...)` snippet.
 
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 
@@ -113,5 +113,7 @@ The **Config** collector is global — it describes the application, not one req
 ![Config view showing the runtime tiles and the flattened app/database keys with database.password masked](/screenshots/profiler/config.png)
 
 The **Discover** views (requires [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes)) are global too: one view per transport, each listing that transport's routing table as discovered at startup — method, path, controller/handler, a lock on guarded routes, and the per-route inputs when a row is expanded. A transport that discovered nothing gets no view, and the keys are namespaced (`?view=discover-graphql`) so they never collide with the GraphQL profile list.
+
+A transport whose static surface is more than a list of handlers puts it above them, as titled sections: **Discover / RabbitMQ** opens on the declared topology — connections (URIs masked), exchanges, queues with the binding and the `x-…` arguments that feed them — then lists each consumer, expanding to its whole subscription (queue, routing keys, connection, queue options, error behaviour).
 
 ![Discover / HTTP view listing the application's registered routes with their controllers and handlers](/screenshots/profiler/discover.png)

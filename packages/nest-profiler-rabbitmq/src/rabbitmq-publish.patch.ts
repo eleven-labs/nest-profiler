@@ -5,8 +5,8 @@ import { ClsService } from 'nestjs-cls';
 import type { Options } from 'amqplib';
 import { PROFILER_CLS_KEYS, appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { extractHeaders, resolveMaskHeaders } from './amqp-headers.util';
-import { capturePublishPayload } from './amqp-publish.util';
+import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util';
+import { capturePublishPayload } from './rabbitmq-publish.util';
 // Import the options token from the interface module, never from
 // `./rabbitmq-publish-collector.module`: that module imports this file, and the resulting cycle
 // leaves the re-exported token undefined when the decorators below run — `@Inject(undefined)`
@@ -16,7 +16,7 @@ import {
   RABBITMQ_PUBLISH_COLLECTOR_OPTIONS,
 } from './rabbitmq-publish-collector.interface';
 import type {
-  AmqpPublishEntry,
+  RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
 } from './rabbitmq-publish-collector.interface';
 
@@ -43,7 +43,7 @@ export interface PublishTarget {
  *
  * Exported for unit testing; not part of the package's public API.
  */
-export function patchAmqpPublish(
+export function patchRabbitMqPublish(
   target: PublishTarget,
   cls: ClsService,
   options: RabbitMqPublishCollectorModuleOptions = {},
@@ -68,7 +68,7 @@ export function patchAmqpPublish(
       const profile = cls.get<Profile | undefined>(PROFILER_CLS_KEYS.profile);
       if (!profile) return;
 
-      const entry: AmqpPublishEntry = {
+      const entry: RabbitMqPublishEntry = {
         exchange,
         routingKey,
         startedAt,
@@ -82,13 +82,13 @@ export function patchAmqpPublish(
       if (options.captureBody !== false) {
         entry.payload = capturePublishPayload(message, options.payloadLimits);
       }
-      // amqplib types these AMQP properties as `any`.
+      // amqplib types these RabbitMQ properties as `any`.
       if (publishOptions?.messageId) entry.messageId = String(publishOptions.messageId);
       if (publishOptions?.appId) entry.appId = String(publishOptions.appId);
       if (publishOptions?.correlationId) entry.correlationId = String(publishOptions.correlationId);
       if (publishOptions?.replyTo) entry.replyTo = String(publishOptions.replyTo);
 
-      appendCollectorEntry<AmqpPublishEntry>(profile, RABBITMQ_PUBLISHES_KEY, entry);
+      appendCollectorEntry<RabbitMqPublishEntry>(profile, RABBITMQ_PUBLISHES_KEY, entry);
     } catch {
       // Outside CLS context, or an unserializable payload — never break the publish.
     }
@@ -120,7 +120,7 @@ export function patchAmqpPublish(
 }
 
 /**
- * Instruments outgoing AMQP messages by patching `AmqpConnection.prototype.publish`.
+ * Instruments outgoing RabbitMQ messages by patching `AmqpConnection.prototype.publish`.
  *
  * The prototype is the hook point: `AmqpConnection` is instantiated by
  * `@golevelup/nestjs-rabbitmq`'s own factory, so there is no instance to decorate at wiring
@@ -131,7 +131,7 @@ export function patchAmqpPublish(
  * Only the caller's publish options are seen, not the connection's `defaultPublishOptions`.
  */
 @Injectable()
-export class AmqpPublishPatch implements OnModuleInit {
+export class RabbitMqPublishPatch implements OnModuleInit {
   constructor(
     private readonly moduleRef: ModuleRef,
     @Optional()
@@ -144,6 +144,6 @@ export class AmqpPublishPatch implements OnModuleInit {
     // core is disabled, so a `ProfilerNoopModule` setup leaves `publish` untouched.
     const cls = tryResolve<ClsService>(this.moduleRef, ClsService);
     if (!cls) return;
-    patchAmqpPublish(AmqpConnection.prototype, cls, this.options);
+    patchRabbitMqPublish(AmqpConnection.prototype, cls, this.options);
   }
 }

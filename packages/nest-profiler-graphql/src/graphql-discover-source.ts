@@ -2,11 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { GraphQLSchemaHost } from '@nestjs/graphql';
 import type { GraphQLObjectType, GraphQLSchema } from 'graphql';
-import type { ProfilerRouteSource, RouteEntry, RouteGroup } from '@eleven-labs/nest-profiler';
+import type {
+  ProfilerDiscoverSource,
+  DiscoverEntry,
+  DiscoverGroup,
+} from '@eleven-labs/nest-profiler';
 import { GRAPHQL_ICON } from './icons';
 
 /**
- * A {@link ProfilerRouteSource} contributing the **Discover / GraphQL** view. It reads the
+ * A {@link ProfilerDiscoverSource} contributing the **Discover / GraphQL** view. It reads the
  * built schema from `@nestjs/graphql`'s public {@link GraphQLSchemaHost} — rather than private
  * resolver metadata — so it works the same for code-first and schema-first setups, and lists every
  * query, mutation and subscription field with its argument names. The schema is only available once
@@ -17,13 +21,13 @@ import { GRAPHQL_ICON } from './icons';
  * rather than constructor injection — a sibling dynamic module's providers are not otherwise visible.
  */
 @Injectable()
-export class GraphqlRouteSource implements ProfilerRouteSource {
+export class GraphqlDiscoverSource implements ProfilerDiscoverSource {
   readonly type = 'graphql';
-  private group?: RouteGroup;
+  private group?: DiscoverGroup;
 
   constructor(private readonly moduleRef: ModuleRef) {}
 
-  collect(): RouteGroup {
+  collect(): DiscoverGroup {
     if (this.group) return this.group;
 
     const schema = this.readSchema();
@@ -35,10 +39,10 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
         label: 'GraphQL',
         icon: GRAPHQL_ICON,
         itemLabel: 'field',
-        routes: [],
+        entries: [],
       };
 
-    const routes = [
+    const entries = [
       ...this.fieldsOf(schema.getQueryType(), 'query'),
       ...this.fieldsOf(schema.getMutationType(), 'mutation'),
       ...this.fieldsOf(schema.getSubscriptionType(), 'subscription'),
@@ -49,7 +53,7 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
       label: 'GraphQL',
       icon: GRAPHQL_ICON,
       itemLabel: 'field',
-      routes,
+      entries,
     };
     return this.group;
   }
@@ -67,9 +71,9 @@ export class GraphqlRouteSource implements ProfilerRouteSource {
     }
   }
 
-  private fieldsOf(type: GraphQLObjectType | null | undefined, operation: string): RouteEntry[] {
+  private fieldsOf(type: GraphQLObjectType | null | undefined, operation: string): DiscoverEntry[] {
     if (!type) return [];
-    return Object.values(type.getFields()).map((field): RouteEntry => {
+    return Object.values(type.getFields()).map((field): DiscoverEntry => {
       const args = field.args.map((arg) => ({
         name: arg.name,
         ...(arg.description ? { description: arg.description } : {}),

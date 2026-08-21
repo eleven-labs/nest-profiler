@@ -7,7 +7,7 @@ import type {
   RabbitMqPublishCollectorModuleOptions,
 } from './rabbitmq-publish-collector.interface';
 import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
-import { AmqpPublishPatch } from './amqp-publish.patch';
+import { RabbitMqPublishPatch } from './rabbitmq-publish.patch';
 
 export { RABBITMQ_PUBLISH_COLLECTOR_OPTIONS } from './rabbitmq-publish-collector.interface';
 export type {
@@ -16,12 +16,12 @@ export type {
 } from './rabbitmq-publish-collector.interface';
 
 // The patch resolves ClsService lazily via ModuleRef, so it needs no imports of its own.
-const SHAPE: CollectorModuleShape = { providers: [AmqpPublishPatch, RabbitMqPublishCollector] };
+const SHAPE: CollectorModuleShape = { providers: [RabbitMqPublishPatch, RabbitMqPublishCollector] };
 
 /**
- * Captures the AMQP messages the application **publishes** through
+ * Captures the RabbitMQ messages the application **publishes** through
  * `AmqpConnection.publish` (`@golevelup/nestjs-rabbitmq`) and lists them in a dedicated
- * **AMQP** panel: exchange, routing key, headers, payload, duration and outcome, with the
+ * **RabbitMQ** panel: exchange, routing key, headers, payload, duration and outcome, with the
  * profiler's slow / N+1 / error tags.
  *
  * Independent of `RabbitMqCollectorModule`, which covers the other direction (a consumed

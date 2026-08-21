@@ -97,7 +97,7 @@ curl -X POST http://localhost:3000/api/v1/reviews \
 
 ```ts
 RabbitMqCollectorModule.forRoot({
-  captureHeaders: true, // AMQP headers (sensitive ones masked)
+  captureHeaders: true, // RabbitMQ headers (sensitive ones masked)
   captureBody: true, // deserialized payload - disable if payloads are large
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
 });
@@ -126,7 +126,19 @@ ConditionalModule.registerWhen(
 
 ## Profiling what you publish, too
 
-The same package ships `RabbitMqPublishCollectorModule`, which lists the messages a profiled request **published** in an **AMQP** panel. It is independent of the module above — register it on its own in a publish-only API, or alongside it to also see the messages your consumers republish:
+## See the whole RabbitMQ surface, not just the traffic
+
+With [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes) installed, the same
+module contributes a **Discover / RabbitMQ** view: the topology your `RabbitMQModule` declared —
+connections (credentials masked), exchanges, queues with the binding and `x-…` arguments that feed
+them, exchange bindings — then every consumer, each expanding to its full subscription: queue,
+exchange, routing keys, connection, `queueOptions` and error behaviour.
+
+It is read from the resolved configuration, so it also answers the questions traffic cannot: which
+dead-letter and retry queues exist, which handler runs on which connection, and whether a handler
+referencing a module-level `handlers` entry is registered at all.
+
+The same package ships `RabbitMqPublishCollectorModule`, which lists the messages a profiled request **published** in a **RabbitMQ** panel. It is independent of the module above — register it on its own in a publish-only API, or alongside it to also see the messages your consumers republish:
 
 ```ts title="app.module.ts"
 import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
@@ -134,7 +146,7 @@ import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbi
 ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled);
 ```
 
-Nothing changes in your publishers: keep injecting `AmqpConnection` and calling `publish()`. Each row shows the exchange, routing key, AMQP properties, masked headers, payload, duration and outcome, tagged `slow` / `n-plus-one` / `error` by the rule engine — publishing the same message once per loop iteration is exactly the N+1 the panel makes visible.
+Nothing changes in your publishers: keep injecting `AmqpConnection` and calling `publish()`. Each row shows the exchange, routing key, message properties, masked headers, payload, duration and outcome, tagged `slow` / `n-plus-one` / `error` by the rule engine — publishing the same message once per loop iteration is exactly the N+1 the panel makes visible.
 
 ```ts
 RabbitMqPublishCollectorModule.forRoot({

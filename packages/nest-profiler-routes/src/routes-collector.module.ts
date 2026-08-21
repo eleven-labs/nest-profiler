@@ -4,7 +4,7 @@ import { DiscoveryModule } from '@nestjs/core';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { RoutesCollector } from './routes.collector';
-import { HttpRouteSource } from './http-route-source';
+import { HttpDiscoverSource } from './http-discover-source';
 
 /** Options for {@link RoutesCollectorModule}. */
 export interface RoutesCollectorModuleOptions {
@@ -24,18 +24,18 @@ export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: ROUTES_COLLECTOR_O
     .setClassMethodName('forRoot')
     .build();
 
-// DiscoveryModule provides DiscoveryService + MetadataScanner, which HttpRouteSource uses to walk
+// DiscoveryModule provides DiscoveryService + MetadataScanner, which HttpDiscoverSource uses to walk
 // the controllers once at bootstrap.
 const SHAPE: CollectorModuleShape = {
   imports: [DiscoveryModule],
-  providers: [RoutesCollector, HttpRouteSource],
+  providers: [RoutesCollector, HttpDiscoverSource],
 };
 
 /**
  * Opt-in module contributing the global **Discover** views to the profiler home page — a
  * Symfony-Routing-style view of every registered route. It ships a built-in REST route source;
  * other transport packages (`@eleven-labs/nest-profiler-graphql`, `-rabbitmq`, `-commander`)
- * contribute their own routes by registering a `ProfilerRouteSource` with the core.
+ * contribute their own routes by registering a `ProfilerDiscoverSource` with the core.
  */
 @Module({})
 export class RoutesCollectorModule extends ConfigurableModuleClass {

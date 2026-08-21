@@ -2,11 +2,11 @@ import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type {
-  ProfilerRouteSource,
-  RouteEntry,
-  RouteGroup,
-  RouteInputGroup,
-  RouteInputItem,
+  ProfilerDiscoverSource,
+  DiscoverEntry,
+  DiscoverGroup,
+  DiscoverInputGroup,
+  DiscoverInputItem,
 } from '@eleven-labs/nest-profiler';
 import { COMMAND_ICON } from './icons';
 
@@ -38,7 +38,7 @@ interface OptionMetadata {
 }
 
 /**
- * A {@link ProfilerRouteSource} contributing the **Discover / Commands** view. It scans the
+ * A {@link ProfilerDiscoverSource} contributing the **Discover / Commands** view. It scans the
  * providers for nest-commander `@Command()` classes and lists each command with its name,
  * description, declaring class, positional **arguments** (from `@Command({ arguments })`) and
  * `--option` flags (from `@Option()`, with their descriptions) — the CLI counterpart of the REST
@@ -49,14 +49,14 @@ interface OptionMetadata {
  * `run(_, options)`.
  */
 @Injectable()
-export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationBootstrap {
+export class CommanderDiscoverSource implements ProfilerDiscoverSource, OnApplicationBootstrap {
   readonly type = 'command';
-  private group: RouteGroup = {
+  private group: DiscoverGroup = {
     source: 'command',
     label: 'Commands',
     itemLabel: 'command',
     icon: COMMAND_ICON,
-    routes: [],
+    entries: [],
   };
 
   constructor(
@@ -66,7 +66,7 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
   ) {}
 
   onApplicationBootstrap(): void {
-    const routes: RouteEntry[] = [];
+    const entries: DiscoverEntry[] = [];
 
     for (const wrapper of this.discovery.getProviders()) {
       if (!wrapper.instance || !wrapper.metatype) continue;
@@ -74,13 +74,13 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
       const meta = Reflect.getMetadata(COMMAND_META, metatype) as CommandMetadata | undefined;
       if (!meta) continue;
 
-      const groups: RouteInputGroup[] = [];
+      const groups: DiscoverInputGroup[] = [];
       const args = this.commandArguments(meta);
       if (args.length > 0) groups.push({ label: 'Arguments', items: args });
       const options = this.commandOptions(wrapper.instance as Record<string, unknown>);
       if (options.length > 0) groups.push({ label: 'Options', items: options });
 
-      routes.push({
+      entries.push({
         method: 'command',
         path: meta.name ?? metatype.name,
         controller: metatype.name,
@@ -90,23 +90,23 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
       });
     }
 
-    routes.sort((a, b) => a.path.localeCompare(b.path));
+    entries.sort((a, b) => a.path.localeCompare(b.path));
     this.group = {
       source: 'command',
       label: 'Commands',
       icon: COMMAND_ICON,
       itemLabel: 'command',
-      routes,
+      entries,
     };
 
     try {
-      this.moduleRef.get(ProfilerCoreService, { strict: false }).registerRouteSource(this);
+      this.moduleRef.get(ProfilerCoreService, { strict: false }).registerDiscoverSource(this);
     } catch {
       // ProfilerCoreService unavailable — the profiler is not configured.
     }
   }
 
-  collect(): RouteGroup {
+  collect(): DiscoverGroup {
     return this.group;
   }
 
@@ -116,7 +116,7 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
    * own convention, kept verbatim in the displayed name. Descriptions are matched by substring, the
    * same rule nest-commander applies, so both `source` and `<source>` work as keys.
    */
-  private commandArguments(meta: CommandMetadata): RouteInputItem[] {
+  private commandArguments(meta: CommandMetadata): DiscoverInputItem[] {
     const declaration = meta.arguments?.trim();
     if (!declaration) return [];
     const descriptionKeys = Object.keys(meta.argsDescription ?? {});
@@ -136,8 +136,8 @@ export class CommanderRouteSource implements ProfilerRouteSource, OnApplicationB
   }
 
   /** Collects the declared `@Option` flags with their description, default and required marker. */
-  private commandOptions(instance: Record<string, unknown>): RouteInputItem[] {
-    const options: RouteInputItem[] = [];
+  private commandOptions(instance: Record<string, unknown>): DiscoverInputItem[] {
+    const options: DiscoverInputItem[] = [];
     const prototype = Object.getPrototypeOf(instance) as object;
 
     this.metadataScanner.scanFromPrototype(instance, prototype, (methodName) => {
