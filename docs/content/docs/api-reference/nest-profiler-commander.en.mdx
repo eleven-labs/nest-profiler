@@ -93,4 +93,6 @@ A command has no HTTP request/response. The profiler synthesises a profile whose
 | `entrypoint.data.success`   | `true` when the command completed without throwing |
 | `response.statusCode`       | `200` on success, `500` when the command threw     |
 
+A command that failed **before** `run()` was entered is shaped the same way: nest-commander evaluates the `@Option()` value parsers during commander's parse phase, so a parser that throws produces a profile with `success: false`, empty `arguments` (positional operands are assigned only after every option has parsed) and, in `options`, the flags commander had resolved so far plus the raw value of the rejected one. Commander's own argv errors (unknown option, missing required option, invalid `choices`, or a parser throwing commander's `InvalidArgumentError`) call `process.exit()` from inside commander and leave no profile.
+
 The command name, arguments and options are kept on `entrypoint.data`. No exit code is collected — the profiler wraps `run()` from inside the process and never sees the code the CLI exits with, so `success` (and `response.statusCode`) carries the outcome. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.

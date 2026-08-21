@@ -95,6 +95,30 @@ export class CommandProfiler implements OnModuleInit {
   }
 
   /**
+   * Profiles a command that failed **before** its `run()` was ever entered.
+   *
+   * nest-commander evaluates the `@Option()` value parsers while commander parses the argv, so a
+   * parser that rejects its input aborts the invocation outside the `run()` wrapper installed by
+   * {@link CommandProfilerExplorer} — the failure would otherwise leave no trace in the profiler
+   * at all. Persistence goes through the core's deferred queue, drained on application shutdown,
+   * because commander's parse phase is synchronous and cannot await a save.
+   *
+   * @param meta - The invocation as far as commander parsed it.
+   * @param error - Whatever the option parser threw.
+   */
+  profileParseFailure(meta: CommandProfileMeta, error: unknown): void {
+    this.resolveCore();
+    // Profiler core disabled → nothing to record; the parse error is the caller's to rethrow.
+    if (!this.core) return;
+
+    this.warnIfProcessLocalStorage();
+
+    const profile = this.buildProfile(meta);
+    this.finalize(profile, meta, error instanceof Error ? error : new Error(String(error)));
+    this.core.schedulePersist(profile);
+  }
+
+  /**
    * Commands typically run in a separate process from the web profiler. With a process-local
    * store (in-memory) the profile would be saved to this process's heap and never seen by the
    * server — warn once so the cause is obvious.

@@ -140,7 +140,7 @@ Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. P
 - **HTTP Client** - the outgoing request the command made
 - **Cache** - the `SET` operation
 
-A command that throws is captured too: its profile is marked failed (status `500`) and the thrown error appears in the **Exceptions** tab.
+A command that throws is captured too: its profile is marked failed (status `500`) and the thrown error appears in the **Exceptions** tab. So is a command that never started because an `@Option()` parser rejected its value — commander runs those parsers before the command body, and the profile then carries the raw value of the rejected flag. Commander's own argv errors (unknown option, missing required option, `InvalidArgumentError`) exit the process from inside commander, so they leave no profile.
 
 ## How it works
 
