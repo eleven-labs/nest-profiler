@@ -96,7 +96,7 @@ export const nPlusOneRule: PerformanceRule = {
  * threw or answered 5xx, a query that errored) and the profile itself.
  *
  * Unlike every other rule here, "failure" has no protocol-agnostic definition: HTTP reasons in
- * status codes, GraphQL in `extensions.code`, a command in its exit code. So this rule owns no
+ * status codes, GraphQL in `extensions.code`, a command in whether it threw. So this rule owns no
  * criteria of its own — each collector supplies {@link TagConfig.isErrorEntry} and each
  * entrypoint kind supplies {@link PerformanceRuleContext.isProfileError}, both resolved from
  * that package's `error` option. The rule only applies the verdict.

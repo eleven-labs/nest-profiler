@@ -24,9 +24,9 @@
 
 `@eleven-labs/nest-profiler-commander` profiles CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/) — the console equivalent of Symfony's command profiling. Every command run produces a profile that shows up in the web profiler at `/_profiler`, in a dedicated **Commands** table and with a built-in **Command** tab, plus any HTTP, cache, or database activity the command triggered.
 
-![Commands view — every profiled CLI command with its status, exit code and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command-list.png)
+![Commands view — every profiled CLI command with its status and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command-list.png)
 
-![Command tab — a profiled nest-commander run with its arguments, options and exit code](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command.png)
+![Command tab — a profiled nest-commander run with its arguments and options](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/command.png)
 
 ## Installation
 
@@ -83,12 +83,11 @@ Each command run sets a `command` entrypoint on the profile (`entrypoint.type = 
 | `name`      | Command name from `@Command({ name })`         |
 | `arguments` | Positional operands (`run(passedParams)`)      |
 | `options`   | Parsed flags (`run(_, options)`)               |
-| `exitCode`  | `0` on success, `1` when the command threw     |
 | `success`   | Whether the command completed without throwing |
 
 `arguments` and `options` are two distinct things, and the **Command** tab shows them as two sections: for `mycli demo:greet Grace --name Ada`, `arguments` is `['Grace']` (the positional operands declared by `@Command({ arguments })`) and `options` is `{ name: 'Ada' }` (the flags declared by `@Option()`, with their defaults applied). Both are redacted before storage — CLI values routinely carry secrets (`--token=…`).
 
-Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-http`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
+No exit code is collected: the profiler wraps `run()` from inside the process, so it never observes the code the CLI eventually exits with — it only knows whether the command threw, which `success` already says. Read `success` (or the profile's `response.statusCode`, `200` / `500`) instead. Duration and timing come from the profile's standard performance data, and a thrown error appears in the **Exceptions** tab. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (e.g. `@eleven-labs/nest-profiler-http`, `@eleven-labs/nest-profiler-cache`) capture the work a command performs and contribute their own panels.
 
 ## How it works
 

@@ -91,7 +91,6 @@ describe('CommandProfiler', () => {
       name: 'sync:posts',
       arguments: ['--limit', '5'],
       options: { dryRun: true },
-      exitCode: 0,
       success: true,
     });
     expect(profile.response?.statusCode).toBe(200);
@@ -120,7 +119,7 @@ describe('CommandProfiler', () => {
 
     const profile = saved();
     expect(profile.response?.statusCode).toBe(500);
-    expect(profile.entrypoint.data).toMatchObject({ exitCode: 1, success: false });
+    expect(profile.entrypoint.data).toMatchObject({ success: false });
     expect(profile.exceptions).toHaveLength(1);
     expect(profile.exceptions[0]).toMatchObject({ name: 'Error', message: 'boom' });
 

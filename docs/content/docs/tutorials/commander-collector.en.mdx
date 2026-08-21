@@ -3,7 +3,7 @@ title: Command profiling
 description: Profile nest-commander CLI commands and inspect them in the web profiler - the console equivalent of Symfony's command profiling.
 seo:
   title: How to profile nest-commander commands
-  description: "Profile your nest-commander CLI commands and inspect them in the web profiler — the console equivalent of Symfony's command profiling — capturing arguments, options and exit codes step by step."
+  description: "Profile your nest-commander CLI commands and inspect them in the web profiler — the console equivalent of Symfony's command profiling — capturing arguments, options and the run outcome step by step."
 ---
 
 This tutorial shows how to profile CLI commands built with [nest-commander](https://nest-commander.jaymcdoniel.dev/). Each command run produces a profile - with a **Command** panel plus any HTTP, cache, or database activity the command triggered - that appears alongside your HTTP profiles at `/_profiler`.
@@ -136,7 +136,7 @@ node dist/cli.js sync:posts --limit 3
 
 Start your HTTP app (pointed at the same `storagePath`) and open `/_profiler`. Pick **Commands** in the sidebar: commands get their own view, with a **Status** filter for successful vs failed runs. Open one to find:
 
-- **Command** - name, arguments, options, duration, exit code (the request/response tabs are hidden)
+- **Command** - name, arguments, options, duration, success or failure (the request/response tabs are hidden)
 - **HTTP Client** - the outgoing request the command made
 - **Cache** - the `SET` operation
 

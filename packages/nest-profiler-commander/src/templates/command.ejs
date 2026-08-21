@@ -15,14 +15,10 @@
   const cmdLine = [cmd.name].concat(cmd.arguments, cmdFlags).join(' ');
 %>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
     <p class="text-xl font-bold <%= cmd.success ? 'text-success' : 'text-danger' %>"><%= cmd.success ? 'OK' : 'Failed' %></p>
-  </div>
-  <div class="bg-surface-muted border border-line rounded-lg p-4">
-    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Exit Code</p>
-    <p class="text-foreground text-xl font-bold tabular-nums"><%= cmd.exitCode %></p>
   </div>
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>

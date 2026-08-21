@@ -9,8 +9,6 @@ export interface CommandInfo {
   arguments: string[];
   /** Parsed flag options passed to the command. */
   options?: Record<string, unknown>;
-  /** Process exit code — `0` on success, `1` when the command threw. */
-  exitCode: number;
   /** `true` when the command completed without throwing. */
   success: boolean;
 }

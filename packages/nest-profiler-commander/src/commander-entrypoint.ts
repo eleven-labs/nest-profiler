@@ -35,8 +35,8 @@ const commandStatusFilter: ProfilerListFilter<string> = {
  * their own list table and on a dedicated "Command" detail tab (no
  * request/response tabs). Registered by {@link CommanderCollectorModule}.
  *
- * Alone among the kinds, it needs no error configuration: a command either exited zero or it
- * did not, and nobody disagrees about which is a failure. So `isError` is fixed rather than
+ * Alone among the kinds, it needs no error configuration: a command either threw or it did
+ * not, and nobody disagrees about which is a failure. So `isError` is fixed rather than
  * resolved from an option, and the universal `Errors` checkbox is hidden — {@link
  * commandStatusFilter} already offers exactly that choice, with a clearer name.
  */

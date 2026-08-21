@@ -116,7 +116,6 @@ export class CommandProfiler implements OnModuleInit {
       // CLI args/options routinely carry secrets (`--password=…`, `--token=…`); redact them.
       arguments: redact(meta.arguments),
       options: redact(meta.options),
-      exitCode: 0,
       success: true,
     };
     return {
@@ -156,8 +155,6 @@ export class CommandProfiler implements OnModuleInit {
       });
     }
 
-    const data = profile.entrypoint.data;
-    data.exitCode = error ? 1 : 0;
-    data.success = !error;
+    profile.entrypoint.data.success = !error;
   }
 }

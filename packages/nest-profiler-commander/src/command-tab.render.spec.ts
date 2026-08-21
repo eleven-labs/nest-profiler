@@ -10,7 +10,7 @@ function profileWith(data: Partial<CommandInfo>): Profile<CommandInfo> {
     createdAt: 0,
     entrypoint: {
       type: COMMAND_ENTRYPOINT_TYPE,
-      data: { name: 'demo:greet', arguments: [], exitCode: 0, success: true, ...data },
+      data: { name: 'demo:greet', arguments: [], success: true, ...data },
     },
     performance: { startTime: 0, duration: 12, heapUsed: 0 },
     logs: [],

@@ -27,10 +27,10 @@ function applies(key: string, value: string, profile: Profile): boolean {
 
 describe('error classification', () => {
   const run = (success: boolean): Profile<CommandInfo> =>
-    makeProfile({ name: 'seed', arguments: [], success, exitCode: success ? 0 : 1 });
+    makeProfile({ name: 'seed', arguments: [], success });
 
-  // Alone among the kinds, `command` needs no configuration: a non-zero exit is a failure and
-  // nobody disagrees.
+  // Alone among the kinds, `command` needs no configuration: a command either threw or it did
+  // not, and nobody disagrees about which is a failure.
   it('counts a failed run and spares a successful one', () => {
     expect(COMMAND_ENTRYPOINT_TYPE_DEF.isError!(run(false))).toBe(true);
     expect(COMMAND_ENTRYPOINT_TYPE_DEF.isError!(run(true))).toBe(false);
@@ -55,8 +55,8 @@ describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
 
   describe('commandStatus filter', () => {
     const filter = COMMAND_ENTRYPOINT_TYPE_DEF.listFilters?.find((f) => f.key === 'commandStatus');
-    const ok = makeProfile({ name: 'a', arguments: [], exitCode: 0, success: true });
-    const ko = makeProfile({ name: 'b', arguments: [], exitCode: 1, success: false });
+    const ok = makeProfile({ name: 'a', arguments: [], success: true });
+    const ko = makeProfile({ name: 'b', arguments: [], success: false });
 
     it('is contributed as a select control', () => {
       expect(filter?.control).toBe('select');
@@ -88,7 +88,6 @@ describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
       const profile = makeProfile({
         name: 'sync:posts',
         arguments: ['--limit', '3'],
-        exitCode: 0,
         success: true,
       });
       expect(COMMAND_ENTRYPOINT_TYPE_DEF.summary(profile)).toEqual({
@@ -102,7 +101,6 @@ describe('COMMAND_ENTRYPOINT_TYPE_DEF', () => {
       const profile = makeProfile({
         name: 'demo:greet',
         arguments: [],
-        exitCode: 0,
         success: true,
       });
       expect(COMMAND_ENTRYPOINT_TYPE_DEF.summary(profile).text).toBe('demo:greet');

@@ -49,7 +49,6 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
     expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
       options: { name: 'Ada' },
-      exitCode: 0,
       success: true,
     });
     expect(profile.response).toMatchObject({ statusCode: 200 });
@@ -78,7 +77,6 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
 
     expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
-      exitCode: 1,
       success: false,
     });
     expect(profile.exceptions).toEqual(

@@ -14,7 +14,6 @@ import type { ProfilerTag } from '../analysis/profiler-tag.interface';
 interface CommandData {
   name: string;
   arguments: string[];
-  exitCode: number;
   success: boolean;
 }
 
@@ -38,7 +37,6 @@ function makeProfile(overrides: {
       data: {
         name: 'sync:posts',
         arguments: [],
-        exitCode: 0,
         success: true,
         ...overrides.command,
       } satisfies CommandData,
