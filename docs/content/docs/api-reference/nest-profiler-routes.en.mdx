@@ -1,9 +1,9 @@
 ---
 title: nest-profiler-routes
-description: Types and API of the Discover views and their route-source extension point.
+description: Types and API of the Discover views and their discover-source extension point.
 seo:
   title: Route discovery API reference
-  description: 'Complete API reference for @eleven-labs/nest-profiler-routes: the module options of the Discover views and the ProfilerRouteSource extension point that lets GraphQL, RabbitMQ and CLI packages contribute a view of their own to the routing table.'
+  description: 'Complete API reference for @eleven-labs/nest-profiler-routes: the module options of the Discover views and the ProfilerDiscoverSource extension point that lets GraphQL, RabbitMQ and CLI packages contribute a view of their own.'
 ---
 
 ## RoutesCollectorModuleOptions
@@ -21,7 +21,7 @@ At application startup every registered route is discovered and grouped by trans
 
 - **HTTP** (built-in) — every `@Controller` handler, with its HTTP method, full path and the inputs read from `@Param`, `@Query`, `@Headers` and `@Body`.
 - **GraphQL** — every query, mutation and subscription field with its argument names ([`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)).
-- **RabbitMQ** — every `@RabbitSubscribe` consumer with its exchange, routing key and handler ([`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)).
+- **RabbitMQ** — the declared topology (connections, exchanges, queues, exchange bindings) followed by every `@RabbitSubscribe` / `@RabbitRPC` consumer with its full subscription: queue, exchange, routing keys, connection, queue options and error behaviour ([`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)).
 - **Commands** — every nest-commander `@Command()` with its name and `--option` flags ([`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)).
 
 A REST route also shows the **guards** protecting it — the classes from `@UseGuards()` on the controller and/or handler (e.g. an authentication guard) — with a lock marking guarded routes. Only route-level guards are reflected; a global `APP_GUARD` is not attached per handler.
@@ -34,7 +34,7 @@ For a REST route, each `@Body()` DTO is introspected to its top-level decorated 
 import {
   RoutesCollectorModule,
   RoutesCollector,
-  HttpRouteSource,
+  HttpDiscoverSource,
   describeHandlerParams,
   discoverViewKey,
   DISCOVER_GROUP,
@@ -48,16 +48,18 @@ import type {
 } from '@eleven-labs/nest-profiler-routes';
 ```
 
-The `ProfilerRouteSource`, `RouteGroup`, `RouteEntry` and `RouteInputs` types — the extension point every source implements — are exported from the core package, together with `RouteInputGroup` / `RouteInputItem`, which describe inputs that are not HTTP-shaped (CLI arguments and options, GraphQL field arguments):
+The `ProfilerDiscoverSource`, `DiscoverGroup`, `DiscoverEntry` and `DiscoverInputs` types — the extension point every source implements — are exported from the core package, together with `DiscoverInputGroup` / `DiscoverInputItem`, which describe inputs that are not HTTP-shaped (CLI arguments and options, GraphQL field arguments), and `DiscoverSection` / `DiscoverSectionItem`, which describe what a transport declared beyond its entries (the RabbitMQ topology, for instance):
 
 ```ts
 import type {
-  ProfilerRouteSource,
-  RouteGroup,
-  RouteEntry,
-  RouteInputs,
-  RouteInputGroup,
-  RouteInputItem,
+  ProfilerDiscoverSource,
+  DiscoverGroup,
+  DiscoverEntry,
+  DiscoverInputs,
+  DiscoverInputGroup,
+  DiscoverInputItem,
+  DiscoverSection,
+  DiscoverSectionItem,
 } from '@eleven-labs/nest-profiler';
 ```
 
@@ -73,32 +75,63 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 ConditionalModule.registerWhen(RoutesCollectorModule.forRoot(), isProfilerEnabled);
 ```
 
-## Contributing a custom route source
+## Contributing a custom discover source
 
-Register a `ProfilerRouteSource` with the core to add your own **Discover** view — the same mechanism the GraphQL, RabbitMQ and CLI packages use. Each `RouteGroup` returned becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`. Resolve the core via `ModuleRef` (a dynamic module cannot reliably inject a provider exported by another dynamic module):
+Register a `ProfilerDiscoverSource` with the core to add your own **Discover** view — the same mechanism the GraphQL, RabbitMQ and CLI packages use. Each `DiscoverGroup` returned becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`. Resolve the core via `ModuleRef` (a dynamic module cannot reliably inject a provider exported by another dynamic module):
 
 ```ts
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
-import type { ProfilerRouteSource, RouteGroup } from '@eleven-labs/nest-profiler';
+import type { ProfilerDiscoverSource, DiscoverGroup } from '@eleven-labs/nest-profiler';
 
 @Injectable()
-export class MyRouteSource implements ProfilerRouteSource, OnApplicationBootstrap {
+export class MyDiscoverSource implements ProfilerDiscoverSource, OnApplicationBootstrap {
   readonly type = 'my-transport';
 
   constructor(private readonly moduleRef: ModuleRef) {}
 
   onApplicationBootstrap(): void {
     try {
-      this.moduleRef.get(ProfilerCoreService, { strict: false }).registerRouteSource(this);
+      this.moduleRef.get(ProfilerCoreService, { strict: false }).registerDiscoverSource(this);
     } catch {
       // profiler not configured — nothing to register with
     }
   }
 
-  collect(): RouteGroup {
-    return { source: 'my-transport', label: 'My transport', itemLabel: 'endpoint', routes: [] };
+  collect(): DiscoverGroup {
+    return { source: 'my-transport', label: 'My transport', itemLabel: 'endpoint', entries: [] };
   }
 }
 ```
+
+### Declaring more than entries
+
+A transport's static surface is not always a list of entries. Add `sections` to the group and each becomes a titled block rendered **above** the entry list — an item carries a `name`, an optional `kind` badge, a one-line `detail`, boolean `flags` and free-form `attributes`. This is how the RabbitMQ source shows the exchanges and queues the application declared, including the ones no handler consumes:
+
+```ts
+collect(): DiscoverGroup {
+  return {
+    source: 'my-transport',
+    label: 'My transport',
+    itemLabel: 'endpoint',
+    entries: [],
+    sections: [
+      {
+        label: 'Queues',
+        itemLabel: 'queue',
+        items: [
+          {
+            name: 'api-tts.narration',
+            detail: '← articles.events (published.*)',
+            flags: ['durable'],
+            attributes: { 'x-dead-letter-exchange': 'tts.dead-letter' },
+          },
+        ],
+      },
+    ],
+  };
+}
+```
+
+A group whose `entries` are empty but whose sections hold something still gets its view — a broker an application only publishes to is worth showing.

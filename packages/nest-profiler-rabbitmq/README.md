@@ -25,9 +25,11 @@
 `@eleven-labs/nest-profiler-rabbitmq` brings RabbitMQ (`@golevelup/nestjs-rabbitmq`) into the profiler, in both directions:
 
 - **Messages you consume** — `RabbitMqCollectorModule` turns every `@RabbitSubscribe` delivery into its own profile: a dedicated **RabbitMQ** view on the profiler home and a built-in **Message** detail tab.
-- **Messages you publish** — `RabbitMqPublishCollectorModule` lists every `AmqpConnection.publish` made during a profiled request in an **AMQP** panel, with its exchange, routing key, headers, payload, duration and outcome.
+- **Messages you publish** — `RabbitMqPublishCollectorModule` lists every `AmqpConnection.publish` made during a profiled request in a **RabbitMQ** panel, with its exchange, routing key, headers, payload, duration and outcome.
 
 The two are independent: register the one that matches what your application does, or both when it does both.
+
+`RabbitMqCollectorModule` also contributes the **Discover / RabbitMQ** view: the topology the application declared (connections, exchanges, queues, exchange bindings) followed by every consumer with its full subscription — see [The Discover / RabbitMQ view](#the-discover--rabbitmq-view).
 
 ![RabbitMQ view — consumed messages with delivery, exchange, routing-key and handler filters](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/rabbitmq-list.png)
 
@@ -75,7 +77,7 @@ async createGeneration(message: ArticleEvent, raw: ConsumeMessage): Promise<void
 
 ```ts
 RabbitMqCollectorModule.forRoot({
-  captureHeaders: true, // default — AMQP headers (sensitive ones masked)
+  captureHeaders: true, // default — RabbitMQ headers (sensitive ones masked)
   captureBody: true, // default — deserialized payload (can be large)
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
   // What counts as a failed message. A message has no status code, so the default is
@@ -98,10 +100,10 @@ Each consumed message becomes a profile with a `rabbitmq` entrypoint (`entrypoin
 | `routingKey`  | Routing key the message was published with       |
 | `handler`     | `Class.method` of the `@RabbitSubscribe` handler |
 | `redelivered` | `true` when the broker redelivered the message   |
-| `consumerTag` | AMQP consumer tag                                |
-| `deliveryTag` | AMQP delivery tag                                |
-| `messageId`   | `messageId` AMQP property, when set              |
-| `appId`       | `appId` AMQP property, when set                  |
+| `consumerTag` | RabbitMQ consumer tag                            |
+| `deliveryTag` | RabbitMQ delivery tag                            |
+| `messageId`   | `messageId` message property, when set           |
+| `appId`       | `appId` message property, when set               |
 
 The masked headers and the payload are stored on `entrypoint.data.headers` / `entrypoint.data.payload`.
 
@@ -154,15 +156,15 @@ production.
 
 ### What it collects
 
-One entry per publish, listed in the **AMQP** panel:
+One entry per publish, listed in the **RabbitMQ** panel:
 
 | Field                       | Description                                                               |
 | --------------------------- | ------------------------------------------------------------------------- |
 | `exchange` / `routingKey`   | Where the message was sent (`(default)` for the default exchange)         |
 | `payload`                   | The published message, redacted and size-capped (when `captureBody`)      |
 | `headers`                   | Publish headers, sensitive ones masked (when `captureHeaders`)            |
-| `messageId` / `appId`       | AMQP properties, when the publisher set them                              |
-| `correlationId` / `replyTo` | AMQP properties of an RPC call                                            |
+| `messageId` / `appId`       | message properties, when the publisher set them                           |
+| `correlationId` / `replyTo` | message properties of an RPC call                                         |
 | `duration`                  | Time spent in `publish()`                                                 |
 | `accepted`                  | `false` when the channel buffered the message (its write buffer was full) |
 | `error`                     | The message `publish()` rejected with, when it failed                     |
@@ -188,3 +190,39 @@ Only the caller's publish options are captured, not the connection's `defaultPub
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
+
+## The Discover / RabbitMQ view
+
+Registering `RabbitMqCollectorModule` alongside
+[`@eleven-labs/nest-profiler-routes`](https://github.com/eleven-labs/nest-profiler/tree/main/packages/nest-profiler-routes)
+adds a **Discover / RabbitMQ** view listing what the application declared at startup. Everything is
+read from the resolved `RabbitMQModule` configuration — no management-API call, no extra
+credentials, and the view stays accurate while the broker is down.
+
+**The topology**, as sections above the handler list:
+
+| Section           | What it lists                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| Connections       | Every declared connection with its broker URI (credentials masked), prefetch, channels and handler configs |
+| Exchanges         | Each exchange with its type, durability flags and arguments                                                |
+| Queues            | Each queue with the binding that feeds it (`← exchange (routing keys)`), its flags and its `x-…` arguments |
+| Exchange bindings | Each `exchangeBindings` entry with its pattern                                                             |
+
+The queues nothing subscribes to — dead-letter, retry, delay — are listed too: they carry the flow
+even though no handler names them.
+
+**The handlers**, one entry per registration golevelup performs. Expanding one shows the whole
+subscription rather than just its `exchange → routingKey` locator:
+
+| Group         | What it lists                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Subscription  | `queue`, `exchange`, `routingKey`, the `connection` it runs on, its module-level `handler config` and `channel` |
+| Bindings      | Each `bindings: [{ exchange, routingKey }]` pair, when the handler binds across exchanges                       |
+| Queue options | The `queueOptions` it asserts, with `arguments` spread one `x-…` key per row                                    |
+| Behaviour     | `allowNonJsonMessages`, `errorBehavior`, `batchOptions`, a custom `deserializer`, …                             |
+
+Two golevelup behaviours the view makes visible: a handler with no `connection` is registered on
+**every** declared connection — listed once per connection, which is the multi-vhost trap that
+asserts a queue on the wrong vhost — and a handler whose `name` matches no entry in that
+connection's `handlers` map is **not registered** at all, which the entry says in place of its
+description.

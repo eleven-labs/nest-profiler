@@ -1,7 +1,7 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
 import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface';
-import type { AmqpPublishEntry } from './rabbitmq-publish-collector.interface';
+import type { RabbitMqPublishEntry } from './rabbitmq-publish-collector.interface';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -16,7 +16,7 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
   };
 }
 
-function makeMessage(overrides: Partial<AmqpPublishEntry> = {}): AmqpPublishEntry {
+function makeMessage(overrides: Partial<RabbitMqPublishEntry> = {}): RabbitMqPublishEntry {
   return {
     exchange: 'articles.events',
     routingKey: 'published.LEFIGARO',
@@ -38,8 +38,8 @@ describe('RabbitMqPublishCollector', () => {
 
   it('exposes the panel metadata and its template', () => {
     expect(collector.name).toBe('rabbitmq-publish');
-    expect(collector.label).toBe('AMQP');
-    expect(collector.tagDomain).toBe('amqp');
+    expect(collector.label).toBe('RabbitMQ');
+    expect(collector.tagDomain).toBe('rabbitmq');
     expect(collector.getTemplatePath()).toMatch(/templates[/\\]rabbitmq-publish-panel\.ejs$/);
   });
 
@@ -80,7 +80,7 @@ describe('RabbitMqPublishCollector', () => {
     expect(collector.getTaggableEntries(profile)).toEqual([message]);
   });
 
-  it('defaults the thresholds to AMQP-sized values', () => {
+  it('defaults the thresholds to RabbitMQ-sized values', () => {
     expect(collector.getTagConfig()).toMatchObject({
       slowThreshold: 50,
       nPlusOneThreshold: 2,

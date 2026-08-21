@@ -19,7 +19,7 @@
     }
     return best;
   };
-  // AMQP properties worth showing inline — omitted entirely when the publisher set none.
+  // Message properties worth showing inline — omitted entirely when the publisher set none.
   const propsOf = (m) => {
     const props = {};
     if (m.messageId) props['messageId'] = m.messageId;
@@ -51,7 +51,7 @@
 
 <% if (messages.length === 0) { %>
   <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
-    <p class="text-foreground-muted text-sm">No AMQP message published during this request.</p>
+    <p class="text-foreground-muted text-sm">No RabbitMQ message published during this request.</p>
   </div>
 <% } else { %>
   <div class="space-y-3">

@@ -4,7 +4,7 @@ import type { CanActivate } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { HTTP_ENTRYPOINT_TYPE_DEF, HTTP_ICON } from '@eleven-labs/nest-profiler';
-import { HttpRouteSource } from './http-route-source';
+import { HttpDiscoverSource } from './http-discover-source';
 
 class CreatePetDto {
   @IsString()
@@ -40,23 +40,23 @@ function buildSource(controllers: { instance: object; metatype: unknown }[]) {
     },
   } as Partial<MetadataScanner> as MetadataScanner;
 
-  const registerRouteSource = jest.fn();
+  const registerDiscoverSource = jest.fn();
   const moduleRef = {
-    get: jest.fn().mockReturnValue({ registerRouteSource }),
+    get: jest.fn().mockReturnValue({ registerDiscoverSource }),
   } as unknown as ModuleRef;
 
-  const source = new HttpRouteSource(discovery, scanner, moduleRef);
-  return { source, moduleRef, registerRouteSource };
+  const source = new HttpDiscoverSource(discovery, scanner, moduleRef);
+  return { source, moduleRef, registerDiscoverSource };
 }
 
 const petsWrapper = { instance: new PetsController(), metatype: PetsController };
 
-describe('HttpRouteSource', () => {
+describe('HttpDiscoverSource', () => {
   it('discovers REST routes and registers itself with the core at bootstrap', () => {
-    const { source, registerRouteSource } = buildSource([petsWrapper]);
+    const { source, registerDiscoverSource } = buildSource([petsWrapper]);
     source.onApplicationBootstrap();
 
-    expect(registerRouteSource).toHaveBeenCalledWith(source);
+    expect(registerDiscoverSource).toHaveBeenCalledWith(source);
     const group = source.collect();
     expect(group.source).toBe('http');
     // The protocol is named once: the same label the HTTP list section carries.
@@ -65,7 +65,7 @@ describe('HttpRouteSource', () => {
     // One glyph for the protocol: the REST Discover view and the HTTP list section share it.
     expect(group.icon).toBe(HTTP_ICON);
     expect(HTTP_ENTRYPOINT_TYPE_DEF.listSection.icon).toBe(HTTP_ICON);
-    expect(group.routes.map((r) => `${r.method} ${r.path}`)).toEqual([
+    expect(group.entries.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /pets',
       'GET /pets/:id',
     ]);
@@ -76,16 +76,16 @@ describe('HttpRouteSource', () => {
     source.onApplicationBootstrap();
     const group = source.collect();
 
-    const create = group.routes.find((r) => r.handler === 'create');
+    const create = group.entries.find((r) => r.handler === 'create');
     expect(create?.inputs?.body?.name).toBe('CreatePetDto');
 
-    const findOne = group.routes.find((r) => r.handler === 'findOne');
+    const findOne = group.entries.find((r) => r.handler === 'findOne');
     expect(findOne?.inputs?.params).toEqual(['id']);
   });
 
   it('returns an empty group before bootstrap', () => {
     const { source } = buildSource([petsWrapper]);
-    expect(source.collect().routes).toEqual([]);
+    expect(source.collect().entries).toEqual([]);
   });
 
   it('surfaces the guards protecting a route', () => {
@@ -100,11 +100,11 @@ describe('HttpRouteSource', () => {
     ]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes[0]?.guards).toEqual(['AuthGuard']);
+    expect(source.collect().entries[0]?.guards).toEqual(['AuthGuard']);
     // Unguarded REST routes carry no `guards` key.
     const { source: pets } = buildSource([petsWrapper]);
     pets.onApplicationBootstrap();
-    expect(pets.collect().routes.every((r) => r.guards === undefined)).toBe(true);
+    expect(pets.collect().entries.every((r) => r.guards === undefined)).toBe(true);
   });
 
   it('normalises the root path to "/" and orders same-path routes by method', () => {
@@ -119,7 +119,7 @@ describe('HttpRouteSource', () => {
     const { source } = buildSource([{ instance: new RootController(), metatype: RootController }]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes).toEqual([
+    expect(source.collect().entries).toEqual([
       { method: 'GET', path: '/', controller: 'RootController', handler: 'root' },
       { method: 'POST', path: '/', controller: 'RootController', handler: 'submit' },
     ]);
@@ -131,7 +131,7 @@ describe('HttpRouteSource', () => {
       throw new Error('ProfilerCoreService not found');
     });
     expect(() => source.onApplicationBootstrap()).not.toThrow();
-    expect(source.collect().routes.length).toBe(2);
+    expect(source.collect().entries.length).toBe(2);
   });
 
   it('excludes the profiler UI/API routes from the panel', () => {
@@ -150,8 +150,8 @@ describe('HttpRouteSource', () => {
     source.onApplicationBootstrap();
 
     const group = source.collect();
-    expect(group.routes.every((r) => r.controller !== 'ProfilerController')).toBe(true);
-    expect(group.routes.map((r) => `${r.method} ${r.path}`)).toEqual([
+    expect(group.entries.every((r) => r.controller !== 'ProfilerController')).toBe(true);
+    expect(group.entries.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /pets',
       'GET /pets/:id',
     ]);
@@ -170,7 +170,7 @@ describe('HttpRouteSource', () => {
     const { source } = buildSource([{ instance: new BareController(), metatype: BareController }]);
     source.onApplicationBootstrap();
 
-    expect(source.collect().routes.length).toBe(1);
+    expect(source.collect().entries.length).toBe(1);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('route-args metadata shape'));
     warn.mockRestore();
   });

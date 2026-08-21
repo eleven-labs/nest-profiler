@@ -1,5 +1,9 @@
 import type { Type } from '@nestjs/common';
-import type { RouteDtoInfo, RouteDtoProperty, RouteInputs } from '@eleven-labs/nest-profiler';
+import type {
+  DiscoverDtoInfo,
+  DiscoverDtoProperty,
+  DiscoverInputs,
+} from '@eleven-labs/nest-profiler';
 
 /**
  * NestJS stores each handler's parameter decorators (`@Param`, `@Query`, `@Body`, `@Headers`…)
@@ -121,9 +125,9 @@ function validatedProperties(dtoClass: Type): Map<string, { rules: string[]; opt
 }
 
 /** Describes a `@Body()` DTO's top-level properties (name, TS type, class-validator rules). */
-function describeDto(dtoClass: Type): RouteDtoInfo {
+function describeDto(dtoClass: Type): DiscoverDtoInfo {
   const props = validatedProperties(dtoClass);
-  const properties: RouteDtoProperty[] = [];
+  const properties: DiscoverDtoProperty[] = [];
   const proto = dtoClass.prototype as object;
   for (const [name, { rules, optional }] of props) {
     if (properties.length >= MAX_PROPERTIES) break;
@@ -155,13 +159,13 @@ export function describeHandlerParams(
   controllerType: Type,
   methodName: string,
   path: string,
-): RouteInputs | undefined {
+): DiscoverInputs | undefined {
   const args = readRouteArgs(controllerType, methodName);
 
   const params = pathParamNames(path);
   const query: string[] = [];
   const headers: string[] = [];
-  let body: RouteDtoInfo | undefined;
+  let body: DiscoverDtoInfo | undefined;
 
   for (const [key, arg] of Object.entries(args)) {
     const paramtype = Number(key.split(':')[0]);
@@ -189,7 +193,7 @@ export function describeHandlerParams(
     }
   }
 
-  const inputs: RouteInputs = {
+  const inputs: DiscoverInputs = {
     ...(params.length > 0 ? { params } : {}),
     ...(query.length > 0 ? { query } : {}),
     ...(headers.length > 0 ? { headers } : {}),

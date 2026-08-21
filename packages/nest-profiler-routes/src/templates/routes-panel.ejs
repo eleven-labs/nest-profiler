@@ -1,16 +1,26 @@
 <%#
-  A single **Discover** view: the routing table of one transport. The panel header already names
-  it, so the rows render flat — no per-transport disclosure to expand first.
+  A single **Discover** view: the routing table of one transport, preceded by the static facts it
+  discovered that are not routes (a broker's exchanges and queues, …). The panel header already
+  names the transport, so the rows render flat — no per-transport disclosure to expand first.
 %>
 <%
   const groups = (data && Array.isArray(data.groups)) ? data.groups : [];
-  const routeCount = (data && typeof data.routeCount === 'number')
-    ? data.routeCount
-    : groups.reduce((n, g) => n + ((g && g.routes) ? g.routes.length : 0), 0);
+  const entryCount = (data && typeof data.entryCount === 'number')
+    ? data.entryCount
+    : groups.reduce((n, g) => n + ((g && g.entries) ? g.entries.length : 0), 0);
   // "3 commands" / "9 fields" — a source names its own entries, since not every transport
   // routes anything (`itemLabel` defaults to `route`).
   const itemLabel = (groups.find((g) => g && g.itemLabel) || {}).itemLabel || 'route';
-  const countLabel = `${routeCount} ${itemLabel}${routeCount !== 1 ? 's' : ''}`;
+  const countLabel = `${entryCount} ${itemLabel}${entryCount !== 1 ? 's' : ''}`;
+  // Non-route facts the source contributed (RabbitMQ topology, …), rendered above the routes.
+  const sections = groups
+    .flatMap((g) => (g && g.sections) || [])
+    .filter((s) => s && s.items && s.items.length);
+  // With sections above it, the route list needs a title of its own ("Handlers") rather than
+  // standing in for the whole panel.
+  const entriesTitle = sections.length
+    ? `${itemLabel.charAt(0).toUpperCase()}${itemLabel.slice(1)}s`
+    : 'Discovered at startup';
 
   /* Tailwind classes per HTTP method / operation verb, mirroring the request list badges. */
   function methodClass(method) {
@@ -32,7 +42,7 @@
   }
 %>
 
-<% if (routeCount === 0) { %>
+<% if (entryCount === 0 && sections.length === 0) { %>
   <div class="py-8 text-center bg-surface-muted border border-line rounded-lg space-y-2 px-6">
     <p class="text-foreground-muted text-sm font-medium">Nothing discovered.</p>
     <p class="text-foreground-faint text-xs leading-relaxed">
@@ -42,41 +52,84 @@
     </p>
   </div>
 <% } else { %>
+  <% for (const section of sections) { %>
+    <%
+      const sectionItemLabel = section.itemLabel || 'item';
+      const sectionCount = section.items.length;
+      const sectionCountLabel = `${sectionCount} ${sectionItemLabel}${sectionCount !== 1 ? 's' : ''}`;
+    %>
+    <div class="mb-5">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold"><%= section.label %></h3>
+        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= sectionCountLabel %></span>
+      </div>
+      <div class="rounded-lg border border-line overflow-hidden divide-y divide-line-subtle">
+        <% for (const item of section.items) { %>
+          <% const attributes = item.attributes || {}; %>
+          <div class="px-4 py-2.5 space-y-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-mono text-foreground break-all"><%= item.name %></span>
+              <% if (item.kind) { %>
+                <span class="text-2xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border bg-surface border-line text-foreground-muted"><%= item.kind %></span>
+              <% } %>
+              <% for (const flag of (item.flags || [])) { %>
+                <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint"><%= flag %></span>
+              <% } %>
+            </div>
+            <% if (item.detail) { %>
+              <p class="text-2xs text-foreground-secondary font-mono break-all"><%= item.detail %></p>
+            <% } %>
+            <% if (Object.keys(attributes).length) { %>
+              <div class="flex flex-wrap gap-x-3 gap-y-1">
+                <% for (const attrName of Object.keys(attributes)) { %>
+                  <span class="text-2xs text-foreground-faint font-mono break-all">
+                    <%= attrName %>: <span class="text-foreground-muted"><%= attributes[attrName] %></span>
+                  </span>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (entryCount > 0) { %>
   <div class="flex items-center gap-2 mb-3">
-    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Discovered at startup</h3>
+    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold"><%= entriesTitle %></h3>
     <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= countLabel %></span>
   </div>
 
   <div class="rounded-lg border border-line overflow-hidden divide-y divide-line-subtle">
     <%# One transport per view, so the rows are a single flat list. %>
-    <% for (const route of groups.flatMap((g) => (g && g.routes) || [])) { %>
-      <% const guards = route.guards || []; %>
-      <% const expandable = hasInputs(route.inputs) || guards.length > 0 || !!route.description; %>
-      <details class="group/route">
+    <% for (const entry of groups.flatMap((g) => (g && g.entries) || [])) { %>
+      <% const guards = entry.guards || []; %>
+      <% const expandable = hasInputs(entry.inputs) || guards.length > 0 || !!entry.description; %>
+      <details class="group/entry">
         <summary class="flex items-center gap-3 px-4 py-2.5 select-none list-none <%= expandable ? 'cursor-pointer hover:bg-surface-muted' : 'cursor-default' %> transition-colors">
           <% if (expandable) { %>
-            <svg class="w-3 h-3 text-foreground-faint transition-transform group-open/route:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3 h-3 text-foreground-faint transition-transform group-open/entry:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
           <% } else { %>
             <span class="w-3 h-3 shrink-0"></span>
           <% } %>
-          <span class="text-2xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border tabular-nums shrink-0 <%= methodClass(route.method) %>"><%= route.method %></span>
-          <span class="text-xs font-mono text-foreground truncate flex-1"><%= route.path %></span>
+          <span class="text-2xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border tabular-nums shrink-0 <%= methodClass(entry.method) %>"><%= entry.method %></span>
+          <span class="text-xs font-mono text-foreground truncate flex-1"><%= entry.path %></span>
           <% if (guards.length) { %>
             <span class="shrink-0 text-amber-600 dark:text-amber-400" title="Protected by <%= guards.join(', ') %>" aria-label="Protected route">
               <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zM8 7V5a2 2 0 114 0v2H8z" clip-rule="evenodd"/></svg>
             </span>
           <% } %>
-          <span class="text-2xs text-foreground-faint font-mono truncate shrink-0 max-w-[40%]"><%= route.controller %>.<%= route.handler %></span>
+          <span class="text-2xs text-foreground-faint font-mono truncate shrink-0 max-w-[40%]"><%= entry.controller %>.<%= entry.handler %></span>
         </summary>
 
         <% if (expandable) { %>
           <div class="px-4 pb-3 pt-1 pl-10 space-y-3 bg-surface-muted/50">
-            <% const inputs = route.inputs || {}; %>
+            <% const inputs = entry.inputs || {}; %>
 
-            <% if (route.description) { %>
-              <p class="text-foreground-secondary text-xs leading-relaxed"><%= route.description %></p>
+            <% if (entry.description) { %>
+              <p class="text-foreground-secondary text-xs leading-relaxed"><%= entry.description %></p>
             <% } %>
 
             <% if (guards.length) { %>
@@ -184,4 +237,5 @@
       </details>
     <% } %>
   </div>
+  <% } %>
 <% } %>

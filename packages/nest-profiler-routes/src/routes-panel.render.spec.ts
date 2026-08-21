@@ -19,7 +19,7 @@ function listWith(data: RoutesCollectorData): Record<string, unknown> {
     // One **Discover** view per transport, filed under the Discover sidebar group.
     sectionViews: [{ key: 'http', label: 'HTTP', count: 0 }],
     globalViewGroups: [
-      { label: 'Discover', views: [{ key: 'discover-http', label, count: data.routeCount }] },
+      { label: 'Discover', views: [{ key: 'discover-http', label, count: data.entryCount }] },
     ],
     activeView: 'discover-http',
     activeGlobalPanel: {
@@ -46,25 +46,25 @@ describe('routes-panel template', () => {
   });
 
   it('renders the empty state when there are no routes', async () => {
-    const html = await render(service, { groups: [], routeCount: 0 });
+    const html = await render(service, { groups: [], entryCount: 0 });
     expect(html).toContain('Nothing discovered.');
   });
 
   it('names the transport it lists, so a short view label stays unambiguous', async () => {
-    const html = await render(service, { groups: [], routeCount: 0 });
+    const html = await render(service, { groups: [], entryCount: 0 });
     expect(html).toContain('Discover');
     expect(html).toContain('HTTP');
   });
 
   it('counts the entries with the noun the source chose, not always "route"', async () => {
     const html = await render(service, {
-      routeCount: 1,
+      entryCount: 1,
       groups: [
         {
           source: 'command',
           label: 'Commands',
           itemLabel: 'command',
-          routes: [
+          entries: [
             { method: 'command', path: 'content:sync', controller: 'SyncCommand', handler: 'run' },
           ],
         },
@@ -76,12 +76,12 @@ describe('routes-panel template', () => {
 
   it('renders routes flat — one transport per view means no disclosure to open first', async () => {
     const html = await render(service, {
-      routeCount: 1,
+      entryCount: 1,
       groups: [
         {
           source: 'http',
           label: 'HTTP',
-          routes: [
+          entries: [
             {
               method: 'POST',
               path: '/users/:id',
@@ -120,12 +120,12 @@ describe('routes-panel template', () => {
 
   it('renders a source-specific input group with its descriptions', async () => {
     const html = await render(service, {
-      routeCount: 1,
+      entryCount: 1,
       groups: [
         {
           source: 'command',
           label: 'Commands',
-          routes: [
+          entries: [
             {
               method: 'command',
               path: 'content:sync',
@@ -165,14 +165,115 @@ describe('routes-panel template', () => {
     expect(html).not.toContain('Query params');
   });
 
+  it('renders the non-route sections above the entry list, each with its own count', async () => {
+    const html = await render(service, {
+      entryCount: 1,
+      groups: [
+        {
+          source: 'rabbitmq',
+          label: 'RabbitMQ',
+          itemLabel: 'handler',
+          entries: [
+            {
+              method: 'subscribe',
+              path: 'api-tts.narration',
+              controller: 'GenerationWorker',
+              handler: 'generateNarration',
+              inputs: {
+                groups: [
+                  {
+                    label: 'Subscription',
+                    items: [{ name: 'queue', description: 'api-tts.narration' }],
+                  },
+                ],
+              },
+            },
+          ],
+          sections: [
+            {
+              label: 'Exchanges',
+              itemLabel: 'exchange',
+              items: [{ name: 'articles.events', kind: 'topic', flags: ['durable'] }],
+            },
+            {
+              label: 'Queues',
+              itemLabel: 'queue',
+              items: [
+                {
+                  name: 'api-tts.narration',
+                  detail: '\u2190 articles.events (published.*)',
+                  attributes: { 'x-dead-letter-exchange': 'tts.dlx' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('Exchanges');
+    expect(html).toContain('1 exchange');
+    expect(html).toContain('articles.events');
+    expect(html).toContain('topic');
+    expect(html).toContain('durable');
+    expect(html).toContain('Queues');
+    expect(html).toContain('x-dead-letter-exchange');
+    expect(html).toContain('tts.dlx');
+    // With sections above it, the entry list is titled by what it holds.
+    expect(html).toContain('Handlers');
+    expect(html).toContain('1 handler');
+    expect(html).not.toContain('Nothing discovered.');
+  });
+
+  it('renders a topology-only view — a broker the application declares but never consumes', async () => {
+    const html = await render(service, {
+      entryCount: 0,
+      groups: [
+        {
+          source: 'rabbitmq',
+          label: 'RabbitMQ',
+          itemLabel: 'handler',
+          entries: [],
+          sections: [
+            {
+              label: 'Connections',
+              itemLabel: 'connection',
+              items: [{ name: 'tts', detail: 'amqp://[REDACTED]@rabbit/api-tts' }],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).not.toContain('Nothing discovered.');
+    expect(html).toContain('Connections');
+    expect(html).toContain('1 connection');
+    expect(html).toContain('amqp://[REDACTED]@rabbit/api-tts');
+  });
+
   it('HTML-escapes every attacker-influenced field', async () => {
     const html = await render(service, {
-      routeCount: 1,
+      entryCount: 1,
       groups: [
         {
           source: 'http',
           label: `REST${SCRIPT}`,
-          routes: [
+          sections: [
+            {
+              label: `Queues${SCRIPT}`,
+              itemLabel: `queue${SCRIPT}`,
+              items: [
+                {
+                  name: `q${ATTR_BREAKOUT}`,
+                  kind: `k${SCRIPT}`,
+                  detail: `d${SCRIPT}`,
+                  flags: [`f${SCRIPT}`],
+                  attributes: { [`a${SCRIPT}`]: `v${ATTR_BREAKOUT}` },
+                },
+              ],
+            },
+          ],
+          entries: [
             {
               method: 'GET',
               path: `/evil/${SCRIPT}`,

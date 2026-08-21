@@ -1,4 +1,4 @@
-import { buildPublishFingerprint, capturePublishPayload } from './amqp-publish.util';
+import { buildPublishFingerprint, capturePublishPayload } from './rabbitmq-publish.util';
 
 describe('buildPublishFingerprint', () => {
   it('joins the exchange and the routing key', () => {

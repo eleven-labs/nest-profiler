@@ -1,7 +1,7 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
 import { RoutesCollectorModule, ROUTES_COLLECTOR_OPTIONS } from './routes-collector.module';
 import { RoutesCollector } from './routes.collector';
-import { HttpRouteSource } from './http-route-source';
+import { HttpDiscoverSource } from './http-discover-source';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(
@@ -17,7 +17,7 @@ describe('RoutesCollectorModule.forRoot', () => {
   it('registers the collector, the HTTP source and the options token (useValue)', () => {
     const mod = RoutesCollectorModule.forRoot();
     expect(mod.module).toBe(RoutesCollectorModule);
-    expect(mod.providers).toEqual(expect.arrayContaining([RoutesCollector, HttpRouteSource]));
+    expect(mod.providers).toEqual(expect.arrayContaining([RoutesCollector, HttpDiscoverSource]));
     expect((optionsProvider(mod) as ValueProvider).useValue).toEqual({});
   });
 
@@ -25,7 +25,7 @@ describe('RoutesCollectorModule.forRoot', () => {
     const mod = RoutesCollectorModule.forRoot({ enabled: false });
     expect(mod.module).toBe(RoutesCollectorModule);
     expect(mod.providers ?? []).not.toContain(RoutesCollector);
-    expect(mod.providers ?? []).not.toContain(HttpRouteSource);
+    expect(mod.providers ?? []).not.toContain(HttpDiscoverSource);
   });
 });
 
@@ -39,7 +39,7 @@ describe('RoutesCollectorModule.forRootAsync', () => {
       useFactory,
     });
     expect(mod.imports).toContain(FakeImport);
-    expect(mod.providers).toEqual(expect.arrayContaining([RoutesCollector, HttpRouteSource]));
+    expect(mod.providers).toEqual(expect.arrayContaining([RoutesCollector, HttpDiscoverSource]));
     const opts = optionsProvider(mod) as FactoryProvider;
     expect(opts.useFactory).toBe(useFactory);
     expect(opts.inject).toEqual(['CONFIG']);

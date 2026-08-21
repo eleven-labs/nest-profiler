@@ -56,7 +56,7 @@ export class AppModule {}
 
 ## What it collects
 
-At application startup, every registered route is discovered and grouped by transport, and each group becomes its own **Discover** view — keyed `discover-<transport>` in the `?view=` parameter, so it can never collide with the same-protocol profile list (`?view=graphql` stays the GraphQL list, `?view=discover-graphql` its routing table). The core ships a built-in **HTTP** source; other transport packages contribute their own — GraphQL resolvers (`@eleven-labs/nest-profiler-graphql`), RabbitMQ subscribers (`@eleven-labs/nest-profiler-rabbitmq`) and CLI commands (`@eleven-labs/nest-profiler-commander`) — by registering a `ProfilerRouteSource` with the core, so they appear automatically when installed.
+At application startup, every registered route is discovered and grouped by transport, and each group becomes its own **Discover** view — keyed `discover-<transport>` in the `?view=` parameter, so it can never collide with the same-protocol profile list (`?view=graphql` stays the GraphQL list, `?view=discover-graphql` its routing table). The core ships a built-in **HTTP** source; other transport packages contribute their own — GraphQL resolvers (`@eleven-labs/nest-profiler-graphql`), RabbitMQ subscribers (`@eleven-labs/nest-profiler-rabbitmq`) and CLI commands (`@eleven-labs/nest-profiler-commander`) — by registering a `ProfilerDiscoverSource` with the core, so they appear automatically when installed.
 
 Each REST route is introspected from its decorator metadata:
 
@@ -68,20 +68,20 @@ Each REST route is introspected from its decorator metadata:
 
 Introspection is top-level only: a property that is itself a DTO surfaces as its class name rather than being expanded.
 
-Sources whose inputs are not HTTP-shaped use `RouteInputs.groups` instead — a list of `{ label, items }` sections, each item being a `{ name, description?, required?, defaultValue? }`. That is how the CLI source lists **Arguments** and **Options**, and the GraphQL source its field **Arguments**, without borrowing an HTTP label. A route may also carry a `description`, rendered above its inputs.
+Sources whose inputs are not HTTP-shaped use `DiscoverInputs.groups` instead — a list of `{ label, items }` sections, each item being a `{ name, description?, required?, defaultValue? }`. That is how the CLI source lists **Arguments** and **Options**, and the GraphQL source its field **Arguments**, without borrowing an HTTP label. A route may also carry a `description`, rendered above its inputs.
 
 ## Contributing a custom route source
 
-Any package can add its own **Discover** view by registering a `ProfilerRouteSource` with the core (mirroring how entrypoint types are registered). Each `RouteGroup` it returns becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`:
+Any package can add its own **Discover** view by registering a `ProfilerDiscoverSource` with the core (mirroring how entrypoint types are registered). Each `DiscoverGroup` it returns becomes one view; set `itemLabel` when its entries are not routes, so the count reads `3 commands` rather than `3 routes`:
 
 ```ts
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
-import type { ProfilerRouteSource } from '@eleven-labs/nest-profiler';
+import type { ProfilerDiscoverSource } from '@eleven-labs/nest-profiler';
 
 // in a module lifecycle hook:
 const core = this.moduleRef.get(ProfilerCoreService, { strict: false });
-core.registerRouteSource(mySource satisfies ProfilerRouteSource);
+core.registerDiscoverSource(mySource satisfies ProfilerDiscoverSource);
 ```
 
 ## License

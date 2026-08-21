@@ -4,7 +4,7 @@ import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
-import { GraphqlRouteSource } from './graphql-route-source';
+import { GraphqlDiscoverSource } from './graphql-discover-source';
 import { buildGraphqlEntrypointType } from './graphql-entrypoint';
 import {
   ConfigurableModuleClass,
@@ -21,7 +21,7 @@ export type {
 // The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
 // the single, supported registration mechanism.
 const SHAPE: CollectorModuleShape = {
-  providers: [GraphQLContextAdapter, GraphqlRouteSource],
+  providers: [GraphQLContextAdapter, GraphqlDiscoverSource],
 };
 
 @Module({})
@@ -30,7 +30,7 @@ export class GraphQLCollectorModule extends ConfigurableModuleClass implements O
     private readonly moduleRef: ModuleRef,
     // @Optional() so the module does not throw when forRoot({ enabled: false }) omits providers
     @Optional() private readonly adapter?: GraphQLContextAdapter,
-    @Optional() private readonly routeSource?: GraphqlRouteSource,
+    @Optional() private readonly routeSource?: GraphqlDiscoverSource,
     @Optional()
     @Inject(GRAPHQL_COLLECTOR_OPTIONS)
     private readonly options: GraphQLCollectorModuleOptions = {},
@@ -49,7 +49,7 @@ export class GraphQLCollectorModule extends ConfigurableModuleClass implements O
       // the "GraphQL" option to the list page's "Type" filter.
       core.registerEntrypointType(buildGraphqlEntrypointType(this.options.error));
       // Contribute the Discover / GraphQL view (rendered only if the routes package is installed).
-      if (this.routeSource) core.registerRouteSource(this.routeSource);
+      if (this.routeSource) core.registerDiscoverSource(this.routeSource);
     } catch {
       // ProfilerCoreService unavailable — profiler may not be configured.
     }

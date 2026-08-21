@@ -10,8 +10,8 @@ import {
 } from './rabbitmq-collector.interface';
 import type { RabbitMqInfo } from './rabbitmq-collector.interface';
 import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface';
-import { buildAmqpPublish } from './build-amqp-publish';
-import { extractHeaders, resolveMaskHeaders } from './amqp-headers.util';
+import { buildRabbitMqPublish } from './build-rabbitmq-publish';
+import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util';
 
 /**
  * Context adapter that lets the profiler capture `@RabbitSubscribe` messages.
@@ -74,14 +74,14 @@ export class RabbitMqContextAdapter implements IContextAdapter {
       handler,
       redelivered: fields?.redelivered,
       consumerTag: fields?.consumerTag,
-      // amqplib types these AMQP properties as `any`.
+      // amqplib types these RabbitMQ properties as `any`.
       messageId: properties?.messageId as string | undefined,
       appId: properties?.appId as string | undefined,
       deliveryTag: fields?.deliveryTag,
     };
     if (headers) data.headers = headers;
     if (opts.captureBody !== false && payload != null) data.payload = redact(payload);
-    data.publishSnippet = buildAmqpPublish(data);
+    data.publishSnippet = buildRabbitMqPublish(data);
 
     profile.entrypoint = { type: RABBITMQ_ENTRYPOINT_TYPE, data };
   }

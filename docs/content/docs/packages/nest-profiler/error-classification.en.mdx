@@ -88,9 +88,9 @@ The calls your app makes are judged one by one, independently of whether the inc
 HttpCollectorModule.forRoot({ error: { httpStatus: 400 } });
 ```
 
-### Published AMQP messages
+### Published RabbitMQ messages
 
-Same idea for the messages your app publishes: each row of the **AMQP** panel is judged on its own. A publish carries no status code, so the default rests on `publish()` having rejected — a message the channel merely buffered is a warning, not a failure.
+Same idea for the messages your app publishes: each row of the **RabbitMQ** panel is judged on its own. A publish carries no status code, so the default rests on `publish()` having rejected — a message the channel merely buffered is a warning, not a failure.
 
 ```ts
 // A publish that failed while the broker was reconnecting is not an incident here.

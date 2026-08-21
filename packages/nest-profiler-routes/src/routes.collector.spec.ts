@@ -1,20 +1,20 @@
 import { ModuleRef } from '@nestjs/core';
-import type { Profile, ProfilerRouteSource, RouteGroup } from '@eleven-labs/nest-profiler';
+import type { Profile, ProfilerDiscoverSource, DiscoverGroup } from '@eleven-labs/nest-profiler';
 import { discoverViewKey, RoutesCollector } from './routes.collector';
 
 const EMPTY_PROFILE = {} as Profile;
 
-function makeCollector(sources: ProfilerRouteSource[] | null): RoutesCollector {
+function makeCollector(sources: ProfilerDiscoverSource[] | null): RoutesCollector {
   const moduleRef = {
     get: jest.fn(() => {
       if (sources === null) throw new Error('ProfilerCoreService not found');
-      return { getRouteSources: () => sources };
+      return { getDiscoverSources: () => sources };
     }),
   } as unknown as ModuleRef;
   return new RoutesCollector(moduleRef);
 }
 
-function source(type: string, groups: RouteGroup | RouteGroup[]): ProfilerRouteSource {
+function source(type: string, groups: DiscoverGroup | DiscoverGroup[]): ProfilerDiscoverSource {
   return { type, collect: () => groups };
 }
 
@@ -24,7 +24,7 @@ const healthRoute = {
   controller: 'HealthController',
   handler: 'check',
 };
-const httpGroup: RouteGroup = { source: 'http', label: 'HTTP', routes: [healthRoute] };
+const httpGroup: DiscoverGroup = { source: 'http', label: 'HTTP', entries: [healthRoute] };
 
 describe('RoutesCollector', () => {
   it('is a global-scope panel exposing a template, filed under the Discover sidebar group', () => {
@@ -37,11 +37,11 @@ describe('RoutesCollector', () => {
   });
 
   describe('expandGlobalPanels', () => {
-    const gqlGroup: RouteGroup = {
+    const gqlGroup: DiscoverGroup = {
       source: 'graphql',
       label: 'GraphQL',
       itemLabel: 'field',
-      routes: [
+      entries: [
         { method: 'query', path: 'users', controller: 'UserResolver', handler: 'users' },
         { method: 'mutation', path: 'createUser', controller: 'UserResolver', handler: 'create' },
       ],
@@ -56,14 +56,14 @@ describe('RoutesCollector', () => {
           name: 'discover-http',
           label: 'HTTP',
           icon: collector.icon,
-          data: { groups: [httpGroup], routeCount: 1 },
+          data: { groups: [httpGroup], entryCount: 1 },
           badge: 1,
         },
         {
           name: 'discover-graphql',
           label: 'GraphQL',
           icon: collector.icon,
-          data: { groups: [gqlGroup], routeCount: 2 },
+          data: { groups: [gqlGroup], entryCount: 2 },
           badge: 2,
         },
       ]);
@@ -75,7 +75,7 @@ describe('RoutesCollector', () => {
     });
 
     it('prefers the group icon over the collector default when the source ships one', () => {
-      const iconGroup: RouteGroup = { ...httpGroup, icon: '<svg id="rest"/>' };
+      const iconGroup: DiscoverGroup = { ...httpGroup, icon: '<svg id="rest"/>' };
       const collector = makeCollector([source('http', iconGroup)]);
       expect(collector.expandGlobalPanels(collector.collect(EMPTY_PROFILE))[0]?.icon).toBe(
         '<svg id="rest"/>',
@@ -92,10 +92,10 @@ describe('RoutesCollector', () => {
   });
 
   it('aggregates route groups from every registered source with a total count', () => {
-    const gqlGroup: RouteGroup = {
+    const gqlGroup: DiscoverGroup = {
       source: 'graphql',
       label: 'GraphQL',
-      routes: [
+      entries: [
         { method: 'query', path: 'users', controller: 'UserResolver', handler: 'users' },
         { method: 'mutation', path: 'createUser', controller: 'UserResolver', handler: 'create' },
       ],
@@ -104,12 +104,12 @@ describe('RoutesCollector', () => {
 
     const data = collector.collect(EMPTY_PROFILE);
     expect(data.groups).toEqual([httpGroup, gqlGroup]);
-    expect(data.routeCount).toBe(3);
+    expect(data.entryCount).toBe(3);
   });
 
   it('lists HTTP first, then the other transports by label, whatever the registration order', () => {
-    const gql: RouteGroup = { source: 'graphql', label: 'GraphQL', routes: [healthRoute] };
-    const cli: RouteGroup = { source: 'command', label: 'Commands', routes: [healthRoute] };
+    const gql: DiscoverGroup = { source: 'graphql', label: 'GraphQL', entries: [healthRoute] };
+    const cli: DiscoverGroup = { source: 'command', label: 'Commands', entries: [healthRoute] };
     // Sources register in DI bootstrap order — here the built-in HTTP source registers last.
     const collector = makeCollector([
       source('graphql', gql),
@@ -125,15 +125,15 @@ describe('RoutesCollector', () => {
   });
 
   it('flattens a source that returns multiple groups', () => {
-    const a: RouteGroup = { source: 'a', label: 'A', routes: [healthRoute] };
-    const b: RouteGroup = { source: 'b', label: 'B', routes: [healthRoute] };
+    const a: DiscoverGroup = { source: 'a', label: 'A', entries: [healthRoute] };
+    const b: DiscoverGroup = { source: 'b', label: 'B', entries: [healthRoute] };
     const collector = makeCollector([source('multi', [a, b])]);
     expect(collector.collect(EMPTY_PROFILE).groups).toEqual([a, b]);
   });
 
   it('skips empty groups and sources that throw', () => {
-    const empty: RouteGroup = { source: 'empty', label: 'Empty', routes: [] };
-    const throwing: ProfilerRouteSource = {
+    const empty: DiscoverGroup = { source: 'empty', label: 'Empty', entries: [] };
+    const throwing: ProfilerDiscoverSource = {
       type: 'boom',
       collect: () => {
         throw new Error('nope');
@@ -143,16 +143,16 @@ describe('RoutesCollector', () => {
 
     const data = collector.collect(EMPTY_PROFILE);
     expect(data.groups).toEqual([httpGroup]);
-    expect(data.routeCount).toBe(1);
+    expect(data.entryCount).toBe(1);
   });
 
   it('returns an empty panel when the core is unavailable', () => {
     const collector = makeCollector(null);
-    expect(collector.collect(EMPTY_PROFILE)).toEqual({ groups: [], routeCount: 0 });
+    expect(collector.collect(EMPTY_PROFILE)).toEqual({ groups: [], entryCount: 0 });
   });
 
   it('resolves the core once and memoizes it across collect() calls', () => {
-    const get = jest.fn(() => ({ getRouteSources: () => [source('http', httpGroup)] }));
+    const get = jest.fn(() => ({ getDiscoverSources: () => [source('http', httpGroup)] }));
     const collector = new RoutesCollector({ get } as unknown as ModuleRef);
 
     collector.collect(EMPTY_PROFILE);

@@ -6,15 +6,20 @@ import type {
   GlobalPanelDescriptor,
   IProfilerCollector,
   Profile,
-  RouteGroup,
+  DiscoverGroup,
 } from '@eleven-labs/nest-profiler';
 
 const ROUTES_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2a2 2 0 100 4 2 2 0 000-4zM4 10a2 2 0 100 4 2 2 0 000-4z" opacity="0.4"/><path d="M12 6a2 2 0 100 4 2 2 0 000-4z"/><path d="M6 4h4a2 2 0 012 2M4 6v4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
 
 /** Panel payload: the route groups a single **Discover** view renders, plus their total count. */
 export interface RoutesCollectorData {
-  groups: RouteGroup[];
-  routeCount: number;
+  groups: DiscoverGroup[];
+  entryCount: number;
+}
+
+/** Total items across a group's non-route sections (the broker topology, …). */
+function sectionItemCount(group: DiscoverGroup): number {
+  return (group.sections ?? []).reduce((total, section) => total + section.items.length, 0);
 }
 
 /** The built-in source, listed first among the Discover views. */
@@ -33,7 +38,7 @@ export function discoverViewKey(source: string): string {
 /**
  * Global-scope discovery of the application's routing table — a Symfony-Routing-style view
  * rendered on the profiler home page. It owns no discovery logic: it aggregates the
- * {@link RouteGroup}s from every `ProfilerRouteSource` registered on the core (the built-in HTTP
+ * {@link DiscoverGroup}s from every `ProfilerDiscoverSource` registered on the core (the built-in HTTP
  * source shipped by this package, plus any contributed by protocol packages), then splits them
  * into one **Discover** sidebar view per transport — `Discover / HTTP`, `Discover / GraphQL`, … —
  * because a transport's routing table is its own subject, not a section of a shared "Routes" tab.
@@ -77,18 +82,21 @@ export class RoutesCollector implements IProfilerCollector {
       name: discoverViewKey(group.source),
       label: group.label,
       icon: group.icon ?? this.icon,
-      data: { groups: [group], routeCount: group.routes.length } satisfies RoutesCollectorData,
-      badge: group.routes.length,
+      data: { groups: [group], entryCount: group.entries.length } satisfies RoutesCollectorData,
+      // A source can discover a topology without a single handler (a broker the application only
+      // publishes to): fall back to the section items so the view is still badged with what it holds.
+      badge: group.entries.length || sectionItemCount(group),
     }));
   }
 
   collect(_profile: Profile): RoutesCollectorData {
-    const groups: RouteGroup[] = [];
-    for (const source of this.resolveCore()?.getRouteSources() ?? []) {
+    const groups: DiscoverGroup[] = [];
+    for (const source of this.resolveCore()?.getDiscoverSources() ?? []) {
       try {
         const result = source.collect();
         for (const group of Array.isArray(result) ? result : [result]) {
-          if (group && group.routes.length > 0) groups.push(group);
+          if (group && (group.entries.length > 0 || sectionItemCount(group) > 0))
+            groups.push(group);
         }
       } catch {
         // A misbehaving source must not break the panel; skip it.
@@ -101,8 +109,8 @@ export class RoutesCollector implements IProfilerCollector {
         Number(b.source === HTTP_SOURCE) - Number(a.source === HTTP_SOURCE) ||
         a.label.localeCompare(b.label),
     );
-    const routeCount = groups.reduce((total, group) => total + group.routes.length, 0);
-    return { groups, routeCount };
+    const entryCount = groups.reduce((total, group) => total + group.entries.length, 0);
+    return { groups, entryCount };
   }
 
   /** Lazily resolves the core from the global scope (a sibling dynamic module), memoized. */

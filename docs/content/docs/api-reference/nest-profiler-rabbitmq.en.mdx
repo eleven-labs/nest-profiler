@@ -8,7 +8,7 @@ seo:
 
 The package ships two independent modules: `RabbitMqCollectorModule` profiles the messages the
 application **consumes** (one profile per `@RabbitSubscribe` delivery), and
-`RabbitMqPublishCollectorModule` lists the messages it **publishes** in an **AMQP** panel.
+`RabbitMqPublishCollectorModule` lists the messages it **publishes** in a **RabbitMQ** panel.
 
 ## RabbitMqInfo
 
@@ -17,7 +17,7 @@ registers a `rabbitmq` entrypoint type, so the profiler renders a dedicated **Ra
 
 - with its own filters: **Delivery** (first delivery / redelivered), **Exchange** and **Handler**
   (both populated from the values actually captured) and a free-text **Routing key** - and a
-  **Message** detail tab, including the captured AMQP `headers` and `payload`. The HTTP-status filters
+  **Message** detail tab, including the captured RabbitMQ `headers` and `payload`. The HTTP-status filters
   do not appear here, since a consumed message has no HTTP response.
 
 <AutoTypeTable
@@ -25,14 +25,14 @@ registers a `rabbitmq` entrypoint type, so the profiler renders a dedicated **Ra
   name="RabbitMqInfo"
 />
 
-## AmqpPublishEntry
+## RabbitMqPublishEntry
 
-One row of the **AMQP** panel — a message the profiled request published through
+One row of the **RabbitMQ** panel — a message the profiled request published through
 `AmqpConnection.publish`. Collected by `RabbitMqPublishCollectorModule`.
 
 <AutoTypeTable
   path="packages/nest-profiler-rabbitmq/src/rabbitmq-publish-collector.interface.ts"
-  name="AmqpPublishEntry"
+  name="RabbitMqPublishEntry"
 />
 
 ## Public exports
@@ -43,11 +43,12 @@ import { RabbitMqContextAdapter } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RABBITMQ_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqPublishCollector } from '@eleven-labs/nest-profiler-rabbitmq';
+import { RabbitMqDiscoverSource } from '@eleven-labs/nest-profiler-rabbitmq';
 
 import type { RabbitMqCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqInfo } from '@eleven-labs/nest-profiler-rabbitmq';
-import type { AmqpPublishEntry } from '@eleven-labs/nest-profiler-rabbitmq';
+import type { RabbitMqPublishEntry } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqPublishCollectorModuleOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 import type { RabbitMqPublishCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-rabbitmq';
 ```
@@ -56,7 +57,7 @@ import type { RabbitMqPublishCollectorModuleAsyncOptions } from '@eleven-labs/ne
 
 ```ts
 interface RabbitMqCollectorModuleOptions {
-  /** Capture incoming AMQP message headers (masked). Default: `true`. */
+  /** Capture incoming RabbitMQ message headers (masked). Default: `true`. */
   captureHeaders?: boolean;
   /** Capture the deserialized message payload. Default: `true`. */
   captureBody?: boolean;
@@ -179,15 +180,50 @@ consumer republishes show up.
 A consumed message has no HTTP request/response. The profiler synthesises a profile whose
 `entrypoint` is `{ type: 'rabbitmq', data: RabbitMqInfo }`:
 
-| Field                        | Value                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------ |
-| `entrypoint.type`            | `rabbitmq`                                                                     |
-| `entrypoint.data.exchange`   | The exchange (empty string for the default exchange)                           |
-| `entrypoint.data.routingKey` | The routing key                                                                |
-| `entrypoint.data.headers`    | AMQP message headers, sensitive ones masked (when `captureHeaders` is enabled) |
-| `entrypoint.data.payload`    | The deserialized payload (when `captureBody` is enabled)                       |
-| `response.statusCode`        | `200` on success, `500` when the handler threw                                 |
+| Field                        | Value                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| `entrypoint.type`            | `rabbitmq`                                                                         |
+| `entrypoint.data.exchange`   | The exchange (empty string for the default exchange)                               |
+| `entrypoint.data.routingKey` | The routing key                                                                    |
+| `entrypoint.data.headers`    | RabbitMQ message headers, sensitive ones masked (when `captureHeaders` is enabled) |
+| `entrypoint.data.payload`    | The deserialized payload (when `captureBody` is enabled)                           |
+| `response.statusCode`        | `200` on success, `500` when the handler threw                                     |
 
-The exchange, routing key, handler, redelivered flag and AMQP consumer/delivery tags are kept on
+The exchange, routing key, handler, redelivered flag and RabbitMQ consumer/delivery tags are kept on
 `entrypoint.data`. Because the handler runs inside the profiler's CLS context, profile-scoped
 collectors (HTTP client, database, …) capture the work it performs and contribute their own panels.
+
+## The Discover / RabbitMQ view
+
+`RabbitMqCollectorModule` also registers a `ProfilerDiscoverSource` (`RabbitMqDiscoverSource`), which
+contributes the **Discover / RabbitMQ** view — visible when
+[`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes) is installed. It reports
+what the application declared at startup, read from the resolved `RabbitMQModule` configuration: no
+management-API call, no extra credentials, and it stays accurate while the broker is unreachable.
+
+**The topology**, as sections above the handler list:
+
+| Section           | What it lists                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| Connections       | Every declared connection with its broker URI (credentials masked), prefetch, channels and handler configs |
+| Exchanges         | Each exchange with its type, durability flags and arguments                                                |
+| Queues            | Each queue with the binding that feeds it (`← exchange (routing keys)`), its flags and its `x-…` arguments |
+| Exchange bindings | Each `exchangeBindings` entry with its pattern                                                             |
+
+Queues no handler consumes — dead-letter, retry and delay queues — are listed too: they are part of
+the flow even though nothing subscribes to them.
+
+**The handlers**, one entry per registration golevelup performs, each expanding to the full
+subscription rather than just its `exchange → routingKey` locator:
+
+| Group         | What it lists                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Subscription  | `queue`, `exchange`, `routingKey`, the `connection` it runs on, its module-level `handler config` and `channel` |
+| Bindings      | Each `bindings: [{ exchange, routingKey }]` pair, when the handler binds across exchanges                       |
+| Queue options | The `queueOptions` it asserts, with `arguments` spread one `x-…` key per row                                    |
+| Behaviour     | `allowNonJsonMessages`, `errorBehavior`, `batchOptions`, a custom `deserializer`, …                             |
+
+Two golevelup behaviours the view makes visible: a handler with no `connection` is registered on
+**every** declared connection (listed once per connection — the classic multi-vhost trap), and a
+handler whose `name` matches no entry in that connection's `handlers` map is **not registered** at
+all, which the entry states in place of its description.
