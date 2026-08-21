@@ -1,5 +1,23 @@
 # @eleven-labs/nest-profiler-rabbitmq
 
+## 1.0.0-alpha.16
+
+### Patch Changes
+
+- 74d8986: Replace the single **Routes** panel with one **Discover** view per transport.
+
+  "Routes" named the panel after one transport's vocabulary while listing four, and answered a question nobody asks that way: you look up the HTTP table, or the CLI's commands, not "all routes". Each registered `ProfilerRouteSource` now contributes its own sidebar view under a **Discover** heading — `Discover / HTTP`, `Discover / GraphQL`, `Discover / Commands`, `Discover / RabbitMQ` — each rendering that transport's table flat, with no group disclosure to open first, and counting its entries with the source's own noun (`4 commands`, `9 fields`). A transport that discovered nothing gets no view, so the sidebar lists only what the application actually registered.
+
+  The `routes.png` screenshot is renamed `discover.png` and reshot on the HTTP view. The views are ordered deterministically — the built-in HTTP source first, then the other transports by label — instead of following the DI bootstrap order, which shuffled the sidebar between runs. They are keyed `discover-<transport>` in `?view=`, so they can never collide with the same-protocol profile list: `?view=graphql` stays the GraphQL list, `?view=discover-graphql` is its routing table. `discoverViewKey()`, `DISCOVER_GROUP` and `DISCOVER_GROUP_LABEL` are exported for consumers building their own links. The GraphQL, RabbitMQ and Commands sources declare the `itemLabel` their entries deserve; nothing else changes in how a source is registered.
+
+- 74d8986: Make the home page's sidebar identical to a profile's, and give each subject exactly one glyph.
+
+  The two navigations had drifted into two components: the home page indented its items further (`pl-6` against the detail page's `pl-3`), used a thinner separator and its own header padding, rendered a flat count badge where the detail page accents the active one, and carried no icon at all on the **Profiling** items. Both now share one nav-item partial — same padding, same badge scale, same active accent — and both render the icon in a fixed-width slot, so an item that declares no icon still lines its label up with the others.
+
+  `ProfilerListSection` gains an optional `icon`. A protocol now keeps **one** glyph everywhere it is named, across both pages: the HTTP globe is defined once in the core (exported as `HTTP_ICON`) and used by the HTTP list section, the HTTP routing table and the HTTP Client collector panel; the GraphQL mark serves both the GraphQL list section and the GraphQL detail tab. That retires two near-duplicate marks — a second terminal glyph for Commands and a second GraphQL glyph — which existed only because each file defined its own copy. Tabs naming a _content_ rather than a protocol (Request, Response, Message, Performance…) keep their own icon.
+
+  The HTTP routing table is labelled **HTTP** rather than **REST**, so the sidebar names the protocol once: `Profiling / HTTP` and `Discover / HTTP`, same word, same globe. `RouteGroup.label` for the built-in source changes accordingly; the `?view=discover-http` key is unchanged.
+
 ## 1.0.0-alpha.15
 
 ### Minor Changes
