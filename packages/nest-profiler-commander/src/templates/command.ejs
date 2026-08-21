@@ -38,7 +38,7 @@
 </section>
 
 <section class="mb-6">
-  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments <span class="normal-case tracking-normal font-normal text-foreground-faint">— positional operands (<code>run(passedParams)</code>)</span></h2>
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments</h2>
   <% if (!cmd.arguments.length) { %>
     <p class="text-foreground-faint text-xs italic py-1">No positional arguments.</p>
   <% } else { %>
@@ -51,7 +51,7 @@
 </section>
 
 <section <%= cmdError ? 'class="mb-6"' : '' %>>
-  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options <span class="normal-case tracking-normal font-normal text-foreground-faint">— parsed <code>--flags</code> (<code>run(_, options)</code>)</span></h2>
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options</h2>
   <% if (Object.keys(cmdOptions).length === 0) { %>
     <p class="text-foreground-faint text-xs italic py-1">No options.</p>
   <% } else { %>

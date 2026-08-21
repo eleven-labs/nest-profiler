@@ -23,6 +23,32 @@ class HelloCommand extends FakeCommandRunner {
 /** A command with no `command.name()` — name should fall back to the class name. */
 class NamelessCommand extends FakeCommandRunner {}
 
+/** Stand-in for a commander `Option` as nest-commander builds it from `@Option()`. */
+function fakeOption(
+  flags: string,
+  attribute: string,
+  parseArg?: (value: string, previous: unknown) => unknown,
+): { flags: string; attributeName: () => string; parseArg?: typeof parseArg } {
+  return { flags, attributeName: () => attribute, parseArg };
+}
+
+/**
+ * A command whose `--site` parser rejects its input, mirroring an `@Option()` parser that
+ * validates. Commander runs these parsers itself, before the action handler.
+ */
+class ValidatingCommand extends FakeCommandRunner {
+  readonly siteOption = fakeOption('-s, --site [string]', 'site', (value: string) => {
+    if (value !== 'known.example') throw new Error('Unknown site parameter');
+    return value;
+  });
+  readonly yearOption = fakeOption('-y, --year [number]', 'year', (value: string) => Number(value));
+  command = {
+    name: (): string => 'generate:articles',
+    opts: (): Record<string, unknown> => ({ locale: 'fr' }),
+    options: [this.siteOption, this.yearOption, fakeOption('-q, --quiet', 'quiet')],
+  };
+}
+
 /** Substitutes the CommandRunner discriminant with a stand-in so tests need no real class. */
 class TestExplorer extends CommandProfilerExplorer {
   protected override getCommandRunnerClass(): typeof FakeCommandRunner {
@@ -39,6 +65,7 @@ function createDiscovery(instances: unknown[]): DiscoveryService {
 function createProfiler(): {
   profiler: CommandProfiler;
   profile: jest.Mock;
+  profileParseFailure: jest.Mock;
   metas: CommandProfileMeta[];
 } {
   const metas: CommandProfileMeta[] = [];
@@ -46,7 +73,13 @@ function createProfiler(): {
     metas.push(meta);
     return exec();
   });
-  return { profiler: { profile } as unknown as CommandProfiler, profile, metas };
+  const profileParseFailure = jest.fn();
+  return {
+    profiler: { profile, profileParseFailure } as unknown as CommandProfiler,
+    profile,
+    profileParseFailure,
+    metas,
+  };
 }
 
 describe('CommandProfilerExplorer', () => {
@@ -122,6 +155,63 @@ describe('CommandProfilerExplorer', () => {
     await hello.run(['x']);
 
     expect(profile).toHaveBeenCalledTimes(1);
+  });
+
+  it('profiles an @Option() parser that rejects its value, and rethrows', () => {
+    const command = new ValidatingCommand();
+    const { profiler, profileParseFailure, profile } = createProfiler();
+    const explorer = new TestExplorer(createDiscovery([command]), profiler);
+
+    explorer.onApplicationBootstrap();
+
+    // Commander calls the option parser itself, before any action handler runs.
+    expect(() => command.siteOption.parseArg?.('unknown.example', undefined)).toThrow(
+      'Unknown site parameter',
+    );
+
+    expect(profile).not.toHaveBeenCalled();
+    expect(profileParseFailure).toHaveBeenCalledTimes(1);
+    const [meta, error] = profileParseFailure.mock.calls[0] as [CommandProfileMeta, Error];
+    expect(meta).toEqual({
+      name: 'generate:articles',
+      arguments: [],
+      // Options resolved so far (defaults included) plus the raw value of the rejected flag.
+      options: { locale: 'fr', site: 'unknown.example' },
+    });
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('Unknown site parameter');
+  });
+
+  it('leaves a successful option parser transparent', () => {
+    const command = new ValidatingCommand();
+    const { profiler, profileParseFailure } = createProfiler();
+    const explorer = new TestExplorer(createDiscovery([command]), profiler);
+
+    explorer.onApplicationBootstrap();
+
+    expect(command.siteOption.parseArg?.('known.example', undefined)).toBe('known.example');
+    expect(command.yearOption.parseArg?.('2026', undefined)).toBe(2026);
+    expect(profileParseFailure).not.toHaveBeenCalled();
+  });
+
+  it('does not double-wrap option parsers when bootstrapped twice', () => {
+    const command = new ValidatingCommand();
+    const { profiler, profileParseFailure } = createProfiler();
+    const explorer = new TestExplorer(createDiscovery([command]), profiler);
+
+    explorer.onApplicationBootstrap();
+    explorer.onApplicationBootstrap();
+
+    expect(() => command.siteOption.parseArg?.('unknown.example', undefined)).toThrow();
+    expect(profileParseFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores commands with no commander options to wrap', () => {
+    const hello = new HelloCommand();
+    const { profiler } = createProfiler();
+    const explorer = new TestExplorer(createDiscovery([hello]), profiler);
+
+    expect(() => explorer.onApplicationBootstrap()).not.toThrow();
   });
 
   it('detects commands via the real nest-commander CommandRunner (static import)', async () => {

@@ -31,6 +31,7 @@ function createCore(crossProcess = true): {
   save: jest.Mock;
   collectAll: jest.Mock;
   registerEntrypointType: jest.Mock;
+  schedulePersist: jest.Mock;
   saved: () => Profile<CommandInfo>;
 } {
   let savedProfile: Profile<CommandInfo> | undefined;
@@ -40,16 +41,22 @@ function createCore(crossProcess = true): {
   });
   const collectAll = jest.fn(() => Promise.resolve());
   const registerEntrypointType = jest.fn();
+  // The core collects then saves deferred profiles, draining them at shutdown.
+  const schedulePersist = jest.fn((profile: Profile<CommandInfo>) => {
+    savedProfile = profile;
+  });
   const core = {
     storage: { save, crossProcess },
     collectorRegistry: { collectAll },
     registerEntrypointType,
+    schedulePersist,
   } as unknown as ProfilerCoreService;
   return {
     core,
     save,
     collectAll,
     registerEntrypointType,
+    schedulePersist,
     saved: () => savedProfile as Profile<CommandInfo>,
   };
 }
@@ -151,6 +158,72 @@ describe('CommandProfiler', () => {
     expect(saved().entrypoint.data).toMatchObject({
       name: 'demo:greet',
       arguments: [],
+    });
+  });
+
+  describe('profileParseFailure', () => {
+    const PARSE_META = {
+      name: 'generate:articles',
+      arguments: [],
+      options: { locale: 'fr', site: 'unknown.example' },
+    };
+
+    it('records a failed profile for a command that never reached run()', () => {
+      const { cls } = createCls();
+      const { core, schedulePersist, saved } = createCore();
+      const profiler = new CommandProfiler(moduleRefFor(cls, core));
+
+      profiler.profileParseFailure(PARSE_META, new Error('Unknown site parameter'));
+
+      expect(schedulePersist).toHaveBeenCalledTimes(1);
+      const profile = saved();
+      expect(profile.entrypoint.type).toBe(COMMAND_ENTRYPOINT_TYPE);
+      expect(profile.entrypoint.data).toMatchObject({
+        name: 'generate:articles',
+        arguments: [],
+        options: { locale: 'fr', site: 'unknown.example' },
+        success: false,
+      });
+      expect(profile.response?.statusCode).toBe(500);
+      expect(profile.exceptions).toHaveLength(1);
+      expect(profile.exceptions[0]).toMatchObject({
+        name: 'Error',
+        message: 'Unknown site parameter',
+      });
+      expect(profile.performance.duration).toBeGreaterThanOrEqual(0);
+    });
+
+    it('wraps non-Error throws', () => {
+      const { cls } = createCls();
+      const { core, saved } = createCore();
+      const profiler = new CommandProfiler(moduleRefFor(cls, core));
+
+      profiler.profileParseFailure(PARSE_META, 'string failure');
+
+      expect(saved().exceptions[0]).toMatchObject({ message: 'string failure' });
+    });
+
+    it('does nothing when the core is disabled', () => {
+      const profiler = new CommandProfiler(moduleRefFor(undefined, undefined));
+
+      expect(() =>
+        profiler.profileParseFailure(PARSE_META, new Error('Unknown site parameter')),
+      ).not.toThrow();
+    });
+
+    it('warns about a process-local store, as the run() path does', () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      try {
+        const { cls } = createCls();
+        const { core } = createCore(false); // in-memory / process-local
+        const profiler = new CommandProfiler(moduleRefFor(cls, core));
+
+        profiler.profileParseFailure(PARSE_META, new Error('Unknown site parameter'));
+
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('in-memory'));
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 
