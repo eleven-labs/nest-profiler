@@ -22,7 +22,7 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules).
+`@eleven-labs/nest-profiler-routes` adds a **Routes** panel to the profiler home page — a Symfony-Routing-style view of the application's routing table. Every registered route is listed with its HTTP method, full path and controller/handler; a lock marks routes protected by a guard. Expanding a route reveals its description, guards, path params, query params, request headers, and the body DTO (class name, decorated properties, TypeScript types and, when `class-validator` is installed, the validation rules). Non-HTTP sources describe their inputs with their own labels — CLI commands list **Arguments** and **Options** with each option's description, GraphQL fields list **Arguments**.
 
 ![Routes view — the application routing table grouped by transport (REST, GraphQL, RabbitMQ, Commands), with per-route inputs, body DTOs and a lock on guarded routes](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/routes.png)
 
@@ -65,6 +65,8 @@ Each REST route is introspected from its decorator metadata:
 - **Body DTO** — from `@Body()`: the DTO class name, its top-level decorated properties with their TypeScript types, and (with `class-validator`) the validation rules per property.
 
 Introspection is top-level only: a property that is itself a DTO surfaces as its class name rather than being expanded.
+
+Sources whose inputs are not HTTP-shaped use `RouteInputs.groups` instead — a list of `{ label, items }` sections, each item being a `{ name, description?, required?, defaultValue? }`. That is how the CLI source lists **Arguments** and **Options**, and the GraphQL source its field **Arguments**, without borrowing an HTTP label. A route may also carry a `description`, rendered above its inputs.
 
 ## Contributing a custom route source
 

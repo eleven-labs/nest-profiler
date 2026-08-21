@@ -49,7 +49,6 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
     expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
       options: { name: 'Ada' },
-      exitCode: 0,
       success: true,
     });
     expect(profile.response).toMatchObject({ statusCode: 200 });
@@ -58,12 +57,26 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
     );
   });
 
+  it('separates positional arguments from parsed options', async () => {
+    const profile = await runCommand(['demo:greet', 'Grace']);
+
+    // `Grace` is a positional argument, so it lands in `arguments` — not in `options`.
+    expect(profile.entrypoint.data).toMatchObject({
+      name: 'demo:greet',
+      arguments: ['Grace'],
+      success: true,
+    });
+    expect(profile.entrypoint.data.options).not.toHaveProperty('name');
+    expect(profile.logs.map((l) => l.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Hello, Grace!')]),
+    );
+  });
+
   it('records a failed command with its exception', async () => {
     const profile = await runCommand(['demo:greet', '--fail']);
 
     expect(profile.entrypoint.data).toMatchObject({
       name: 'demo:greet',
-      exitCode: 1,
       success: false,
     });
     expect(profile.exceptions).toEqual(
@@ -126,6 +139,14 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
       expect(list.status).toBe(200);
       expect(list.text).toContain('demo:greet');
       expect(list.text).toContain(cmdProfile.token.slice(0, 8));
+
+      // The Routes panel documents the command's arguments and options under their own labels.
+      const routes = await request(server(app)).get('/_profiler').query({ view: 'routes' });
+      expect(routes.status).toBe(200);
+      expect(routes.text).toContain('Arguments');
+      expect(routes.text).toContain('Options');
+      expect(routes.text).toContain('Name to greet, when --name is not passed');
+      expect(routes.text).toContain('Make the command throw, to demo a failed profile');
     } finally {
       await app.close();
     }

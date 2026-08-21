@@ -423,7 +423,6 @@ describe('ProfilerController (e2e)', () => {
           data: {
             name: 'demo:greet',
             arguments: ['world'],
-            exitCode: success ? 0 : 1,
             success,
           },
         },

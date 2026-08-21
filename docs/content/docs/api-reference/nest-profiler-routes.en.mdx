@@ -45,7 +45,7 @@ import type {
 } from '@eleven-labs/nest-profiler-routes';
 ```
 
-The `ProfilerRouteSource`, `RouteGroup`, `RouteEntry` and `RouteInputs` types — the extension point every source implements — are exported from the core package:
+The `ProfilerRouteSource`, `RouteGroup`, `RouteEntry` and `RouteInputs` types — the extension point every source implements — are exported from the core package, together with `RouteInputGroup` / `RouteInputItem`, which describe inputs that are not HTTP-shaped (CLI arguments and options, GraphQL field arguments):
 
 ```ts
 import type {
@@ -53,6 +53,8 @@ import type {
   RouteGroup,
   RouteEntry,
   RouteInputs,
+  RouteInputGroup,
+  RouteInputItem,
 } from '@eleven-labs/nest-profiler';
 ```
 

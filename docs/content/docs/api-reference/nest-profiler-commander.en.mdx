@@ -3,7 +3,7 @@ title: nest-profiler-commander
 description: Types and API of the nest-commander CLI collector.
 seo:
   title: Command collector API reference
-  description: 'Complete API reference for @eleven-labs/nest-profiler-commander: the types and options of the nest-commander CLI collector that profiles the command name, arguments, options and exit code.'
+  description: 'Complete API reference for @eleven-labs/nest-profiler-commander: the types and options of the nest-commander CLI collector that profiles the command name, arguments, options and outcome.'
 ---
 
 ## CommandInfo
@@ -84,12 +84,13 @@ There is no `forRootAsync` by design: the collector has no runtime-resolved opti
 A command has no HTTP request/response. The profiler synthesises a profile whose `entrypoint` is
 `{ type: 'command', data: CommandInfo }`:
 
-| Field                       | Value                                          |
-| --------------------------- | ---------------------------------------------- |
-| `entrypoint.type`           | `command`                                      |
-| `entrypoint.data.name`      | The command name (e.g. `content:sync`)         |
-| `entrypoint.data.arguments` | The positional arguments                       |
-| `entrypoint.data.exitCode`  | `0` on success, `1` when the command threw     |
-| `response.statusCode`       | `200` on success, `500` when the command threw |
+| Field                       | Value                                              |
+| --------------------------- | -------------------------------------------------- |
+| `entrypoint.type`           | `command`                                          |
+| `entrypoint.data.name`      | The command name (e.g. `content:sync`)             |
+| `entrypoint.data.arguments` | The positional arguments                           |
+| `entrypoint.data.options`   | The parsed flags                                   |
+| `entrypoint.data.success`   | `true` when the command completed without throwing |
+| `response.statusCode`       | `200` on success, `500` when the command threw     |
 
-The command name, arguments, options, and exit code are kept on `entrypoint.data`. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.
+The command name, arguments and options are kept on `entrypoint.data`. No exit code is collected — the profiler wraps `run()` from inside the process and never sees the code the CLI exits with, so `success` (and `response.statusCode`) carries the outcome. Because the command body runs inside the profiler's CLS context, profile-scoped collectors (HTTP client, cache, database, …) capture the work the command performs and contribute their own panels.

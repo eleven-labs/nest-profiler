@@ -92,9 +92,9 @@ The **Cache** collector shows `GET_HIT`, `GET_MISS`, `SET` operations and the hi
 
 ![Cache tab showing a GET_HIT and a 100 percent hit rate](/screenshots/profiler/cache.png)
 
-The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, commands get their own **Commands** view — a **CLI** badge and the command line in place of the URL, with a **Status** filter for successful vs failed runs — and the **Command** tab details the command name, arguments, options, and exit code.
+The **Command** collector (requires [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)) profiles `nest-commander` CLI runs. With file storage, commands get their own **Commands** view — a **CLI** badge and the command line in place of the URL, with a **Status** filter for successful vs failed runs — and the **Command** tab reconstructs the full invocation, then details the positional arguments and the parsed options separately.
 
-![Command tab showing a profiled nest-commander run with arguments, options and exit code](/screenshots/profiler/command.png)
+![Command tab showing a profiled nest-commander run with its arguments and options](/screenshots/profiler/command.png)
 
 The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)) profiles messages consumed via `@RabbitSubscribe`. Each delivery becomes its own profile: a dedicated **RabbitMQ** view, and a **Message** detail tab showing the exchange, routing key, handler, delivery metadata and JSON payload.
 

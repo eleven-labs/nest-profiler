@@ -48,7 +48,6 @@
             <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= cmd.success ? 'badge-2xx' : 'badge-5xx' %>">
               <%= cmd.success ? 'OK' : 'FAILED' %>
             </span>
-            <span class="text-foreground-faint text-2xs ml-1 tabular-nums">exit <%= cmd.exitCode %></span>
           </td>
           <td class="py-2.5 px-4 text-xs tabular-nums">
             <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>

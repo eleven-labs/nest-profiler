@@ -27,6 +27,30 @@ export interface RouteDtoInfo {
   properties: RouteDtoProperty[];
 }
 
+/** A single documented input of a non-HTTP route — a CLI option, a GraphQL argument, … */
+export interface RouteInputItem {
+  /** Display name, e.g. `-l, --limit <limit>` for a CLI option or `id` for a GraphQL argument. */
+  name: string;
+  /** Human description, when the source declares one (e.g. `@Option({ description })`). */
+  description?: string;
+  /** `true` when the input is mandatory. */
+  required?: boolean;
+  /** Default value, pre-formatted for display. */
+  defaultValue?: string;
+}
+
+/**
+ * A labelled set of inputs for a source whose inputs are not HTTP-shaped — the CLI source emits
+ * `Arguments` and `Options`, GraphQL emits `Arguments`. Rendered as its own titled section, so a
+ * source never has to borrow an HTTP label (`query`) for something that is not a query param.
+ */
+export interface RouteInputGroup {
+  /** Section title, e.g. `Arguments`, `Options`. */
+  label: string;
+  /** The inputs in this group; an empty group is not rendered. */
+  items: RouteInputItem[];
+}
+
 /** The introspected inputs of a single route handler. */
 export interface RouteInputs {
   /** Path parameter names (e.g. `['id']` for `/users/:id`). */
@@ -37,6 +61,8 @@ export interface RouteInputs {
   headers?: string[];
   /** Body DTO from `@Body()`, when a class type is resolvable. */
   body?: RouteDtoInfo;
+  /** Source-specific labelled input groups, rendered after the HTTP sections. */
+  groups?: RouteInputGroup[];
 }
 
 /** A single discovered route/handler within a source's {@link RouteGroup}. */
@@ -49,6 +75,8 @@ export interface RouteEntry {
   controller: string;
   /** Handler method name. */
   handler: string;
+  /** Human description of the route, when the source declares one (e.g. `@Command({ description })`). */
+  description?: string;
   /** Introspected handler inputs, when any were discovered. */
   inputs?: RouteInputs;
   /**

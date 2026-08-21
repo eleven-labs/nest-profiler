@@ -10,7 +10,7 @@ class BuildCommand extends CommandRunner {
     return true;
   }
 
-  @Option({ flags: '--out <dir>' })
+  @Option({ flags: '--out <dir>', defaultValue: 'dist', required: true })
   parseOut(val: string): string {
     return val;
   }
@@ -22,6 +22,17 @@ class BuildCommand extends CommandRunner {
 
 @Command({ name: 'serve' })
 class ServeCommand extends CommandRunner {
+  run(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+@Command({
+  name: 'copy',
+  arguments: '<source> [target...]',
+  argsDescription: { source: 'Where to read from' },
+})
+class CopyCommand extends CommandRunner {
   run(): Promise<void> {
     return Promise.resolve();
   }
@@ -49,7 +60,7 @@ function buildSource(providers: { instance: object; metatype: unknown }[]) {
 }
 
 describe('CommanderRouteSource', () => {
-  it('lists @Command classes with their name and --option flags', () => {
+  it('lists @Command classes with their description and documented options', () => {
     const { source, registerRouteSource } = buildSource([
       { instance: new BuildCommand(), metatype: BuildCommand },
       { instance: new ServeCommand(), metatype: ServeCommand },
@@ -66,13 +77,39 @@ describe('CommanderRouteSource', () => {
         path: 'build',
         controller: 'BuildCommand',
         handler: 'run',
-        inputs: { query: ['--watch', '--out'] },
+        description: 'Build the project',
+        inputs: {
+          groups: [
+            {
+              label: 'Options',
+              items: [
+                { name: '-w, --watch', description: 'Watch mode' },
+                { name: '--out <dir>', required: true, defaultValue: 'dist' },
+              ],
+            },
+          ],
+        },
       },
       { method: 'command', path: 'serve', controller: 'ServeCommand', handler: 'run' },
     ]);
   });
 
-  it('ignores providers without an instance/metatype and options with no long flag', () => {
+  it('splits the positional arguments declaration into its own group', () => {
+    const { source } = buildSource([{ instance: new CopyCommand(), metatype: CopyCommand }]);
+    source.onApplicationBootstrap();
+
+    expect(source.collect().routes[0]?.inputs?.groups).toEqual([
+      {
+        label: 'Arguments',
+        items: [
+          { name: '<source>', description: 'Where to read from', required: true },
+          { name: '[target...]' },
+        ],
+      },
+    ]);
+  });
+
+  it('lists short-only options and ignores providers without an instance/metatype', () => {
     @Command({ name: 'lint' })
     class LintCommand extends CommandRunner {
       @Option({ flags: '-q' })
@@ -91,9 +128,14 @@ describe('CommanderRouteSource', () => {
     ]);
     source.onApplicationBootstrap();
 
-    // The short-only `-q` flag yields no long name, so the command has no listed options.
     expect(source.collect().routes).toEqual([
-      { method: 'command', path: 'lint', controller: 'LintCommand', handler: 'run' },
+      {
+        method: 'command',
+        path: 'lint',
+        controller: 'LintCommand',
+        handler: 'run',
+        inputs: { groups: [{ label: 'Options', items: [{ name: '-q' }] }] },
+      },
     ]);
   });
 

@@ -19,7 +19,8 @@
   function hasInputs(inputs) {
     if (!inputs) return false;
     return (inputs.params && inputs.params.length) || (inputs.query && inputs.query.length)
-      || (inputs.headers && inputs.headers.length) || inputs.body;
+      || (inputs.headers && inputs.headers.length) || inputs.body
+      || (inputs.groups || []).some((g) => g && g.items && g.items.length);
   }
 %>
 
@@ -53,7 +54,7 @@
       <div class="border-t border-line divide-y divide-line-subtle">
         <% for (const route of group.routes) { %>
           <% const guards = route.guards || []; %>
-          <% const expandable = hasInputs(route.inputs) || guards.length > 0; %>
+          <% const expandable = hasInputs(route.inputs) || guards.length > 0 || !!route.description; %>
           <details class="group/route">
             <summary class="flex items-center gap-3 px-4 py-2.5 select-none list-none <%= expandable ? 'cursor-pointer hover:bg-surface-muted' : 'cursor-default' %> transition-colors">
               <% if (expandable) { %>
@@ -76,6 +77,10 @@
             <% if (expandable) { %>
               <div class="px-4 pb-3 pt-1 pl-10 space-y-3 bg-surface-muted/50">
                 <% const inputs = route.inputs || {}; %>
+
+                <% if (route.description) { %>
+                  <p class="text-foreground-secondary text-xs leading-relaxed"><%= route.description %></p>
+                <% } %>
 
                 <% if (guards.length) { %>
                   <div>
@@ -144,6 +149,38 @@
                       <p class="text-foreground-faint text-2xs italic">No introspectable properties (install <code class="bg-surface border border-line px-1 rounded">class-validator</code> to surface the DTO shape).</p>
                     <% } %>
                   </div>
+                <% } %>
+
+                <%
+                  /* Source-specific input groups (CLI arguments/options, GraphQL arguments…). Items
+                     carrying a description/default render as a documented list; bare names as chips. */
+                %>
+                <% for (const inputGroup of (inputs.groups || [])) { %>
+                  <% const items = (inputGroup && inputGroup.items) || []; %>
+                  <% if (items.length) { %>
+                    <% const documented = items.some((i) => i.description || i.required || i.defaultValue !== undefined); %>
+                    <div>
+                      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1.5"><%= inputGroup.label %></p>
+                      <% if (documented) { %>
+                        <div class="space-y-1">
+                          <% for (const item of items) { %>
+                            <div class="flex items-baseline gap-2">
+                              <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-muted font-mono shrink-0"><%= item.name %></span>
+                              <span class="text-2xs text-foreground-faint leading-relaxed">
+                                <%= item.description || '—' %><% if (item.required) { %> <span class="text-amber-600 dark:text-amber-400">(required)</span><% } %><% if (item.defaultValue !== undefined) { %> <span class="font-mono">(default: <%= item.defaultValue %>)</span><% } %>
+                              </span>
+                            </div>
+                          <% } %>
+                        </div>
+                      <% } else { %>
+                        <div class="flex flex-wrap gap-1.5">
+                          <% for (const item of items) { %>
+                            <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-muted font-mono"><%= item.name %></span>
+                          <% } %>
+                        </div>
+                      <% } %>
+                    </div>
+                  <% } %>
                 <% } %>
               </div>
             <% } %>

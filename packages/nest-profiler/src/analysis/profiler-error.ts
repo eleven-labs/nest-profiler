@@ -8,7 +8,7 @@ const DEFAULT_ERROR_STATUS = 500;
 /**
  * The view of a profile handed to a {@link ProfilerErrorOptions.classify} predicate. The
  * pre-extracted fields cover the common cases; `profile` is the escape hatch for anything
- * kind-specific (a command's exit code, a message's redelivery flag…).
+ * kind-specific (a command's own payload, a message's redelivery flag…).
  */
 export interface ProfileErrorInfo {
   /** Entrypoint kind — `http`, `graphql`, `command`, `rabbitmq`… */

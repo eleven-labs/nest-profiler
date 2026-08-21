@@ -3,16 +3,22 @@
   const cmdDur = profile.performance.duration;
   const cmdOptions = cmd.options || {};
   const cmdError = profile.exceptions.length > 0 ? profile.exceptions[0].message : null;
+
+  /* Rebuild the invocation as it was typed: the positional arguments, then the parsed options
+     back as `--flags` (camelCase option names become kebab-case, `true` renders as a bare flag). */
+  const cmdFlags = Object.keys(cmdOptions).reduce((acc, key) => {
+    const value = cmdOptions[key];
+    if (value === undefined || value === null || value === false) return acc;
+    const flag = '--' + key.replace(/[A-Z]/g, (char) => '-' + char.toLowerCase());
+    return acc.concat(value === true ? flag : flag + ' ' + String(value));
+  }, []);
+  const cmdLine = [cmd.name].concat(cmd.arguments, cmdFlags).join(' ');
 %>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
     <p class="text-xl font-bold <%= cmd.success ? 'text-success' : 'text-danger' %>"><%= cmd.success ? 'OK' : 'Failed' %></p>
-  </div>
-  <div class="bg-surface-muted border border-line rounded-lg p-4">
-    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Exit Code</p>
-    <p class="text-foreground text-xl font-bold tabular-nums"><%= cmd.exitCode %></p>
   </div>
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>
@@ -27,12 +33,12 @@
 <section class="mb-6">
   <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Command</h2>
   <code class="block bg-surface-muted border border-line rounded-lg px-4 py-3 text-foreground text-sm break-all">
-    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">CLI</span><%= cmd.name %><% if (cmd.arguments.length) { %> <%= cmd.arguments.join(' ') %><% } %>
+    <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default mr-2">CLI</span><%= cmdLine %>
   </code>
 </section>
 
 <section class="mb-6">
-  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments</h2>
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Arguments <span class="normal-case tracking-normal font-normal text-foreground-faint">— positional operands (<code>run(passedParams)</code>)</span></h2>
   <% if (!cmd.arguments.length) { %>
     <p class="text-foreground-faint text-xs italic py-1">No positional arguments.</p>
   <% } else { %>
@@ -45,7 +51,7 @@
 </section>
 
 <section <%= cmdError ? 'class="mb-6"' : '' %>>
-  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options</h2>
+  <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Options <span class="normal-case tracking-normal font-normal text-foreground-faint">— parsed <code>--flags</code> (<code>run(_, options)</code>)</span></h2>
   <% if (Object.keys(cmdOptions).length === 0) { %>
     <p class="text-foreground-faint text-xs italic py-1">No options.</p>
   <% } else { %>

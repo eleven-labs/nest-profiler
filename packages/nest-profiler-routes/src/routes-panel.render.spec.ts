@@ -85,6 +85,53 @@ describe('routes-panel template', () => {
     expect(html).toContain('Protected by JwtAuthGuard');
   });
 
+  it('renders a source-specific input group with its descriptions', async () => {
+    const html = await render(service, {
+      routeCount: 1,
+      groups: [
+        {
+          source: 'command',
+          label: 'Commands',
+          routes: [
+            {
+              method: 'command',
+              path: 'content:sync',
+              controller: 'SyncArticlesCommand',
+              handler: 'run',
+              description: 'Fetch articles from an external API',
+              inputs: {
+                groups: [
+                  { label: 'Arguments', items: [{ name: '<source>', required: true }] },
+                  {
+                    label: 'Options',
+                    items: [
+                      {
+                        name: '-l, --limit <limit>',
+                        description: 'Number of articles to fetch',
+                        defaultValue: '5',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('Fetch articles from an external API');
+    expect(html).toContain('Arguments');
+    expect(html).toContain('&lt;source&gt;');
+    expect(html).toContain('Options');
+    expect(html).toContain('-l, --limit &lt;limit&gt;');
+    expect(html).toContain('Number of articles to fetch');
+    expect(html).toContain('(default: 5)');
+    expect(html).toContain('(required)');
+    // Never the HTTP label — a CLI option is not a query param.
+    expect(html).not.toContain('Query params');
+  });
+
   it('HTML-escapes every attacker-influenced field', async () => {
     const html = await render(service, {
       routeCount: 1,
@@ -99,7 +146,20 @@ describe('routes-panel template', () => {
               controller: `Ctrl${SCRIPT}`,
               handler: `h${SCRIPT}`,
               guards: [`Guard${SCRIPT}`],
+              description: `desc${SCRIPT}`,
               inputs: {
+                groups: [
+                  {
+                    label: `Options${SCRIPT}`,
+                    items: [
+                      {
+                        name: `--flag${ATTR_BREAKOUT}`,
+                        description: `d${SCRIPT}`,
+                        defaultValue: `v${SCRIPT}`,
+                      },
+                    ],
+                  },
+                ],
                 query: [`q${SCRIPT}`],
                 headers: [`x${ATTR_BREAKOUT}`],
                 body: {
