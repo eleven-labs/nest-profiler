@@ -74,7 +74,7 @@
     "better-sqlite3": "^12.11.1",
     "jest": "^30.4.2",
     "nestjs-cls": "^6.2.1",
-    "pg": "^8.16.0",
+    "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "ts-jest": "^29.4.12",
     "typeorm": "^1.0.0",

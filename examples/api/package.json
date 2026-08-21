@@ -65,7 +65,7 @@
     "nest-commander": "^3.20.1",
     "nestjs-cls": "^6.2.1",
     "nestjs-pino": "^4.4.0",
-    "pg": "^8.16.0",
+    "pg": "^8.23.0",
     "pg-query-stream": "^4.17.0",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
