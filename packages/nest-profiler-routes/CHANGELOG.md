@@ -1,5 +1,41 @@
 # @eleven-labs/nest-profiler-routes
 
+## 1.0.0-alpha.17
+
+### Major Changes
+
+- 46a05ab: Name the Discover contract after **Discover**, and RabbitMQ after **RabbitMQ**.
+
+  Two naming inconsistencies had survived the move to per-transport Discover views. The extension point was still called `Route*` while three of its four sources contribute no routes at all — a CLI command, a GraphQL field and a message handler are not routes — and the publish panel was labelled **AMQP** next to a **RabbitMQ** list section, a **RabbitMQ** detail tab and a **RabbitMQ** Discover view, so one broker carried two names.
+
+  Discover contract (core, and every source implementing it):
+
+  - `ProfilerRouteSource` → `ProfilerDiscoverSource`, `RouteGroup` → `DiscoverGroup`, `RouteEntry` → `DiscoverEntry`, `RouteInputs` / `RouteInputGroup` / `RouteInputItem` → `DiscoverInputs` / `DiscoverInputGroup` / `DiscoverInputItem`, `RouteDtoInfo` / `RouteDtoProperty` → `DiscoverDtoInfo` / `DiscoverDtoProperty`.
+  - `ProfilerCoreService.registerRouteSource()` → `registerDiscoverSource()`, `getRouteSources()` → `getDiscoverSources()`.
+  - `DiscoverGroup.routes` → `DiscoverGroup.entries`, and `RoutesCollectorData.routeCount` → `entryCount`.
+  - The shipped sources follow: `HttpRouteSource` → `HttpDiscoverSource`, `GraphqlRouteSource` → `GraphqlDiscoverSource`, `RabbitMqRouteSource` → `RabbitMqDiscoverSource`, `CommanderRouteSource` → `CommanderDiscoverSource`.
+
+  `@eleven-labs/nest-profiler-routes`, `RoutesCollectorModule` and `RoutesCollector` keep their names — the package still ships the built-in HTTP source and owns the panel — as does `RouteCollector`, the core's HTTP route matcher, which is unrelated to Discover.
+
+  RabbitMQ naming:
+
+  - The publish panel is labelled **RabbitMQ** instead of **AMQP**, and its rule domain is `rabbitmq` instead of `amqp`, so a chatty profile reads `12 rabbitmq calls in one request`. The core's per-domain defaults (`chattyThreshold`, the N+1 subject) move with it.
+  - `AmqpPublishEntry` → `RabbitMqPublishEntry`. Internals follow suit (`AmqpPublishPatch` → `RabbitMqPublishPatch`, `buildAmqpPublish` → `buildRabbitMqPublish`), and the remaining prose says "RabbitMQ" where it used to say "AMQP", keeping the term only where it names the wire protocol itself.
+
+  BREAKING: every renamed symbol above is a published export. No behaviour changes — a consumer importing one updates the import name, and a custom `ProfilerDiscoverSource` renames its `routes` field to `entries`. Nothing in the `?view=` keys, the storage format or the module options changes.
+
+### Minor Changes
+
+- 46a05ab: Report the whole RabbitMQ surface in **Discover / RabbitMQ**, not just a one-line locator per handler.
+
+  The view listed one row per `@RabbitSubscribe` with its `exchange → routingKey` and nothing else, which is the least interesting half of a broker setup: the dead-letter exchange a queue routes to, the retry queue that TTLs back into it, the exchanges an application only publishes to and the connection a handler actually runs on were all invisible. The RabbitMQ source now reports both halves, read from the resolved `RabbitMQModule` configuration — no management-API call, no extra credentials, and it stays accurate while the broker is unreachable.
+
+  - **The declared topology**, as sections above the handler list: **Connections** (broker URI with credentials masked, prefetch, channels, handler configs), **Exchanges** (type, durability flags, arguments), **Queues** (the binding that feeds each one, its flags and its `x-…` arguments) and **Exchange bindings** (with their pattern). Queues nothing subscribes to — dead-letter, retry, delay — are listed too, since they carry the flow even though no handler names them.
+  - **The full subscription** per handler, the way a CLI command documents its arguments and options: **Subscription** (`queue`, `exchange`, `routingKey`, `connection`, module-level `handler config`, `channel`), **Bindings** (multi-exchange `bindings`), **Queue options** (`queueOptions` with `arguments` spread one `x-…` key per row) and **Behaviour** (`allowNonJsonMessages`, `errorBehavior`, `batchOptions`, a custom `deserializer`, …).
+  - Two golevelup behaviours the view now makes visible: a handler with no `connection` is registered on **every** declared connection (listed once per connection — the multi-vhost trap that asserts a queue on the wrong vhost), and a handler whose `name` matches no entry in that connection's `handlers` map is **not registered** at all, which the entry states in place of its description. Module-level `handlers` configs are merged into the displayed options exactly as golevelup merges them.
+
+  Core: `DiscoverGroup` gains an optional `sections` — titled blocks of facts that are not entries (`name`, optional `kind` badge, `detail`, boolean `flags`, free-form `attributes`), exported as `DiscoverSection` / `DiscoverSectionItem`. The Discover panel renders them above the entry list and titles the list by what it holds (`Handlers`) when sections precede it; a group whose entries are empty but whose sections hold something now gets its view, so a broker an application only publishes to is still reported.
+
 ## 1.0.0-alpha.16
 
 ### Minor Changes
