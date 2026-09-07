@@ -159,6 +159,102 @@ describe('HttpProfilerRecorder', () => {
       );
     });
 
+    it('masks sensitive query-parameter values in the recorded url', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      recorder.capture({
+        method: 'get',
+        url: 'https://api.example.com/v1/export?api_key=sk_live_abcdef0123456789&since=2026-01-01',
+        startedAt: Date.now(),
+        duration: 12,
+        statusCode: 200,
+      });
+
+      const url = recordedEntry(profile).url;
+      // The name is kept so the trace still says a key was carried; the value is gone.
+      expect(url).toContain('api_key=%5BREDACTED%5D');
+      expect(url).toContain('since=2026-01-01');
+      expect(url).not.toContain('sk_live_abcdef0123456789');
+      // Host and path are untouched — they are what makes the panel readable.
+      expect(url.startsWith('https://api.example.com/v1/export?')).toBe(true);
+    });
+
+    it('leaves a url with nothing to mask exactly as it was called', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      const url = 'https://api.example.com/v1/products?page=2&sort=name';
+      recorder.capture({ method: 'GET', url, startedAt: Date.now(), duration: 1 });
+
+      expect(recordedEntry(profile).url).toBe(url);
+    });
+
+    it('merges maskQueryParams on top of the built-in list', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+        maskQueryParams: ['subscription-key'],
+      });
+
+      recorder.capture({
+        method: 'GET',
+        url: 'https://api.example.com/v1/x?subscription-key=k-1&token=t-1&page=1',
+        startedAt: Date.now(),
+        duration: 1,
+      });
+
+      const url = recordedEntry(profile).url;
+      expect(url).toContain('subscription-key=%5BREDACTED%5D');
+      // Naming an extra parameter must not drop the built-in protections.
+      expect(url).toContain('token=%5BREDACTED%5D');
+      expect(url).toContain('page=1');
+    });
+
+    it('drops the built-in query list only when useDefaultMaskQueryParams is false', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {
+        maskQueryParams: ['subscription-key'],
+        useDefaultMaskQueryParams: false,
+      });
+
+      recorder.capture({
+        method: 'GET',
+        url: 'https://api.example.com/v1/x?subscription-key=k-1&token=t-1',
+        startedAt: Date.now(),
+        duration: 1,
+      });
+
+      const url = recordedEntry(profile).url;
+      expect(url).toContain('subscription-key=%5BREDACTED%5D');
+      expect(url).toContain('token=t-1');
+    });
+
+    it('keeps the N+1 fingerprint stable, since it drops the query string anyway', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      const call = (token: string): void =>
+        recorder.capture({
+          method: 'GET',
+          url: `https://api.example.com/v1/items?token=${token}`,
+          startedAt: Date.now(),
+          duration: 1,
+        });
+      call('a');
+      call('b');
+
+      const list = profile.collectors[HTTP_CLIENT_REQUESTS_KEY] as HttpRequestEntry[];
+      expect(list).toHaveLength(2);
+      // Both calls still group together for the N+1 rule (the collector computes the
+      // fingerprint from method + host + path).
+      expect(list[0]?.url).toBe(list[1]?.url);
+    });
+
     it('captures fetch Headers via record from a custom client', () => {
       const profile = makeProfile();
       const cls = { get: jest.fn(() => profile) } as unknown as ClsService;

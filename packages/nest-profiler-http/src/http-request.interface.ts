@@ -90,4 +90,22 @@ export interface HttpCaptureOptions {
    * `x-api-key`, `x-auth-token`, `proxy-authorization`.
    */
   maskHeaders?: string[];
+
+  /**
+   * Extra query-parameter names (case-insensitive, `-`/`_` insensitive) whose value is replaced
+   * with `[REDACTED]` in the recorded URL. **Merged with** the built-in list (`token`,
+   * `access_token`, `api_key`, `code`, `state`, `signature`, `password`, `secret`…) that is
+   * masked by default; drop those with {@link useDefaultMaskQueryParams}.
+   *
+   * Use it for the parameters only your upstreams know are sensitive — a vendor-specific
+   * `subscription-key`, say.
+   */
+  maskQueryParams?: string[];
+
+  /**
+   * Mask the built-in sensitive query parameters on top of {@link maskQueryParams}. Default:
+   * `true`. Set to `false` only to take over masking entirely — a third-party API key or a URL
+   * signature is directly replayable from a stored profile.
+   */
+  useDefaultMaskQueryParams?: boolean;
 }

@@ -61,6 +61,14 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
         ]),
       );
 
+      // The upstream authenticates by query parameter; the collector masks the sensitive ones
+      // at capture, so the key never reaches a stored profile. Asserted on the same cold call
+      // rather than in its own test, which would warm the cache and leave this one nothing to see.
+      const posts = http.find((entry) => entry.url.includes('/posts?'));
+      expect(posts?.url).toContain('api_key=%5BREDACTED%5D');
+      expect(posts?.url).toContain('_limit='); // the harmless parameter survives
+      expect(JSON.stringify(profile)).not.toContain('demo-upstream-key');
+
       const cache = cacheEntries(profile.collectors);
       expect(cache.map((c) => c.operation)).toEqual(expect.arrayContaining(['GET_MISS', 'SET']));
       expect(cache.find((c) => c.operation === 'SET')?.key).toBe('external:articles');

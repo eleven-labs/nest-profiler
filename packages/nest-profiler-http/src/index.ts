@@ -15,6 +15,11 @@ export type {
   HttpCaptureOptions,
 } from './http-request.interface';
 export { DEFAULT_MASK_HEADERS, extractHeaders, formatHeaderValue } from './http-redaction.util';
+export {
+  DEFAULT_MASK_QUERY_PARAMS,
+  redactQueryString,
+  resolveMaskedQueryParams,
+} from './http-redaction.util';
 
 // Client adapters are NOT re-exported here — importing this barrel must never pull in a client
 // library. Select an adapter from its subpath instead:

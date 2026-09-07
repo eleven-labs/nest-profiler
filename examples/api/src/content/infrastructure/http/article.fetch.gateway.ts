@@ -9,6 +9,12 @@ import type {
 } from '../../domain/article.js';
 
 const API_BASE = 'https://jsonplaceholder.typicode.com';
+/**
+ * Stands in for an upstream that authenticates by query parameter — a common enough pattern,
+ * and what makes the HTTP Client panel show `api_key=[REDACTED]`: the collector masks the
+ * sensitive parameters of a recorded URL at capture, so the key never reaches a stored profile.
+ */
+const UPSTREAM_API_KEY = 'demo-upstream-key';
 
 /** Parses a JSON response body, narrowing the `any` from `Response.json()` to the expected shape. */
 async function readJson<T>(response: Response): Promise<T> {
@@ -24,7 +30,7 @@ async function readJson<T>(response: Response): Promise<T> {
 @Injectable()
 export class FetchArticleGateway implements ArticleGateway {
   async fetchArticles(limit: number): Promise<ExternalArticle[]> {
-    const response = await fetch(`${API_BASE}/posts?_limit=${limit}`);
+    const response = await fetch(`${API_BASE}/posts?_limit=${limit}&api_key=${UPSTREAM_API_KEY}`);
     return readJson<ExternalArticle[]>(response);
   }
 
