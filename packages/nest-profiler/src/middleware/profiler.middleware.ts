@@ -15,7 +15,7 @@ import {
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { setProfileContext } from '../services/profiler-context';
 import type { ProfilerRequestFilter } from '../filters';
-import { markProfileStart, profileElapsedMs } from '../utils/clock.utils';
+import { completeProfilePerformance, markProfileStart } from '../utils/profile-metrics.util';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
 import {
   buildMaskedQueryParams,
@@ -235,7 +235,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         return;
       }
 
-      profile.performance.duration = profileElapsedMs(profile);
+      completeProfilePerformance(profile);
       profile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},

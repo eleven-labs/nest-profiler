@@ -4,8 +4,8 @@ import type { OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import {
+  completeProfilePerformance,
   markProfileStart,
-  profileElapsedMs,
   ProfilerCoreService,
   redact,
   setProfileContext,
@@ -173,7 +173,7 @@ export class CommandProfiler implements OnModuleInit {
     _meta: CommandProfileMeta,
     error: Error | undefined,
   ): void {
-    profile.performance.duration = profileElapsedMs(profile);
+    completeProfilePerformance(profile);
     profile.response = {
       statusCode: error ? 500 : 200,
       headers: {},

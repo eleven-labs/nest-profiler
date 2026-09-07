@@ -36,13 +36,13 @@ A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profil
 
 The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
 
-![Profiler UI — the sidebar of views, the process-heap trend and the HTTP list with its filters](docs/public/screenshots/profiler/profiles-list.png)
+![Profiler UI — the sidebar of views and the HTTP list with its filters](docs/public/screenshots/profiler/profiles-list.png)
 
 ## Packages
 
 Each package is a self-contained NestJS module with its own README:
 
-- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, logs, exceptions)
+- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, CPU/memory, runtime metrics, logs, exceptions)
 - [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
 - [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
 - [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (ships axios wiring, bring your own client)
@@ -65,11 +65,13 @@ Full guides and API reference live on the documentation site (`pnpm docs:dev`, t
 | ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)             |
 | **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                              |
 | ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Performance panel](docs/public/screenshots/profiler/performance.png) |
-| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Performance** (duration, heap, spans)                                |
+| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Performance** (duration, CPU, memory, spans)                         |
 | ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)         |
 | **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                           |
 | ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Discover panel](docs/public/screenshots/profiler/discover.png)       |
 | **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Discover** (REST/GraphQL/RabbitMQ/CLI)                               |
+| ![Runtime view](docs/public/screenshots/profiler/runtime.png)          | ![Schemas view](docs/public/screenshots/profiler/schema-typeorm.png)   |                                                                        |
+| **Runtime** (memory, CPU, event loop, GC)                              | **Schemas** (TypeORM/MikroORM/Mongoose)                                |                                                                        |
 
 ## Quickstart
 

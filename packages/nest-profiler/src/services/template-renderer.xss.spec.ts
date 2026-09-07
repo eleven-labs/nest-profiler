@@ -213,7 +213,6 @@ describe('template rendering — XSS regression', () => {
         sectionViews: [{ key: 'http', label: 'HTTP' }],
         globalViews: [],
         activeView: 'http',
-        heapSeries: [],
         filters: {},
         activeSection: section,
       });

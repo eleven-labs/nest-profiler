@@ -6,6 +6,7 @@ import type { PerformanceRule } from './analysis/performance-rule.interface';
 import type { ProfilerErrorOptions } from './analysis/profiler-error';
 import type { PlatformRequest, PlatformResponse } from './types/http';
 import type { SafeDataOptions } from './utils/safe-data.utils';
+import type { ProfilerRuntimeOptions } from './runtime/runtime-metrics.interface';
 
 /**
  * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the
@@ -232,6 +233,20 @@ export interface ProfilerModuleOptions {
 
   /** Performance-tagging configuration (custom rules for the N+1/slow engine). */
   performance?: ProfilerPerformanceOptions;
+
+  /**
+   * Process-level runtime metrics — the **Runtime** dashboard view: memory, CPU, event-loop lag
+   * and garbage collection, sampled on an interval. Pass `false` to turn it off, or an object to
+   * tune the interval and how much history is kept. Default: enabled, sampling every 5 s.
+   *
+   * Every profile also carries its **own** CPU, memory and event-loop figures, which cost two
+   * syscalls and are always collected. One caveat applies to both, and is worth knowing before
+   * reading a number: they are process-wide deltas over the profile's window. Node runs one
+   * thread, so under concurrent traffic a request is charged with what its neighbours spent too.
+   * That is the right trade for a tool used while driving requests one at a time, and the UI says
+   * so where the numbers are shown.
+   */
+  runtime?: boolean | ProfilerRuntimeOptions;
 
   /**
    * What counts as a **failed HTTP request** — what earns the `error` tag and what the list's

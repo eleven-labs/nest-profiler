@@ -14,7 +14,6 @@ const MINIMAL_LIST_DATA = {
   sectionViews: [{ key: 'http', label: 'HTTP' }],
   globalViewGroups: [],
   activeView: 'http',
-  heapSeries: [],
   filters: {},
 };
 
@@ -96,16 +95,18 @@ describe('TemplateRendererService', () => {
     }
   });
 
-  it('puts the process-heap trend above the page title, whatever the active view', async () => {
-    // It is process-wide data: on a global panel view too, and never nested under a list.
+  it('leads with the page title, with no process-wide strip above it', async () => {
+    // The heap trend used to sit here. It sampled once per profiled request — an axis made of
+    // traffic rather than time — and the Runtime view supersedes it with a fixed interval, rss,
+    // heap pressure, CPU, loop lag and GC. It occupied the top of every list for data belonging
+    // to none of them.
     const html = await service.render('list', {
       ...MINIMAL_LIST_DATA,
       activeView: 'config',
       activeGlobalPanel: { name: 'config', label: 'Config', data: {} },
-      heapSeries: [1024 * 1024, 2 * 1024 * 1024, 3 * 1024 * 1024],
     });
-    expect(html).toContain('Process heap');
-    expect(html.indexOf('Process heap')).toBeLessThan(html.indexOf('Recent Profiles'));
+    expect(html).not.toContain('Process heap');
+    expect(html).toContain('Recent Profiles');
   });
 
   it('renders a sidebar item with the same padding and icon slot as the detail page', async () => {

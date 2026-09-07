@@ -103,6 +103,72 @@ export interface PerformanceData {
   duration?: number;
   /** V8 heapUsed for the entire process at the moment this request started. Not per-request allocation. */
   heapUsed: number;
+  /**
+   * CPU time the process consumed while this profile was open, in milliseconds.
+   *
+   * The signal the duration alone cannot give: compared against {@link duration}, it separates
+   * work that was *computing* from work that was *waiting*. A ratio near 1 is CPU-bound, near 0
+   * is I/O-bound — and a slow endpoint is fixed very differently in the two cases.
+   *
+   * Process-wide over the profile's window (see {@link ProfilerRuntimeOptions}), so under
+   * concurrent traffic it includes what neighbouring requests spent. Absent for a profile whose
+   * start was never marked.
+   */
+  cpu?: {
+    /** Time in user code. */
+    user: number;
+    /** Time in system calls. */
+    system: number;
+    /** `user + system` — what to read against {@link duration}. */
+    total: number;
+  };
+  /**
+   * Process memory at the end of the profile, and how much it moved while the profile was open.
+   *
+   * The deltas are what a leak looks like: a request that grows the heap and never gives it back.
+   * They can legitimately be negative — a garbage collection during the window frees more than
+   * the request allocated. Absent for a profile whose start was never marked.
+   */
+  memory?: {
+    /** V8 heapUsed at the end of the profile (bytes). */
+    heapUsedAfter: number;
+    /** Change in heapUsed over the window (bytes, may be negative). */
+    heapDelta: number;
+    /** Resident set size at the end of the profile (bytes). */
+    rss: number;
+    /** Change in resident set size over the window (bytes, may be negative). */
+    rssDelta: number;
+    /** Memory held by C++ objects bound to V8 (buffers, sockets…) at the end (bytes). */
+    external?: number;
+  };
+  /**
+   * Event-loop utilization over the profile's window: how much of the wall clock the loop spent
+   * running JavaScript rather than idle. High utilization on a slow request means the thread was
+   * blocked, which is the one condition no amount of concurrency can hide.
+   *
+   * Absent for a profile whose start was never marked.
+   */
+  eventLoop?: {
+    /** Fraction of the window the loop was active, `0`-`1`. */
+    utilization: number;
+    /** Milliseconds the loop was idle. */
+    idle: number;
+    /** Milliseconds the loop was active. */
+    active: number;
+  };
+  /**
+   * Garbage collections that ran while the profile was open, and what they cost.
+   *
+   * Explains the latency spike a duration cannot: a request that is slow only because a major
+   * collection landed in the middle of it. Only reported while runtime metrics are enabled —
+   * observing GC means keeping a `PerformanceObserver` alive, which is not switched on behind an
+   * application's back.
+   */
+  gc?: {
+    count: number;
+    /** Total pause time in milliseconds. */
+    duration: number;
+  };
 }
 
 export interface RouteInfo {

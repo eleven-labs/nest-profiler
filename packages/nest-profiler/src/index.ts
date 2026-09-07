@@ -130,7 +130,23 @@ export {
   readRequest,
   setProfileContext,
 } from './services/profiler-context';
-export { monotonicNow, elapsedMs, markProfileStart, profileElapsedMs } from './utils/clock.utils';
+export { monotonicNow, elapsedMs } from './utils/clock.utils';
+export {
+  markProfileStart,
+  profileElapsedMs,
+  completeProfilePerformance,
+  registerGcCounter,
+} from './utils/profile-metrics.util';
+export type { GcCounter } from './utils/profile-metrics.util';
+export { RuntimeMetricsService } from './runtime/runtime-metrics.service';
+export { RuntimeCollector } from './runtime/runtime.collector';
+export type {
+  ProfilerRuntimeOptions,
+  RuntimeSample,
+  RuntimeCollectorData,
+  RuntimeHeapStatistics,
+  RuntimeProcessInfo,
+} from './runtime/runtime-metrics.interface';
 export {
   toSafeData,
   safeStringify,

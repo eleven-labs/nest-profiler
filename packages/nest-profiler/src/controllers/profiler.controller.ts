@@ -42,9 +42,6 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
 
-/** How many recent profiles the process-heap trend spans. */
-const HEAP_TREND_SIZE = 30;
-
 // Home sidebar: each list section (HTTP, GraphQL, Commands, RabbitMQ…) is a view under the
 // **Profiling** group, and each global panel (Discover, Schemas, Config…) is a view too — filed
 // under its own group heading when the contributing collector declares one. The active view is
@@ -187,12 +184,11 @@ export class ProfilerController {
     const requestedView = typeof query.view === 'string' ? query.view : undefined;
 
     // Sidebar model: the **Profiling** group (one sub-item per list section, badged with its total)
-    // and one item per global panel (Discover, Schemas, Config…), badged with its own count. The
-    // process-heap trend sits above the whole page — it is process-wide, not per view.
-    const [sectionCounts, globalPanels, recentPage] = await Promise.all([
+    // and one item per global panel (Runtime, Discover, Schemas, Config…), badged with its own
+    // count. Process-wide data lives in those views, not in a strip above the lists.
+    const [sectionCounts, globalPanels] = await Promise.all([
       Promise.all(allSections.map((s) => this.countSection(s, allSections))),
       this.core.collectorRegistry.buildGlobalPanels(),
-      this.core.storage.query({ filters: [], page: 1, pageSize: HEAP_TREND_SIZE }),
     ]);
     const sectionViews = allSections.map((s, i) => ({
       key: s.key,
@@ -208,11 +204,6 @@ export class ProfilerController {
       group: p.group,
       groupLabel: p.groupLabel,
     }));
-    const heapSeries = recentPage.items
-      .map((p) => p.performance.heapUsed)
-      .filter((v) => v !== undefined)
-      .reverse();
-
     const sectionKeys = new Set(sectionViews.map((v) => v.key));
     const globalKeys = new Set(globalViews.map((v) => v.key));
     // Default to the catch-all list section (HTTP) so an unknown/absent `?view=` never blanks the pane.
@@ -244,7 +235,6 @@ export class ProfilerController {
       globalViewGroups: groupGlobalViews(globalViews),
       activeView,
       activeSection,
-      heapSeries,
       activeGlobalPanel,
     });
   }

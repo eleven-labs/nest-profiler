@@ -2,7 +2,7 @@ Collectors are the units that turn an execution into panels: each active collect
 
 ## Timeline spans
 
-Instrument any code with `startSpan()` to capture custom timing data. The spans appear as an **Execution timeline** in the profile's **Performance** tab, alongside the request duration and the process heap:
+Instrument any code with `startSpan()` to capture custom timing data. The spans appear as an **Execution timeline** in the profile's **Performance** tab, under the duration, CPU time, heap delta and event-loop figures of the request:
 
 ```ts
 import { ProfilerService } from '@eleven-labs/nest-profiler';
@@ -37,7 +37,7 @@ If you render a duration yourself — in a custom collector panel — use the `f
 
 A profile kind contributed by a package gets this for free as long as it marks its own start with `markProfileStart(profile)` when it builds the profile (the bundled `commander` and `rabbitmq` kinds do). A custom kind that does not falls back to the wall-clock difference against `performance.startTime` — clamped at zero, so still never negative.
 
-![Performance tab with the duration, the process heap and the execution timeline of the recorded spans](../../../docs/public/screenshots/profiler/performance.png)
+![Performance tab with the duration, CPU time, heap delta, event-loop utilization and the execution timeline of the recorded spans](../../../docs/public/screenshots/profiler/performance.png)
 
 ## Reading the active profile
 
@@ -100,7 +100,7 @@ Register the collector as a provider in your module — the profiler discovers i
 
 ## Global-scope collectors
 
-A collector describing the **application** rather than one execution declares `scope: 'global'`. It runs once per home-page render and becomes a sidebar view instead of a profile tab — that is how the Config, Schemas and Discover views are built. Its count badge is read from the first `*Count` field its data exposes (`entityCount`, `routeCount`…).
+A collector describing the **application** rather than one execution declares `scope: 'global'`. It runs once per home-page render and becomes a sidebar view instead of a profile tab — that is how the Runtime, Config, Schemas and Discover views are built. Its count badge is read from the first `*Count` field its data exposes (`entityCount`, `routeCount`…).
 
 Declaring `group` / `groupLabel` files the view under a sidebar heading, so several related views read as one family (`Schemas / TypeORM`, `Schemas / Mongoose`). Ungrouped views stay flat at the end of the sidebar.
 

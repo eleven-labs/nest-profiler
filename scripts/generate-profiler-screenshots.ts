@@ -25,7 +25,7 @@
  *   SKIP_APP     an instance already serves $API_URL (skip boot/teardown)
  *
  * Other env: API_URL, PORT, OUT_DIR, PROFILER_DIR, CHROME_BIN, WIDTH, HEIGHT,
- * VIRTUAL_TIME_BUDGET, SQL_ORM. The main pass uses TypeORM (`database.png`); the
+ * VIRTUAL_TIME_BUDGET, SQL_ORM, RUNTIME_SAMPLE_WAIT_MS. The main pass uses TypeORM (`database.png`); the
  * MikroORM and RabbitMQ passes run automatically after it whenever this script
  * manages the app (they need the Postgres/RabbitMQ containers up).
  */
@@ -53,6 +53,10 @@ const VIRTUAL_TIME_BUDGET = process.env.VIRTUAL_TIME_BUDGET ?? '12000';
 // taller pages keep these exact dimensions.
 const WIDTH = process.env.WIDTH ?? '1440';
 const HEIGHT = process.env.HEIGHT ?? '1000';
+
+// How long the Runtime view is warmed up under traffic before it is shot. At the example app's
+// 2s sampling interval this is ~15 samples — enough for a trend to read as one.
+const RUNTIME_SAMPLE_WAIT_MS = Number(process.env.RUNTIME_SAMPLE_WAIT_MS ?? 30_000);
 
 const skip = (name: string): boolean => process.env[name] === '1';
 
@@ -389,6 +393,20 @@ function stopApp(app: ChildProcess | undefined): void {
  * deferred, so a just-triggered request lands a moment later; the MikroORM and
  * RabbitMQ passes drive one request into their own storage, then wait for it.
  */
+/**
+ * Drives traffic while the runtime sampler is running, so the Runtime shot shows the thing it
+ * exists for: a heap that moves, CPU that is not zero, and collections in the GC table. Errors
+ * are swallowed — this is cosmetic warm-up, and a failed request must not fail the run.
+ */
+async function warmUpRuntimeView(): Promise<void> {
+  const deadline = Date.now() + RUNTIME_SAMPLE_WAIT_MS;
+  const endpoints = [api('/products'), api('/articles'), api('/reviews'), '/health'];
+  while (Date.now() < deadline) {
+    await Promise.all(endpoints.map((path) => fetch(`${API_URL}${path}`).catch(() => undefined)));
+    await sleep(150);
+  }
+}
+
 async function waitForProfileIn(dir: string, pred: Predicate): Promise<Profile> {
   for (let i = 0; i < 30; i += 1) {
     const match = loadProfilesFrom(dir).find(pred);
@@ -499,6 +517,22 @@ async function main(): Promise<void> {
       if (!wanted(file)) continue;
       console.log(`  • ${file}`);
       capture(file, `${PROFILER_URL}?view=${view}`);
+    }
+
+    // The Runtime view is the one shot whose content comes from elapsed time rather than from a
+    // stored profile: its trends are drawn from samples the app takes on an interval (2s in the
+    // example app). So it gets its own warm-up — traffic driven while the sampler runs, rather
+    // than an idle wait. An idle process yields a shot of flat lines and an empty garbage
+    // collection table, which shows none of what the view is for.
+    //
+    // Deliberately last among the shots that read the shared `.profiler`: the warm-up adds a few
+    // hundred HTTP profiles, which would otherwise change the row counts in `profiles-list.png`
+    // and the per-kind lists above. The MikroORM and RabbitMQ passes below each boot against
+    // their own temporary storage, so they are unaffected.
+    if (wanted('runtime.png')) {
+      console.log('  • runtime.png');
+      await warmUpRuntimeView();
+      capture('runtime.png', `${PROFILER_URL}?view=runtime`);
     }
 
     // The next two passes reboot the app with different feature flags, so they
