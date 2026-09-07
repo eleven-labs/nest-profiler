@@ -1,8 +1,7 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
-import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
 import { VALIDATOR_KEY } from './validator-collector.interface';
 import type { ValidationViolationExtractor } from './violation-extractor.interface';
@@ -12,8 +11,6 @@ import { countViolations } from './violation.utils';
 type Constructable = abstract new (...args: unknown[]) => unknown;
 
 const PRIMITIVE_TYPES = new Set<Constructable>([String, Boolean, Number, Array, Object]);
-
-const PROFILE_KEY = 'profiler.profile';
 
 /**
  * Wraps any validation `PipeTransform` (class-validator's `ValidationPipe`,
@@ -101,7 +98,7 @@ export class ProfilerValidationPipe implements PipeTransform {
 
   private pushEntry(entry: ValidationEntry): void {
     try {
-      const profile = this.cls.get<Profile | undefined>(PROFILE_KEY);
+      const profile = readProfile(this.cls);
       if (!profile) return;
       appendCollectorEntry<ValidationEntry>(profile, VALIDATOR_KEY, entry);
     } catch {

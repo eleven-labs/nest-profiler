@@ -19,6 +19,8 @@ import {
 } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import { readProfile, setProfileContext } from '../services/profiler-context';
+import { toExceptionEntry } from '../analysis/to-exception-entry';
 import { profileElapsedMs } from '../utils/clock.utils';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
@@ -78,12 +80,7 @@ export class ProfilerInterceptor implements NestInterceptor {
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     const contextType = ctx.getType<string>();
 
-    let profile: Profile | undefined;
-    try {
-      profile = this.cls.get<Profile | undefined>('profiler.profile');
-    } catch {
-      // Outside CLS context
-    }
+    const profile = readProfile(this.cls);
 
     // HTTP: profile is created by the middleware and always in CLS when present.
     if (contextType === 'http') {
@@ -118,12 +115,9 @@ export class ProfilerInterceptor implements NestInterceptor {
     // Re-establish CLS context so the profiler logger and ProfilerService work inside resolvers.
     return new Observable((subscriber) => {
       this.cls.run(() => {
-        this.cls.set('profiler.profile', activeProfile);
-        this.cls.set('profiler.token', activeProfile.token);
         // Repose the transport request so request-scoped collectors (auth) can read
         // `req.user` on this recovered path instead of reporting the user as anonymous.
-        const recoveredReq = adapter.getRequest?.(ctx);
-        if (recoveredReq) this.cls.set('profiler.request', recoveredReq);
+        setProfileContext(this.cls, activeProfile, adapter.getRequest?.(ctx));
         this.processNonHttp(activeProfile, next, deferToFinishHook).subscribe(subscriber);
       });
     });
@@ -183,13 +177,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         return of(body);
       }),
       catchError((err: unknown) => {
-        const error = err instanceof Error ? err : new Error(String(err));
-        capturedProfile.exceptions.push({
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          timestamp: Date.now(),
-        });
+        capturedProfile.exceptions.push(toExceptionEntry(err));
         this.finalize(capturedProfile, res, undefined);
         if (capturedProfile.response) {
           // Exception filters run after the observable chain, so res.statusCode is still 200
@@ -223,13 +211,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         return body;
       }),
       catchError((err: unknown) => {
-        const error = err instanceof Error ? err : new Error(String(err));
-        capturedProfile.exceptions.push({
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          timestamp: Date.now(),
-        });
+        capturedProfile.exceptions.push(toExceptionEntry(err));
         // Deferred: leave finalize + persist to the finish hook (the exception is already on the
         // profile, so it is saved with everything else once the response completes).
         if (!deferToFinishHook) {

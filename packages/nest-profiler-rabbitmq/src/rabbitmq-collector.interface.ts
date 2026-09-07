@@ -1,11 +1,8 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleOptions, ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
 
-export interface RabbitMqCollectorModuleOptions {
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
-
+export interface RabbitMqCollectorModuleOptions extends CollectorModuleOptions {
   /**
    * Capture incoming RabbitMQ message headers. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.

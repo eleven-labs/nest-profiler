@@ -3,7 +3,13 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCollector, isPlainObject, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  ProfilerCollector,
+  isPlainObject,
+  readRequest,
+  redact,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type { IProfilerCollector, Profile, SecurityContext } from '@eleven-labs/nest-profiler';
 // Import the options token from the interface module, never from `./auth-collector.module`:
 // that module imports this file, and the resulting cycle leaves the token undefined when the
@@ -77,7 +83,7 @@ export class AuthCollector implements IProfilerCollector, OnModuleInit {
     }
     let request: AuthRequest | undefined;
     try {
-      request = this.cls?.get<AuthRequest | undefined>('profiler.request');
+      request = readRequest<AuthRequest>(this.cls);
     } catch {
       // Outside CLS
     }

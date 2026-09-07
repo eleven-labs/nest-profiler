@@ -1,13 +1,15 @@
 import { ConfigurableModuleBuilder, Type } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { EntryErrorOptions, TagSeverity } from '@eleven-labs/nest-profiler';
+import type {
+  CollectorModuleOptions,
+  EntryErrorOptions,
+  TagSeverityOptions,
+} from '@eleven-labs/nest-profiler';
 import type { HttpCaptureOptions } from './http-request.interface';
 import type { HttpInstrumentation } from './http-instrumentation.interface';
 
-export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
-  /** Enable the collector. Default: `true`. */
-  enabled?: boolean;
-
+export interface HttpCollectorModuleOptions
+  extends HttpCaptureOptions, CollectorModuleOptions, TagSeverityOptions {
   /** Outgoing calls at or above this duration (ms) are tagged `slow`. Default: 300 */
   slowThreshold?: number;
 
@@ -25,18 +27,6 @@ export interface HttpCollectorModuleOptions extends HttpCaptureOptions {
    * `large-payload`. Default: 1048576 (1 MB). Set to `0` to disable.
    */
   largePayloadThreshold?: number;
-
-  /** Severity of the `slow` tag. Default: `warning`. */
-  slowSeverity?: TagSeverity;
-
-  /** Severity of the `n-plus-one` tag. Default: `danger`. */
-  nPlusOneSeverity?: TagSeverity;
-
-  /** Severity of the `chatty` tag. Default: `warning`. */
-  chattySeverity?: TagSeverity;
-
-  /** Severity of the `large-payload` tag. Default: `warning`. */
-  largePayloadSeverity?: TagSeverity;
 
   /**
    * What counts as a **failed outgoing call**. Default: the call threw (a network error, a

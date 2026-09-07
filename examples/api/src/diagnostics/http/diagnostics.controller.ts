@@ -47,6 +47,13 @@ export class DiagnosticsController {
   @ApiResponse({ status: 500, description: 'Simulated server failure for profiler testing' })
   crash(): never {
     this.logger.error('Simulated crash endpoint hit');
-    throw new InternalServerErrorException('This is a simulated crash for profiler testing');
+    // Thrown with a `cause`, the way a layered application reports a failure: the outer
+    // exception is what the client sees, the cause is what the Exceptions tab needs to show —
+    // "internal server error" explains nothing on its own.
+    throw new InternalServerErrorException('This is a simulated crash for profiler testing', {
+      cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), {
+        code: 'ECONNREFUSED',
+      }),
+    });
   }
 }

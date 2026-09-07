@@ -309,6 +309,26 @@
                     <% if (ex.stack) { %>
                       <pre class="mt-3 pt-3 text-xs text-foreground-muted overflow-x-auto leading-relaxed border-t <%= borderClass %>"><%= ex.stack %></pre>
                     <% } %>
+                    <%# The cause chain: what an `InternalServerErrorException` was actually
+                        wrapping. Rendered flat rather than nested — a chain is read top to
+                        bottom, and nesting three levels of padding buys nothing. %>
+                    <% let cause = ex.cause; %>
+                    <% while (cause) { %>
+                      <div class="mt-3 pt-3 pl-3 border-t <%= borderClass %> border-l-2">
+                        <div class="flex items-baseline gap-2">
+                          <span class="text-foreground-faint text-2xs uppercase tracking-widest shrink-0">Caused by</span>
+                          <span class="<%= nameClass %> font-bold text-xs"><%= cause.name %></span>
+                          <% if (cause.code) { %>
+                            <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= cause.code %></span>
+                          <% } %>
+                        </div>
+                        <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= cause.message %></p>
+                        <% if (cause.stack) { %>
+                          <pre class="mt-2 text-xs text-foreground-muted overflow-x-auto leading-relaxed"><%= cause.stack %></pre>
+                        <% } %>
+                      </div>
+                      <% cause = cause.cause; %>
+                    <% } %>
                   </div>
                 <% } %>
               </div>

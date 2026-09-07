@@ -1,13 +1,17 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ExplainOptions, TagSeverity } from '@eleven-labs/nest-profiler';
+import type {
+  CollectorModuleOptions,
+  ExplainOptions,
+  TagSeverityOptions,
+} from '@eleven-labs/nest-profiler';
 
 // SQL query types are shared across ORM collectors and live in the core package.
 // Re-exported here to keep this package's public API self-contained.
 export type { QueryEntry, QueryType } from '@eleven-labs/nest-profiler';
 export { detectQueryType } from '@eleven-labs/nest-profiler';
 
-export interface MikroOrmCollectorModuleOptions {
+export interface MikroOrmCollectorModuleOptions extends CollectorModuleOptions, TagSeverityOptions {
   /** Queries at or above this duration (ms) are tagged `slow`. Default: 100 */
   slowThreshold?: number;
   /**
@@ -17,16 +21,6 @@ export interface MikroOrmCollectorModuleOptions {
   nPlusOneThreshold?: number;
   /** A request running at least this many queries is tagged `chatty`. Default: 20 */
   chattyThreshold?: number;
-  /** Severity of the `slow` tag. Default: `warning`. */
-  slowSeverity?: TagSeverity;
-  /** Severity of the `n-plus-one` tag. Default: `danger`. */
-  nPlusOneSeverity?: TagSeverity;
-  /** Severity of the `chatty` tag. Default: `warning`. */
-  chattySeverity?: TagSeverity;
-  /** Severity of the `zero-rows` tag (a write affecting 0 rows). Default: `warning`. */
-  zeroRowsSeverity?: TagSeverity;
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
   /**
    * On-demand SQL `EXPLAIN` for captured queries: adds an "Explain" action in the SQL panel
    * that runs `EXPLAIN` over the MikroORM connection on click (never during the profiled

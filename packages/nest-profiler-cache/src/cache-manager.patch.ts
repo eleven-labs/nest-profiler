@@ -2,8 +2,7 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@ne
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile, tryResolve } from '@eleven-labs/nest-profiler';
 import type { CacheOperationEntry } from './cache-collector.interface';
 import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
 
@@ -82,7 +81,7 @@ export class CacheManagerPatch implements OnModuleInit, OnModuleDestroy {
           operation = 'DEL';
         }
         try {
-          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const profile = readProfile(cls);
           if (profile) {
             appendCollectorEntry<CacheOperationEntry>(profile, CACHE_OPERATIONS_KEY, {
               operation,

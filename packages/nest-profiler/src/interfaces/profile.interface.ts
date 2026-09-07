@@ -23,6 +23,13 @@ export interface ExceptionEntry {
    */
   code?: string;
   stack?: string;
+  /**
+   * The error this one wraps — `new Error('...', { cause })`, the standard way a layered
+   * application reports a failure. Recorded recursively (bounded depth, cycle-safe), because the
+   * cause is usually what actually went wrong: an `InternalServerErrorException` says nothing,
+   * the `QueryFailedError` underneath it says everything.
+   */
+  cause?: ExceptionEntry;
   timestamp: number;
 }
 

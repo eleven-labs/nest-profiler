@@ -8,6 +8,8 @@ import {
   profileElapsedMs,
   ProfilerCoreService,
   redact,
+  setProfileContext,
+  toExceptionEntry,
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
@@ -75,8 +77,7 @@ export class CommandProfiler implements OnModuleInit {
     let error: Error | undefined;
 
     await cls.run(async () => {
-      cls.set('profiler.token', profile.token);
-      cls.set('profiler.profile', profile);
+      setProfileContext(cls, profile);
 
       try {
         await exec();
@@ -180,12 +181,7 @@ export class CommandProfiler implements OnModuleInit {
     };
 
     if (error) {
-      profile.exceptions.push({
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        timestamp: Date.now(),
-      });
+      profile.exceptions.push(toExceptionEntry(error));
     }
 
     profile.entrypoint.data.success = !error;

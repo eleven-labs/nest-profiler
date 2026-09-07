@@ -1,11 +1,8 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleOptions, ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
 
-export interface GraphQLCollectorModuleOptions {
-  /** Enable GraphQL profiling. Default: `true`. */
-  enabled?: boolean;
-
+export interface GraphQLCollectorModuleOptions extends CollectorModuleOptions {
   /**
    * What counts as a **failed operation** — what earns the `error` tag and what the list's
    * `Errors` filter keeps.

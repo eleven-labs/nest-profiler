@@ -1,10 +1,11 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import type {
+  CollectorModuleOptions,
   EntryErrorOptions,
   ProfilerTag,
   SafeDataOptions,
-  TagSeverity,
+  TagSeverityOptions,
 } from '@eleven-labs/nest-profiler';
 
 /** One `AmqpConnection.publish(...)` call made while a profile was active. */
@@ -54,10 +55,8 @@ export interface RabbitMqPublishEntry {
 /** Private `profile.collectors` key where the patch accumulates raw publish entries. */
 export const RABBITMQ_PUBLISHES_KEY = '__rabbitmq_publishes';
 
-export interface RabbitMqPublishCollectorModuleOptions {
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
-
+export interface RabbitMqPublishCollectorModuleOptions
+  extends CollectorModuleOptions, TagSeverityOptions {
   /**
    * Capture the RabbitMQ headers passed to `publish()`. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
@@ -95,13 +94,6 @@ export interface RabbitMqPublishCollectorModuleOptions {
 
   /** A profile publishing at least this many messages is tagged `chatty`. Default: `10`. */
   chattyThreshold?: number;
-
-  /** Severity of the `slow` tag. Default: `warning`. */
-  slowSeverity?: TagSeverity;
-  /** Severity of the `n-plus-one` tag. Default: `danger`. */
-  nPlusOneSeverity?: TagSeverity;
-  /** Severity of the `chatty` tag. Default: `warning`. */
-  chattySeverity?: TagSeverity;
 
   /**
    * What counts as a **failed publish** — what earns the `error` tag. A publish carries no

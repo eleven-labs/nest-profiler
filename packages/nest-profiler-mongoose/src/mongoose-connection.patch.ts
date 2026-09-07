@@ -4,7 +4,13 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import { ClsService } from 'nestjs-cls';
 import type { Connection } from 'mongoose';
 import type { Profile, SafeDataOptions } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, toSafeData, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  appendCollectorEntry,
+  readProfile,
+  redact,
+  toSafeData,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 // Import the options token from the interface module, never from `./mongoose-collector.module`:
 // that module imports this file, and the resulting cycle leaves the re-exported token
 // undefined when the decorators below run — `@Inject(undefined)` then silently degrades to the
@@ -237,7 +243,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       error: string | undefined,
     ): void => {
       try {
-        const profile = cls?.get<Profile | undefined>('profiler.profile');
+        const profile = readProfile(cls);
         if (!profile) return;
         const duration = Date.now() - startedAt;
         appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, {
@@ -363,7 +369,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       } finally {
         const duration = Date.now() - startedAt;
         try {
-          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const profile = readProfile(cls);
           if (profile) {
             const entry: MongooseQueryEntry = {
               collection,
@@ -420,7 +426,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       } finally {
         const duration = Date.now() - startedAt;
         try {
-          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const profile = readProfile(cls);
           if (profile) {
             const entry: MongooseQueryEntry = {
               collection,
@@ -469,7 +475,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       } catch {
         // not all query types support getFilter()
       }
-      const profile = cls?.get<Profile | undefined>('profiler.profile');
+      const profile = readProfile(cls);
       const cursor = originalCursor.apply(this, args);
       recordCursorLifecycle(profile, cursor, startedAt, {
         collection,
@@ -503,7 +509,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
       const startedAt = Date.now();
       const collection = this._model?.collection?.name ?? 'unknown';
       const pipeline = Array.isArray(this._pipeline) ? [...this._pipeline] : undefined;
-      const profile = cls?.get<Profile | undefined>('profiler.profile');
+      const profile = readProfile(cls);
       const cursor = originalCursor.apply(this, args);
       recordCursorLifecycle(profile, cursor, startedAt, {
         collection,
