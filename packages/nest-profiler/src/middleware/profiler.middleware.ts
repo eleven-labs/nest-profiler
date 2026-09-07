@@ -11,6 +11,7 @@ import {
   PROFILER_BASE_PATH,
   PROFILER_CLS_KEYS,
   PROFILER_DEFER_COLLECTION,
+  PROFILER_RESPONSE_BODY,
 } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
@@ -187,17 +188,20 @@ export class ProfilerMiddleware implements NestMiddleware {
 
     const getResponseBody = this.interceptResponseBody(rawRes, profile);
 
+    // Published on the profile so the interceptor can read the body the transport wrote instead
+    // of the value the route handler emitted — they differ under `@Res()` (see the symbol's doc).
+    (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY] = getResponseBody;
+
     rawRes.once('finish', () => {
       const interceptedResponseBody = getResponseBody();
       if (profile.response) {
         // The interceptor already finalized, but two cases still need the body the transport
         // wrote afterwards: GraphQL (the resolver context never saw the { data, errors }
-        // envelope) and error responses (the exception filter produces the body after
-        // catchError left it undefined).
+        // envelope) and any response whose body was produced after the observable completed —
+        // an exception filter, or a handler that writes asynchronously (`res.render()`).
         const isGraphql = Boolean(profile.entrypoint.data.graphql);
-        const needsErrorBodyBackfill =
-          this.collectBody && profile.exceptions.length > 0 && profile.response.body === undefined;
-        if ((isGraphql || needsErrorBodyBackfill) && interceptedResponseBody !== undefined) {
+        const needsBodyBackfill = this.collectBody && profile.response.body === undefined;
+        if ((isGraphql || needsBodyBackfill) && interceptedResponseBody !== undefined) {
           profile.response.body = this.normalizeBody(interceptedResponseBody);
           if (isGraphql) {
             profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;

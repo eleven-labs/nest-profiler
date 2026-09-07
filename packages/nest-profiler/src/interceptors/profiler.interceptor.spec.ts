@@ -3,7 +3,7 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerInterceptor } from './profiler.interceptor';
-import { PROFILER_DEFER_COLLECTION } from '../constants';
+import { PROFILER_DEFER_COLLECTION, PROFILER_RESPONSE_BODY } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
@@ -238,6 +238,61 @@ describe('ProfilerInterceptor', () => {
       );
 
       expect(profile.response?.body).toEqual({ message: long });
+    });
+
+    it('records the transport-captured body when the handler returns the response (@Res)', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeRes();
+      const payload = { data: { quota: 3 } };
+      // The middleware publishes what res.json()/res.send() actually wrote.
+      (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY] = () => payload;
+      const interceptor = makeInterceptor(profile, core, { collectBody: true });
+
+      // Express returns the response object from res.json() — that is what the handler emits.
+      const result = await lastValueFrom(
+        interceptor.intercept(makeCtx({ method: 'POST', url: '/share' }, res), handler(res)),
+      );
+
+      expect(profile.response?.body).toEqual(payload);
+      expect(core.enrichHttpResponse).toHaveBeenCalledWith(profile, expect.anything(), payload);
+      // The stream still forwards the handler's own value untouched.
+      expect(result).toBe(res);
+    });
+
+    it('reports no body when the handler returns the response and nothing was captured', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeRes();
+      const interceptor = makeInterceptor(profile, core, { collectBody: true });
+
+      await lastValueFrom(
+        interceptor.intercept(makeCtx({ method: 'POST', url: '/share' }, res), handler(res)),
+      );
+
+      expect(profile.response?.body).toBeUndefined();
+    });
+
+    it('treats a raw ServerResponse emitted by the handler as a response, not a body', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeRes();
+      const rawServerResponse = {
+        end: () => undefined,
+        setHeader: () => undefined,
+        getHeaders: () => ({}),
+        req: { socket: {} },
+      };
+      const interceptor = makeInterceptor(profile, core, { collectBody: true });
+
+      await lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'POST', url: '/share' }, res),
+          handler(rawServerResponse),
+        ),
+      );
+
+      expect(profile.response?.body).toBeUndefined();
     });
 
     it('updates the route from the route collector when matched', async () => {
