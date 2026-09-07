@@ -32,6 +32,32 @@ describe('Diagnostics endpoints (e2e)', () => {
       expect(total?.duration).toBeGreaterThanOrEqual(55);
     });
 
+    it('records the CPU, memory and event-loop cost of the request', async () => {
+      const { profile } = await profileOf(app, 'get', '/api/v1/slow');
+      const perf = profile.performance;
+
+      // CPU: /slow mostly waits on timers, so its CPU is a small fraction of its duration —
+      // which is precisely the distinction these figures exist to make.
+      expect(perf.cpu).toBeDefined();
+      expect(perf.cpu!.total).toBeGreaterThanOrEqual(0);
+      expect(perf.cpu!.total).toBeCloseTo(perf.cpu!.user + perf.cpu!.system, 3);
+      expect(perf.cpu!.total).toBeLessThan(perf.duration!);
+
+      // Memory: absolute values are positive, deltas may legitimately be negative after a GC.
+      expect(perf.memory!.heapUsedAfter).toBeGreaterThan(0);
+      expect(perf.memory!.rss).toBeGreaterThan(0);
+      expect(Number.isFinite(perf.memory!.heapDelta)).toBe(true);
+
+      // Event loop: a ratio, and the two halves of the window it splits.
+      expect(perf.eventLoop!.utilization).toBeGreaterThanOrEqual(0);
+      expect(perf.eventLoop!.utilization).toBeLessThanOrEqual(1);
+      expect(perf.eventLoop!.active + perf.eventLoop!.idle).toBeGreaterThan(0);
+
+      // GC is only reported while runtime metrics are enabled, which the demo enables.
+      expect(perf.gc).toBeDefined();
+      expect(perf.gc!.count).toBeGreaterThanOrEqual(0);
+    });
+
     it('measures spans and the request on a monotonic clock, with sub-millisecond resolution', async () => {
       const { profile } = await profileOf(app, 'get', '/api/v1/slow');
 

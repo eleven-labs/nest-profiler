@@ -1,0 +1,219 @@
+<%#
+  The Runtime view: what the process is doing, sampled on an interval. Per-request figures live
+  on each profile's Performance tab; this is the shape over time a single request cannot show.
+%>
+<%
+  const runtime = data;
+  const now = runtime.current;
+  const history = runtime.history || [];
+
+  const seconds = (total) => {
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${total % 60}s`;
+    return `${total}s`;
+  };
+
+  // One sparkline helper for every series on the page: bars scaled to the series' own range, so
+  // a flat series reads flat rather than as noise amplified to full height.
+  const spark = (values, colorFor) => {
+    if (!values || values.length < 2) return '';
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = max - min || 1;
+    return values
+      .map((v) => {
+        const pct = Math.round(((v - min) / span) * 80) + 20;
+        return `<div class="flex-1 rounded-t-sm ${colorFor(v, min, span)}" style="height:${pct}%"></div>`;
+      })
+      .join('');
+  };
+  const heapPressure = runtime.heap.percentOfLimit;
+  const heapPressureClass =
+    heapPressure > 85 ? 'text-danger' : heapPressure > 70 ? 'dur-medium' : 'text-foreground';
+
+  // Severity is absolute, never a position within the sampled range. Bars are scaled to their
+  // own min/max so a flat series stays readable — which means the tallest bar is always at the
+  // top of the range, and colouring on that alone paints a process sitting at 2% of its heap
+  // limit bright red. Memory therefore reads its share of the real ceiling, and CPU and lag read
+  // thresholds that mean something on their own.
+  const memColor = (share) =>
+    share > 85 ? 'bg-danger/60' : share > 70 ? 'bg-amber-400/60' : 'bg-nest/40';
+  const heapColor = () => memColor(heapPressure);
+  const rssColor = () => memColor(now ? now.memory.percentOfTotal : 0);
+  const cpuColor = (v) => (v > 80 ? 'bg-danger/60' : v > 40 ? 'bg-amber-400/60' : 'bg-nest/40');
+  const lagColor = (v) => (v > 100 ? 'bg-danger/60' : v > 20 ? 'bg-amber-400/60' : 'bg-nest/40');
+
+  const heapSeries = history.map((s) => s.memory.heapUsed);
+  const rssSeries = history.map((s) => s.memory.rss);
+  const cpuSeries = history.map((s) => s.cpu.percent);
+  const lagSeries = history.map((s) => s.eventLoop.lag.p99);
+
+%>
+
+<div class="space-y-6">
+
+  <%# Headline tiles: the four numbers worth reading before anything else. %>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-surface-muted border border-line rounded-lg p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Heap used</p>
+      <p class="text-foreground text-xl font-bold tabular-nums leading-none"><%= mb(runtime.heap.usedHeapSize) %></p>
+      <p class="text-foreground-faint text-2xs mt-2">
+        <span class="<%= heapPressureClass %> font-medium"><%= heapPressure %>%</span> of the <%= mb(runtime.heap.heapSizeLimit) %> limit
+      </p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Resident</p>
+      <p class="text-foreground text-xl font-bold tabular-nums leading-none"><%= now ? mb(now.memory.rss) : '—' %></p>
+      <p class="text-foreground-faint text-2xs mt-2">
+        <%= now ? now.memory.percentOfTotal + '% of ' + mb(runtime.process.totalMemory) : 'sampling…' %>
+      </p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">CPU</p>
+      <p class="text-foreground text-xl font-bold tabular-nums leading-none">
+        <%= now ? now.cpu.percent : '—' %><% if (now) { %><span class="text-sm font-normal text-foreground-faint ml-1">%</span><% } %>
+      </p>
+      <p class="text-foreground-faint text-2xs mt-2">of one core, over <%= runtime.interval / 1000 %>s · <%= runtime.process.cpuCount %> available</p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-4">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Loop lag p99</p>
+      <p class="text-foreground text-xl font-bold tabular-nums leading-none">
+        <%= now ? formatDuration(now.eventLoop.lag.p99) : '—' %><% if (now) { %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span><% } %>
+      </p>
+      <p class="text-foreground-faint text-2xs mt-2">
+        <%= now ? Math.round(now.eventLoop.utilization * 100) + '% utilization' : 'sampling…' %>
+      </p>
+    </div>
+  </div>
+
+  <% if (history.length < 2) { %>
+    <div class="bg-surface-muted border border-line rounded-lg py-8 text-center">
+      <p class="text-foreground-muted text-sm mb-1">Collecting the first samples</p>
+      <p class="text-foreground-faint text-xs">Trends appear after a couple of intervals (<%= runtime.interval / 1000 %>s each).</p>
+    </div>
+  <% } else { %>
+
+    <%# Trends. Four series over the same window, so a heap climb can be read against the CPU and
+        loop behaviour that came with it. %>
+    <section>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Trends</h2>
+        <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">
+          last <%= history.length %> samples · <%= isoDate(history[0].at) %> → <%= isoDate(history[history.length - 1].at) %>
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <% const series = [
+             { label: 'Heap used', values: heapSeries, color: heapColor, fmt: mb },
+             { label: 'Resident set', values: rssSeries, color: rssColor, fmt: mb },
+             { label: 'CPU (% of a core)', values: cpuSeries, color: cpuColor, fmt: (v) => v + '%' },
+             { label: 'Loop lag p99', values: lagSeries, color: lagColor, fmt: (v) => formatDuration(v) + 'ms' },
+           ]; %>
+        <% for (const s of series) { %>
+          <div class="bg-surface-muted border border-line rounded-lg p-4">
+            <div class="flex items-baseline justify-between mb-3 gap-2">
+              <span class="text-xs font-medium text-foreground"><%= s.label %></span>
+              <span class="text-2xs tabular-nums text-foreground-faint">
+                min <span class="text-foreground-secondary"><%= s.fmt(Math.min(...s.values)) %></span>
+                · max <span class="text-foreground-secondary"><%= s.fmt(Math.max(...s.values)) %></span>
+                · now <span class="text-foreground font-medium"><%= s.fmt(s.values[s.values.length - 1]) %></span>
+              </span>
+            </div>
+            <div class="flex items-end gap-px h-12"><%- spark(s.values, s.color) %></div>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+  <% } %>
+
+  <%# Garbage collection over the last interval, split by kind: a major collection is the one that
+      stops the world long enough to show up as a slow request. %>
+  <% if (now) { %>
+    <section>
+      <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">
+        Garbage collection <span class="font-normal text-foreground-faint normal-case tracking-normal">— last <%= runtime.interval / 1000 %>s</span>
+      </h2>
+      <div class="rounded-lg border border-line overflow-x-auto">
+        <table class="w-full min-w-[420px]">
+          <thead>
+            <tr class="bg-surface-muted border-b border-line">
+              <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Kind</th>
+              <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Collections</th>
+              <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Total pause</th>
+              <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Average</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line-subtle">
+            <% for (const kind of ['minor', 'major', 'incremental']) { %>
+              <% const bucket = now.gc.byKind[kind]; %>
+              <tr class="hover:bg-surface-muted transition-colors">
+                <td class="py-2 px-4 text-foreground text-xs font-medium capitalize"><%= kind %></td>
+                <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= bucket.count %></td>
+                <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= formatDuration(bucket.duration) %>ms</td>
+                <td class="py-2 px-4 text-right text-foreground-faint text-xs tabular-nums">
+                  <%= bucket.count > 0 ? formatDuration(bucket.duration / bucket.count) + 'ms' : '—' %>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+
+  <%# V8 heap spaces — where the used heap actually sits. %>
+  <section>
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">V8 heap spaces</h2>
+    <div class="rounded-lg border border-line overflow-x-auto">
+      <table class="w-full min-w-[480px]">
+        <thead>
+          <tr class="bg-surface-muted border-b border-line">
+            <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Space</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Size</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Used</th>
+            <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Available</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line-subtle">
+          <% for (const space of runtime.heap.spaces) { %>
+            <tr class="hover:bg-surface-muted transition-colors">
+              <td class="py-2 px-4 text-foreground text-xs font-mono"><%= space.name %></td>
+              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= mb(space.size) %></td>
+              <td class="py-2 px-4 text-right text-foreground-secondary text-xs tabular-nums"><%= mb(space.used) %></td>
+              <td class="py-2 px-4 text-right text-foreground-faint text-xs tabular-nums"><%= mb(space.available) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <%# The process itself. %>
+  <section>
+    <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Process</h2>
+    <%- kvTable({
+      'PID': runtime.process.pid,
+      'Uptime': seconds(runtime.process.uptime),
+      'Node': runtime.process.nodeVersion,
+      'Platform': runtime.process.platform + ' / ' + runtime.process.arch,
+      'CPUs': runtime.process.cpuCount,
+      'Total memory': mb(runtime.process.totalMemory),
+      'Load average': runtime.process.loadAverage.join(' · '),
+      'External memory': mb(runtime.heap.externalMemory),
+      'Sampling interval': runtime.interval / 1000 + 's',
+    }) %>
+  </section>
+
+  <p class="text-foreground-faint text-2xs leading-relaxed">
+    Process-wide figures for the whole Node process, sampled every <%= runtime.interval / 1000 %>s — not attributable to any
+    one request. Per-request CPU and memory live on each profile's Performance tab. Turn this view
+    off with <code class="bg-surface-muted border border-line px-1 py-0.5 rounded">runtime: false</code>.
+  </p>
+
+</div>

@@ -21,7 +21,7 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { readProfile, setProfileContext } from '../services/profiler-context';
 import { toExceptionEntry } from '../analysis/to-exception-entry';
-import { profileElapsedMs } from '../utils/clock.utils';
+import { completeProfilePerformance } from '../utils/profile-metrics.util';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
@@ -140,7 +140,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     const rawRes = res as FinishableResponse;
     rawRes.once?.('finish', () => {
       if (capturedProfile.response) return; // normal path already ran
-      capturedProfile.performance.duration = profileElapsedMs(capturedProfile);
+      completeProfilePerformance(capturedProfile);
       capturedProfile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},
@@ -244,7 +244,7 @@ export class ProfilerInterceptor implements NestInterceptor {
   }
 
   private finalize(profile: Profile, res: PlatformResponse | null, body: unknown): void {
-    profile.performance.duration = profileElapsedMs(profile);
+    completeProfilePerformance(profile);
     if (res) {
       profile.response = {
         statusCode: res.statusCode,

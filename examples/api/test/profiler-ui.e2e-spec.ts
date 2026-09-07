@@ -260,6 +260,24 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     });
   });
 
+  describe('Runtime view', () => {
+    it('lists the Runtime view in the sidebar and renders the process metrics', async () => {
+      const home = await request(server(app)).get('/_profiler');
+      expect(home.text).toContain('view=runtime');
+
+      const view = await request(server(app)).get('/_profiler').query({ view: 'runtime' });
+
+      expect(view.status).toBe(200);
+      expect(view.text).toContain('Heap used');
+      expect(view.text).toContain('Loop lag p99');
+      expect(view.text).toContain('V8 heap spaces');
+      // The panel says what kind of data it is, rather than the generic "captured at startup".
+      expect(view.text).toContain('sampled every');
+      // And it is honest that the numbers belong to the process, not to a request.
+      expect(view.text).toContain('not attributable to any');
+    });
+  });
+
   describe('redaction of captured credentials', () => {
     /**
      * End to end rather than at the middleware: what matters is that nothing sensitive

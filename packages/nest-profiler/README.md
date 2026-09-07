@@ -22,7 +22,7 @@
   <img alt="Code style: Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4?logo=prettier&logoColor=white" />
 </p>
 
-`@eleven-labs/nest-profiler` provides execution profiling for NestJS applications. Each profiled execution receives a unique token, and the collected data (request, response, performance, logs, exceptions, custom collectors) can be inspected at `/_profiler/{token}`.
+`@eleven-labs/nest-profiler` provides execution profiling for NestJS applications. Each profiled execution receives a unique token, and the collected data (request, response, timing, CPU and memory, logs, exceptions, custom collectors) can be inspected at `/_profiler/{token}`. A **Runtime** view adds what the process itself is doing — memory, CPU, event-loop lag and garbage collection, sampled on an interval.
 
 ![Profiler UI — profiles list with filters, HTTP statuses, durations and global panels](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/profiles-list.png)
 
@@ -70,7 +70,7 @@ Each capability has its own focused guide:
 
 | Guide                                                                                                                  | What it covers                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [Configuration](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration)                       | `forRoot` / `forRootAsync`, the full options reference, securing the UI with a Bearer token          |
+| [Configuration](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration)                       | `forRoot` / `forRootAsync`, the full options reference, CPU and memory, securing the UI              |
 | [Log capture](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/logs)                                  | Wrapping any logger so every entry lands in the profile, supported argument conventions              |
 | [Browsing profiles](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/browsing-profiles)               | UI endpoints, debug headers, list filters (built-in and custom), exporting a profile                 |
 | [Timeline & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)           | `startSpan()` timing, writing a collector with `@ProfilerCollector()`, custom EJS panels             |

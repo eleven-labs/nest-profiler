@@ -22,15 +22,16 @@ Each entrypoint kind is its own dissociated page under a **Profiling** group, an
 | GraphQL / Commands / … | the section key         | One page per registered list section (each with its own filters and pager) |
 | Discover — HTTP / …    | `discover-<transport>`  | The routing table of one transport, one view per registered route source   |
 | Schemas — TypeORM / …  | the global panel's name | One view per installed ORM schema collector                                |
+| Runtime                | `runtime`               | Process memory, CPU, event-loop lag and GC, sampled on an interval         |
 | Config                 | `config`                | The remaining global-scope collectors, ungrouped                           |
 
 Both sidebars — the home page's views and a profile's tabs — are the same component: the same group headings, the same item padding and the same count-badge scale, with the active item's badge picking up the accent. Each item carries its subject's glyph, and a protocol keeps **one** glyph wherever it is named: the same globe on `Profiling / HTTP` and `Discover / HTTP`, the same GraphQL mark on `Profiling / GraphQL` and `Discover / GraphQL`. A section that registers no `icon` keeps its label aligned with the others.
 
 Views whose collector declares a group (**Discover**, **Schemas**) sit under that heading in the sidebar and carry a short label — the panel header restates the group, so `Discover / HTTP` stays unambiguous. A **Discover** key is prefixed on purpose: `?view=graphql` is the GraphQL profile list, `?view=discover-graphql` its routing table.
 
-Every sidebar item carries a **count badge**: a list section shows its unfiltered profile total, and a global panel shows its own count (the first `*Count` field its data exposes, e.g. `routeCount`). The `?view=` parameter coexists with the list filters, so a filtered link keeps its view: `GET /_profiler?view=http&http_method=POST`.
+Most sidebar items carry a **count badge**: a list section shows its unfiltered profile total, and a global panel shows its own count (the first `*Count` field its data exposes, e.g. `routeCount`). A view that counts nothing — **Runtime** describes a process, it does not enumerate anything — carries none, since a badge reads as a quantity. The `?view=` parameter coexists with the list filters, so a filtered link keeps its view: `GET /_profiler?view=http&http_method=POST`.
 
-The **process-heap trend** sits above the page title rather than inside a view: it is process-wide data, not the heap of whichever list happens to be open.
+Process-wide memory and CPU are a view of their own — **Runtime**, in the sidebar — rather than a strip above every list. A trend needs an axis made of time, not of traffic: sampling once per profiled request makes idle periods vanish and a burst compress, which is the opposite of what you read a trend for. See [CPU and memory](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#cpu-and-memory).
 
 Every list opens on the same two columns — **Time** then **Duration** — before the columns specific to its kind (the collector tables of a profile's detail page follow that same order), and the **row itself is the link**: clicking anywhere on it opens the profile (ctrl/cmd or middle click opens it in a new tab, `Enter` follows a focused row). The token is not a column: it identifies the profile in the URL, in the `X-Debug-Token` header and on the detail page, and repeating a truncated copy on every row only pushed the columns that discriminate one execution from another out of the way.
 

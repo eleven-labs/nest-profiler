@@ -28,6 +28,8 @@ import { RouteCollector } from './collectors/route.collector';
 import { TemplateRendererService } from './services/template-renderer.service';
 import { ClientAssetRegistry } from './services/client-asset-registry.service';
 import { ProfilerCoreService } from './services/profiler-core.service';
+import { RuntimeMetricsService } from './runtime/runtime-metrics.service';
+import { RuntimeCollector } from './runtime/runtime.collector';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { PROFILER_BASE_PATH } from './constants';
 
@@ -142,6 +144,8 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         CollectorRegistry,
         ExplainRunnerRegistry,
         RouteCollector,
+        RuntimeMetricsService,
+        RuntimeCollector,
         TemplateRendererService,
         ClientAssetRegistry,
         ProfilerCoreService,
@@ -158,6 +162,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         TemplateRendererService,
         ClientAssetRegistry,
         ProfilerCoreService,
+        RuntimeMetricsService,
       ],
     };
   }

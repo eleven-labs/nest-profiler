@@ -12,11 +12,11 @@ This page is a **visual tour** of the panels and tabs. For the reference side �
 
 ## Profiles list
 
-`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector is a view of its own — grouped under a heading when it belongs to a family (**Discover**, one view per transport; **Schemas**, one per ORM), flat otherwise (Config). Each is badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing. Above the whole page sits the **process-heap trend** — process-wide data, so it is not tied to whichever list is open.
+`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector is a view of its own — grouped under a heading when it belongs to a family (**Discover**, one view per transport; **Schemas**, one per ORM), flat otherwise (Runtime, Config). Each is badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing. Process-wide memory and CPU live in their own **Runtime** view rather than above the lists — a trend wants an axis made of time, not of traffic.
 
 Every list carries its own filter bar and is filtered independently: the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus an **Exception** select and an **Errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**). A kind hides a universal filter that is redundant for it — the Commands list has no **Errors** checkbox, its **Status** filter already asking the same question.
 
-![Profiler home — the sidebar of views with count badges, the process-heap trend and the HTTP list narrowed by the method filter](/screenshots/profiler/profiles-list.png)
+![Profiler home — the sidebar of views with count badges and the HTTP list narrowed by the method filter](/screenshots/profiler/profiles-list.png)
 
 ## GraphQL operations
 
@@ -54,9 +54,15 @@ The **Response** tab shows the status, response headers, and body returned by th
 
 ![Response tab showing status, headers, and JSON body](/screenshots/profiler/response.png)
 
-The **Performance** tab groups everything about the execution's timing: the request duration (also badged on the tab), the process heap, the start/end timestamps, and the **execution timeline** of the spans recorded with `startSpan()` — rendered as synchronized bars plus a per-phase table. A profile with no span simply shows no timeline.
+The **Performance** tab groups everything about what the execution cost. It leads with four figures: the request **duration** (also badged on the tab), the **CPU time** with its share of that duration, the **heap** at the end with how much the request moved it, and the **event-loop** utilization over the window.
 
-![Performance tab with duration, process heap, timestamps and the execution timeline of the recorded spans](/screenshots/profiler/performance.png)
+The CPU share is the one that changes what you do next. Near 100% the request was computing, near 0% it was waiting on something — and a slow endpoint is fixed very differently in the two cases, so the tab names it rather than leaving you to divide: _CPU-bound_, _waiting on I/O_, or _mixed_. Under `Resource usage` below the tiles sit the user/system split, the resident set and its delta, the heap before and after, and the garbage collections that ran during the request — the explanation for a latency spike a duration alone cannot give.
+
+The **execution timeline** of the spans recorded with `startSpan()` closes the tab, rendered as synchronized bars plus a per-phase table. A profile with no span simply shows no timeline.
+
+One thing to know before reading a number: these are process-wide deltas over the request's window, not an isolated measurement of that one execution. Node runs a single thread, so under concurrent traffic a request is charged with what its neighbours spent too — which is why a CPU share above 100% reads _includes concurrent work_ rather than claiming the request was CPU-bound. The tab says so under the figures, and [CPU and memory](/docs/packages/nest-profiler/configuration#cpu-and-memory) has the full picture.
+
+![Performance tab with duration, CPU time, heap delta, event-loop utilization and the execution timeline of the recorded spans](/screenshots/profiler/performance.png)
 
 The **Logs** tab lists entries captured through `createProfilerLogger()`. Each row shows the message first - with structured payloads rendered as a JSON block under it - then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
 
@@ -111,6 +117,12 @@ The **Validator** collector shows validated DTOs and failing `class-validator` c
 The **Config** collector is global — it describes the application, not one request — so it is a sidebar view of its own, exposing the runtime and the flattened configuration with secrets masked.
 
 ![Config view showing the runtime tiles and the flattened app/database keys with database.password masked](/screenshots/profiler/config.png)
+
+The **Runtime** view is global as well, and the only one whose content comes from elapsed time rather than from a captured execution. The per-request figures on the Performance tab say what one request cost; they cannot say whether the heap has been climbing all afternoon, whether the loop is being blocked, or whether a major collection runs every few seconds — a leak is a shape over time, not a value on one request.
+
+So this view is that shape: the heap against its own limit, the resident set, CPU as a share of one core and the event-loop lag p99 as headline tiles, then **trends** for heap, RSS, CPU and lag over the sampled window, garbage collection split into minor / major / incremental with its pause time, the V8 heap spaces, and the process facts (pid, uptime, Node version, CPU count, load average). Sampling is on by default every 5 s; `runtime: false` removes the view and stops the sampler. Everything it reads comes from `node:os`, `node:v8` and `node:perf_hooks` — nothing to install, nothing leaving the process.
+
+![Runtime view with heap, resident set, CPU and event-loop lag tiles, the sampled trends, the garbage-collection breakdown and the V8 heap spaces](/screenshots/profiler/runtime.png)
 
 The **Discover** views (requires [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes)) are global too: one view per transport, each listing that transport's routing table as discovered at startup — method, path, controller/handler, a lock on guarded routes, and the per-route inputs when a row is expanded. A transport that discovered nothing gets no view, and the keys are namespaced (`?view=discover-graphql`) so they never collide with the GraphQL profile list.
 

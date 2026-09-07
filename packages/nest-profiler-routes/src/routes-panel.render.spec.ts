@@ -29,7 +29,6 @@ function listWith(data: RoutesCollectorData): Record<string, unknown> {
       templatePath: ROUTES_PANEL,
       data,
     },
-    heapSeries: [],
     filters: {},
   };
 }

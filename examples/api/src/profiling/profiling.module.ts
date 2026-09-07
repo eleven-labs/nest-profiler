@@ -161,6 +161,9 @@ export class ProfilingModule {
             maxBodySize: 0,
             bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 },
             security: resolveProfilerSecurity(config),
+            // Process memory / CPU / event-loop / GC in the Runtime view. Sampled faster than the
+            // 5s default so the demo's trends fill in while you are looking at them.
+            runtime: { interval: 2000, historySize: 90 },
             // Extends the built-in masking (headers and the usual credential-bearing query
             // parameters are already masked by default) with what only this app knows.
             maskQueryParams: ['inviteRef'],
@@ -194,6 +197,10 @@ export class ProfilingModule {
           useFactory: (config: ConfigService) => ({
             ...resolveStorageOptions(config),
             timezone: config.get<string>('profiler.timezone'),
+            // A command runs for a moment and exits: there is no trend to sample, and no
+            // dashboard in this process to read one. Commands still get their own per-request
+            // CPU and memory figures, which cost two syscalls and need nothing running.
+            runtime: false,
           }),
         }),
         CommanderCollectorModule.forRoot(),

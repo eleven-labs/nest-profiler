@@ -182,30 +182,130 @@
           <% if (activeTab === 'performance') { %>
 
             <%
-              const heapUsed = profile.performance.heapUsed;
-              const dur      = profile.performance.duration;
+              const perf     = profile.performance;
+              const heapUsed = perf.heapUsed;
+              const dur      = perf.duration;
               const durClass = dur === undefined ? 'dur-none'
                 : dur < 100 ? 'dur-fast'
                 : dur < 500 ? 'dur-medium'
                 : 'dur-slow';
+
+              // The signal the duration alone cannot give: what share of the wall clock was spent
+              // computing rather than waiting. Near 100% is CPU-bound, near 0% is I/O-bound — and
+              // the two are fixed very differently.
+              const cpu = perf.cpu;
+              const rawShare = cpu && dur ? Math.round((cpu.total / dur) * 100) : undefined;
+              // Over 100% the figure is not this request's own: process-wide accounting charges it
+              // with what ran concurrently (and sub-millisecond requests hit `cpuUsage`'s coarse
+              // accounting granularity). Saying "CPU-bound" there would assert something false
+              // about a request that may have done nothing but wait, so it says what it is instead.
+              const overAttributed = rawShare !== undefined && rawShare > 105;
+              const cpuShare = rawShare === undefined ? undefined : Math.min(100, rawShare);
+              const cpuClass = cpuShare === undefined || overAttributed ? 'text-foreground'
+                : cpuShare >= 70 ? 'text-danger'
+                : cpuShare >= 30 ? 'dur-medium'
+                : 'text-foreground';
+              const boundLabel = cpuShare === undefined ? ''
+                : overAttributed ? 'includes concurrent work'
+                : cpuShare >= 70 ? 'CPU-bound'
+                : cpuShare <= 20 ? 'waiting on I/O'
+                : 'mixed';
+
+              const memory = perf.memory;
+              const delta = (bytes) => (bytes >= 0 ? '+' : '−') + mb(Math.abs(bytes));
+              const deltaClass = (bytes) => bytes > 1024 * 1024 ? 'text-danger'
+                : bytes > 0 ? 'dur-medium'
+                : 'text-success';
+
+              const loop = perf.eventLoop;
+              const gc = perf.gc;
             %>
 
-            <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <div class="bg-surface-muted border border-line rounded-lg p-4">
                 <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Duration</p>
                 <p class="<%= durClass %> text-2xl font-bold tabular-nums leading-none">
                   <%= dur !== undefined ? formatDuration(dur) : '—' %><% if (dur !== undefined) { %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span><% } %>
                 </p>
+                <p class="text-foreground-faint text-2xs mt-2">wall clock, monotonic</p>
               </div>
+
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">CPU time</p>
+                <% if (cpu) { %>
+                  <p class="<%= cpuClass %> text-2xl font-bold tabular-nums leading-none">
+                    <%= formatDuration(cpu.total) %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span>
+                  </p>
+                  <p class="text-foreground-faint text-2xs mt-2">
+                    <% if (cpuShare !== undefined) { %><span class="<%= cpuClass %> font-medium"><%= overAttributed ? '>100' : cpuShare %>%</span> of the duration · <%= boundLabel %><% } else { %>user <%= formatDuration(cpu.user) %> · sys <%= formatDuration(cpu.system) %><% } %>
+                  </p>
+                <% } else { %>
+                  <p class="text-foreground-faint text-2xl font-bold tabular-nums leading-none">—</p>
+                  <p class="text-foreground-faint text-2xs mt-2">not measured for this profile</p>
+                <% } %>
+              </div>
+
               <div class="bg-surface-muted border border-line rounded-lg p-4">
                 <div class="flex items-start justify-between gap-2">
-                  <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Process heap</p>
-                  <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint shrink-0">at request start</span>
+                  <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Heap</p>
+                  <% if (!memory) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint shrink-0">at start</span><% } %>
                 </div>
-                <p class="text-foreground text-xl font-bold tabular-nums leading-none"><%= mb(heapUsed) %></p>
-                <p class="text-foreground-faint text-2xs mt-2 leading-relaxed">Process-wide V8 heap — not isolated per request.</p>
+                <p class="text-foreground text-xl font-bold tabular-nums leading-none"><%= mb(memory ? memory.heapUsedAfter : heapUsed) %></p>
+                <p class="text-foreground-faint text-2xs mt-2">
+                  <% if (memory) { %><span class="<%= deltaClass(memory.heapDelta) %> font-medium"><%= delta(memory.heapDelta) %></span> over the request<% } else { %>process-wide, not per request<% } %>
+                </p>
+              </div>
+
+              <div class="bg-surface-muted border border-line rounded-lg p-4">
+                <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Event loop</p>
+                <% if (loop) { %>
+                  <p class="text-foreground text-xl font-bold tabular-nums leading-none">
+                    <%= Math.round(loop.utilization * 100) %><span class="text-sm font-normal text-foreground-faint ml-1">%</span>
+                  </p>
+                  <p class="text-foreground-faint text-2xs mt-2">active <%= formatDuration(loop.active) %>ms · idle <%= formatDuration(loop.idle) %>ms</p>
+                <% } else { %>
+                  <p class="text-foreground-faint text-xl font-bold tabular-nums leading-none">—</p>
+                  <p class="text-foreground-faint text-2xs mt-2">not measured for this profile</p>
+                <% } %>
               </div>
             </div>
+
+            <% if (cpu || memory || gc) { %>
+              <section class="mb-8">
+                <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Resource usage</h2>
+                <div class="bg-surface-muted border border-line rounded-lg divide-y divide-line-subtle">
+                  <% if (cpu) { %>
+                    <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+                      <span class="text-foreground-muted">CPU user / system</span>
+                      <code class="text-foreground-secondary tabular-nums"><%= formatDuration(cpu.user) %>ms / <%= formatDuration(cpu.system) %>ms</code>
+                    </div>
+                  <% } %>
+                  <% if (memory) { %>
+                    <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+                      <span class="text-foreground-muted">Resident set</span>
+                      <code class="text-foreground-secondary tabular-nums"><%= mb(memory.rss) %> (<%= delta(memory.rssDelta) %>)</code>
+                    </div>
+                    <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+                      <span class="text-foreground-muted">Heap before / after</span>
+                      <code class="text-foreground-secondary tabular-nums"><%= mb(heapUsed) %> → <%= mb(memory.heapUsedAfter) %></code>
+                    </div>
+                  <% } %>
+                  <% if (gc) { %>
+                    <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+                      <span class="text-foreground-muted">Garbage collections</span>
+                      <code class="text-foreground-secondary tabular-nums">
+                        <%= gc.count %><% if (gc.count > 0) { %> · <%= formatDuration(gc.duration) %>ms paused<% } %>
+                      </code>
+                    </div>
+                  <% } %>
+                </div>
+                <p class="text-foreground-faint text-2xs mt-2 leading-relaxed">
+                  Process-wide deltas over this request's window: Node runs one thread, so under concurrent
+                  traffic these include what neighbouring requests spent. Read them as a request's cost when
+                  driving requests one at a time.
+                </p>
+              </section>
+            <% } %>
 
             <section class="mb-8">
               <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Timestamps</h2>

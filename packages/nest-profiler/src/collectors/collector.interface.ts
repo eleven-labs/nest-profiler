@@ -21,6 +21,12 @@ export interface GlobalPanelDescriptor {
   group?: string;
   /** Human label of that group, shown as the sidebar group heading (e.g. `'Discover'`). */
   groupLabel?: string;
+  /**
+   * Short qualifier shown next to the panel title, saying what kind of data this is. Defaults to
+   * "global, captured at startup", which is true of the panels built once during bootstrap
+   * (Config, Discover, Schemas) and not of one that samples over time — hence the override.
+   */
+  note?: string;
 }
 
 export interface IProfilerCollector {
