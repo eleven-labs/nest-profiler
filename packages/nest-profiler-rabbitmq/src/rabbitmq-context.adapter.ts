@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
-import { redact } from '@eleven-labs/nest-profiler';
+import { markProfileStart, redact } from '@eleven-labs/nest-profiler';
 import type { IContextAdapter, Profile } from '@eleven-labs/nest-profiler';
 import {
   RABBITMQ_COLLECTOR_OPTIONS,
@@ -37,7 +37,7 @@ export class RabbitMqContextAdapter implements IContextAdapter {
 
   recoverProfile(): Profile {
     const startTime = Date.now();
-    return {
+    const profile: Profile = {
       token: randomUUID(),
       createdAt: startTime,
       // The `rabbitmq` entrypoint type (registered by RabbitMqCollectorModule)
@@ -49,6 +49,10 @@ export class RabbitMqContextAdapter implements IContextAdapter {
       exceptions: [],
       collectors: {},
     };
+    // The core interceptor finalizes this profile; marking the start here is what lets it
+    // measure the duration on the monotonic clock rather than the wall clock.
+    markProfileStart(profile);
+    return profile;
   }
 
   enrichProfile(profile: Profile, ctx: ExecutionContext): void {

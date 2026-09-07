@@ -21,7 +21,7 @@
   </div>
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Duration</p>
-    <p class="text-foreground text-xl font-bold tabular-nums"><%= msgDur !== undefined ? msgDur + 'ms' : '—' %></p>
+    <p class="text-foreground text-xl font-bold tabular-nums"><%= msgDur !== undefined ? formatDuration(msgDur) + 'ms' : '—' %></p>
   </div>
   <div class="bg-surface-muted border border-line rounded-lg p-4">
     <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Received</p>

@@ -1,6 +1,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from './profiler-core.service';
+import { elapsedMs, monotonicNow } from '../utils/clock.utils';
 import type { Profile } from '../interfaces/profile.interface';
 
 /**
@@ -106,9 +107,12 @@ export class ProfilerService {
    * ```
    */
   startSpan(phase: string): () => void {
+    // Two clocks, each for what it is good at: the wall clock places the span on the timeline
+    // (against `performance.startTime`), the monotonic one measures how long it took.
     const startedAt = Date.now();
+    const from = monotonicNow();
     return () => {
-      const duration = Date.now() - startedAt;
+      const duration = elapsedMs(from);
       const profile = this.getProfile();
       if (!profile) return;
       (profile.spans ??= []).push({ phase, startedAt, duration });

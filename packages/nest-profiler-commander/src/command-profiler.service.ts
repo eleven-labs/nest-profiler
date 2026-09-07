@@ -3,7 +3,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCoreService, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import {
+  markProfileStart,
+  profileElapsedMs,
+  ProfilerCoreService,
+  redact,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
 import type { CommandInfo } from './commander-collector.interface';
@@ -142,7 +148,7 @@ export class CommandProfiler implements OnModuleInit {
       options: redact(meta.options),
       success: true,
     };
-    return {
+    const profile: Profile<CommandInfo> = {
       token: randomUUID(),
       createdAt: startTime,
       // The `command` entrypoint type (registered by CommanderCollectorModule)
@@ -156,6 +162,9 @@ export class CommandProfiler implements OnModuleInit {
       exceptions: [],
       collectors: {},
     };
+    // What `finalize` measures the command against — the monotonic clock, not `startTime`.
+    markProfileStart(profile);
+    return profile;
   }
 
   private finalize(
@@ -163,7 +172,7 @@ export class CommandProfiler implements OnModuleInit {
     _meta: CommandProfileMeta,
     error: Error | undefined,
   ): void {
-    profile.performance.duration = Date.now() - profile.performance.startTime;
+    profile.performance.duration = profileElapsedMs(profile);
     profile.response = {
       statusCode: error ? 500 : 200,
       headers: {},

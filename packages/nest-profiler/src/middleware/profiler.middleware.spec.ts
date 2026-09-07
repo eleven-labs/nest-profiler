@@ -811,6 +811,35 @@ describe('ProfilerMiddleware', () => {
       expect(saved?.response?.statusCode).toBe(400);
     });
 
+    it('measures the request duration on the monotonic clock, not the wall clock', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore();
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res);
+
+      // The wall clock steps a minute backwards before the response finishes. The old
+      // `Date.now() - startTime` arithmetic produced a duration of about -60000 here.
+      jest.spyOn(Date, 'now').mockReturnValue(Date.now() - 60_000);
+      res.triggerFinish();
+      await waitAsync();
+      jest.restoreAllMocks();
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.performance.duration).toBeGreaterThanOrEqual(0);
+      expect(saved?.performance.duration).toBeLessThan(10_000);
+    });
+
+    it('reads the clock once, so createdAt and startTime name the same instant', async () => {
+      const { middleware, coreMock } = createMiddlewareWithCore();
+      const res = makeResWithFinish(200);
+      await runMw(middleware, res);
+
+      res.triggerFinish();
+      await waitAsync();
+
+      const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
+      expect(saved?.createdAt).toBe(saved?.performance.startTime);
+    });
+
     it('skips finish hook when profile.response is already set (normal path ran)', async () => {
       const { middleware, coreMock } = createMiddlewareWithCore();
       const res = makeResWithFinish();

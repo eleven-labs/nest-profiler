@@ -22,6 +22,21 @@ export class UserService {
 
 Span capture is always active; the timeline renders the spans as synchronized bars plus a per-phase table. A profile that recorded no span simply shows no timeline — there is no empty panel to dismiss.
 
+Wrap the stop call in a `finally` block so the span is recorded even when the measured work throws.
+
+### How durations are measured
+
+Elapsed time — the request duration and every span — is measured on a **monotonic** clock (`performance.now()`), and the recorded value is a fractional number of milliseconds with up to three decimals. Two consequences worth knowing:
+
+- **Sub-millisecond work is visible.** A span that takes 420 µs reads `0.42ms`, not `0ms`, so the timeline stays comparable for ordinary application phases and not just for slow I/O.
+- **A duration can never be wrong or negative.** The wall clock is not monotonic: an NTP correction or a manual clock change during a request would otherwise produce a nonsensical duration, and a backward step a negative one — which would then flow into the `slow` tag, the duration list filter and the stored profile.
+
+Absolute timestamps stay on the wall clock, because they are what a reader needs: `performance.startTime`, a span's `startedAt`, and every log and exception timestamp are epoch milliseconds, rendered in the [configured timezone](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#timezone-of-displayed-timestamps).
+
+If you render a duration yourself — in a custom collector panel — use the `formatDuration` template helper rather than printing the raw number, which carries float noise (`1.6000000000058208`). It trades precision against magnitude: two decimals below 10 ms, one below 100 ms, whole milliseconds above, and `<0.01` for anything too small to show.
+
+A profile kind contributed by a package gets this for free as long as it marks its own start with `markProfileStart(profile)` when it builds the profile (the bundled `commander` and `rabbitmq` kinds do). A custom kind that does not falls back to the wall-clock difference against `performance.startTime` — clamped at zero, so still never negative.
+
 ![Performance tab with the duration, the process heap and the execution timeline of the recorded spans](../../../docs/public/screenshots/profiler/performance.png)
 
 ## Custom collectors

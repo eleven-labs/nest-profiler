@@ -85,7 +85,14 @@ export interface ResponseData {
 }
 
 export interface PerformanceData {
+  /** Epoch milliseconds at which the profiled work started — an absolute instant, for display. */
   startTime: number;
+  /**
+   * Wall-clock milliseconds the profiled work took, measured on a **monotonic** clock and
+   * carrying up to three decimals. Fractional by design: sub-millisecond work is real work, and
+   * a duration rounded to `0` cannot be compared with anything. Format it for display with the
+   * `formatDuration` view helper rather than printing it raw.
+   */
   duration?: number;
   /** V8 heapUsed for the entire process at the moment this request started. Not per-request allocation. */
   heapUsed: number;
@@ -100,7 +107,9 @@ export interface RouteInfo {
 
 export interface TimelineSpan {
   phase: string;
+  /** Epoch milliseconds the span started, used to place it against {@link PerformanceData.startTime}. */
   startedAt: number;
+  /** Monotonic milliseconds the span took, with up to three decimals (see {@link PerformanceData.duration}). */
   duration: number;
 }
 
