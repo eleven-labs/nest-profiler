@@ -28,11 +28,11 @@
     <table class="w-full">
       <thead>
         <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Method</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">URL</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Status</th>
-          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
-          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-line-subtle">
@@ -43,6 +43,7 @@
             const hasResponse = (r.responseHeaders && Object.keys(r.responseHeaders).length > 0) || r.responseBody != null;
             const hasDetails = hasRequest || hasResponse;
             const detailsRowId = `http-row-details-${i}`;
+            const slowTag = (r.tags || []).find(t => t.id === 'slow');
           %>
           <tr
             class="<%= hasDetails ? 'cursor-pointer hover:bg-surface-muted' : 'hover:bg-surface-muted' %> transition-colors align-top"
@@ -54,6 +55,8 @@
               tabindex="0"
             <% } %>
           >
+            <td class="py-2 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
+            <td class="py-2 px-4 text-left text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= r.duration %>ms</td>
             <td class="py-2 px-4 whitespace-nowrap">
               <div class="inline-flex items-center gap-2">
                 <% if (hasDetails) { %>
@@ -85,9 +88,6 @@
                 <span class="text-foreground-faint text-xs">—</span>
               <% } %>
             </td>
-            <% const slowTag = (r.tags || []).find(t => t.id === 'slow'); %>
-            <td class="py-2 px-4 text-right text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= r.duration %>ms</td>
-            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
           </tr>
 
           <% if (hasDetails) { %>

@@ -5,6 +5,7 @@ import { TextDecoder } from 'node:util';
 import { initCopy } from './behaviors/copy';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
+import { initRowLink } from './behaviors/row-link';
 import { bootTheme, initTheme } from './behaviors/theme';
 import { createRuntime } from './runtime';
 
@@ -14,6 +15,9 @@ globalThis.TextDecoder = TextDecoder as unknown as typeof globalThis.TextDecoder
 
 const api = createRuntime();
 
+// jsdom forbids stubbing `window.location`, so the row-link behaviour navigates through this.
+const navigate = jest.fn();
+
 // Behaviours attach delegated listeners on `document`; register each once so the
 // listener set is stable across tests, then drive them by mutating the DOM.
 beforeAll(() => {
@@ -21,6 +25,7 @@ beforeAll(() => {
   initCopy(api);
   initFilters(api);
   initGroupTabs(api);
+  initRowLink(api, navigate);
 });
 
 beforeEach(() => {
@@ -119,5 +124,68 @@ describe('group-tabs behaviour', () => {
     expect(panelA.classList.contains('hidden')).toBe(true);
     expect(panelB.classList.contains('hidden')).toBe(false);
     expect(tabB.classList.contains('text-nest')).toBe(true);
+  });
+});
+
+describe('row-link behaviour', () => {
+  const rowHtml =
+    '<table><tbody>' +
+    '<tr data-row-href="/_profiler/abcdef12" tabindex="0">' +
+    '<td><span data-cell>2024-01-01 12:00:00</span></td>' +
+    '<td><button data-copy="x">copy</button></td>' +
+    '</tr></tbody></table>';
+
+  const clickCell = (init: MouseEventInit = {}): void => {
+    const cell = document.querySelector('[data-cell]') as HTMLElement;
+    cell.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+  };
+
+  let open: jest.SpyInstance;
+
+  beforeEach(() => {
+    document.body.innerHTML = rowHtml;
+    navigate.mockClear();
+    open = jest.spyOn(window, 'open').mockImplementation(() => null);
+  });
+
+  afterEach(() => {
+    open.mockRestore();
+  });
+
+  it('opens the profile when any cell of the row is clicked', () => {
+    clickCell();
+    expect(navigate).toHaveBeenCalledWith('/_profiler/abcdef12');
+  });
+
+  it('opens the profile on Enter when the row has focus', () => {
+    const row = document.querySelector('tr') as HTMLElement;
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(navigate).toHaveBeenCalledWith('/_profiler/abcdef12');
+  });
+
+  it('opens a new tab on a ctrl/meta click', () => {
+    clickCell({ metaKey: true });
+    expect(open).toHaveBeenCalledWith('/_profiler/abcdef12', '_blank', 'noopener');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('ignores a row whose href is not a same-origin path', () => {
+    for (const href of [
+      'javascript:alert(1)',
+      '//evil.example.com/x',
+      'https://evil.example.com/x',
+    ]) {
+      document.body.innerHTML = rowHtml.replace('/_profiler/abcdef12', href);
+      clickCell();
+    }
+    expect(navigate).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('leaves a nested interactive element to its own handler', () => {
+    const button = document.querySelector('button') as HTMLElement;
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
   });
 });

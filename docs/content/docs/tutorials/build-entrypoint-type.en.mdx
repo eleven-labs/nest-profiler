@@ -174,7 +174,7 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
         <th
           class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"
         >
-          Token
+          Time
         </th>
         <th
           class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"
@@ -186,23 +186,19 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
         >
           Namespace
         </th>
-        <th
-          class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"
-        >
-          Time
-        </th>
       </tr>
     </thead>
     <tbody class="divide-y divide-line-subtle">
       <% for (const p of profiles) { %> <% const msg = p.entrypoint.data; %>
-      <tr class="hover:bg-surface-muted transition-colors">
-        <td class="py-2.5 px-4">
-          <a
-            href="<%= profilerPath %>/<%= p.token %>"
-            class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs"
-          >
-            <%= p.token.slice(0, 8) %>
-          </a>
+      <tr
+        data-row-href="<%= profilerPath %>/<%= p.token %>"
+        tabindex="0"
+        class="group cursor-pointer hover:bg-surface-muted transition-colors"
+      >
+        <td
+          class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap group-hover:text-nest transition-colors"
+        >
+          <%= isoDate(p.createdAt) %>
         </td>
         <td class="py-2.5 px-4">
           <div class="flex items-center gap-1.5">
@@ -213,15 +209,14 @@ The two `templatePath`s are absolute paths to EJS partials your package ships (b
           </div>
         </td>
         <td class="py-2.5 px-4 text-foreground-faint text-xs"><%= msg.namespace %></td>
-        <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums">
-          <%= isoDate(p.createdAt) %>
-        </td>
       </tr>
       <% } %>
     </tbody>
   </table>
 </div>
 ```
+
+Every list table follows the same convention: **`Time` then `Duration` open the row**, and the row itself is the link — `data-row-href` on the `<tr>` (plus `tabindex="0"`, since a `<tr>` is not focusable on its own) is what the profiler's client bundle turns into a click-anywhere navigation. No cell owns the link, and the token is not a column: it lives in the URL, in the `X-Debug-Token` header and on the detail page.
 
 ```html title="templates/websocket-message.ejs"
 <% const msg = profile.entrypoint.data; %>

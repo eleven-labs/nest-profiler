@@ -4,6 +4,7 @@ import { initCopy } from './behaviors/copy';
 import { initExplain } from './behaviors/explain';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
+import { initRowLink } from './behaviors/row-link';
 import { bootTheme, initTheme } from './behaviors/theme';
 import { createRuntime } from './runtime';
 
@@ -20,5 +21,6 @@ api.onReady(() => {
   initCopy(api);
   initFilters(api);
   initGroupTabs(api);
+  initRowLink(api);
   initExplain(api);
 });

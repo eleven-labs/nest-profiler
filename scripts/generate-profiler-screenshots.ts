@@ -45,8 +45,8 @@ const PROFILER_URL = `${API_URL}/_profiler`;
 const PROFILER_DIR = resolve(process.env.PROFILER_DIR ?? join(API_DIR, '.profiler'));
 const OUT_DIR = resolve(process.env.OUT_DIR ?? join(REPO_ROOT, 'docs/public/screenshots/profiler'));
 const CHROME_BIN = process.env.CHROME_BIN ?? 'google-chrome';
-// The profiler styles itself with the Tailwind browser CDN, compiled at runtime,
-// so each capture must give the page enough virtual time to fetch and compile it.
+// The profiler serves its own compiled CSS and client bundles same-origin; the budget
+// gives each capture enough virtual time to fetch them and run the DOM wiring.
 const VIRTUAL_TIME_BUDGET = process.env.VIRTUAL_TIME_BUDGET ?? '12000';
 // Every screenshot is the same fixed size — never fitted/cropped to its content.
 // `--headless=new` clips to the window (it does not capture the full page), so
