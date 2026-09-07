@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { activeSqlOrm, createE2EApp, server, tokenOf } from './helpers/app.js';
+import type { HttpRequestData } from '@eleven-labs/nest-profiler';
+import { activeSqlOrm, createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
 
 const short = (token: string): string => token.slice(0, 8);
 
@@ -256,6 +257,35 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     it('returns 404 for an unknown profile', async () => {
       const res = await request(server(app)).get('/_profiler/ffffffff-0000-0000-0000-000000000000');
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('redaction of captured credentials', () => {
+    /**
+     * End to end rather than at the middleware: what matters is that nothing sensitive
+     * survives as far as the JSON export, which is the payload the dashboard renders and
+     * "Copy as cURL" reads.
+     */
+    it('masks credential-bearing headers and query parameters in the stored profile', async () => {
+      const res = await request(server(app))
+        .get('/api/v1/products?token=reset-tok-1&inviteRef=r-1&page=1')
+        .set('authorization', 'Bearer e2e-secret')
+        .set('x-api-key', 'k-e2e');
+
+      const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
+      const data = profile.entrypoint.data;
+
+      expect(data.headers['authorization']).toBe('[REDACTED]');
+      expect(data.headers['x-api-key']).toBe('[REDACTED]');
+      // Built-in parameter, plus the app-specific `inviteRef` from `maskQueryParams`.
+      expect(data.query['token']).toBe('[REDACTED]');
+      expect(data.query['inviteRef']).toBe('[REDACTED]');
+      expect(data.query['page']).toBe('1');
+      // The URL is stored too, and is what the cURL command is built from.
+      expect(data.url).not.toContain('reset-tok-1');
+      expect(data.url).not.toContain('r-1');
+      expect(data.url).toContain('page=1');
+      expect(JSON.stringify(profile)).not.toContain('e2e-secret');
     });
   });
 });

@@ -161,6 +161,10 @@ export class ProfilingModule {
             maxBodySize: 0,
             bodyCaptureLimits: { maxStringLength: 0, maxItems: 0, maxDepth: 0 },
             security: resolveProfilerSecurity(config),
+            // Extends the built-in masking (headers and the usual credential-bearing query
+            // parameters are already masked by default) with what only this app knows.
+            maskQueryParams: ['inviteRef'],
+            maskCookies: ['sid'],
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
             ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
