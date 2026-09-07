@@ -11,6 +11,12 @@ import type {
 } from '../../domain/article.js';
 
 const API_BASE = 'https://jsonplaceholder.typicode.com';
+/**
+ * Stands in for an upstream that authenticates by query parameter — a common enough pattern,
+ * and what makes the HTTP Client panel show `api_key=[REDACTED]`: the collector masks the
+ * sensitive parameters of a recorded URL at capture, so the key never reaches a stored profile.
+ */
+const UPSTREAM_API_KEY = 'demo-upstream-key';
 
 /**
  * axios adapter for {@link ArticleGateway} — selected when `HTTP_CLIENT=axios` (the default). Every
@@ -23,7 +29,9 @@ export class AxiosArticleGateway implements ArticleGateway {
 
   async fetchArticles(limit: number): Promise<ExternalArticle[]> {
     const { data } = await firstValueFrom(
-      this.http.get<ExternalArticle[]>(`${API_BASE}/posts?_limit=${limit}`),
+      this.http.get<ExternalArticle[]>(
+        `${API_BASE}/posts?_limit=${limit}&api_key=${UPSTREAM_API_KEY}`,
+      ),
     );
     return data;
   }
