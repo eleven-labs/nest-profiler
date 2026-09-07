@@ -187,12 +187,38 @@ export interface ProfilerModuleOptions {
   maskCookies?: string[];
 
   /**
-   * Request header names (case-insensitive) whose value is replaced with `[REDACTED]` at
-   * capture, before anything is persisted or shown. Defaults to a sensible sensitive-header
+   * Extra request header names (case-insensitive) whose value is replaced with `[REDACTED]` at
+   * capture, before anything is persisted or shown. **Merged with** the built-in sensitive-header
    * list (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`,
-   * `proxy-authorization`). Pass your own list to override.
+   * `proxy-authorization`) — naming one header here never stops the built-ins from being masked.
+   * Drop them deliberately with {@link useDefaultMaskHeaders}.
    */
   maskHeaders?: string[];
+
+  /**
+   * Mask the built-in sensitive request headers on top of {@link maskHeaders}. Default: `true`.
+   * Set to `false` only to take over masking entirely — a captured `authorization` header is a
+   * replayable credential for as long as the profile lives.
+   */
+  useDefaultMaskHeaders?: boolean;
+
+  /**
+   * Extra query-parameter names (case-insensitive, `-`/`_` insensitive) whose value is replaced
+   * with `[REDACTED]` at capture, in both the stored URL and the parsed query. **Merged with**
+   * the built-in list (`token`, `access_token`, `code`, `state`, `signature`, `password`,
+   * `secret`, `api_key`…); drop those with {@link useDefaultMaskQueryParams}.
+   *
+   * Parameter names are kept and only values masked, so a captured URL still reads
+   * `?token=[REDACTED]` and stays diagnosable.
+   */
+  maskQueryParams?: string[];
+
+  /**
+   * Mask the built-in sensitive query parameters on top of {@link maskQueryParams}. Default:
+   * `true`. Set to `false` only to take over masking entirely — a password-reset token, an OAuth
+   * `code` or a URL signature is directly replayable from a stored profile.
+   */
+  useDefaultMaskQueryParams?: boolean;
 
   /**
    * Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses.

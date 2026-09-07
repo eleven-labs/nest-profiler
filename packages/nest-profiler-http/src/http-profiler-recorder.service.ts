@@ -9,7 +9,12 @@ import type {
 } from './http-request.interface';
 import { redact, tryResolve } from '@eleven-labs/nest-profiler';
 import { appendHttpRequestEntry } from './append-http-request-entry.util';
-import { DEFAULT_MASK_HEADERS, extractHeaders } from './http-redaction.util';
+import {
+  DEFAULT_MASK_HEADERS,
+  extractHeaders,
+  redactQueryString,
+  resolveMaskedQueryParams,
+} from './http-redaction.util';
 import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
 
 /**
@@ -23,6 +28,8 @@ import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
 export class HttpProfilerRecorder implements OnModuleInit {
   /** Built-in mask list merged with the configured `maskHeaders`. */
   readonly maskHeaders: string[];
+  /** Query-parameter names whose value is masked in the recorded URL. */
+  private readonly maskQueryParams: ReadonlySet<string>;
   /** Resolved lazily so a disabled core (no ClsModule) degrades to a no-op recorder. */
   private cls: ClsService | undefined;
 
@@ -31,6 +38,7 @@ export class HttpProfilerRecorder implements OnModuleInit {
     @Inject(HTTP_COLLECTOR_OPTIONS) readonly options: HttpCaptureOptions,
   ) {
     this.maskHeaders = [...DEFAULT_MASK_HEADERS, ...(options.maskHeaders ?? [])];
+    this.maskQueryParams = resolveMaskedQueryParams(options);
   }
 
   onModuleInit(): void {
@@ -55,7 +63,11 @@ export class HttpProfilerRecorder implements OnModuleInit {
 
     const entry: HttpRequestEntry = {
       method,
-      url: input.url,
+      // Masked here, at capture: the URL is persisted, rendered in the panel and exported by
+      // `/:token/data`, so an upstream API key in a query parameter would be readable
+      // everywhere the profile is. The N+1 fingerprint drops the query string entirely, so
+      // grouping is unaffected.
+      url: redactQueryString(input.url, this.maskQueryParams),
       statusCode: input.statusCode,
       duration: input.duration,
       startedAt: input.startedAt,

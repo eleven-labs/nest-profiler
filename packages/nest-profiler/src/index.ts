@@ -138,6 +138,12 @@ export {
   extractHeaders,
   formatHeaderValue,
 } from './utils/redact-headers.util';
+export {
+  DEFAULT_MASK_QUERY_PARAMS,
+  buildMaskedQueryParams,
+  redactQueryString,
+  redactQueryRecord,
+} from './utils/redact-query.util';
 export type { MemoryStorageAdapterOptions } from './storage/memory-storage.adapter';
 export { FileStorageAdapter } from './storage/file-storage.adapter';
 export type { FileStorageAdapterOptions } from './storage/file-storage.adapter';

@@ -16,6 +16,12 @@ import {
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
+import {
+  buildMaskedQueryParams,
+  DEFAULT_MASK_QUERY_PARAMS,
+  redactQueryRecord,
+  redactQueryString,
+} from '../utils/redact-query.util';
 import { redact } from '../utils/redact.utils';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
 import type { SafeDataOptions } from '../utils/safe-data.utils';
@@ -81,6 +87,7 @@ export class ProfilerMiddleware implements NestMiddleware {
   private readonly ignorePaths: (string | RegExp)[];
   private readonly maskCookies: Set<string>;
   private readonly maskHeaders: ReadonlySet<string>;
+  private readonly maskQueryParams: ReadonlySet<string>;
   private readonly emitDebugHeaders: boolean;
   private readonly ignoreRequest: ProfilerRequestFilter | undefined;
 
@@ -101,9 +108,18 @@ export class ProfilerMiddleware implements NestMiddleware {
       ...(options.ignorePaths ?? []),
     ];
     this.maskCookies = new Set(options.maskCookies ?? []);
+    // Additive: naming one extra header or parameter must never silently drop the built-in
+    // protections. Opting out is explicit, via `useDefaultMask*`.
     this.maskHeaders = new Set(
-      (options.maskHeaders ?? DEFAULT_MASK_HEADERS).map((h) => h.toLowerCase()),
+      [
+        ...(options.useDefaultMaskHeaders === false ? [] : DEFAULT_MASK_HEADERS),
+        ...(options.maskHeaders ?? []),
+      ].map((h) => h.toLowerCase()),
     );
+    this.maskQueryParams = buildMaskedQueryParams([
+      ...(options.useDefaultMaskQueryParams === false ? [] : DEFAULT_MASK_QUERY_PARAMS),
+      ...(options.maskQueryParams ?? []),
+    ]);
     this.emitDebugHeaders = options.emitDebugHeaders ?? true;
     this.ignoreRequest = options.ignoreRequest;
   }
@@ -129,9 +145,12 @@ export class ProfilerMiddleware implements NestMiddleware {
         type: HTTP_ENTRYPOINT_TYPE,
         data: {
           method: req.method,
-          url: req.originalUrl ?? req.url,
+          // Redacted here, at capture: the URL is persisted, rendered, exported by
+          // `/:token/data` and copied into the cURL command, so a credential that reaches
+          // the profile is readable everywhere the profile is.
+          url: redactQueryString(req.originalUrl ?? req.url, this.maskQueryParams),
           headers: normalizeIncomingHeaders(req.headers, this.maskHeaders),
-          query: req.query ?? {},
+          query: redactQueryRecord(req.query ?? {}, this.maskQueryParams),
           ip: req.ip,
           requestId,
           body: this.collectBody ? this.normalizeBody(req.body) : undefined,

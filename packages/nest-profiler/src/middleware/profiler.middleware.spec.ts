@@ -299,8 +299,31 @@ describe('ProfilerMiddleware', () => {
       expect(headers['x-custom']).toBe('keep-me');
     });
 
-    it('honours a custom maskHeaders list', async () => {
+    it('merges maskHeaders on top of the defaults instead of replacing them', async () => {
       ({ middleware, cls } = await createMiddleware({ maskHeaders: ['x-trace'] }));
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/p',
+          headers: { authorization: 'Bearer s', 'x-trace': 't-1', 'x-custom': 'keep-me' },
+          query: {},
+        },
+        cls,
+      );
+
+      const headers = reqData(profile)?.headers ?? {};
+      expect(headers['x-trace']).toBe('[REDACTED]');
+      // Naming one extra header must not drop the built-in protections.
+      expect(headers['authorization']).toBe('[REDACTED]');
+      expect(headers['x-custom']).toBe('keep-me');
+    });
+
+    it('drops the built-in header list only when useDefaultMaskHeaders is false', async () => {
+      ({ middleware, cls } = await createMiddleware({
+        maskHeaders: ['x-trace'],
+        useDefaultMaskHeaders: false,
+      }));
       const profile = await runMiddleware(
         middleware,
         {
@@ -313,9 +336,147 @@ describe('ProfilerMiddleware', () => {
       );
 
       const headers = reqData(profile)?.headers ?? {};
-      // Custom list replaces the default → authorization is no longer masked, x-trace is.
       expect(headers['x-trace']).toBe('[REDACTED]');
       expect(headers['authorization']).toBe('Bearer s');
+    });
+
+    it('masks sensitive query-parameter values in the captured url and query', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/reset?token=eyJhbGciOiJIUzI1NiJ9.abc.def&email=a@b.c',
+          originalUrl: '/reset?token=eyJhbGciOiJIUzI1NiJ9.abc.def&email=a@b.c',
+          headers: {},
+          query: { token: 'eyJhbGciOiJIUzI1NiJ9.abc.def', email: 'a@b.c' },
+        },
+        cls,
+      );
+
+      const data = reqData(profile);
+      // Names are kept, only values masked — the trace still says a token was carried.
+      expect(data?.url).toBe('/reset?token=%5BREDACTED%5D&email=a%40b.c');
+      expect(data?.query).toEqual({ token: '[REDACTED]', email: 'a@b.c' });
+    });
+
+    it('masks OAuth and signed-URL parameters, matching names case- and separator-insensitively', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/cb?code=4%2F0AY0e-g7&State=xyz&Access-Token=at-1&signature=8f14e45f&page=2',
+          headers: {},
+          query: {
+            code: '4/0AY0e-g7',
+            State: 'xyz',
+            'Access-Token': 'at-1',
+            signature: '8f14e45f',
+            page: '2',
+          },
+        },
+        cls,
+      );
+
+      const data = reqData(profile);
+      expect(data?.query).toEqual({
+        code: '[REDACTED]',
+        State: '[REDACTED]',
+        'Access-Token': '[REDACTED]',
+        signature: '[REDACTED]',
+        page: '2',
+      });
+      expect(data?.url).toContain('page=2');
+      expect(data?.url).not.toContain('4%2F0AY0e-g7');
+      expect(data?.url).not.toContain('at-1');
+    });
+
+    it('leaves a url with nothing to mask exactly as it arrived', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/users?sort=name&page=2',
+          headers: {},
+          query: { sort: 'name', page: '2' },
+        },
+        cls,
+      );
+
+      // Not re-serialised through URLSearchParams — a benign URL is stored verbatim.
+      expect(reqData(profile)?.url).toBe('/users?sort=name&page=2');
+    });
+
+    it('merges maskQueryParams on top of the defaults', async () => {
+      ({ middleware, cls } = await createMiddleware({ maskQueryParams: ['inviteRef'] }));
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/join?inviteRef=r-1&token=t-1&team=eleven',
+          headers: {},
+          query: { inviteRef: 'r-1', token: 't-1', team: 'eleven' },
+        },
+        cls,
+      );
+
+      expect(reqData(profile)?.query).toEqual({
+        inviteRef: '[REDACTED]',
+        token: '[REDACTED]',
+        team: 'eleven',
+      });
+    });
+
+    it('drops the built-in query list only when useDefaultMaskQueryParams is false', async () => {
+      ({ middleware, cls } = await createMiddleware({
+        maskQueryParams: ['inviteRef'],
+        useDefaultMaskQueryParams: false,
+      }));
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/join?inviteRef=r-1&token=t-1',
+          headers: {},
+          query: { inviteRef: 'r-1', token: 't-1' },
+        },
+        cls,
+      );
+
+      expect(reqData(profile)?.query).toEqual({ inviteRef: '[REDACTED]', token: 't-1' });
+    });
+
+    it('masks every value of a repeated sensitive parameter', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/p?token=a&token=b',
+          headers: {},
+          query: { token: ['a', 'b'] },
+        },
+        cls,
+      );
+
+      expect(reqData(profile)?.query).toEqual({ token: ['[REDACTED]', '[REDACTED]'] });
+      expect(reqData(profile)?.url).not.toMatch(/token=[ab]\b/);
+    });
+
+    it('sees the unredacted url in the ignoreRequest predicate', async () => {
+      const seen: string[] = [];
+      ({ middleware, cls } = await createMiddleware({
+        ignoreRequest: (req) => {
+          seen.push(req.url);
+          return false;
+        },
+      }));
+      await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/p?token=secret-1', headers: {}, query: { token: 'secret-1' } },
+        cls,
+      );
+
+      // The predicate decides what to profile, so it must see the real request.
+      expect(seen).toEqual(['/p?token=secret-1']);
     });
 
     it('skips profiling when sampleRate is 0', async () => {
