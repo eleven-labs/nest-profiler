@@ -118,7 +118,18 @@ export type {
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
+export { toExceptionEntry } from './analysis/to-exception-entry';
+export type {
+  CollectorModuleOptions,
+  TagSeverityOptions,
+} from './collectors/collector-module-options';
 export { tryResolve } from './utils/resolve.utils';
+export {
+  readProfile,
+  readToken,
+  readRequest,
+  setProfileContext,
+} from './services/profiler-context';
 export { monotonicNow, elapsedMs, markProfileStart, profileElapsedMs } from './utils/clock.utils';
 export {
   toSafeData,

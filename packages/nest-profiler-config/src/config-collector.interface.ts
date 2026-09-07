@@ -1,10 +1,9 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
+import type { CollectorModuleOptions } from '@eleven-labs/nest-profiler';
 
-export interface ConfigCollectorModuleOptions {
+export interface ConfigCollectorModuleOptions extends CollectorModuleOptions {
   maskKeys?: string[];
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
 }
 
 /** Async configuration for {@link ConfigCollectorModule.forRootAsync}. */

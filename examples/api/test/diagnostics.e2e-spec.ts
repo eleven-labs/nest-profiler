@@ -66,6 +66,11 @@ describe('Diagnostics endpoints (e2e)', () => {
         name: 'InternalServerErrorException',
         message: expect.stringContaining('simulated crash') as string,
       });
+      // The cause chain is what says why: the outer exception carries no diagnosis.
+      expect(profile.exceptions[0]?.cause).toMatchObject({
+        message: expect.stringContaining('ECONNREFUSED') as string,
+        code: 'ECONNREFUSED',
+      });
       expect((profile.tags ?? []).map((t) => t.id)).toContain('error');
     });
   });

@@ -3,8 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import type { DataSource, QueryRunner } from 'typeorm';
-import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type { QueryEntry } from './typeorm-collector.interface';
 import { detectQueryType } from './typeorm-collector.interface';
 import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
@@ -162,7 +161,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
         } finally {
           const duration = Date.now() - startedAt;
           try {
-            const profile = cls?.get<Profile | undefined>('profiler.profile');
+            const profile = readProfile(cls);
             if (profile) {
               const entry: QueryEntry = {
                 sql: query,
@@ -201,7 +200,7 @@ export class TypeOrmDriverPatch implements OnModuleInit {
           const query = String(args[0]);
           const parameters = Array.isArray(args[1]) ? args[1] : undefined;
           // Capture the profile synchronously, before awaiting, so we stay in the CLS context.
-          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const profile = readProfile(cls);
           const startedAt = Date.now();
           let recorded = false;
           const record = (error?: string): void => {

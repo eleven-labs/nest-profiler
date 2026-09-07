@@ -2,6 +2,8 @@ import { ArgumentsHost, Catch, Injectable, Optional } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { PROFILER_REQ_KEY } from '../constants';
+import { readProfile } from '../services/profiler-context';
+import { toExceptionEntry } from '../analysis/to-exception-entry';
 import type { Profile } from '../interfaces/profile.interface';
 
 /**
@@ -49,22 +51,13 @@ export class ProfilerExceptionFilter extends BaseExceptionFilter {
     // thrown by guards or anything running before it.
     if (!profile || profile.response) return;
 
-    const error = exception instanceof Error ? exception : new Error(String(exception));
-    profile.exceptions.push({
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      timestamp: Date.now(),
-    });
+    profile.exceptions.push(toExceptionEntry(exception));
   }
 
   private resolveProfile(host: ArgumentsHost): Profile | undefined {
-    try {
-      const fromCls = this.cls?.get<Profile | undefined>('profiler.profile');
-      if (fromCls) return fromCls;
-    } catch {
-      // Outside an active CLS context — fall back to the request-bound profile.
-    }
+    // Outside an active CLS context, fall back to the request-bound profile.
+    const fromCls = readProfile(this.cls);
+    if (fromCls) return fromCls;
     const req = host.switchToHttp().getRequest<Record<symbol, unknown> | undefined>();
     return req?.[PROFILER_REQ_KEY] as Profile | undefined;
   }

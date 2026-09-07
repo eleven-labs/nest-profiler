@@ -4,8 +4,7 @@ import { MikroORM } from '@mikro-orm/core';
 import type { LogContext, Logger, LoggerNamespace } from '@mikro-orm/core';
 import { getMikroORMToken } from '@mikro-orm/nestjs';
 import { ClsService } from 'nestjs-cls';
-import type { Profile } from '@eleven-labs/nest-profiler';
-import { appendCollectorEntry, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile, redact, tryResolve } from '@eleven-labs/nest-profiler';
 import type {
   QueryEntry,
   MikroOrmCollectorModuleOptions,
@@ -102,7 +101,7 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
       const sql = context.query;
       if (sql) {
         try {
-          const profile = cls?.get<Profile | undefined>('profiler.profile');
+          const profile = readProfile(cls);
           if (profile) {
             const duration = context.took ?? 0;
             const type = detectQueryType(sql);

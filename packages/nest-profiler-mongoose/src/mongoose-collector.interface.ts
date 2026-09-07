@@ -1,6 +1,11 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { ProfilerTag, SafeDataOptions, TagSeverity } from '@eleven-labs/nest-profiler';
+import type {
+  CollectorModuleOptions,
+  ProfilerTag,
+  SafeDataOptions,
+  TagSeverityOptions,
+} from '@eleven-labs/nest-profiler';
 
 export interface MongooseQueryEntry {
   collection: string;
@@ -48,7 +53,7 @@ export interface MongooseQueryEntry {
 
 export const MONGOOSE_QUERIES_KEY = '__mongoose_queries';
 
-export interface MongooseCollectorModuleOptions {
+export interface MongooseCollectorModuleOptions extends CollectorModuleOptions, TagSeverityOptions {
   /** Operations at or above this duration (ms) are tagged `slow`. Default: 100 */
   slowThreshold?: number;
   /**
@@ -59,16 +64,6 @@ export interface MongooseCollectorModuleOptions {
   nPlusOneThreshold?: number;
   /** A request running at least this many operations is tagged `chatty`. Default: 20 */
   chattyThreshold?: number;
-  /** Severity of the `slow` tag. Default: `warning`. */
-  slowSeverity?: TagSeverity;
-  /** Severity of the `n-plus-one` tag. Default: `danger`. */
-  nPlusOneSeverity?: TagSeverity;
-  /** Severity of the `chatty` tag. Default: `warning`. */
-  chattySeverity?: TagSeverity;
-  /** Severity of the `zero-rows` tag (a write affecting 0 documents). Default: `warning`. */
-  zeroRowsSeverity?: TagSeverity;
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
   /**
    * Capture the documents each operation resolved to, exposed as {@link MongooseQueryEntry.result}
    * in the MongoDB panel. Default: `false` — a result set carries the very data the query read, so

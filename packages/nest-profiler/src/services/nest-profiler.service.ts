@@ -1,6 +1,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from './profiler-core.service';
+import { readProfile, readToken } from './profiler-context';
 import { elapsedMs, monotonicNow } from '../utils/clock.utils';
 import type { Profile } from '../interfaces/profile.interface';
 
@@ -66,19 +67,11 @@ export class ProfilerService {
    * page at `/_profiler/:token`.
    */
   getCurrentToken(): string | undefined {
-    try {
-      return this.cls.get<string | undefined>('profiler.token');
-    } catch {
-      return undefined;
-    }
+    return readToken(this.cls);
   }
 
   private getProfile(): Profile | undefined {
-    try {
-      return this.cls.get<Profile | undefined>('profiler.profile');
-    } catch {
-      return undefined;
-    }
+    return readProfile(this.cls);
   }
 
   /**

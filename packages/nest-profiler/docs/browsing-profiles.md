@@ -132,6 +132,14 @@ GET /_profiler?http_page=2&graphql_page=3&http_status=200
 Page numbers are 1-based and clamped to the available range. Submitting a filter
 bar resets every section back to page 1, since the result set changed.
 
+## Exceptions and their causes
+
+The **Exceptions** tab shows every failure captured for a profile: the ones a route handler threw, the ones a guard or a pipe threw before the interceptor ran, and — for GraphQL — the errors returned inside a `200` envelope.
+
+Each exception also carries its **cause chain**. `throw new InternalServerErrorException('...', { cause: err })` is how a layered application reports a failure, and the cause is usually the half that says what went wrong: the outer exception is what the client is told, the `ECONNREFUSED` or `QueryFailedError` underneath is the diagnosis. The tab renders the chain under the exception, one `Caused by` block per level, each with its own message, code and stack.
+
+The chain is followed to a bounded depth and is cycle-safe, so a wrapped error cannot bloat a stored profile. A machine-readable `code` is captured whenever the error carries one — Node's `ENOENT`/`ECONNREFUSED`, a driver's own code, a GraphQL `extensions.code` — and it is what the `exception` list filter groups by, since a class name like `GraphQLError` discriminates nothing.
+
 ## Export a profile
 
 Every profile detail page has an **Export JSON** button. You can also download the raw profile directly:

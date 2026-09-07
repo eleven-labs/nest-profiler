@@ -1,6 +1,6 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { SecurityContext } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleOptions, SecurityContext } from '@eleven-labs/nest-profiler';
 
 /**
  * What the Security sidebar badge shows for an authenticated request.
@@ -12,7 +12,7 @@ import type { SecurityContext } from '@eleven-labs/nest-profiler';
  */
 export type AuthBadgeMode = 'status' | 'role' | 'identifier';
 
-export interface AuthCollectorModuleOptions {
+export interface AuthCollectorModuleOptions extends CollectorModuleOptions {
   maskUserFields?: string[];
   /**
    * Badge content for authenticated requests. Default: `'status'`.
@@ -25,8 +25,6 @@ export interface AuthCollectorModuleOptions {
    * requests always show `anon` and never reach this resolver.
    */
   badgeValue?: (security: SecurityContext) => string | null;
-  /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */
-  enabled?: boolean;
 }
 
 /** Async configuration for {@link AuthCollectorModule.forRootAsync}. */

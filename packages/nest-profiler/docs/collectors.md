@@ -39,6 +39,22 @@ A profile kind contributed by a package gets this for free as long as it marks i
 
 ![Performance tab with the duration, the process heap and the execution timeline of the recorded spans](../../../docs/public/screenshots/profiler/performance.png)
 
+## Reading the active profile
+
+Anything running inside a profiled execution — a custom collector, a patched client, your own code — reaches the active profile through the CLS store. Read it with the exported accessors rather than the store directly:
+
+```ts
+import { readProfile, readToken, readRequest } from '@eleven-labs/nest-profiler';
+
+const profile = readProfile(cls); // the Profile being collected into
+const token = readToken(cls); // its debug token
+const request = readRequest(cls); // the transport request (Express / Fastify)
+```
+
+Each returns `undefined` when nothing is being profiled — outside a request, during bootstrap, in a background job, or with the profiler disabled. That is an answer, not an error, so there is no `try`/`catch` to write: reading the store directly throws outside an active context. `cls` may itself be `undefined` (what `tryResolve` gives a collector when the core is disabled) and the accessors handle that too.
+
+A package driving its own entrypoint kind publishes the context with `setProfileContext(cls, profile, request?)` from inside its `cls.run()` callback; it derives the token from the profile, so the two cannot disagree.
+
 ## Custom collectors
 
 Annotate a provider with `@ProfilerCollector()` to automatically add a custom data panel to every profile. The collector is auto-discovered via NestJS `DiscoveryModule` — no manual registration required.

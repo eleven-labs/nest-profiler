@@ -9,11 +9,11 @@ import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import {
   PROFILER_REQ_KEY,
   PROFILER_BASE_PATH,
-  PROFILER_CLS_KEYS,
   PROFILER_DEFER_COLLECTION,
   PROFILER_RESPONSE_BODY,
 } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
+import { setProfileContext } from '../services/profiler-context';
 import type { ProfilerRequestFilter } from '../filters';
 import { markProfileStart, profileElapsedMs } from '../utils/clock.utils';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
@@ -177,9 +177,7 @@ export class ProfilerMiddleware implements NestMiddleware {
     (req as unknown as Record<symbol, unknown>)[PROFILER_REQ_KEY] = profile;
 
     this.cls.run(() => {
-      this.cls.set('profiler.token', token);
-      this.cls.set(PROFILER_CLS_KEYS.profile, profile);
-      this.cls.set(PROFILER_CLS_KEYS.request, req);
+      setProfileContext(this.cls, profile, req);
       if (this.emitDebugHeaders) {
         res.setHeader('X-Debug-Token', token);
         res.setHeader('X-Debug-Token-Link', `${this.profilerPath}/${token}`);

@@ -78,7 +78,7 @@ Create a service that patches `EventEmitter2.emit` to record events into the CLS
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
-import type { Profile } from '@eleven-labs/nest-profiler';
+import { readProfile } from '@eleven-labs/nest-profiler';
 import type { EventEntry } from './event.collector';
 import { EVENTS_KEY } from './event.collector';
 
@@ -95,21 +95,19 @@ export class EventPatchService implements OnModuleInit {
 
     this.emitter.emit = function (event: string | symbol, ...args: unknown[]): boolean {
       const result = originalEmit(event, ...args);
-      try {
-        const profile = cls.get<Profile | undefined>('profiler.profile');
-        if (profile) {
-          const entry: EventEntry = {
-            eventName: String(event),
-            listenerCount: emitter.listenerCount(event as string),
-            timestamp: Date.now(),
-          };
-          const existing = profile.collectors[EVENTS_KEY] as EventEntry[] | undefined;
-          const events: EventEntry[] = existing ?? [];
-          events.push(entry);
-          if (!existing) profile.collectors[EVENTS_KEY] = events;
-        }
-      } catch {
-        /* outside CLS */
+      // `readProfile` returns undefined outside a profiled execution — no key literal to get
+      // wrong, and no try/catch: "nothing is being profiled" is an answer, not an error.
+      const profile = readProfile(cls);
+      if (profile) {
+        const entry: EventEntry = {
+          eventName: String(event),
+          listenerCount: emitter.listenerCount(event as string),
+          timestamp: Date.now(),
+        };
+        const existing = profile.collectors[EVENTS_KEY] as EventEntry[] | undefined;
+        const events: EventEntry[] = existing ?? [];
+        events.push(entry);
+        if (!existing) profile.collectors[EVENTS_KEY] = events;
       }
       return result;
     };

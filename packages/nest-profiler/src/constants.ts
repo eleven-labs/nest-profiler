@@ -18,6 +18,8 @@ export const PROFILER_DEFER_COLLECTION = Symbol('nest_profiler_defer_collection'
 export const PROFILER_CLS_KEYS = {
   /** The active {@link Profile} for the current request/command context. */
   profile: 'profiler.profile',
+  /** The debug token of the active profile — what the dashboard and the toolbar address it by. */
+  token: 'profiler.token',
   /** The active transport request object (Express/Fastify) for the current context. */
   request: 'profiler.request',
 } as const;
