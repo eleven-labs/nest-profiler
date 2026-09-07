@@ -32,6 +32,8 @@ Every sidebar item carries a **count badge**: a list section shows its unfiltere
 
 The **process-heap trend** sits above the page title rather than inside a view: it is process-wide data, not the heap of whichever list happens to be open.
 
+Every list opens on the same two columns — **Time** then **Duration** — before the columns specific to its kind (the collector tables of a profile's detail page follow that same order), and the **row itself is the link**: clicking anywhere on it opens the profile (ctrl/cmd or middle click opens it in a new tab, `Enter` follows a focused row). The token is not a column: it identifies the profile in the URL, in the `X-Debug-Token` header and on the detail page, and repeating a truncated copy on every row only pushed the columns that discriminate one execution from another out of the way.
+
 ## Debug headers
 
 Every non-profiler request receives response headers:

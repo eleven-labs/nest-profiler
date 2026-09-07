@@ -56,16 +56,26 @@
     <table class="w-full">
       <thead>
         <tr class="bg-surface-muted border-b border-line">
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Duration</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-32">Operation</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-32">Collection</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Filter</th>
-          <th class="text-right py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-24">Duration</th>
-          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-line-subtle">
         <% for (const q of queries) { %>
           <tr class="hover:bg-surface-muted transition-colors <%= sevBgClass(rowSev(q)) %>">
+            <td class="py-2 px-4 text-foreground-secondary text-xs tabular-nums align-top whitespace-nowrap"><%= timeOnly(q.startedAt) %></td>
+            <td class="py-2 px-4 text-left align-top">
+              <% const slowTag = (q.tags || []).find(t => t.id === 'slow'); %>
+              <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
+              <% if (slowTag) { %>
+                <span class="block text-2xs opacity-70 <%= sevTextClass(slowTag.severity) %>">slow</span>
+              <% } else if (q.streaming && q.duration === 0) { %>
+                <span class="block text-2xs text-foreground-faint" title="Duration is not measured for this streaming read (cursor consumed via for-await / eachAsync).">not timed (stream)</span>
+              <% } %>
+            </td>
             <td class="py-2 px-4 whitespace-nowrap align-top">
               <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= opColors[q.operation] || 'badge-default' %>"><%= q.operation %></span>
               <% if (q.streaming) { %>
@@ -132,16 +142,6 @@
                 <div class="mt-1.5 flex flex-wrap gap-1"><%- tagBadges(q.tags) %></div>
               <% } %>
             </td>
-            <td class="py-2 px-4 text-right align-top">
-              <% const slowTag = (q.tags || []).find(t => t.id === 'slow'); %>
-              <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= q.duration %>ms</span>
-              <% if (slowTag) { %>
-                <span class="block text-2xs opacity-70 <%= sevTextClass(slowTag.severity) %>">slow</span>
-              <% } else if (q.streaming && q.duration === 0) { %>
-                <span class="block text-2xs text-foreground-faint" title="Duration is not measured for this streaming read (cursor consumed via for-await / eachAsync).">not timed (stream)</span>
-              <% } %>
-            </td>
-            <td class="py-2 px-4 text-foreground-faint text-2xs tabular-nums align-top whitespace-nowrap"><%= timeOnly(q.startedAt) %></td>
           </tr>
         <% } %>
       </tbody>

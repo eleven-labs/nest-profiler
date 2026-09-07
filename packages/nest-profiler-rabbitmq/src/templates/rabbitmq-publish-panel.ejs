@@ -69,8 +69,8 @@
               <span class="<%= sevTextClass('warning') %> text-2xs" title="The channel write buffer was full — the message is queued in the publisher.">buffered</span>
             <% } %>
             <% const slowTag = (m.tags || []).find(t => t.id === 'slow'); %>
-            <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= m.duration %>ms</span>
             <span class="text-foreground-faint text-xs tabular-nums"><%= timeOnly(m.startedAt) %></span>
+            <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= m.duration %>ms</span>
             <% if (m.publishSnippet) { %>
               <%- copyBtn(m.publishSnippet, 'Copy publish') %>
             <% } %>

@@ -2,19 +2,18 @@
   <table class="w-full min-w-[720px]">
     <thead>
       <tr class="bg-surface-muted border-b border-line">
-        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Token</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
         <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Exchange</th>
         <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Routing key</th>
         <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Handler</th>
         <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Redelivered</th>
-        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
-        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-line-subtle">
       <% if (profiles.length === 0) { %>
         <tr>
-          <td colspan="7" class="py-16 text-center">
+          <td colspan="6" class="py-16 text-center">
             <p class="text-foreground-muted text-sm mb-1">No messages found</p>
             <p class="text-foreground-faint text-xs">Consume a RabbitMQ message to start collecting data.</p>
           </td>
@@ -29,12 +28,14 @@
             : dur < 500  ? 'dur-medium'
             : 'dur-slow';
         %>
-        <tr class="hover:bg-surface-muted transition-colors">
-          <td class="py-2.5 px-4">
-            <a href="<%= link(profilerPath + '/' + p.token) %>"
-               class="text-nest hover:text-nest-light transition-colors font-mono font-medium text-xs">
-              <%= p.token.slice(0, 8) %>
-            </a>
+        <%# The row is the link — no cell owns it. `tabindex` makes it reachable by keyboard. %>
+        <tr data-row-href="<%= link(profilerPath + '/' + p.token) %>" tabindex="0"
+            class="group cursor-pointer hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nest transition-colors">
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap group-hover:text-nest transition-colors">
+            <%= isoDate(p.createdAt) %>
+          </td>
+          <td class="py-2.5 px-4 text-xs tabular-nums">
+            <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
           </td>
           <td class="py-2.5 px-4">
             <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= rmq.exchange || '(default)' %></span>
@@ -48,10 +49,6 @@
               <span class="text-foreground-faint text-xs">no</span>
             <% } %>
           </td>
-          <td class="py-2.5 px-4 text-xs tabular-nums">
-            <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
-          </td>
-          <td class="py-2.5 px-4 text-foreground-faint text-xs tabular-nums"><%= isoDate(p.createdAt) %></td>
         </tr>
       <% } %>
       <% } %>
