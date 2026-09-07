@@ -22,7 +22,7 @@
           label: 'Performance',
           icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
           // The total duration — what the former Timeline tab badged, now that this tab owns it.
-          badge: totalDuration !== undefined ? `${totalDuration}ms` : undefined,
+          badge: totalDuration !== undefined ? `${formatDuration(totalDuration)}ms` : undefined,
         },
         {
           name: 'logs',
@@ -194,7 +194,7 @@
               <div class="bg-surface-muted border border-line rounded-lg p-4">
                 <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-3">Duration</p>
                 <p class="<%= durClass %> text-2xl font-bold tabular-nums leading-none">
-                  <%= dur !== undefined ? dur : '—' %><% if (dur !== undefined) { %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span><% } %>
+                  <%= dur !== undefined ? formatDuration(dur) : '—' %><% if (dur !== undefined) { %><span class="text-sm font-normal text-foreground-faint ml-1">ms</span><% } %>
                 </p>
               </div>
               <div class="bg-surface-muted border border-line rounded-lg p-4">

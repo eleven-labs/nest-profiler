@@ -15,6 +15,7 @@ import {
 } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerRequestFilter } from '../filters';
+import { markProfileStart, profileElapsedMs } from '../utils/clock.utils';
 import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
 import {
   buildMaskedQueryParams,
@@ -135,12 +136,15 @@ export class ProfilerMiddleware implements NestMiddleware {
     // (`x-request-id: ../../evil`) and token collisions between concurrent requests sharing an
     // id. The header is kept only as a display-only correlation attribute.
     const token = crypto.randomUUID();
+    // One clock reading for the whole profile: `createdAt` and `startTime` name the same
+    // instant, and two separate calls let them disagree by a millisecond for no reason.
+    const startTime = Date.now();
     const rawRequestId = req.headers['x-request-id'];
     const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId;
 
     const profile: Profile<HttpRequestData> = {
       token,
-      createdAt: Date.now(),
+      createdAt: startTime,
       entrypoint: {
         type: HTTP_ENTRYPOINT_TYPE,
         data: {
@@ -159,13 +163,16 @@ export class ProfilerMiddleware implements NestMiddleware {
         },
       },
       performance: {
-        startTime: Date.now(),
+        startTime,
         heapUsed: process.memoryUsage().heapUsed,
       },
       logs: [],
       exceptions: [],
       collectors: {},
     };
+
+    // Durations are measured against this, not against `startTime` — see clock.utils.
+    markProfileStart(profile);
 
     (req as unknown as Record<symbol, unknown>)[PROFILER_REQ_KEY] = profile;
 
@@ -230,7 +237,7 @@ export class ProfilerMiddleware implements NestMiddleware {
         return;
       }
 
-      profile.performance.duration = Date.now() - profile.performance.startTime;
+      profile.performance.duration = profileElapsedMs(profile);
       profile.response = {
         statusCode: rawRes.statusCode ?? 200,
         headers: {},

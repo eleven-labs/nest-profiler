@@ -31,6 +31,29 @@ describe('Diagnostics endpoints (e2e)', () => {
       // can fire a hair early, occasionally yielding 59ms for the aggregate span.
       expect(total?.duration).toBeGreaterThanOrEqual(55);
     });
+
+    it('measures spans and the request on a monotonic clock, with sub-millisecond resolution', async () => {
+      const { profile } = await profileOf(app, 'get', '/api/v1/slow');
+
+      // Every span, and the request itself, is a non-negative fractional millisecond count.
+      for (const span of profile.spans ?? []) {
+        expect(span.duration).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(span.duration)).toBe(true);
+      }
+      expect(profile.performance.duration).toBeGreaterThanOrEqual(0);
+
+      // At least one measurement carries a fraction — proof the clock is not millisecond-floored.
+      // The serialize step is the sub-millisecond one; the request duration always has decimals.
+      const measured = [
+        profile.performance.duration ?? 0,
+        ...(profile.spans ?? []).map((s) => s.duration),
+      ];
+      expect(measured.some((value) => !Number.isInteger(value))).toBe(true);
+      // Rounded to microseconds rather than shipped as raw float noise.
+      for (const value of measured) {
+        expect(String(value).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(3);
+      }
+    });
   });
 
   describe('GET /crash', () => {

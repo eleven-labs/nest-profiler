@@ -75,6 +75,7 @@ export type {
   ExplainRunner,
 } from './collectors/sql/explain/explain.interface';
 export { interpolateSql } from './collectors/sql/interpolate-sql';
+export { formatDuration } from './views/duration';
 export { buildCurlCommand } from './views/copy/build-curl';
 export type { CurlInput } from './views/copy/build-curl';
 export { analyzeProfile } from './analysis/profiler-analyzer';
@@ -118,6 +119,7 @@ export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
 export { tryResolve } from './utils/resolve.utils';
+export { monotonicNow, elapsedMs, markProfileStart, profileElapsedMs } from './utils/clock.utils';
 export {
   toSafeData,
   safeStringify,

@@ -3,6 +3,7 @@ import { buildCurlCommand } from './copy/build-curl';
 import { interpolateSql } from '../collectors/sql/interpolate-sql';
 import { safeStringify } from '../utils/safe-data.utils';
 import { createDateHelpers } from './date-helpers';
+import { formatDuration } from './duration';
 
 const HOST_DATE_HELPERS = createDateHelpers();
 
@@ -187,6 +188,8 @@ export const HELPERS = {
   tagBadges: (tags: TagLike[] | undefined): string =>
     (tags ?? []).map((tag) => HELPERS.tagBadge(tag)).join(' '),
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
+  // Durations carry decimals — never print one raw. See `formatDuration`.
+  formatDuration,
   // Host-timezone defaults. `TemplateRendererService` overrides both with helpers bound to the
   // configured `timezone` before handing the locals to a template.
   isoDate: HOST_DATE_HELPERS.isoDate,

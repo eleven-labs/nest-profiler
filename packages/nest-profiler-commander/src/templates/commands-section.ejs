@@ -34,7 +34,7 @@
             <%= isoDate(p.createdAt) %>
           </td>
           <td class="py-2.5 px-4 text-xs tabular-nums">
-            <span class="<%= durClass %>"><%= dur !== undefined ? dur + 'ms' : '—' %></span>
+            <span class="<%= durClass %>"><%= dur !== undefined ? formatDuration(dur) + 'ms' : '—' %></span>
           </td>
           <td class="py-2.5 px-4">
             <div class="flex items-center gap-1.5">

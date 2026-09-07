@@ -72,6 +72,24 @@ describe('SqliteStorageAdapter', () => {
     await remote.close();
   });
 
+  // Durations are fractional milliseconds, and the summary column is declared `INTEGER`.
+  // SQLite's numeric affinity keeps a real that cannot be losslessly narrowed, so the value
+  // survives on existing databases as well as new ones — asserted rather than assumed, since a
+  // truncation here would silently undo the whole point of measuring sub-millisecond work.
+  it('round-trips a fractional duration through the summary column and its ordering', async () => {
+    await adapter.save(makeProfile('sub-ms', { duration: 0.42 }));
+    await adapter.save(makeProfile('few-ms', { duration: 1.618 }));
+
+    expect((await adapter.findOne('sub-ms'))?.performance.duration).toBe(0.42);
+
+    const { items } = await adapter.query({
+      filters: [{ field: 'duration', op: 'gte', value: 1 }],
+      page: 1,
+      pageSize: 10,
+    });
+    expect(items.map((p) => p.token)).toEqual(['few-ms']);
+  });
+
   it('persists profiles to a file across adapter instances', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-persist-'));
     const file = path.join(dir, 'nested', 'profiler.db'); // parent dir auto-created
