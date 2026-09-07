@@ -12,7 +12,11 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import { PROFILER_BASE_PATH, PROFILER_DEFER_COLLECTION } from '../constants';
+import {
+  PROFILER_BASE_PATH,
+  PROFILER_DEFER_COLLECTION,
+  PROFILER_RESPONSE_BODY,
+} from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { Profile } from '../interfaces/profile.interface';
@@ -25,6 +29,24 @@ function normalizeHeaders(
 ): Record<string, string | string[]> {
   return Object.fromEntries(
     Object.entries(raw).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v]),
+  );
+}
+
+/**
+ * True when the value a route handler emitted is the transport response object rather than a
+ * payload. This is the `@Res()` / `@Response()` pattern: `res.json(body)`, `res.send(body)`,
+ * `res.status(code)` and `res.header(...)` all evaluate to the response itself (Express) or to the
+ * reply (Fastify), so the handler returns the transport object and profiling it as the response
+ * body would dump the whole socket/request graph into the profile.
+ */
+function isPlatformResponse(value: unknown, res: PlatformResponse | null): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  if (res && (value === res || value === (res as unknown as { raw?: unknown }).raw)) return true;
+  const candidate = value as { end?: unknown; setHeader?: unknown; getHeaders?: unknown };
+  return (
+    typeof candidate.end === 'function' &&
+    typeof candidate.setHeader === 'function' &&
+    typeof candidate.getHeaders === 'function'
   );
 }
 
@@ -135,10 +157,13 @@ export class ProfilerInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       switchMap((body: unknown) => {
-        this.finalize(capturedProfile, res, body);
+        // What the handler emitted is not always what the client receives (`@Res()`), so the
+        // profile records the resolved payload while the stream keeps forwarding `body` untouched.
+        const responseBody = this.resolveResponseBody(capturedProfile, res, body);
+        this.finalize(capturedProfile, res, responseBody);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
-        this.core.enrichHttpResponse(capturedProfile, req, body);
+        this.core.enrichHttpResponse(capturedProfile, req, responseBody);
 
         // The toolbar embeds collector panels, so HTML responses are the only ones that
         // must wait for the collectors before being sent.
@@ -217,6 +242,22 @@ export class ProfilerInterceptor implements NestInterceptor {
         return throwError(() => err);
       }),
     );
+  }
+
+  /**
+   * Resolves the body actually sent to the client. When the handler emitted the transport response
+   * itself (`@Res()`), falls back to the body the middleware captured off `res.json()` /
+   * `res.send()`; when no such capture is available, the body is reported as absent rather than as
+   * the transport object.
+   */
+  private resolveResponseBody(
+    profile: Profile,
+    res: PlatformResponse | null,
+    body: unknown,
+  ): unknown {
+    if (!isPlatformResponse(body, res)) return body;
+    const getCapturedBody = (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY];
+    return typeof getCapturedBody === 'function' ? (getCapturedBody as () => unknown)() : undefined;
   }
 
   private finalize(profile: Profile, res: PlatformResponse | null, body: unknown): void {

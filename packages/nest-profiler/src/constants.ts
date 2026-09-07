@@ -27,3 +27,12 @@ export const PROFILER_BASE_PATH = '/_profiler';
 
 /** Default number of profiles shown per page in each dashboard list (see `listPageSize`). */
 export const DEFAULT_LIST_PAGE_SIZE = 25;
+
+/**
+ * Carries a getter for the body the transport actually wrote (`res.json()` / `res.send()` /
+ * buffered `res.write()` chunks), installed by the middleware so the interceptor can recover the
+ * real payload when the route handler emits something that is not one — the `@Res()` pattern, where
+ * `return res.json(payload)` evaluates to the response object itself. Internal, and a `Symbol` so
+ * it never serializes into a stored profile.
+ */
+export const PROFILER_RESPONSE_BODY = Symbol('nest_profiler_response_body');
