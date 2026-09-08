@@ -5,6 +5,7 @@ import type { Profile } from '../interfaces/profile.interface';
 
 const emptyProfile = {
   token: '',
+  traceId: 'trace-test',
   createdAt: 0,
   entrypoint: { type: 'http', data: {} },
   performance: { startTime: 0, heapUsed: 0 },

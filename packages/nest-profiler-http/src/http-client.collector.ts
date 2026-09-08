@@ -8,8 +8,11 @@ import type {
   TaggableCollector,
   TaggableEntry,
   TagSeverity,
+  RawSpan,
+  TraceContributor,
 } from '@eleven-labs/nest-profiler';
 import {
+  entriesToSpans,
   getCollectorEntries,
   maxTagSeverity,
   normalizeHttpFingerprint,
@@ -32,7 +35,9 @@ import type { HttpCollectorModuleOptions } from './http-collector.constants';
  */
 @Injectable()
 @ProfilerCollector({ name: 'http-client', label: 'HTTP Client', icon: HTTP_ICON, priority: 20 })
-export class HttpClientCollector implements IProfilerCollector, TaggableCollector {
+export class HttpClientCollector
+  implements IProfilerCollector, TaggableCollector, TraceContributor
+{
   readonly name = 'http-client';
   readonly label = 'HTTP Client';
   readonly icon = HTTP_ICON;
@@ -83,6 +88,25 @@ export class HttpClientCollector implements IProfilerCollector, TaggableCollecto
   /** The collected calls, for the performance-rule engine (post-`collect`). */
   getTaggableEntries(profile: Profile): HttpRequestEntry[] | undefined {
     return profile.collectors[this.name] as HttpRequestEntry[] | undefined;
+  }
+
+  /**
+   * Projects each captured call onto the unified trace, so an outgoing request appears as a bar
+   * under the code that issued it — next to the queries that ran alongside it, on one time axis.
+   *
+   * Error classification is the collector's own, not the trace's default: a 404 from an upstream
+   * is an answer for some applications and a failure for others, and that is exactly what the
+   * `error` option on this module already decides.
+   */
+  getTraceSpans(profile: Profile): RawSpan[] {
+    const isError = resolveEntryErrorClassifier(this.options.error);
+    return entriesToSpans(this.getTaggableEntries(profile), {
+      kind: 'http',
+      collector: this.name,
+      label: (entry) => `${entry.method} ${entry.url}`,
+      isError: (entry) => isError(entry),
+      meta: (entry) => (entry.statusCode !== undefined ? { status: entry.statusCode } : undefined),
+    });
   }
 
   /** Feeds the core performance-rule engine the thresholds configured on this module. */

@@ -14,7 +14,7 @@ In a busy console, the logs of concurrent requests interleave. The profiler stor
 
 ## Step 1 - Wrap the application logger
 
-In `main.ts`, wrap the logger with the standalone `createProfilerLogger()` and register it with `app.useLogger()`. It is DI-free — no `ProfilerService`, and a transparent pass-through when the profiler is off:
+In `main.ts`, wrap the logger with the standalone `createProfilerLogger()` and register it with `app.useLogger()`. It is DI-free — no `TracerService`, and a transparent pass-through when the profiler is off:
 
 ```ts title="main.ts"
 import { ConsoleLogger } from '@nestjs/common';
@@ -77,7 +77,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 app.useLogger(createProfilerLogger(app.get(PinoLogger)));
 ```
 
-For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too — still no `ProfilerService`. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
+For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too — still no `TracerService`. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
 
 ```ts title="posts.controller.ts"
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';

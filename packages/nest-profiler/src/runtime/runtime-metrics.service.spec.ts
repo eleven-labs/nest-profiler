@@ -10,6 +10,7 @@ function makeService(options: ProfilerModuleOptions = {}): RuntimeMetricsService
 function makeProfile(): Profile {
   return {
     token: 't',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: {} },
     performance: { startTime: Date.now(), heapUsed: 0 },

@@ -43,7 +43,7 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
       operationType: 'query',
       fieldName: 'products',
     });
-    expect((profile.spans ?? []).map((s) => s.phase)).toContain('db.products.findAll');
+    expect((profile.trace ?? []).map((s) => s.label)).toContain('db.products.findAll');
   });
 
   it('resolving Product.reviews (field resolver) captures SQL and MongoDB in one profile', async () => {
@@ -62,7 +62,7 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
     const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
 
     // SQL side: the catalog list query ran under the active ORM (root resolver).
-    expect((profile.spans ?? []).map((s) => s.phase)).toContain('db.products.findAll');
+    expect((profile.trace ?? []).map((s) => s.label)).toContain('db.products.findAll');
     expect(
       (profile.collectors[activeSqlOrm()] as unknown[] | undefined)?.length ?? 0,
     ).toBeGreaterThan(0);

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { ProfilerService, createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { TracerService, createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ArticleGateway } from '../domain/article-gateway.js';
 import type { Article, ForwardedArticle, NewArticle, TodoWithAssignee } from '../domain/article.js';
@@ -23,7 +23,7 @@ export class ArticleService {
   constructor(
     private readonly gateway: ArticleGateway,
     // Injected for the timeline spans below; log capture goes through the standalone createProfilerLogger.
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     @Optional()
     @InjectPinoLogger(ArticleService.name)
@@ -41,14 +41,15 @@ export class ArticleService {
     }
 
     this.logger?.info('Fetching articles from external API (MISS)');
-    const stopArticles = this.profiler.startSpan('http.articles');
-    const articles = await this.gateway.fetchArticles(5);
-    stopArticles();
+    const articles = await this.tracer.span('http.articles', () => this.gateway.fetchArticles(5));
 
     const authorIds = [...new Set(articles.map((a) => a.userId))];
-    const stopAuthors = this.profiler.startSpan('http.articles.authors');
-    const authors = await Promise.all(authorIds.map((id) => this.gateway.fetchAuthor(id)));
-    stopAuthors();
+    // The outgoing calls issued inside this span are recorded as its children, so the waterfall
+    // shows the fan-out under one bar instead of N calls flat against the request.
+    const authors = await this.tracer.span('http.articles.authors', (span) => {
+      span.setTag('authors', authorIds.length);
+      return Promise.all(authorIds.map((id) => this.gateway.fetchAuthor(id)));
+    });
 
     const authorMap = new Map(authors.map((author) => [author.id, author]));
     this.logger?.info(
@@ -94,10 +95,7 @@ export class ArticleService {
   /** Forward an article to the external API via the selected HTTP client. */
   async forwardArticle(dto: NewArticle): Promise<ForwardedArticle> {
     this.logger?.info(`Forwarding article to external API: ${dto.title}`);
-    const stop = this.profiler.startSpan('http.articles.forward');
-    const result = await this.gateway.forwardArticle(dto);
-    stop();
-    return result;
+    return this.tracer.span('http.articles.forward', () => this.gateway.forwardArticle(dto));
   }
 
   /** Fetch a todo with its assignee — two concurrent calls, cached. */
@@ -110,12 +108,9 @@ export class ArticleService {
     }
 
     this.logger?.info(`Fetching todo #${id} and assignee in parallel (MISS)`);
-    const stop = this.profiler.startSpan('http.todo');
-    const [todo, assignee] = await Promise.all([
-      this.gateway.fetchTodo(id),
-      this.gateway.fetchAuthor(id),
-    ]);
-    stop();
+    const [todo, assignee] = await this.tracer.span('http.todo', () =>
+      Promise.all([this.gateway.fetchTodo(id), this.gateway.fetchAuthor(id)]),
+    );
 
     const enriched: TodoWithAssignee = {
       ...todo,
@@ -133,9 +128,9 @@ export class ArticleService {
 
   /** Fetch articles and cache them under a given key — used by the `content:sync` CLI command. */
   async syncArticles(limit: number, cacheKey: string): Promise<number> {
-    const stop = this.profiler.startSpan('cli.content-sync.fetch');
-    const articles = await this.gateway.fetchArticles(limit);
-    stop();
+    const articles = await this.tracer.span('cli.content-sync.fetch', () =>
+      this.gateway.fetchArticles(limit),
+    );
     await this.cache.set(cacheKey, articles, 60000);
     return articles.length;
   }

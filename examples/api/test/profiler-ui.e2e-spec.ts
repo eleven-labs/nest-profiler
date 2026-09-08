@@ -221,8 +221,12 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
 
   describe('empty list view', () => {
     it('renders an empty-state row when a section has no profiles', async () => {
-      // No CLI command runs in this HTTP suite, so the Commands view shows the empty state.
-      const res = await request(server(app)).get('/_profiler').query({ view: 'command' });
+      // Emptied with a search term nothing can match, rather than by assuming the Commands view is
+      // empty: storage is shared across this run, so whether a CLI command has already been
+      // profiled depends on the order jest happens to pick for the spec files.
+      const res = await request(server(app))
+        .get('/_profiler')
+        .query({ view: 'command', search: 'zzz-no-such-command-zzz' });
       expect(res.status).toBe(200);
       expect(res.text).toContain('No commands found');
     });

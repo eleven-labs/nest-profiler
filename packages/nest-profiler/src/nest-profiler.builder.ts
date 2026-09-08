@@ -347,6 +347,35 @@ export interface ProfilerModuleOptions {
   alwaysProfile?: ProfilerForceProfileFilter;
 
   /**
+   * Header the inbound **trace id** is adopted from, case-insensitive. Default: `'x-request-id'`.
+   *
+   * The trace id is the profile's *correlation* identity: printed into your application's log
+   * lines when {@link attachTraceIdToLogs} is on, readable in the dashboard, and — unlike the
+   * storage token — allowed to come from the caller, so an upstream service and this one file the
+   * same request under the same id. Point it at `x-correlation-id`, `x-amzn-trace-id` or whatever
+   * your edge already sets.
+   *
+   * An inbound value is adopted only if it is short and made of URL-safe characters; anything else
+   * is silently replaced by a generated UUID. It reaches log lines, the UI and outgoing headers, so
+   * it is treated as the untrusted input it is.
+   *
+   * Extracting an id out of a composite format (a W3C `traceparent`) is deliberately not built in:
+   * parsing a format the profiler does not propagate end to end would suggest an interoperability
+   * it does not provide. Point this at the header, or normalize it at your edge.
+   */
+  traceIdHeader?: string;
+
+  /**
+   * Prefix the application's own log output with the current trace id, so a line scrolling in a
+   * terminal — or landing in an aggregator — leads back to the profile that produced it. Applies
+   * to loggers wrapped with `createProfilerLogger`. Default: `true`.
+   *
+   * This is what makes the trace id worth having: the profiler's own UI already knows which lines
+   * belong to which profile, but nothing outside it does.
+   */
+  attachTraceIdToLogs?: boolean;
+
+  /**
    * Trace **why** a request was or wasn't profiled — the profiler route itself, `ignoreRequest`,
    * `ignorePaths`, or the `sampleRate` roll — via `Logger.debug`. Off by default; turn it on when
    * a request unexpectedly does not show up in the dashboard. Default: `false`.

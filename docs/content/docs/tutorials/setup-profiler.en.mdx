@@ -42,7 +42,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 export class AppModule {}
 ```
 
-> If a service injects `ProfilerService` directly (custom `startSpan`, events…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so it still resolves when off. Log capture never needs it. See [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+> If a service injects `TracerService` directly (`span()`, `captureError()`, attributes…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so it still resolves when off. Log capture never needs it. See [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Step 3 - Enable log capture
 
@@ -57,7 +57,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // createProfilerLogger is DI-free — no ProfilerService, and a pass-through when the profiler is off.
+  // createProfilerLogger is DI-free — no TracerService, and a pass-through when the profiler is off.
   app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
 
   await app.listen(3000);
@@ -131,7 +131,7 @@ ConditionalModule.registerWhen(
 ```
 
 Log capture keeps working when off because `createProfilerLogger` is DI-free. Only if a service
-injects `ProfilerService` directly do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`
+injects `TracerService` directly do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`
 gated on `(env) => !isProfilerEnabled(env)` — it supplies a zero-dependency no-op so the injection
 still resolves (every method a no-op; no controller, interceptor, middleware, storage or collector).
 

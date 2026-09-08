@@ -22,7 +22,7 @@ async function bootstrap() {
   const isPinoLoggerEnabled = configService.getOrThrow<boolean>('features.pinoLogger');
 
   // Wrap the chosen logger so all log calls are captured into the active profile. createProfilerLogger
-  // is DI-free (it reads the active profile from CLS), so this needs no ProfilerService and works
+  // is DI-free (it reads the active profile from CLS), so this needs no TracerService and works
   // whether the profiler is enabled or not.
   const baseLogger: LoggerService = isPinoLoggerEnabled
     ? app.get(PinoLogger)

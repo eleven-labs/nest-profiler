@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
 import { ProfilerCollector } from '@eleven-labs/nest-profiler';
-import type { IProfilerCollector, Profile } from '@eleven-labs/nest-profiler';
-import { getCollectorEntries } from '@eleven-labs/nest-profiler';
+import type {
+  IProfilerCollector,
+  Profile,
+  RawSpan,
+  TraceContributor,
+} from '@eleven-labs/nest-profiler';
+import { entriesToSpans, getCollectorEntries } from '@eleven-labs/nest-profiler';
 import type { CacheOperationEntry } from './cache-collector.interface';
 import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
 
@@ -10,7 +15,7 @@ const CACHE_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="
 
 @Injectable()
 @ProfilerCollector({ name: 'cache', label: 'Cache', icon: CACHE_ICON, priority: 30 })
-export class CacheCollector implements IProfilerCollector {
+export class CacheCollector implements IProfilerCollector, TraceContributor {
   readonly name = 'cache';
   readonly label = 'Cache';
   readonly icon = CACHE_ICON;
@@ -35,5 +40,21 @@ export class CacheCollector implements IProfilerCollector {
     const ops = getCollectorEntries<CacheOperationEntry>(profile, CACHE_OPERATIONS_KEY);
     delete profile.collectors[CACHE_OPERATIONS_KEY];
     return ops;
+  }
+
+  /**
+   * Projects each cache operation onto the unified trace.
+   *
+   * Worth a bar of its own even though cache calls are fast: a miss is what *explains* the query
+   * or the outgoing call drawn right after it, and seeing the two next to each other on one axis
+   * is the whole point of merging them.
+   */
+  getTraceSpans(profile: Profile): RawSpan[] {
+    return entriesToSpans(profile.collectors[this.name] as CacheOperationEntry[] | undefined, {
+      kind: 'cache',
+      collector: this.name,
+      label: (entry) => `${entry.operation} ${entry.key}`,
+      meta: (entry) => ({ operation: entry.operation }),
+    });
   }
 }

@@ -53,6 +53,35 @@ export function readRequest<TRequest = unknown>(cls: ClsService | undefined): TR
 }
 
 /**
+ * Id of the {@link TraceSpan} currently open, or `undefined` outside any span.
+ *
+ * This is the read side of the mechanism that makes trace nesting exact: `TracerService.span()`
+ * writes the id for the duration of its scope, and every instrumentation that builds an entry
+ * while it is set reports it as the entry's parent. A producer and its parent therefore agree by
+ * construction, instead of `buildTrace` having to guess the relation back from overlapping time
+ * windows — which is wrong as soon as two operations run concurrently.
+ */
+export function readActiveSpanId(cls: ClsService | undefined): string | undefined {
+  return read<string>(cls, PROFILER_CLS_KEYS.activeSpanId);
+}
+
+/** The correlation id of the active profile, or `undefined` outside a profiled execution. */
+export function readTraceId(cls: ClsService | undefined): string | undefined {
+  return read<string>(cls, PROFILER_CLS_KEYS.traceId);
+}
+
+/**
+ * Marks a span as the active one for the remainder of the current CLS scope.
+ *
+ * Must be called *inside* a `cls.run({ ifNested: 'inherit' })` opened for the span — writing it
+ * into the caller's own scope would leak the span past its own end and reparent everything that
+ * follows under work that has finished.
+ */
+export function setActiveSpanId(cls: ClsService, spanId: string): void {
+  cls.set(PROFILER_CLS_KEYS.activeSpanId, spanId);
+}
+
+/**
  * Publishes a profile and its token into the current CLS store, so anything running downstream —
  * the profiler logger, `ProfilerService`, every collector — resolves them.
  *
@@ -62,5 +91,6 @@ export function readRequest<TRequest = unknown>(cls: ClsService | undefined): TR
 export function setProfileContext(cls: ClsService, profile: Profile, request?: unknown): void {
   cls.set(PROFILER_CLS_KEYS.profile, profile);
   cls.set(PROFILER_CLS_KEYS.token, profile.token);
+  cls.set(PROFILER_CLS_KEYS.traceId, profile.traceId);
   if (request !== undefined) cls.set(PROFILER_CLS_KEYS.request, request);
 }

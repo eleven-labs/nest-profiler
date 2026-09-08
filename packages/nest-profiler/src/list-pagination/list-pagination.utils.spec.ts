@@ -4,6 +4,7 @@ import type { Profile } from '../interfaces/profile.interface';
 const profiles = (n: number): Profile[] =>
   Array.from({ length: n }, (_, i) => ({
     token: `tok-${i}`,
+    traceId: 'trace-test',
     createdAt: i,
     entrypoint: { type: 'http', data: {} },
     performance: { startTime: 0, heapUsed: 0 },

@@ -28,6 +28,7 @@ import {
 import { redactQueryRecord, redactQueryString } from '../utils/redact-query.util';
 import { extractHeaders } from '../utils/redact-headers.util';
 import { redact } from '../utils/redact.utils';
+import { DEFAULT_TRACE_ID_HEADER, resolveTraceId } from '../trace/trace-id';
 import type { SummaryPrimitive } from '../storage/profile-summary';
 
 /**
@@ -77,6 +78,8 @@ export class ProfilerMiddleware implements NestMiddleware {
   private readonly debug: boolean;
   private readonly attributesFn:
     ((req: ProfilerFilterRequest) => Record<string, SummaryPrimitive>) | undefined;
+  /** Lower-cased header the inbound trace id is adopted from. */
+  private readonly traceIdHeader: string;
 
   constructor(
     private readonly cls: ClsService,
@@ -97,6 +100,7 @@ export class ProfilerMiddleware implements NestMiddleware {
     this.alwaysProfile = options.alwaysProfile;
     this.debug = options.debug ?? false;
     this.attributesFn = typeof options.attributes === 'function' ? options.attributes : undefined;
+    this.traceIdHeader = (options.traceIdHeader ?? DEFAULT_TRACE_ID_HEADER).toLowerCase();
   }
 
   use(req: PlatformRequest, res: PlatformResponse, next: NextFunction): void {
@@ -113,11 +117,14 @@ export class ProfilerMiddleware implements NestMiddleware {
     // One clock reading for the whole profile: `createdAt` and `startTime` name the same
     // instant, and two separate calls let them disagree by a millisecond for no reason.
     const startTime = Date.now();
-    const rawRequestId = req.headers['x-request-id'];
-    const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId;
+    // Correlation id, kept strictly apart from the token above: it *is* allowed to come from the
+    // caller, so it is validated rather than trusted (see `resolveTraceId`), and it never
+    // addresses storage.
+    const traceId = resolveTraceId(req.headers[this.traceIdHeader]);
 
     const profile: Profile<HttpRequestData> = {
       token,
+      traceId,
       createdAt: startTime,
       entrypoint: {
         type: HTTP_ENTRYPOINT_TYPE,
@@ -138,7 +145,6 @@ export class ProfilerMiddleware implements NestMiddleware {
             this.capture.redaction.replacement,
           ),
           ip: req.ip,
-          requestId,
           body: this.capture.collectBody ? captureBody(req.body, this.capture) : undefined,
           cookies: this.buildCookieMap(req),
           session: this.buildSessionData(req),

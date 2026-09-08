@@ -14,6 +14,7 @@ class TestSqlCollector extends AbstractSqlQueryCollector {
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -101,5 +102,49 @@ describe('detectQueryType', () => {
 
   it('trims leading whitespace and is case-insensitive', () => {
     expect(detectQueryType('   select 1')).toBe('SELECT');
+  });
+
+  describe('getTraceSpans', () => {
+    it('labels a bar with the statement and carries what the panel does not show at a glance', () => {
+      const collector = new TestSqlCollector();
+      const profile = makeProfile({
+        collectors: {
+          [collector.name]: [
+            {
+              sql: 'SELECT * FROM users WHERE id = ?',
+              type: 'SELECT',
+              duration: 8,
+              startedAt: 1000,
+              rowCount: 1,
+              database: 'app',
+              parentSpanId: 's4',
+            },
+          ],
+        },
+      });
+
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'db',
+          label: 'SELECT * FROM users WHERE id = ?',
+          startedAt: 1000,
+          duration: 8,
+          parentId: 's4',
+          meta: { type: 'SELECT', rows: 1, database: 'app' },
+          source: { collector: collector.name, index: 0, tab: collector.name },
+        },
+      ]);
+    });
+
+    it('omits row count and database when the driver did not report them', () => {
+      const collector = new TestSqlCollector();
+      const profile = makeProfile({
+        collectors: {
+          [collector.name]: [{ sql: 'BEGIN', type: 'OTHER', duration: 0, startedAt: 1 }],
+        },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.meta).toEqual({ type: 'OTHER' });
+    });
   });
 });

@@ -15,8 +15,7 @@ import {
 } from './nest-profiler.builder';
 import type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
 import { ProfilerStorageService } from './services/profiler-storage.service';
-import { ProfilerService } from './services/nest-profiler.service';
-import { NoopProfilerService } from './services/noop-profiler.service';
+import { TracerService } from './services/tracer.service';
 import { ProfilerMiddleware } from './middleware/profiler.middleware';
 import { ProfilerInterceptor } from './interceptors/profiler.interceptor';
 import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
@@ -75,7 +74,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
 
   /**
    * Registers the active layer, or an inert no-op layer when `enabled` is false.
-   * Either way {@link ProfilerService} stays injectable.
+   * Either way {@link TracerService} stays injectable.
    */
   private static build(
     base: DynamicModule,
@@ -85,16 +84,15 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
     const global = options.isGlobal ?? false;
 
     if (!enabled) {
-      // Inert layer: a no-op ProfilerService with no dependencies — no ClsModule,
-      // and the async options factory never runs, so the disabled path costs nothing.
+      // Inert layer: `TracerService` with none of its optional dependencies provided. Both are
+      // `@Optional()`, so it resolves on its own — no `ClsModule`, no core, no storage — and every
+      // method is already the documented no-op. The async options factory never runs either, so
+      // the disabled path costs one object allocation.
       return {
         module: ProfilerModule,
         global,
-        providers: [
-          { provide: PROFILER_ENABLED, useValue: false },
-          { provide: ProfilerService, useClass: NoopProfilerService },
-        ],
-        exports: [ProfilerService],
+        providers: [{ provide: PROFILER_ENABLED, useValue: false }, TracerService],
+        exports: [TracerService],
       };
     }
 
@@ -138,7 +136,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
           },
         },
         ProfilerStorageService,
-        ProfilerService,
+        TracerService,
         ProfilerMiddleware,
         ProfilerGuard,
         CollectorRegistry,
@@ -155,7 +153,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         { provide: APP_FILTER, useExisting: ProfilerExceptionFilter },
       ],
       exports: [
-        ProfilerService,
+        TracerService,
         ProfilerStorageService,
         CollectorRegistry,
         ExplainRunnerRegistry,

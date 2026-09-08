@@ -15,6 +15,7 @@ import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-
 function makeProfile(): Profile {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'POST', url: '/graphql', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -368,6 +369,41 @@ describe('ProfilerCoreService', () => {
       await core.flushPendingProfiles();
 
       expect(collectAll).toHaveBeenCalledWith(profile);
+      expect(save).toHaveBeenCalledWith(profile);
+    });
+
+    it('assembles the trace on the way to storage, whichever path persisted the profile', async () => {
+      // Regression: the CLI path called `collectAll` + `save` by hand and therefore stored a
+      // profile with no trace at all — no waterfall for any command. Both paths now funnel
+      // through `persist`, so a step added to one can no longer be missing from the other.
+      const scheduled = makeProfile();
+      core.schedulePersist(scheduled);
+      await core.flushPendingProfiles();
+      expect(scheduled.trace?.[0]).toMatchObject({ kind: 'entrypoint' });
+
+      const awaited = makeProfile();
+      await core.persist(awaited);
+      expect(awaited.trace?.[0]).toMatchObject({ kind: 'entrypoint' });
+    });
+
+    it('persist awaits the whole pipeline, for a process that exits with its entrypoint', async () => {
+      // A CLI command cannot defer: the process leaves as soon as it returns.
+      const profile = makeProfile();
+      let resolveCollect: () => void = () => undefined;
+      collectAll.mockReturnValue(
+        new Promise<void>((resolve) => {
+          resolveCollect = resolve;
+        }),
+      );
+
+      let settled = false;
+      const pending = core.persist(profile).then(() => (settled = true));
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      expect(save).not.toHaveBeenCalled();
+
+      resolveCollect();
+      await pending;
       expect(save).toHaveBeenCalledWith(profile);
     });
 

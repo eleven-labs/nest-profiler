@@ -17,6 +17,7 @@ import type { Profile } from '@eleven-labs/nest-profiler';
 function makeProfile(): Profile {
   return {
     token: 'it-token',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },

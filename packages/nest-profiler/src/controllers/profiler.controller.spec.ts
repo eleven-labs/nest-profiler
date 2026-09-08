@@ -17,6 +17,7 @@ function mockReq(overrides: Partial<PlatformRequest> = {}): PlatformRequest {
 function makeProfile(token = 'tok-123456789', createdAt = Date.now()): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt,
     entrypoint: { type: 'tabless', data: {} },
     performance: { startTime: 0, heapUsed: 0 },

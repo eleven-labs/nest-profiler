@@ -32,6 +32,7 @@ function createCore(crossProcess = true): {
   collectAll: jest.Mock;
   registerEntrypointType: jest.Mock;
   schedulePersist: jest.Mock;
+  persist: jest.Mock;
   saved: () => Profile<CommandInfo>;
 } {
   let savedProfile: Profile<CommandInfo> | undefined;
@@ -45,11 +46,18 @@ function createCore(crossProcess = true): {
   const schedulePersist = jest.fn((profile: Profile<CommandInfo>) => {
     savedProfile = profile;
   });
+  // The awaitable pipeline the command path uses: collectors, then the save. It stands in for the
+  // real one, which also runs the tagging engine and assembles the trace between the two.
+  const persist = jest.fn(async (profile: Profile<CommandInfo>) => {
+    await collectAll();
+    await save(profile);
+  });
   const core = {
     storage: { save, crossProcess },
     collectorRegistry: { collectAll },
     registerEntrypointType,
     schedulePersist,
+    persist,
   } as unknown as ProfilerCoreService;
   return {
     core,
@@ -57,6 +65,7 @@ function createCore(crossProcess = true): {
     collectAll,
     registerEntrypointType,
     schedulePersist,
+    persist,
     saved: () => savedProfile as Profile<CommandInfo>,
   };
 }

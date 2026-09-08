@@ -12,8 +12,16 @@ export type { PlatformRequest, PlatformResponse } from './types/http';
 export { ProfilerNoopModule } from './nest-profiler-noop.module';
 export { buildCollectorModule } from './collector-module.builder';
 export type { CollectorModuleShape } from './collector-module.builder';
-export { ProfilerService } from './services/nest-profiler.service';
-export { NoopProfilerService } from './services/noop-profiler.service';
+export { TracerService } from './services/tracer.service';
+export { TraceSpanDelegate } from './trace/trace-span.delegate';
+export type { SpanOutcome } from './trace/trace-span.delegate';
+export { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './trace/build-trace';
+export { DEFAULT_TRACE_ID_HEADER, isAdoptableTraceId, resolveTraceId } from './trace/trace-id';
+export type { RawSpan, TraceContributor } from './trace/build-trace';
+export { Span } from './trace/span.decorator';
+export { runInSpan } from './trace/run-in-span';
+export { entriesToSpans } from './trace/entries-to-spans';
+export type { EntrySpanOptions } from './trace/entries-to-spans';
 export {
   createProfilerLogger,
   DEFAULT_LOG_METHODS,
@@ -127,7 +135,9 @@ export { tryResolve } from './utils/resolve.utils';
 export {
   readProfile,
   readToken,
+  readTraceId,
   readRequest,
+  readActiveSpanId,
   setProfileContext,
 } from './services/profiler-context';
 export { monotonicNow, elapsedMs } from './utils/clock.utils';
@@ -204,7 +214,10 @@ export type {
   PerformanceData,
   LogLevel,
   RouteInfo,
-  TimelineSpan,
+  TraceSpan,
+  TraceSpanKind,
+  TraceSpanLane,
+  TraceSpanStatus,
   SecurityContext,
   GraphQLInfo,
 } from './interfaces/profile.interface';

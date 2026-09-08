@@ -13,12 +13,12 @@ describe('Diagnostics endpoints (e2e)', () => {
   });
 
   describe('GET /slow', () => {
-    it('captures the manual timeline spans', async () => {
+    it('captures the manual spans and nests them under the one that opened them', async () => {
       const { res, profile } = await profileOf(app, 'get', '/api/v1/slow');
 
       expect(res.status).toBe(200);
-      const phases = (profile.spans ?? []).map((s) => s.phase);
-      expect(phases).toEqual(
+      const labels = (profile.trace ?? []).map((s) => s.label);
+      expect(labels).toEqual(
         expect.arrayContaining([
           'slow.total',
           'slow.step.fetch',
@@ -26,10 +26,18 @@ describe('Diagnostics endpoints (e2e)', () => {
           'slow.step.serialize',
         ]),
       );
-      const total = profile.spans?.find((s) => s.phase === 'slow.total');
+
+      const total = profile.trace?.find((s) => s.label === 'slow.total');
       // 30 + 20 + 10ms of simulated work; allow a small tolerance since setTimeout
       // can fire a hair early, occasionally yielding 59ms for the aggregate span.
       expect(total?.duration).toBeGreaterThanOrEqual(55);
+      expect(total?.meta).toMatchObject({ steps: 3 });
+
+      // The point of the span stack: the three steps report `slow.total` as their parent because
+      // they opened while it was active — no timing heuristic involved.
+      const steps = (profile.trace ?? []).filter((s) => s.label.startsWith('slow.step.'));
+      expect(steps).toHaveLength(3);
+      expect(steps.map((s) => s.parentId)).toEqual([total!.id, total!.id, total!.id]);
     });
 
     it('records the CPU, memory and event-loop cost of the request', async () => {
@@ -62,7 +70,7 @@ describe('Diagnostics endpoints (e2e)', () => {
       const { profile } = await profileOf(app, 'get', '/api/v1/slow');
 
       // Every span, and the request itself, is a non-negative fractional millisecond count.
-      for (const span of profile.spans ?? []) {
+      for (const span of profile.trace ?? []) {
         expect(span.duration).toBeGreaterThanOrEqual(0);
         expect(Number.isFinite(span.duration)).toBe(true);
       }
@@ -72,7 +80,7 @@ describe('Diagnostics endpoints (e2e)', () => {
       // The serialize step is the sub-millisecond one; the request duration always has decimals.
       const measured = [
         profile.performance.duration ?? 0,
-        ...(profile.spans ?? []).map((s) => s.duration),
+        ...(profile.trace ?? []).map((s) => s.duration),
       ];
       expect(measured.some((value) => !Number.isInteger(value))).toBe(true);
       // Rounded to microseconds rather than shipped as raw float noise.

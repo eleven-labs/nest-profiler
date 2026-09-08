@@ -35,8 +35,19 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     // The other ORM's collector must not be registered in this run.
     expect(profile.collectors[inactiveSqlOrm()]).toBeUndefined();
 
-    const phases = (profile.spans ?? []).map((s) => s.phase);
-    expect(phases).toContain('db.products.findAll');
+    const trace = profile.trace ?? [];
+    const span = trace.find((s) => s.label === 'db.products.findAll');
+    expect(span).toBeDefined();
+
+    // The point of the whole chain: the SQL the ORM issued inside that span is drawn *under* it.
+    // Nothing links them explicitly — the driver patch never saw the span, and the span never saw
+    // the query; the async context is what connected the two at capture time.
+    const queries = trace.filter((s) => s.kind === 'db');
+    expect(queries.length).toBeGreaterThanOrEqual(1);
+    expect(queries.every((q) => q.parentId === span!.id)).toBe(true);
+
+    // And each bar links back to the row holding its full statement.
+    expect(queries[0]!.source).toMatchObject({ tab: 'database' });
   });
 
   it('GET /products/export streams every row into a CSV and records the streaming read', async () => {

@@ -18,7 +18,7 @@ import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
 import type { ProfilerSecurityOptions } from '../nest-profiler.builder';
 import type { PlatformRequest } from '../types/http';
-import { ProfilerService } from '../services/nest-profiler.service';
+import { TracerService } from '../services/tracer.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { ProfilerCollector } from '../collectors/collector.decorator';
@@ -176,7 +176,7 @@ describe('ProfilerController (e2e)', () => {
       throw new Error('expected the x-debug-token header to be set');
     }
     // Persistence is deferred off the response path — drain it before asserting.
-    await app.get(ProfilerService).flush();
+    await app.get(TracerService).flush();
     return token;
   }
 
@@ -282,6 +282,7 @@ describe('ProfilerController (e2e)', () => {
         tokens.push(token);
         await storage.save({
           token,
+          traceId: `trace-${i}`,
           createdAt: Date.now() + i,
           entrypoint: {
             type: 'http',
@@ -355,6 +356,7 @@ describe('ProfilerController (e2e)', () => {
       const payload = '<script>alert(1)</script>';
       await storage.save({
         token,
+        traceId: 'trace-test',
         createdAt: Date.now(),
         entrypoint: {
           type: 'http',
@@ -417,6 +419,7 @@ describe('ProfilerController (e2e)', () => {
       const storage = app.get(ProfilerStorageService);
       await storage.save({
         token: cmdToken,
+        traceId: 'trace-test',
         createdAt: Date.now(),
         entrypoint: {
           type: 'command',
@@ -473,6 +476,7 @@ describe('ProfilerController (e2e)', () => {
       const storage = app.get(ProfilerStorageService);
       await storage.save({
         token: logToken,
+        traceId: 'trace-test',
         createdAt: Date.now(),
         entrypoint: {
           type: 'http',

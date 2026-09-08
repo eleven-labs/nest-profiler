@@ -15,6 +15,7 @@ function moduleRefFor(cls: ClsService | undefined): ModuleRef {
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -78,6 +79,47 @@ describe('CacheCollector', () => {
     profile.collectors[collector.name] = collected;
     expect(profile.collectors[CACHE_OPERATIONS_KEY]).toBeUndefined();
     expect(collector.getBadgeValue(profile)).toBe('1H/1M');
+  });
+
+  describe('getTraceSpans', () => {
+    it('projects each operation onto the trace, next to the work it explains', () => {
+      // A miss is what explains the query drawn right after it; that adjacency on one axis is
+      // the reason cache operations get a bar of their own despite being fast.
+      const miss = makeOp('GET_MISS', 'products:all');
+      const profile = makeProfile({ collectors: { cache: [miss] } });
+
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'cache',
+          label: 'GET_MISS products:all',
+          startedAt: miss.startedAt,
+          duration: 1,
+          parentId: undefined,
+          meta: { operation: 'GET_MISS' },
+          source: { collector: 'cache', index: 0, tab: 'cache' },
+        },
+      ]);
+    });
+
+    it('carries the parent stamped at capture', () => {
+      const profile = makeProfile({
+        collectors: { cache: [{ ...makeOp('SET'), parentSpanId: 's2' }] },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.parentId).toBe('s2');
+    });
+
+    it('reds a bar when the cache backend itself failed', () => {
+      const profile = makeProfile({
+        collectors: { cache: [{ ...makeOp('GET_MISS'), error: 'ECONNREFUSED' }] },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.status).toBe('error');
+    });
+
+    it('contributes nothing when no operation was captured', () => {
+      expect(collector.getTraceSpans(makeProfile())).toEqual([]);
+    });
   });
 
   it('getTemplatePath returns an absolute path ending with cache-panel.ejs', () => {

@@ -6,6 +6,7 @@ import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interfac
 function makeProfile(): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -36,7 +37,7 @@ describe('createProfilerLogger', () => {
 
   it.each(levels)('captures the "%s" level and delegates to the underlying logger', (level) => {
     const delegate = { [level]: jest.fn() } as Record<string, jest.Mock>;
-    const logger = createProfilerLogger(delegate);
+    const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
     withProfile(() => void logger[level]?.('hello', 'MyContext'));
 
@@ -53,7 +54,7 @@ describe('createProfilerLogger', () => {
     'captures the third-party alias "%s" as the "%s" profiler level',
     (method, expectedLevel) => {
       const delegate = { [method]: jest.fn() } as Record<string, jest.Mock>;
-      const logger = createProfilerLogger(delegate);
+      const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger[method]?.('hi'));
 
@@ -64,7 +65,7 @@ describe('createProfilerLogger', () => {
 
   it('is a transparent pass-through with no active profile (records nothing, still logs)', () => {
     const delegate = { log: jest.fn() };
-    const logger = createProfilerLogger(delegate);
+    const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
     // No CLS context — mirrors the profiler being disabled or a call made at bootstrap.
     expect(() => void logger.log('hi', 'Ctx')).not.toThrow();
@@ -79,7 +80,7 @@ describe('createProfilerLogger', () => {
       setContext: jest.fn(),
       name: 'structured',
     };
-    const logger = createProfilerLogger(delegate);
+    const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
     withProfile(() => void logger.setContext('Ctx'));
     expect(delegate.setContext).toHaveBeenCalledWith('Ctx');
@@ -90,7 +91,7 @@ describe('createProfilerLogger', () => {
   describe('argument conventions', () => {
     const capture = (...args: unknown[]): LogEntry => {
       const delegate = { log: jest.fn(), error: jest.fn() } as Record<string, jest.Mock>;
-      const logger = createProfilerLogger(delegate) as Record<
+      const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false }) as Record<
         string,
         (...callArgs: unknown[]) => unknown
       >;
@@ -204,7 +205,7 @@ describe('createProfilerLogger', () => {
   describe('delegate context fallback', () => {
     it('reads the context name from the delegate when absent from the args', () => {
       const delegate = { log: jest.fn(), context: 'PostsController' };
-      const logger = createProfilerLogger(delegate);
+      const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger.log('hi'));
 
@@ -213,7 +214,7 @@ describe('createProfilerLogger', () => {
 
     it('prefers the context name from the args over the delegate one', () => {
       const delegate = { log: jest.fn(), context: 'PostsController' };
-      const logger = createProfilerLogger(delegate);
+      const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger.log('hi', 'Ctx'));
 
@@ -222,7 +223,7 @@ describe('createProfilerLogger', () => {
 
     it('ignores an empty delegate context', () => {
       const delegate = { log: jest.fn(), context: '' };
-      const logger = createProfilerLogger(delegate);
+      const logger = createProfilerLogger(delegate, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger.log('hi'));
 
@@ -235,7 +236,10 @@ describe('createProfilerLogger', () => {
       string,
       jest.Mock
     >;
-    const logger = createProfilerLogger(partial) as Record<string, (...args: unknown[]) => unknown>;
+    const logger = createProfilerLogger(partial, { attachTraceIdToLogs: false }) as Record<
+      string,
+      (...args: unknown[]) => unknown
+    >;
 
     withProfile(() => {
       expect(() => {
@@ -250,8 +254,8 @@ describe('createProfilerLogger', () => {
   it('supports a custom method → level map', () => {
     const delegate = { silly: jest.fn() } as Record<string, jest.Mock>;
     const logger = createProfilerLogger(delegate, {
-      ...DEFAULT_LOG_METHODS,
-      silly: 'verbose',
+      attachTraceIdToLogs: false,
+      logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
     });
 
     withProfile(() => void logger['silly']?.('noisy'));
@@ -263,6 +267,7 @@ describe('createProfilerLogger', () => {
   it('supports the options form with logMethods', () => {
     const delegate = { silly: jest.fn() } as Record<string, jest.Mock>;
     const logger = createProfilerLogger(delegate, {
+      attachTraceIdToLogs: false,
       logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
     });
 
@@ -274,6 +279,7 @@ describe('createProfilerLogger', () => {
   it('supports a custom parseArgs for exotic logger conventions', () => {
     const delegate = { log: jest.fn() };
     const logger = createProfilerLogger(delegate, {
+      attachTraceIdToLogs: false,
       parseArgs: (method, args) => ({
         message: `${method}:${String(args[1])}`,
         context: 'Custom',

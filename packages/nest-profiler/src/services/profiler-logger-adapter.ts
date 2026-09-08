@@ -45,6 +45,19 @@ export interface ProfilerLoggerOptions {
   logMethods?: LogMethodMap;
   /** Custom message/context/data extraction. Defaults to {@link parseLogArgs}. */
   parseArgs?: LogArgsParser;
+  /**
+   * Prefix the message forwarded to the real logger with the active trace id, as
+   * `[<traceId>] <message>`. Default: `true`.
+   *
+   * This is the point of the trace id. The profiler's own UI already knows which lines belong to
+   * which profile — nothing outside it does, so a line scrolling in a terminal or shipped to an
+   * aggregator is otherwise a dead end. With the prefix, it names the profile to open.
+   *
+   * Only the *forwarded* message is prefixed; the entry stored on the profile keeps the original
+   * message, since repeating the id on every line of a profile that has exactly one would be
+   * noise. Lines written outside a profiled execution are untouched.
+   */
+  attachTraceIdToLogs?: boolean;
 }
 
 /**
@@ -152,14 +165,20 @@ function isLogMethodMap(value: LogMethodMap | ProfilerLoggerOptions): value is L
  * profiled context (bootstrap, background job, or profiler disabled) there is no
  * active profile, so the call records nothing and the log still flows through.
  */
-function appendLogEntry(entry: LogEntry): void {
+function appendLogEntry(entry: LogEntry): string | undefined {
   try {
-    const profile = ClsServiceManager.getClsService().get<Profile | undefined>(
-      PROFILER_CLS_KEYS.profile,
-    );
-    profile?.logs.push(entry);
+    const cls = ClsServiceManager.getClsService();
+    const profile = cls.get<Profile | undefined>(PROFILER_CLS_KEYS.profile);
+    if (!profile) return undefined;
+    // Stamped here rather than by the caller: the span open at the moment the line is written is
+    // the one that wrote it, and that is knowable only from inside the async context. It is what
+    // lets the waterfall show a log line under the bar it belongs to instead of in a flat list.
+    const spanId = cls.get<string | undefined>(PROFILER_CLS_KEYS.activeSpanId);
+    profile.logs.push(spanId ? { ...entry, spanId } : entry);
+    return profile.traceId;
   } catch {
     // No active CLS context — transparent pass-through.
+    return undefined;
   }
 }
 
@@ -184,6 +203,7 @@ export function createProfilerLogger<T extends object>(
         : logMethodsOrOptions;
   const logMethods = options.logMethods ?? DEFAULT_LOG_METHODS;
   const parseArgs = options.parseArgs ?? parseLogArgs;
+  const attachTraceId = options.attachTraceIdToLogs ?? true;
 
   return new Proxy(delegate, {
     get(target, prop, receiver): unknown {
@@ -194,7 +214,7 @@ export function createProfilerLogger<T extends object>(
         if (level !== undefined) {
           return (message: unknown, ...optionalParams: unknown[]): unknown => {
             const parsed = parseArgs(prop, [message, ...optionalParams], target);
-            appendLogEntry({
+            const traceId = appendLogEntry({
               level,
               message: parsed.message,
               context: parsed.context,
@@ -203,8 +223,15 @@ export function createProfilerLogger<T extends object>(
             });
             // Forward to the real logger; tolerate loggers that omit optional methods (e.g. no 'fatal').
             if (typeof original === 'function') {
+              // Only a string message is prefixed. Structured loggers accept an object as the
+              // first argument, and splicing an id into one would either be dropped or corrupt
+              // the payload — a logger that takes objects is one that can carry the id itself.
+              const forwarded =
+                attachTraceId && traceId && typeof message === 'string'
+                  ? `[${traceId}] ${message}`
+                  : message;
               return (original as (...args: unknown[]) => unknown).apply(target, [
-                message,
+                forwarded,
                 ...optionalParams,
               ]);
             }

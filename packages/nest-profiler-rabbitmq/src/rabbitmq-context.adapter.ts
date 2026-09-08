@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isAdoptableTraceId } from '@eleven-labs/nest-profiler';
 import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
 import { markProfileStart, redact } from '@eleven-labs/nest-profiler';
@@ -39,6 +40,10 @@ export class RabbitMqContextAdapter implements IContextAdapter {
     const startTime = Date.now();
     const profile: Profile = {
       token: randomUUID(),
+      // A consumed message opens its own trace. `enrichProfile` adopts the broker's
+      // `correlationId` over this one when the publisher set it, which is what links a message
+      // back to the HTTP request that produced it.
+      traceId: randomUUID(),
       createdAt: startTime,
       // The `rabbitmq` entrypoint type (registered by RabbitMqCollectorModule)
       // gives this profile its dedicated list table and Message detail tab.
@@ -71,6 +76,14 @@ export class RabbitMqContextAdapter implements IContextAdapter {
 
     const headers =
       opts.captureHeaders !== false ? extractHeaders(properties?.headers, maskHeaders) : undefined;
+
+    // Adopt the publisher's correlation id as this trace's id when there is one — that is exactly
+    // the link between the request that published the message and the consumer that handled it,
+    // and it is the only propagation channel AMQP offers. Validated like any inbound id: it lands
+    // in log lines and in the dashboard, so it is not trusted on the publisher's word.
+    if (isAdoptableTraceId(properties?.correlationId)) {
+      profile.traceId = properties.correlationId;
+    }
 
     const data: RabbitMqInfo = {
       exchange,

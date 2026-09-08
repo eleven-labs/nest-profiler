@@ -8,6 +8,7 @@ import type { HttpRequestEntry } from './http-request.interface';
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -136,6 +137,72 @@ describe('HttpClientCollector', () => {
     profile.collectors[collector.name] = collected;
     expect(profile.collectors[HTTP_CLIENT_REQUESTS_KEY]).toBeUndefined();
     expect(collector.getBadgeValue(profile)).toBe('2');
+  });
+
+  describe('getTraceSpans', () => {
+    it('projects each call onto the trace, linking the bar back to its panel row', () => {
+      const profile = makeProfile({
+        collectors: {
+          'http-client': [
+            makeRequest({ url: 'https://api.example.com/a', startedAt: 1000, duration: 20 }),
+            makeRequest({ url: 'https://api.example.com/b', startedAt: 1030, duration: 5 }),
+          ],
+        },
+      });
+
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'http',
+          label: 'GET https://api.example.com/a',
+          startedAt: 1000,
+          duration: 20,
+          parentId: undefined,
+          meta: { status: 200 },
+          source: { collector: 'http-client', index: 0, tab: 'http-client' },
+        },
+        {
+          kind: 'http',
+          label: 'GET https://api.example.com/b',
+          startedAt: 1030,
+          duration: 5,
+          parentId: undefined,
+          meta: { status: 200 },
+          source: { collector: 'http-client', index: 1, tab: 'http-client' },
+        },
+      ]);
+    });
+
+    it('carries the parent stamped at capture, which nests the call under its caller', () => {
+      const profile = makeProfile({
+        collectors: { 'http-client': [makeRequest({ parentSpanId: 's7' })] },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.parentId).toBe('s7');
+    });
+
+    it('reds a bar using this module error option, not a generic status rule', () => {
+      // A 404 is an answer for some applications and a failure for others; the option already
+      // decides, and the trace must not second-guess it.
+      const strict = new HttpClientCollector({ error: { httpStatus: 400 } });
+      const profile = makeProfile({
+        collectors: { 'http-client': [makeRequest({ statusCode: 404 })] },
+      });
+
+      expect(strict.getTraceSpans(profile)[0]?.status).toBe('error');
+      expect(collector.getTraceSpans(profile)[0]?.status).toBeUndefined();
+    });
+
+    it('surfaces the tags the rule engine applied, so the bar names the problem', () => {
+      const profile = makeProfile({
+        collectors: { 'http-client': [makeRequest({ tags: [errorTag] })] },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.tags).toEqual([errorTag]);
+    });
+
+    it('contributes nothing when no call was captured', () => {
+      expect(collector.getTraceSpans(makeProfile())).toEqual([]);
+    });
   });
 
   it('getTemplatePath returns an absolute path ending with http-client-panel.ejs', () => {

@@ -20,6 +20,7 @@ function profile(overrides: {
 }): Profile {
   return {
     token: overrides.token ?? 't',
+    traceId: 'trace-test',
     createdAt: overrides.createdAt ?? 0,
     entrypoint: {
       type: overrides.type ?? 'http',

@@ -21,6 +21,7 @@ function makeProfile(
 ): Profile<GraphQLEntrypointData> {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: 0,
     entrypoint: {
       type: GRAPHQL_ENTRYPOINT_TYPE,

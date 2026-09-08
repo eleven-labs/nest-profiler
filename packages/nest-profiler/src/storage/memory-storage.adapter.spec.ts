@@ -9,6 +9,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function makeProfile(token: string, overrides: Partial<Profile> = {}): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: `/${token}`, headers: {}, query: {} } },
     performance: { startTime: 0, heapUsed: 0, duration: 1 },

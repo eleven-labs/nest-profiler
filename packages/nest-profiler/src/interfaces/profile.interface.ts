@@ -11,6 +11,13 @@ export interface LogEntry {
   context?: string;
   /** Structured payload captured from the log call (leading merge object, trailing object, extra args), made JSON-safe. */
   data?: unknown;
+  /**
+   * Id of the {@link TraceSpan} that was open when the line was written, so the waterfall can
+   * show the line at its place in the tree rather than in a flat list beside it. Set by
+   * `createProfilerLogger` from the active span in the CLS store; absent for a line written
+   * outside any span (during bootstrap, or straight from the entrypoint).
+   */
+  spanId?: string;
   timestamp: number;
 }
 
@@ -38,6 +45,16 @@ export interface ExceptionEntry {
    * enabled and at least one frame resolved to a readable application file.
    */
   frames?: SourceCodeFrame[];
+  /**
+   * `true` when the application caught this error itself and reported it through
+   * `TracerService.captureError()` — a degraded call, a retry, a deliberate fallback.
+   *
+   * The distinction is not cosmetic: an unhandled exception means the entrypoint failed, a
+   * handled one means it did not. Error classification, the `exception` list filter and the
+   * `error` performance tag all key on the unhandled ones, so a request that recovered and
+   * answered 200 is not filed as a failure.
+   */
+  handled?: boolean;
   timestamp: number;
 }
 
@@ -80,12 +97,6 @@ export interface HttpRequestData {
   body?: unknown;
   cookies?: Record<string, string>;
   session?: Record<string, unknown>;
-  /**
-   * The client-supplied `x-request-id` header, kept purely as a correlation attribute for
-   * display. It is never used as the storage token (which is always an internal UUID) so a
-   * malicious or duplicated `x-request-id` can neither collide with nor traverse storage.
-   */
-  requestId?: string;
   /**
    * Set when the HTTP request carried a GraphQL operation. The GraphQL package
    * reads this signal to promote the profile to the `graphql` entrypoint kind.
@@ -186,12 +197,57 @@ export interface RouteInfo {
   method: string;
 }
 
-export interface TimelineSpan {
-  phase: string;
-  /** Epoch milliseconds the span started, used to place it against {@link PerformanceData.startTime}. */
+/**
+ * Category of a {@link TraceSpan}, used to colour the waterfall and to decide what may contain
+ * what. An open string union on purpose: a protocol package contributes its own kind without a
+ * core change (see `TraceContributor`).
+ */
+export type TraceSpanKind =
+  'entrypoint' | 'phase' | 'http' | 'db' | 'cache' | 'graphql-field' | 'custom' | (string & {});
+
+export type TraceSpanStatus = 'ok' | 'error';
+
+/**
+ * Where a span is drawn. `trace` is the causal waterfall; `lifecycle` is the flat
+ * Symfony-style band above it (guards, validation, controller), which reports framework phases
+ * that overlap the whole request and would otherwise adopt every span below them.
+ *
+ * A rendering concern on one model, deliberately, rather than a second parallel model — the
+ * previous design had `TimelineSpan`, `LifecyclePhase` and a trace tree describing the same
+ * thing three ways.
+ */
+export type TraceSpanLane = 'trace' | 'lifecycle';
+
+/**
+ * One node of the unified trace — the single representation of "a piece of work that took
+ * time", whatever produced it: the entrypoint itself, a framework phase, an outgoing HTTP call,
+ * a database query, a GraphQL field, or a `TracerService.span()` written by hand.
+ *
+ * Stored **flat** and linked by {@link parentId} rather than nested, so it serializes into the
+ * profile without cycles and the UI rebuilds the tree at render time.
+ */
+export interface TraceSpan {
+  id: string;
+  /** `undefined` only for the root; every other span reparents to the root at worst. */
+  parentId?: string;
+  kind: TraceSpanKind;
+  label: string;
+  /** Epoch ms with sub-millisecond precision (`nowMs()`), same basis as {@link PerformanceData.startTime}. */
   startedAt: number;
-  /** Monotonic milliseconds the span took, with up to three decimals (see {@link PerformanceData.duration}). */
   duration: number;
+  status?: TraceSpanStatus;
+  /** Rendering lane; defaults to `'trace'` when absent. */
+  lane?: TraceSpanLane;
+  /**
+   * Back-reference to the collector entry this span projects, so a bar deep-links to the row
+   * that holds the detail (the SQL text, the response body). `tab` is the detail panel to open
+   * — the collector's group when it is grouped (e.g. `database`), else its own name.
+   */
+  source?: { collector: string; index?: number; tab?: string };
+  /** Performance tags carried by the underlying entry (slow, N+1…), surfaced on the bar. */
+  tags?: ProfilerTag[];
+  /** Display-only extras (statusCode, query type, rowCount…). */
+  meta?: Record<string, string | number | boolean>;
 }
 
 export interface SecurityContext {
@@ -202,7 +258,22 @@ export interface SecurityContext {
 }
 
 export interface Profile<TData = unknown> {
+  /**
+   * Storage identity: an internal UUID, never influenced by the client, used as the profile's
+   * address (`/_profiler/:token`). Kept distinct from {@link traceId} on purpose — a token
+   * derived from a client-supplied header could be forged to collide with, or traverse, storage.
+   */
   token: string;
+  /**
+   * Correlation identity: adopted from the incoming `traceIdHeader` when the caller sent one,
+   * generated otherwise. This is the id that leaves the process — printed in the application's
+   * logs, forwarded on outgoing calls — so that a log line in a terminal or an aggregator leads
+   * back to this profile.
+   *
+   * Being caller-supplied, it is **untrusted input**: it is length- and charset-validated at
+   * adoption, and is never used to address storage.
+   */
+  traceId: string;
   createdAt: number;
   /** Build/release identifier stamped from {@link ProfilerModuleOptions.version}, when set. */
   version?: string;
@@ -214,7 +285,11 @@ export interface Profile<TData = unknown> {
   exceptions: ExceptionEntry[];
   collectors: Record<string, unknown>;
   route?: RouteInfo;
-  spans?: TimelineSpan[];
+  /**
+   * The unified trace: every timed operation of this profile on one time axis, flat and linked
+   * by `parentId`. Assembled by `buildTrace()` once after collection and before save.
+   */
+  trace?: TraceSpan[];
   security?: SecurityContext;
   /**
    * Performance tags aggregated by the rule engine ({@link analyzeProfile}) from

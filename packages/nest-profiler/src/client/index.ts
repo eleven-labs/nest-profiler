@@ -5,6 +5,7 @@ import { initExplain } from './behaviors/explain';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
 import { initRowLink } from './behaviors/row-link';
+import { initTraceWaterfall } from './behaviors/trace-waterfall';
 import { bootTheme, initTheme } from './behaviors/theme';
 import { createRuntime } from './runtime';
 
@@ -23,4 +24,5 @@ api.onReady(() => {
   initGroupTabs(api);
   initRowLink(api);
   initExplain(api);
+  initTraceWaterfall(api);
 });

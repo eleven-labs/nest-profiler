@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 import { EventPublisher } from '../../notifications/domain/event-publisher.js';
 import { ReviewRepository } from '../domain/review.repository.js';
 import type { NewReview, Review, ReviewStats } from '../domain/review.js';
@@ -17,7 +17,7 @@ export class ReviewService implements OnApplicationBootstrap {
 
   constructor(
     private readonly repo: ReviewRepository,
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
     private readonly events: EventPublisher,
   ) {}
 
@@ -31,41 +31,35 @@ export class ReviewService implements OnApplicationBootstrap {
 
   async findAll(): Promise<Review[]> {
     this.logger.log('Fetching all reviews');
-    const stop = this.profiler.startSpan('db.reviews.findAll');
-    const reviews = await this.repo.findAll();
-    stop();
+    const reviews = await this.tracer.span('db.reviews.findAll', () => this.repo.findAll());
     this.logger.debug(`Found ${reviews.length} reviews`);
     return reviews;
   }
 
   async exportCsv(): Promise<string> {
     this.logger.log('Streaming all reviews to CSV');
-    const stop = this.profiler.startSpan('db.reviews.exportCsv');
-    const csv = await this.repo.streamCsv();
-    stop();
+    const csv = await this.tracer.span('db.reviews.exportCsv', () => this.repo.streamCsv());
     return csv;
   }
 
   async findApproved(): Promise<Review[]> {
-    const stop = this.profiler.startSpan('db.reviews.findApproved');
-    const reviews = await this.repo.findApproved();
-    stop();
+    const reviews = await this.tracer.span('db.reviews.findApproved', () =>
+      this.repo.findApproved(),
+    );
     return reviews;
   }
 
   async findByProduct(productId: string): Promise<Review[]> {
     this.logger.log(`Fetching reviews for product ${productId}`);
-    const stop = this.profiler.startSpan('db.reviews.findByProduct');
-    const reviews = await this.repo.findByProduct(productId);
-    stop();
+    const reviews = await this.tracer.span('db.reviews.findByProduct', () =>
+      this.repo.findByProduct(productId),
+    );
     return reviews;
   }
 
   async findOne(id: string): Promise<Review> {
     this.logger.log(`Fetching review ${id}`);
-    const stop = this.profiler.startSpan('db.reviews.findOne');
-    const review = await this.repo.findById(id);
-    stop();
+    const review = await this.tracer.span('db.reviews.findOne', () => this.repo.findById(id));
     if (!review) {
       this.logger.warn(`Review ${id} not found`);
       throw new NotFoundException(`Review ${id} not found`);
@@ -75,9 +69,9 @@ export class ReviewService implements OnApplicationBootstrap {
 
   async create(data: NewReview): Promise<Review> {
     this.logger.log(`Creating review for product ${data.productId}`);
-    const stop = this.profiler.startSpan('db.reviews.create');
-    const review = await this.repo.create({ ...data, status: data.status ?? 'pending' });
-    stop();
+    const review = await this.tracer.span('db.reviews.create', () =>
+      this.repo.create({ ...data, status: data.status ?? 'pending' }),
+    );
     await this.events.publish({
       name: 'review.created',
       payload: { reviewId: review.id, productId: review.productId, rating: review.rating },
@@ -89,17 +83,13 @@ export class ReviewService implements OnApplicationBootstrap {
   async remove(id: string): Promise<void> {
     this.logger.log(`Deleting review ${id}`);
     await this.findOne(id);
-    const stop = this.profiler.startSpan('db.reviews.delete');
-    await this.repo.delete(id);
-    stop();
+    await this.tracer.span('db.reviews.delete', () => this.repo.delete(id));
     this.logger.log(`Review ${id} deleted`);
   }
 
   async getStats(): Promise<ReviewStats[]> {
     this.logger.log('Aggregating review stats by product');
-    const stop = this.profiler.startSpan('db.reviews.aggregate');
-    const stats = await this.repo.stats();
-    stop();
+    const stats = await this.tracer.span('db.reviews.aggregate', () => this.repo.stats());
     return stats;
   }
 }

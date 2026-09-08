@@ -24,4 +24,17 @@ export abstract class AbstractSqlQueryCollector extends AbstractQueryCollector<Q
       fingerprint: normalizeSqlFingerprint(query.sql),
     }));
   }
+
+  /** The statement itself — the panel holds the parameters and the plan. */
+  protected spanLabel(entry: QueryEntry): string {
+    return entry.sql;
+  }
+
+  protected spanMeta(entry: QueryEntry): Record<string, string | number | boolean> | undefined {
+    return {
+      type: entry.type,
+      ...(entry.rowCount !== undefined ? { rows: entry.rowCount } : {}),
+      ...(entry.database ? { database: entry.database } : {}),
+    };
+  }
 }

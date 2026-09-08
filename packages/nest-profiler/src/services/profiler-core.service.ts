@@ -6,6 +6,8 @@ import { RouteCollector } from '../collectors/route.collector';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { analyzeProfile } from '../analysis/profiler-analyzer';
+import { unhandledExceptions } from '../analysis/profiler-error';
+import { buildTrace, isTraceContributor } from '../trace/build-trace';
 import { BUILTIN_PERFORMANCE_RULES } from '../analysis/builtin-rules';
 import type { PerformanceRule } from '../analysis/performance-rule.interface';
 import type { IContextAdapter } from '../adapters/context-adapter.interface';
@@ -112,7 +114,9 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   getIndexAttributes(profile: Profile): Record<string, SummaryPrimitive> {
     const kindAttributes =
       this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
-    const primary = profile.exceptions[0];
+    // The first *unhandled* failure: a caught-and-recovered error must not become the facet a
+    // successful request is filed under.
+    const primary = unhandledExceptions(profile)[0];
     const customAttributes = { ...this.staticAttributes, ...profile.attributes };
     if (!primary) return { ...customAttributes, ...kindAttributes };
     return { ...customAttributes, exception: primary.code ?? primary.name, ...kindAttributes };
@@ -126,20 +130,53 @@ export class ProfilerCoreService implements OnApplicationShutdown {
    * @param profile - The finalized profile to collect into and save.
    */
   schedulePersist(profile: Profile): void {
+    this.track(this.persist(profile));
+  }
+
+  /**
+   * Runs the same pipeline as {@link schedulePersist} but **awaitable**, for an entrypoint whose
+   * process does not outlive it.
+   *
+   * A CLI command is the case: `schedulePersist` is fire-and-forget, and the process exits as soon
+   * as the command returns — so the deferred work would be raced by exit. Such an entrypoint has
+   * no response path to keep clear either, which is what deferring buys everywhere else.
+   *
+   * Exists so those callers do not reimplement the pipeline. They used to call `collectAll()` and
+   * `storage.save()` directly, which quietly skipped the analyzer, the trace and the version
+   * stamp: a command's profile reached storage with no performance tags, no waterfall and no
+   * `version`. One funnel means a new step is never added to one path and forgotten on the other.
+   *
+   * @param profile - The finalized profile to collect into and save.
+   */
+  async persist(profile: Profile): Promise<void> {
     this.stamp(profile);
-    this.track(
-      this.collectorRegistry
-        .collectAll(profile)
-        .then(() => {
-          // The entrypoint kind owns what "failed" means; the engine stays protocol-agnostic.
-          const entrypointType = this.getEntrypointType(profile.entrypoint.type);
-          analyzeProfile(profile, this.collectorRegistry.getCollectors(), this.performanceRules, {
-            isError: entrypointType.isError?.bind(entrypointType),
-            severity: entrypointType.errorSeverity,
-          });
-        })
-        .then(() => this.storage.save(profile)),
-    );
+    await this.collect(profile);
+    await this.storage.save(profile);
+  }
+
+  /**
+   * Everything that turns a captured profile into a complete one — run the collectors, tag the
+   * entries, assemble the trace — **without** storing it.
+   *
+   * Separate from {@link persist} for the one caller that must read the finished profile before it
+   * is saved: the HTML toolbar embeds the collector panels, so it has to wait for this and render
+   * from the result, then save afterwards. Everything else wants the two together.
+   *
+   * @param profile - The finalized profile to complete in place.
+   */
+  async collect(profile: Profile): Promise<void> {
+    await this.collectorRegistry.collectAll(profile);
+
+    const collectors = this.collectorRegistry.getCollectors();
+    // The entrypoint kind owns what "failed" means; the engine stays protocol-agnostic.
+    const entrypointType = this.getEntrypointType(profile.entrypoint.type);
+    analyzeProfile(profile, collectors, this.performanceRules, {
+      isError: entrypointType.isError?.bind(entrypointType),
+      severity: entrypointType.errorSeverity,
+    });
+    // After the analyzer, not before: spans carry the performance tags of the entries they
+    // project (slow, N+1), and those tags do not exist until the rules have run.
+    buildTrace(profile, collectors.filter(isTraceContributor));
   }
 
   /**

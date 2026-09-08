@@ -1,4 +1,5 @@
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import { unhandledExceptions } from '../analysis/profiler-error';
 
 /** The primitive value types a {@link ProfileSummary} field (or attribute) may hold. */
 export type SummaryPrimitive = string | number | boolean;
@@ -15,6 +16,12 @@ export type SummaryPrimitive = string | number | boolean;
  */
 export interface ProfileSummary {
   readonly token: string;
+  /**
+   * The profile's correlation id. Projected here so the list can answer the question the trace id
+   * exists to make answerable: a log line names an id, and the dashboard has to find the profile
+   * behind it. Also folded into {@link search}, so pasting the id into the search box works.
+   */
+  readonly traceId: string;
   readonly createdAt: number;
   /** {@link ProfileEntrypoint.type} discriminator (e.g. `'http'`, `'graphql'`). */
   readonly type: string;
@@ -63,6 +70,8 @@ function searchHaystack(profile: Profile): string {
   }
   const gql = (data as Partial<HttpRequestData>)?.graphql;
   if (gql) terms.push(gql.operationName ?? '', gql.fieldName);
+  // The id someone pastes in from a log line, so the search box resolves it to the profile.
+  terms.push(profile.traceId);
   return terms.filter(Boolean).join(' ').toLowerCase();
 }
 
@@ -78,13 +87,14 @@ export function summarizeProfile(
   const http = profile.entrypoint.data as Partial<HttpRequestData>;
   return {
     token: profile.token,
+    traceId: profile.traceId,
     createdAt: profile.createdAt,
     type: profile.entrypoint.type,
     method: typeof http?.method === 'string' ? http.method.toUpperCase() : undefined,
     url: typeof http?.url === 'string' ? http.url : undefined,
     statusCode: profile.response?.statusCode,
     duration: profile.performance.duration ?? 0,
-    hasExceptions: profile.exceptions.length > 0,
+    hasExceptions: unhandledExceptions(profile).length > 0,
     tags: tagHaystack(profile),
     search: searchHaystack(profile),
     attributes: getAttributes ? getAttributes(profile) : {},

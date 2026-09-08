@@ -7,6 +7,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function makeProfile(token = 't-1'): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: {} },
     performance: { startTime: Date.now(), heapUsed: 0 },

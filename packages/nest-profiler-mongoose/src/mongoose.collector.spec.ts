@@ -17,6 +17,7 @@ function mongooseModuleRef(cls: unknown, connection: unknown): ModuleRef {
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -708,5 +709,47 @@ describe('MongooseConnectionPatch', () => {
     patch.onModuleInit();
     expect(base.Query.prototype.exec).toBe(patchedQueryExec);
     expect(base.Aggregate.prototype.exec).toBe(patchedAggExec);
+  });
+
+  describe('getTraceSpans', () => {
+    it('labels a bar with the runnable command the panel offers to copy', () => {
+      const profile = makeProfile({
+        collectors: {
+          mongoose: [
+            {
+              collection: 'reviews',
+              operation: 'find',
+              command: "db.reviews.find({ status: 'approved' })",
+              duration: 6,
+              startedAt: 1000,
+              parentSpanId: 's3',
+            },
+          ],
+        },
+      });
+
+      expect(new MongooseCollector().getTraceSpans(profile)).toEqual([
+        {
+          kind: 'db',
+          label: "db.reviews.find({ status: 'approved' })",
+          startedAt: 1000,
+          duration: 6,
+          parentId: 's3',
+          meta: { collection: 'reviews', operation: 'find' },
+          // Mongoose shares the Database tab with the SQL collectors, so the link targets it.
+          source: { collector: 'mongoose', index: 0, tab: 'database' },
+        },
+      ]);
+    });
+
+    it('falls back to collection.operation when no command was precomputed', () => {
+      const profile = makeProfile({
+        collectors: {
+          mongoose: [{ collection: 'reviews', operation: 'aggregate', duration: 2, startedAt: 1 }],
+        },
+      });
+
+      expect(new MongooseCollector().getTraceSpans(profile)[0]?.label).toBe('reviews.aggregate()');
+    });
   });
 });

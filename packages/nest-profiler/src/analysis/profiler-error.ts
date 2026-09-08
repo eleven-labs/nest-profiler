@@ -6,6 +6,20 @@ import type { TaggableEntry } from './taggable-collector.interface';
 const DEFAULT_ERROR_STATUS = 500;
 
 /**
+ * The exceptions that mean the execution **failed** — everything the application did not catch
+ * itself.
+ *
+ * An entry reported through `TracerService.captureError()` carries `handled: true`: the code saw
+ * it, dealt with it, and carried on. It belongs in the Exceptions tab, because it explains what
+ * the request spent its time on, but it must not make a request that answered 200 count as a
+ * failure — that would put a red pill on every endpoint with a working fallback, and inflate the
+ * `error` tag's count with errors that were the design.
+ */
+export function unhandledExceptions(profile: Profile): ExceptionEntry[] {
+  return profile.exceptions.filter((entry) => entry.handled !== true);
+}
+
+/**
  * The view of a profile handed to a {@link ProfilerErrorOptions.classify} predicate. The
  * pre-extracted fields cover the common cases; `profile` is the escape hatch for anything
  * kind-specific (a command's own payload, a message's redelivery flag…).
@@ -140,7 +154,7 @@ export function resolveProfileErrorClassifier(
       const verdict = classify({
         type: profile.entrypoint.type,
         statusCode: profile.response?.statusCode,
-        exceptions: profile.exceptions,
+        exceptions: unhandledExceptions(profile),
         profile,
       });
       if (verdict !== undefined) return verdict;
@@ -149,7 +163,7 @@ export function resolveProfileErrorClassifier(
     const statusCode = profile.response?.statusCode;
     if (matchesStatus && statusCode !== undefined) return matchesStatus(statusCode);
 
-    return profile.exceptions.some((e) => exceptionCounts(e, exceptions, codes));
+    return unhandledExceptions(profile).some((e) => exceptionCounts(e, exceptions, codes));
   };
 }
 

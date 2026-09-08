@@ -168,14 +168,16 @@ The profiler has two layers:
 
 - **Active** — mounts the middleware, the global interceptor, the `/_profiler`
   controller, the collector registry and storage.
-- **Inert** — registers _only_ `ProfilerService`, backed by the zero-dependency
-  `NoopProfilerService`, so application code that injects `ProfilerService`
-  directly (`startSpan`, `getCurrentToken`) keeps working with zero overhead.
+- **Inert** — registers _only_ `TracerService`, with none of its optional
+  dependencies provided, so application code that injects it directly (`span()`,
+  `captureError()`, `currentToken()`) keeps working with zero overhead. There is
+  no separate no-op class: every method of the service is already documented as a
+  no-op outside a profiled execution.
 
 The **recommended** way to toggle the profiler is `ConditionalModule.registerWhen`
 on the active module — it is never loaded when profiling is off. Log capture keeps
 working regardless: `createProfilerLogger` is DI-free and a transparent pass-through
-when off. Only if application code injects `ProfilerService` directly do you add
+when off. Only if application code injects `TracerService` directly do you add
 `ProfilerNoopModule` as the off-path fallback (the inert layer above). Turn the
 profiler on in development and off in production. A top-level `enabled` flag is also
 supported as an alternative, documented once in the
@@ -206,7 +208,7 @@ ProfilerController ─── serves the UI at /_profiler (list / detail / data),
 
 The shared **CLS context** (`nestjs-cls`) is the backbone: the middleware puts
 the `Profile` there, and everything downstream — collectors, the logger adapter,
-`ProfilerService` — reads it back without threading the profile through method
+`TracerService` — reads it back without threading the profile through method
 signatures.
 
 ### Collectors

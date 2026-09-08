@@ -30,6 +30,7 @@ const MINIMAL_DETAIL_DATA = {
   collectorData: undefined,
   profile: {
     token: 'abc12345678',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/hello', headers: {}, query: {} } },
     response: { statusCode: 200, headers: {} },
@@ -185,6 +186,87 @@ describe('TemplateRendererService', () => {
     expect(html).toContain('TypeORM');
   });
 
+  it('renders the trace waterfall on the performance tab, nested and deep-linkable', async () => {
+    const startTime = Date.now();
+    const html = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      activeTab: 'performance',
+      profile: {
+        ...MINIMAL_DETAIL_DATA.profile,
+        performance: { startTime, heapUsed: 1024, duration: 50 },
+        trace: [
+          {
+            id: 'root',
+            kind: 'entrypoint',
+            label: 'GET /hello',
+            startedAt: startTime,
+            duration: 50,
+          },
+          {
+            id: 's1',
+            parentId: 'root',
+            kind: 'custom',
+            label: 'reviews.load',
+            startedAt: startTime + 5,
+            duration: 30,
+          },
+          {
+            id: 's2',
+            parentId: 's1',
+            kind: 'db',
+            label: 'SELECT * FROM reviews',
+            startedAt: startTime + 10,
+            duration: 20,
+            source: { collector: 'typeorm', index: 0, tab: 'database' },
+          },
+          {
+            id: 'lc1',
+            kind: 'phase',
+            lane: 'lifecycle',
+            label: 'guards',
+            startedAt: startTime + 1,
+            duration: 3,
+          },
+        ],
+      },
+    });
+
+    // The three lanes of the panel: the band, the causal rows, and the detail table.
+    expect(html).toContain('Request Lifecycle');
+    expect(html).toContain('Execution Trace');
+    // A row carries its parent link, which is what the client behaviour folds on.
+    expect(html).toContain('data-trace-node="s2"');
+    expect(html).toContain('data-trace-parent="s1"');
+    // A span with a `source` deep-links into the panel holding its detail.
+    expect(html).toContain('tab=database');
+    expect(html).toContain('subtab=typeorm');
+    // The lifecycle phase is drawn in the band, never as a parent in the causal tree.
+    expect(html).not.toContain('data-trace-node="lc1"');
+  });
+
+  it('renders an empty-trace hint pointing at the API that fills it', async () => {
+    const html = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      activeTab: 'performance',
+      profile: {
+        ...MINIMAL_DETAIL_DATA.profile,
+        trace: [
+          {
+            id: 'lc1',
+            kind: 'phase',
+            lane: 'lifecycle',
+            label: 'guards',
+            startedAt: Date.now(),
+            duration: 1,
+          },
+        ],
+      },
+    });
+
+    expect(html).toContain('No spans recorded');
+    expect(html).toContain("tracer.span('name', work)");
+  });
+
   it('renders the built-in detail template', async () => {
     const html = await service.render('detail', MINIMAL_DETAIL_DATA);
     expect(html).toContain('<!DOCTYPE html>');
@@ -200,11 +282,27 @@ describe('TemplateRendererService', () => {
         profile: {
           ...MINIMAL_DETAIL_DATA.profile,
           performance: { startTime, heapUsed: 1024, duration: 40 },
-          spans: [{ phase: 'controller', startedAt: startTime, duration: 30 }],
+          trace: [
+            {
+              id: 'root',
+              kind: 'entrypoint',
+              label: 'GET /hello',
+              startedAt: startTime,
+              duration: 40,
+            },
+            {
+              id: 's1',
+              parentId: 'root',
+              kind: 'custom',
+              label: 'controller',
+              startedAt: startTime,
+              duration: 30,
+            },
+          ],
         },
       });
       expect(html).toContain('>40ms<');
-      expect(html).toContain('Execution timeline');
+      expect(html).toContain('Execution Trace');
       expect(html).toContain('controller');
     });
 

@@ -4,7 +4,7 @@
 
 ## Enable log capture
 
-Wrap the application logger with the standalone `createProfilerLogger()` in `main.ts`. It is **DI-free** — it reads the active profile from the CLS store, so it needs no `ProfilerService` and there is no `app.get(...)` to make. When the profiler is off (or a log happens outside a request) it is a transparent pass-through, so no line is lost:
+Wrap the application logger with the standalone `createProfilerLogger()` in `main.ts`. It is **DI-free** — it reads the active profile from the CLS store, so it needs no `TracerService` and there is no `app.get(...)` to make. When the profiler is off (or a log happens outside a request) it is a transparent pass-through, so no line is lost:
 
 ```ts
 import { ConsoleLogger } from '@nestjs/common';
@@ -27,7 +27,7 @@ The wrapper returns the **same type** as the logger you pass in: it captures the
 
 ### Capturing a directly-injected logger
 
-`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too. Still no `ProfilerService` needed:
+`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too. Still no `TracerService` needed:
 
 ```ts
 constructor(@InjectPinoLogger(MyService.name) pinoLogger: PinoLogger) {
@@ -44,9 +44,12 @@ Each captured call is stored as a [`LogEntry`](https://nest-profiler.eleven-labs
 - `message` — the human-readable text.
 - `context` — the logger context **name**, e.g. the class name passed to `new Logger(...)` or `setContext()`.
 - `data` — the structured **payload** extracted from the call arguments, rendered as a JSON block in the UI.
+- `spanId` — the trace span that was open when the line was written, when there was one.
 - `timestamp` — when the call happened.
 
 `context` and `data` are two different things: the first tells you _who_ logged, the second carries _what_ was logged alongside the message.
+
+`spanId` is what places a line inside the execution trace rather than in a flat list beside it: a line written inside a `tracer.span('checkout.payment', …)` is attributed to that span. It is read from the async context at the moment of the call, so the writer and the reader agree by construction rather than by a timing heuristic.
 
 ## Supported call conventions
 
@@ -105,6 +108,22 @@ createProfilerLogger(myLogger, {
   logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
 });
 ```
+
+### Trace id prefix
+
+Every forwarded line is prefixed with the profile's trace id, so a line scrolling in a terminal — or landing in an aggregator — leads back to the profile that produced it:
+
+```
+[3f2a91c4-...] Fetching articles from external API (MISS)
+```
+
+Only the **forwarded** message is prefixed; the entry stored on the profile keeps the original text. Turn it off per logger, or globally with the `attachTraceIdToLogs` module option:
+
+```ts
+createProfilerLogger(myLogger, { attachTraceIdToLogs: false });
+```
+
+Lines written outside a profiled execution are never touched, and only a string message is prefixed — a structured logger takes an object as its first argument, and splicing an id into one would either be dropped or corrupt the payload. See [Correlating with your logs](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#correlating-with-your-logs).
 
 ### Custom argument parser
 

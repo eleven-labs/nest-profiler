@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
-import { ProfilerService } from '../services/nest-profiler.service';
+import { TracerService } from '../services/tracer.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
 import type { PlatformResponse } from '../types/http';
 
@@ -68,7 +68,7 @@ describe('response body capture with @Res()', () => {
     const res = await call(server);
     const token = res.headers['x-debug-token'] as string;
     // Persistence is deferred off the response path — drain it before reading the profile.
-    await app.get(ProfilerService).flush();
+    await app.get(TracerService).flush();
     const profile = await app.get(ProfilerStorageService).findOne(token);
     if (!profile) throw new Error(`expected a stored profile for token ${token}`);
     return { statusCode: profile.response?.statusCode, body: profile.response?.body };

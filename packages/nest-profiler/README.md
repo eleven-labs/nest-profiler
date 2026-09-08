@@ -62,7 +62,7 @@ export class AppModule {}
 
 Start the application, make a few requests, and open `http://localhost:3000/_profiler`. Every non-profiler response also carries an `X-Debug-Token-Link` header pointing straight to its profile.
 
-> If a service injects `ProfilerService` **directly** (custom `startSpan`, events, exceptions…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so that injection still resolves when off. Log capture never needs it — `createProfilerLogger` is DI-free. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration → Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+> If a service injects `TracerService` **directly** (`span()`, `captureError()`, attributes…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so that injection still resolves when off. Log capture never needs it — `createProfilerLogger` is DI-free. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration → Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Documentation
 
@@ -73,7 +73,7 @@ Each capability has its own focused guide:
 | [Configuration](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration)                       | `forRoot` / `forRootAsync`, the full options reference, CPU and memory, securing the UI              |
 | [Log capture](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/logs)                                  | Wrapping any logger so every entry lands in the profile, supported argument conventions              |
 | [Browsing profiles](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/browsing-profiles)               | UI endpoints, debug headers, list filters (built-in and custom), exporting a profile                 |
-| [Timeline & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)           | `startSpan()` timing, writing a collector with `@ProfilerCollector()`, custom EJS panels             |
+| [Trace & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)              | `span()` timing, writing a collector with `@ProfilerCollector()`, custom EJS panels                  |
 | [Extending the UI with JavaScript](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/extending-the-ui) | CSP-friendly compiled bundles, the `window.NestProfiler` runtime, registering your own client script |
 | [Custom protocol adapters](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/context-adapters)         | Profiling gRPC, Kafka, WebSockets… via `IContextAdapter`                                             |
 | [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage)                          | In-memory (default), file system, custom `IProfilerStorageAdapter`                                   |
@@ -87,8 +87,9 @@ The [Getting started](https://nest-profiler.eleven-labs.com/docs/getting-started
 import {
   ProfilerModule,
   ProfilerNoopModule,
-  ProfilerService,
-  NoopProfilerService,
+  TracerService,
+  TraceSpanDelegate,
+  Span,
   ProfilerStorageService,
   ProfilerViewsSetup,
   CollectorRegistry,
@@ -114,7 +115,7 @@ import type {
   Profile,
   LogEntry,
   ExceptionEntry,
-  TimelineSpan,
+  TraceSpan,
   SecurityContext,
   LogMethodMap,
   LogArgsParser,

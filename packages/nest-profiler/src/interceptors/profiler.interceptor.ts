@@ -140,9 +140,11 @@ export class ProfilerInterceptor implements NestInterceptor {
         this.core.enrichHttpResponse(capturedProfile, req, responseBody);
 
         // The toolbar embeds collector panels, so HTML responses are the only ones that
-        // must wait for the collectors before being sent.
+        // must wait for the profile to be completed before being sent. `collect()` and not
+        // `collectAll()`: the toolbar needs the tags and the trace too, and calling the registry
+        // directly here used to skip both, leaving HTML responses without either.
         if (this.isToolbarEligible(res, body)) {
-          return from(this.core.collectorRegistry.collectAll(capturedProfile)).pipe(
+          return from(this.core.collect(capturedProfile)).pipe(
             map(() => {
               this.core.scheduleSave(capturedProfile);
               return this.injectToolbar(res, body, capturedProfile);

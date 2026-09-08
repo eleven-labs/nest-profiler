@@ -26,6 +26,11 @@ export interface MongooseQueryEntry {
   documents?: unknown[];
   duration: number;
   startedAt: number;
+  /**
+   * The trace span open when this entry was captured (see the core's `TaggableEntry`). Stamped by
+   * `appendCollectorEntry`; it nests this call under the `tracer.span()` that issued it.
+   */
+  parentSpanId?: string;
   /** Documents affected (writes) or returned (reads) — the MongoDB row-count analog. */
   count?: number;
   /**

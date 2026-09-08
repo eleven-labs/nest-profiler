@@ -10,6 +10,7 @@ const attrs = (p: Profile): Record<string, string | number | boolean> =>
 function makeProfile(data: RabbitMqInfo): Profile {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: 0,
     entrypoint: { type: RABBITMQ_ENTRYPOINT_TYPE, data },
     performance: { startTime: 0, heapUsed: 0 },

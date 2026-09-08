@@ -5,6 +5,8 @@ import type { ProfilerTag } from '../analysis/profiler-tag.interface';
 interface TestEntry {
   id: number;
   duration: number;
+  startedAt?: number;
+  parentSpanId?: string;
   fingerprint?: string;
   tags?: ProfilerTag[];
   command?: string;
@@ -18,6 +20,9 @@ class PlainCollector extends AbstractQueryCollector<TestEntry> {
   getTemplatePath(): string {
     return '/tmp/plain-panel.ejs';
   }
+  protected spanLabel(entry: TestEntry): string {
+    return `query-${entry.id}`;
+  }
 }
 
 /** Overrides `transform` to attach a derived field, like MongooseCollector does. */
@@ -27,6 +32,9 @@ class TransformingCollector extends AbstractQueryCollector<TestEntry> {
   getTemplatePath(): string {
     return '/tmp/transforming-panel.ejs';
   }
+  protected spanLabel(entry: TestEntry): string {
+    return `query-${entry.id}`;
+  }
   protected transform(queries: TestEntry[]): TestEntry[] {
     return queries.map((q) => ({ ...q, command: `run-${q.id}` }));
   }
@@ -35,6 +43,7 @@ class TransformingCollector extends AbstractQueryCollector<TestEntry> {
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -125,6 +134,51 @@ describe('AbstractQueryCollector', () => {
       profile.collectors[collector.name] = collector.collect(profile);
       expect(profile.collectors[QUERIES_KEY]).toBeUndefined();
       expect(collector.getBadgeValue(profile)).toBe('2q');
+    });
+  });
+
+  describe('getTraceSpans', () => {
+    it('projects the collected queries, linking each bar to its panel row', () => {
+      const collector = new PlainCollector();
+      const profile = makeProfile({
+        collectors: { plain: [{ id: 1, duration: 4, startedAt: 1000 }] },
+      });
+
+      expect(collector.getTraceSpans(profile)).toEqual([
+        {
+          kind: 'db',
+          label: 'query-1',
+          startedAt: 1000,
+          duration: 4,
+          parentId: undefined,
+          source: { collector: 'plain', index: 0, tab: 'plain' },
+        },
+      ]);
+    });
+
+    it('carries the parent stamped at capture, which nests the query under its caller', () => {
+      const collector = new PlainCollector();
+      const profile = makeProfile({
+        collectors: { plain: [{ id: 1, duration: 4, startedAt: 1000, parentSpanId: 's5' }] },
+      });
+
+      expect(collector.getTraceSpans(profile)[0]?.parentId).toBe('s5');
+    });
+
+    it('links a grouped collector to its group panel, not to itself', () => {
+      // Several ORMs share the Database tab, so the link has to target the tab a reader lands on.
+      class GroupedCollector extends PlainCollector {
+        readonly group = 'database';
+      }
+      const profile = makeProfile({
+        collectors: { plain: [{ id: 1, duration: 1, startedAt: 1 }] },
+      });
+
+      expect(new GroupedCollector().getTraceSpans(profile)[0]?.source?.tab).toBe('database');
+    });
+
+    it('contributes nothing when no query was collected', () => {
+      expect(new PlainCollector().getTraceSpans(makeProfile())).toEqual([]);
     });
   });
 });

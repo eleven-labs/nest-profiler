@@ -20,6 +20,7 @@ function makeProfile(token: string, o: { createdAt?: number; method?: string } =
   const createdAt = o.createdAt ?? Date.now();
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt,
     entrypoint: {
       type: 'http',

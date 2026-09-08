@@ -20,7 +20,7 @@ const CLI_CACHE_KEY = 'cli:articles';
   description: 'Fetch articles from an external API and cache them',
 })
 export class SyncArticlesCommand extends CommandRunner {
-  // Wrap a console logger so log lines are captured into the active profile — no ProfilerService
+  // Wrap a console logger so log lines are captured into the active profile — no TracerService
   // injection needed, so the command resolves cleanly whether the profiler is on or off.
   private readonly logger: LoggerService = createProfilerLogger(
     new ConsoleLogger(SyncArticlesCommand.name),

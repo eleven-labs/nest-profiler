@@ -4,6 +4,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function makeProfile(collectors: Record<string, unknown> = {}): Profile {
   return {
     token: 't',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
