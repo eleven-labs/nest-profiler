@@ -1,15 +1,15 @@
-# NestJS Package Template
+# nest-profiler
 
 ## Project overview
 
-Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 11 publishable packages (`@eleven-labs/nest-profiler` core + 10 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to npm.
+Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 14 publishable packages (`@eleven-labs/nest-profiler` core + 13 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to npm.
 
 Constraints:
 
 - Open source, MIT licensed.
 - Only Node `>=22.0.0` is supported. No legacy Node 20, no `.nvmrc`.
 - Public package APIs must remain importable from the package root only.
-- The documentation site targets package consumers, never maintainers of the template itself.
+- The documentation site targets package consumers, never maintainers of the monorepo itself.
 
 ---
 
@@ -77,7 +77,7 @@ No change is considered ready while any required step fails.
 
 - **SOLID and clear boundaries**: each NestJS module exposes one responsibility, services are injected via tokens, options flow through `ConfigurableModuleBuilder`. Avoid generic helper layers until two packages prove they are needed.
 - **DRY across the workspace**: shared lint / format / TypeScript rules live in the `@repo/*` presets, never duplicated downstream. Shared release filters live in root `package.json` scripts, not inside workflows.
-- **KISS**: a package template should be obvious before it is clever. Prefer one explicit module + service pattern over abstract factories. Three similar lines beat a premature abstraction.
+- **KISS**: a package should be obvious before it is clever. Prefer one explicit module + service pattern over abstract factories. Three similar lines beat a premature abstraction.
 - **Configurability**: anything environment-specific is supplied by the _consumer_ through module options (`forRoot` / `forRootAsync`). Packages never read `process.env` directly — that decision belongs to the host application (`examples/api` shows the pattern).
 - **Dependency hygiene**: before adding a new runtime dependency, check whether NestJS, `rxjs`, or an existing package already provides it. New dependencies must be actively maintained, lightweight, and declared in the correct bucket — `peerDependencies` for anything the consumer also installs.
 - **Documentation in sync**: any change to a publishable package's public API requires updating its `docs/content/docs/packages/<name>.en.mdx` page, its `api-reference/<name>.en.mdx` page, and — where relevant — its tutorials.

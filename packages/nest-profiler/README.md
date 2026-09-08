@@ -68,16 +68,18 @@ Start the application, make a few requests, and open `http://localhost:3000/_pro
 
 Each capability has its own focused guide:
 
-| Guide                                                                                                                  | What it covers                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [Configuration](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration)                       | `forRoot` / `forRootAsync`, the full options reference, CPU and memory, securing the UI              |
-| [Log capture](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/logs)                                  | Wrapping any logger so every entry lands in the profile, supported argument conventions              |
-| [Browsing profiles](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/browsing-profiles)               | UI endpoints, debug headers, list filters (built-in and custom), exporting a profile                 |
-| [Trace & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)              | `span()` timing, writing a collector with `@ProfilerCollector()`, custom EJS panels                  |
-| [Extending the UI with JavaScript](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/extending-the-ui) | CSP-friendly compiled bundles, the `window.NestProfiler` runtime, registering your own client script |
-| [Custom protocol adapters](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/context-adapters)         | Profiling gRPC, Kafka, WebSockets… via `IContextAdapter`                                             |
-| [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage)                          | In-memory (default), file system, custom `IProfilerStorageAdapter`                                   |
-| [Performance impact & testing](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance)          | Deferred persistence, why it is free, `flush()` in automated tests                                   |
+| Guide                                                                                                                  | What it covers                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [Configuration](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration)                       | `forRoot` / `forRootAsync`, the full options reference, CPU and memory, securing the UI                  |
+| [Log capture](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/logs)                                  | Wrapping any logger so every entry lands in the profile, supported argument conventions                  |
+| [Browsing profiles](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/browsing-profiles)               | UI endpoints, debug headers, list filters (built-in and custom), exporting a profile                     |
+| [Trace & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)              | `span()` timing, writing a collector with `@ProfilerCollector()`, custom EJS panels                      |
+| [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags)                 | The rule engine behind `slow`, `n-plus-one`, `chatty`, `large-payload` and `zero-rows`, and custom rules |
+| [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification)      | Defining failure per entrypoint kind and per collector, and what the `error` tag and Errors filter keep  |
+| [Extending the UI with JavaScript](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/extending-the-ui) | CSP-friendly compiled bundles, the `window.NestProfiler` runtime, registering your own client script     |
+| [Custom protocol adapters](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/context-adapters)         | Profiling gRPC, Kafka, WebSockets… via `IContextAdapter`                                                 |
+| [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage)                          | In-memory (default), file system, the SQLite adapter, custom `IProfilerStorageAdapter`                   |
+| [Performance impact & testing](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance)          | Deferred persistence, why it is free, `flush()` in automated tests                                       |
 
 The [Getting started](https://nest-profiler.eleven-labs.com/docs/getting-started) guide covers the full setup including the optional collector packages (TypeORM, MikroORM, Mongoose, Axios, cache, auth, config, validator, GraphQL, commander), and the [Profiler UI](https://nest-profiler.eleven-labs.com/docs/profiler-ui) page gives a visual tour of every panel.
 
@@ -90,8 +92,8 @@ import {
   TracerService,
   TraceSpanDelegate,
   Span,
+  createProfilerInstrument,
   ProfilerStorageService,
-  ProfilerViewsSetup,
   CollectorRegistry,
   ProfilerCollector,
   HTTP_ICON,
@@ -109,7 +111,6 @@ import type {
   ProfilerModuleAsyncOptions,
   IProfilerCollector,
   IProfilerStorageAdapter,
-  StorageFindOptions,
   CollectorPanelInfo,
   GlobalPanelDescriptor,
   Profile,

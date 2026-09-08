@@ -26,20 +26,24 @@ Open your agent in the target NestJS project and describe what you want, for exa
 The `setup-nest-profiler` skill then drives the agent to:
 
 - Detect your package manager and read `package.json`.
-- Pick an enable strategy — `ConditionalModule` gating when `@nestjs/config` is present, otherwise the `enabled` flag (add `ProfilerNoopModule` only if you inject `TracerService` directly).
+- Pick an enable strategy — `ConditionalModule` gating (the recommended default, even when `@nestjs/config` is not yet installed), the synchronous `enabled` flag, or a `devDependency`-only dev-entry split (add `ProfilerNoopModule` only if you inject `TracerService` directly).
 - Install `@eleven-labs/nest-profiler` + `nestjs-cls` and register the module in your composition root.
 - Wrap your logger in `main.ts` so logs land in the profiler.
-- Detect and offer the collectors matching your dependencies (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ), then wire the chosen ones with their correct placement and caveats.
+- Detect and offer the collectors matching your dependencies (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ, event emitter, routes), then wire the chosen ones with their correct placement and caveats.
 - Verify by making a request and opening `/_profiler`.
 
 It defaults to keeping the profiler off in production, but respects an informed choice to run it there (for an internal or VPN-only API) and helps you harden it.
 
 ## Available skills
 
-| Skill                         | What it does                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| `setup-nest-profiler`         | Install and configure the core profiler end-to-end and wire the collectors that match your stack. |
-| `add-nest-profiler-collector` | Add one collector to an app that already has the core profiler configured.                        |
+| Skill                         | What it does                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `setup-nest-profiler`         | Install and configure the core profiler end-to-end and wire the collectors that match your stack.            |
+| `add-nest-profiler-collector` | Add one collector to an app that already has the core profiler configured.                                   |
+| `harden-for-production`       | Apply the access-control, masking, sampling, retention and persistence checklist before leaving local dev.   |
+| `custom-collector`            | Write a custom `IProfilerCollector` panel, or an `IContextAdapter` for a protocol the profiler doesn't know. |
+| `custom-storage-adapter`      | Implement a custom storage backend (Redis, a database, S3…) behind `IProfilerStorageAdapter`.                |
+| `interpret-performance-tags`  | Read and act on the performance tags, tune their thresholds, and add rules of your own.                      |
 
 ## Prefer to wire it by hand?
 

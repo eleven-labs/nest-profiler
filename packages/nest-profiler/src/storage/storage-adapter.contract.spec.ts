@@ -5,7 +5,7 @@ import { FileStorageAdapter } from './file-storage.adapter';
 import { MemoryStorageAdapter } from './memory-storage.adapter';
 import { SqliteStorageAdapter } from './sqlite/sqlite-storage.adapter';
 import type { IProfilerStorageAdapter } from './storage-adapter.interface';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import type { Profile } from '../interfaces/profile.interface';
 
 /**
  * Cross-adapter contract suite: the behaviour every {@link IProfilerStorageAdapter}
@@ -126,17 +126,6 @@ describe.each(cases)(
         await adapter.save(makeProfile('b', { createdAt: base + 100 }));
         await adapter.save(makeProfile('c', { createdAt: base + 200 }));
         expect((await adapter.findAll()).map((p) => p.token)).toEqual(['c', 'b', 'a']);
-      });
-
-      it('applies the legacy method filter', async () => {
-        const adapter = await make();
-        await adapter.save(makeProfile('get', { method: 'GET' }));
-        await adapter.save(makeProfile('post', { method: 'POST' }));
-        const results = await adapter.findAll({ method: 'POST' });
-        expect(results.map((p) => p.token)).toEqual(['post']);
-        expect(results.every((p) => (p.entrypoint.data as HttpRequestData).method === 'POST')).toBe(
-          true,
-        );
       });
     });
 

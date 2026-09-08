@@ -2,42 +2,33 @@ import { resolveRedactionConfig } from './redaction-config';
 import { redact, REDACTED } from './redact.utils';
 
 describe('resolveRedactionConfig', () => {
-  it('merges the built-in header list with both the unified block and the deprecated option', () => {
-    const config = resolveRedactionConfig({
-      maskHeaders: ['x-legacy'],
-      redaction: { headers: ['X-Trace'] },
-    });
+  it('extends the built-in header list rather than replacing it', () => {
+    const config = resolveRedactionConfig({ redaction: { headers: ['X-Trace'] } });
 
     expect(config.maskHeaders.has('authorization')).toBe(true);
-    expect(config.maskHeaders.has('x-legacy')).toBe(true);
     // Lower-cased on the way in, so a mixed-case entry still matches a captured header name.
     expect(config.maskHeaders.has('x-trace')).toBe(true);
   });
 
-  it('drops the built-in lists when either opt-out flag says so', () => {
-    expect(resolveRedactionConfig({ redaction: { useDefaults: false } }).maskHeaders.size).toBe(0);
-    expect(resolveRedactionConfig({ useDefaultMaskHeaders: false }).maskHeaders.size).toBe(0);
-    expect(resolveRedactionConfig({ useDefaultMaskQueryParams: false }).maskQueryParams.size).toBe(
-      0,
-    );
-  });
+  it('drops every built-in list at once under useDefaults: false', () => {
+    const config = resolveRedactionConfig({ redaction: { useDefaults: false } });
 
-  it('keeps the built-ins off when one surface opts out and the other still says true', () => {
-    // The safety net only ever narrows on an explicit opt-out — it must not come back on
-    // because the deprecated flag, left at its default, still reads `true`.
-    const config = resolveRedactionConfig({
-      useDefaultMaskHeaders: true,
-      redaction: { useDefaults: false },
-    });
     expect(config.maskHeaders.size).toBe(0);
+    expect(config.maskQueryParams.size).toBe(0);
   });
 
-  it('merges cookie names from both surfaces', () => {
+  it('keeps the names spelled out under useDefaults: false', () => {
+    // Opting out is total for the built-ins, never for what the app named itself.
     const config = resolveRedactionConfig({
-      maskCookies: ['old'],
-      redaction: { cookies: ['new'] },
+      redaction: { useDefaults: false, headers: ['x-tenant-token'] },
     });
-    expect([...config.maskCookies].sort()).toEqual(['new', 'old']);
+
+    expect([...config.maskHeaders]).toEqual(['x-tenant-token']);
+  });
+
+  it('reads cookie names from the redaction block', () => {
+    const config = resolveRedactionConfig({ redaction: { cookies: ['sid'] } });
+    expect([...config.maskCookies]).toEqual(['sid']);
   });
 
   it('builds redact options carrying the configured keys, patterns and replacement', () => {

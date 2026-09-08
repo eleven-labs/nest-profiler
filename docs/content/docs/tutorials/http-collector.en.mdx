@@ -116,7 +116,7 @@ HttpCollectorModule.forRoot({
 - **`NodeHttpPhases`** times every client built on `node:http`/`node:https` — axios, superagent, `got`, `node-fetch` — and reports `wait`, `dns`, `tcp`, `tls`, `request`, `firstByte`, `download`.
 - **`UndiciPhases`** times `fetch`, which runs on undici and never goes through `node:http`. It reports `wait`, `connect`, `request`, `firstByte`, `download`.
 
-Call the same endpoint again and the **Phases** column shows a stacked bar; hover a segment for its name and value, or expand the row for the full list. The same breakdown appears as labelled extras on the call's bar in the **Timeline** waterfall, next to the queries that ran alongside it.
+Call the same endpoint again and the **Phases** column shows a stacked bar; hover a segment for its name and value, or expand the row for the full list. The same breakdown appears as labelled extras on the call's bar in the **Execution Trace** of the Performance tab, next to the queries that ran alongside it.
 
 <Callout>
   A partial breakdown is the normal case, not a bug. A reused keep-alive connection reports no

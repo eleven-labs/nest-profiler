@@ -181,7 +181,7 @@ AppModule (no controller — only global forRoot + feature modules)
 │     ├── ProductInMemoryModule  [SQL_ORM=in-memory, default]  → no infrastructure
 │     ├── ProductTypeOrmModule   [SQL_ORM=typeorm]   → TypeOrmCollectorModule  (nest-profiler-typeorm)
 │     ├── ProductMikroOrmModule  [SQL_ORM=mikro-orm] → MikroOrmCollectorModule (nest-profiler-mikro-orm)
-│     └── CatalogGraphQLModule   [FEATURE_GRAPHQL]   → ProfilerGraphQLModule   (nest-profiler-graphql) + Apollo
+│     └── CatalogGraphQLModule   [FEATURE_GRAPHQL]   → GraphQLCollectorModule  (nest-profiler-graphql) + Apollo
 ├── ContentModule            /api/v1/articles + content:sync CLI → CacheCollectorModule
 │     ├── ArticleAxiosModule    [HTTP_CLIENT=axios, default] → HttpCollectorModule (AxiosInstrumentation) + @nestjs/axios
 │     └── ArticleFetchModule    [HTTP_CLIENT=fetch]          → HttpCollectorModule (FetchInstrumentation)
@@ -225,7 +225,7 @@ export class CatalogModule {}
     MikroOrmModule.forRootAsync({/* Postgres */}),
     MikroOrmModule.forFeature([ProductEntity]),
     ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowQueryThreshold: 50 }),
+      MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
       isProfilerEnabled,
     ),
   ],
@@ -304,7 +304,7 @@ All business routes are served under the global prefix **`/api/v1`**. Only `GET 
 | `GET /api/v1/slow`  | Execution Trace | 3 nested spans: fetch → process → serialize              |
 | `GET /api/v1/crash` | Exceptions      | Throws a 500 — tagged `error`, kept by the Errors filter |
 
-There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nestjs-profiler-module.vercel.app/en/docs/packages/nest-profiler/error-classification).
+There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification).
 
 ### Catalog (`CatalogModule` → active SQL ORM + GraphQL)
 

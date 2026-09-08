@@ -12,12 +12,13 @@ That definition drives everything failure-related: the `error` tag, its pill in 
 
 ## The defaults
 
-| Kind       | A profile is an error when…                                                                      | Configured on                                |
-| ---------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| `http`     | The response status is **≥ 500** — or an exception was captured and no status was recorded       | `ProfilerModule.forRoot({ error })`          |
-| `graphql`  | An error in `errors` carries `extensions.code: INTERNAL_SERVER_ERROR`, or carries no code at all | `GraphQLCollectorModule.forRoot({ error })`  |
-| `rabbitmq` | The handler threw                                                                                | `RabbitMqCollectorModule.forRoot({ error })` |
-| `command`  | The command exited non-zero                                                                      | Not configurable — see below                 |
+| Kind       | A profile is an error when…                                                                      | Configured on                                    |
+| ---------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `http`     | The response status is **≥ 500** — or an exception was captured and no status was recorded       | `ProfilerModule.forRoot({ error })`              |
+| `graphql`  | An error in `errors` carries `extensions.code: INTERNAL_SERVER_ERROR`, or carries no code at all | `GraphQLCollectorModule.forRoot({ error })`      |
+| `rabbitmq` | The handler threw                                                                                | `RabbitMqCollectorModule.forRoot({ error })`     |
+| `event`    | The `@OnEvent` handler threw — the synthesised status is deliberately not consulted              | `EventEmitterCollectorModule.forRoot({ error })` |
+| `command`  | The command exited non-zero                                                                      | Not configurable — see below                     |
 
 Outgoing calls your app _makes_ are judged separately, per entry: an outgoing call is failed when it threw or answered **≥ 500** (`HttpCollectorModule.forRoot({ error })`).
 

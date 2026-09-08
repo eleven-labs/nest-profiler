@@ -6,7 +6,7 @@ Thanks for contributing.
 
 ```bash
 pnpm install
-pnpm docker:up      # Postgres + MongoDB, needed to run the example app
+pnpm docker:up      # Postgres + MongoDB + RabbitMQ, only for the example app's infra-backed features
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -19,7 +19,7 @@ Target a single package:
 pnpm --filter @eleven-labs/nest-profiler test
 ```
 
-Run the example API against the profiler UI (needs `pnpm docker:up` first):
+Run the example API against the profiler UI (it boots with no infrastructure; `pnpm docker:up` is only needed for the SQL / Mongoose / RabbitMQ feature flags):
 
 ```bash
 pnpm example:dev    # http://localhost:3000/_profiler

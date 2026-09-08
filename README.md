@@ -45,7 +45,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, CPU/memory, runtime metrics, logs, exceptions)
 - [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
 - [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
-- [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (ships axios wiring, bring your own client)
+- [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (opt-in axios / fetch adapters and phase timings, bring your own client)
 - [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
 - [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
 - [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
@@ -126,7 +126,7 @@ pnpm add @eleven-labs/nest-profiler-typeorm@alpha
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
-  imports: [TypeOrmCollectorModule.forRoot({ slowQueryThreshold: 50 })],
+  imports: [TypeOrmCollectorModule.forRoot({ slowThreshold: 50 })],
 })
 export class ProductsModule {}
 ```
@@ -148,7 +148,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, mikro-orm, axios, cache, auth, config, mongoose, validator, graphql, commander, rabbitmq, event-emitter)
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, mongoose, http, cache, auth, config, routes, validator, graphql, commander, rabbitmq, event-emitter)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled

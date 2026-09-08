@@ -11,7 +11,7 @@ The core ships three backends: `memory` (default), `file`, and `sqlite` (via `@e
 
 ## The contract — `IProfilerStorageAdapter`
 
-Required methods: `save(profile)`, `findAll(options?)`, `findOne(token)`, `clear()`.
+Required methods: `save(profile)`, `findAll()`, `findOne(token)`, `clear()`.
 
 Important optionals:
 

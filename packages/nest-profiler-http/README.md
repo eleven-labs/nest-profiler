@@ -103,7 +103,7 @@ A provider **records nothing** — no entry, no header, no body. It measures, an
 
 **Every phase is optional, and a partial breakdown is the normal case.** A reused keep-alive connection reports no handshake — it connected nothing. An IP literal reports no DNS. undici publishes one `connected` event covering DNS, TCP and TLS, so it reports the coarse `connect` phase instead of the three. And because `fetch()` resolves on the response _headers_, a body still streaming when the call is recorded has no measured `download`. Whatever the phases do not account for is drawn as an explicit **Other** segment rather than folded into a neighbour — the arithmetic stays honest about what was measured and what was not.
 
-The breakdown appears twice: as a stacked bar in the HTTP Client panel (hover a segment, or expand the row for the numbers), and as labelled extras on the call's bar in the Timeline waterfall.
+The breakdown appears twice: as a stacked bar in the HTTP Client panel (hover a segment, or expand the row for the numbers), and as labelled extras on the call's bar in the Execution Trace of the Performance tab.
 
 ### Why a timings-only `node:http` hook is safe
 

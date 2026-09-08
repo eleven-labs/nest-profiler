@@ -168,8 +168,7 @@ export class ProfilingModule {
             runtime: { interval: 2000, historySize: 90 },
             // Extends the built-in masking (headers and the usual credential-bearing query
             // parameters are already masked by default) with what only this app knows.
-            maskQueryParams: ['inviteRef'],
-            maskCookies: ['sid'],
+            redaction: { queryParams: ['inviteRef'], cookies: ['sid'] },
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
             ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),

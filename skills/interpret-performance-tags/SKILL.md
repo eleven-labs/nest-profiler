@@ -1,13 +1,13 @@
 ---
 name: interpret-performance-tags
 description: |
-  Read and act on @eleven-labs/nest-profiler performance tags (slow, n-plus-one, chatty, large-payload, error), tune the thresholds that produce them, and add custom performance rules.
+  Read and act on @eleven-labs/nest-profiler performance tags (slow, n-plus-one, chatty, large-payload, error, zero-rows), tune the thresholds that produce them, and add custom performance rules.
   Use when a user asks what a profiler tag means, why a request is flagged, how to fix an N+1 / slow / chatty pattern, or how to change or extend the tagging rules.
 ---
 
 # Interpret performance tags
 
-After every profile is collected, the analysis engine runs performance rules and attaches **tags** to entries and to the profile. The built-in rules are `slow`, `n-plus-one`, `error`, `chatty`, and `large-payload`. This skill explains what each means, how to fix it, how to tune the thresholds, and how to add domain-specific rules. Assumes the core profiler is set up.
+After every profile is collected, the analysis engine runs performance rules and attaches **tags** to entries and to the profile. The built-in rules are `slow`, `n-plus-one`, `error`, `chatty`, `large-payload` and `zero-rows`. This skill explains what each means, how to fix it, how to tune the thresholds, and how to add domain-specific rules. Assumes the core profiler is set up.
 
 ## The built-in tags
 
@@ -18,6 +18,7 @@ After every profile is collected, the analysis engine runs performance rules and
 | `chatty`        | A request issued ≥ `chattyThreshold` total operations.           | Per collector: `chattyThreshold` (ORM 20, HTTP 10).                         | Batch, cache, or restructure to fewer round-trips.                    |
 | `large-payload` | An HTTP payload was ≥ `largePayloadThreshold`.                   | HTTP `largePayloadThreshold` (1 MB; `0` disables).                          | Paginate, compress, select fewer fields.                              |
 | `error`         | The operation or request errored.                                | Built-in (no threshold).                                                    | Fix the underlying failure; check the Exceptions tab.                 |
+| `zero-rows`     | A write changed nothing — `UPDATE`/`DELETE` affecting 0 rows.    | Built-in (no threshold); severity via `zeroRowsSeverity`.                   | Check the `WHERE` clause / filter — it is usually a silent mismatch.  |
 
 Read them in the UI: a collector's nav tab is coloured by its worst tag severity (`getBadgeSeverity`), and each entry carries its tags. Start from the profile-level tags, then drill into the flagged collector panel.
 

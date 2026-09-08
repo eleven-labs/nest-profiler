@@ -3,10 +3,7 @@ import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
 import { PROFILER_STORAGE_ADAPTER } from '../storage/storage-adapter.interface';
-import type {
-  IProfilerStorageAdapter,
-  StorageFindOptions,
-} from '../storage/storage-adapter.interface';
+import type { IProfilerStorageAdapter } from '../storage/storage-adapter.interface';
 import { MemoryStorageAdapter } from '../storage/memory-storage.adapter';
 import type { IndexAttributesProvider, SummaryPrimitive } from '../storage/profile-summary';
 import type { ProfilerPage, ProfilerQuery } from '../storage/profiler-query';
@@ -59,8 +56,8 @@ export class ProfilerStorageService {
     return this.adapter.save(profile);
   }
 
-  findAll(options?: StorageFindOptions): Profile[] | Promise<Profile[]> {
-    return this.adapter.findAll(options);
+  findAll(): Profile[] | Promise<Profile[]> {
+    return this.adapter.findAll();
   }
 
   findOne(token: string): Profile | undefined | Promise<Profile | undefined> {

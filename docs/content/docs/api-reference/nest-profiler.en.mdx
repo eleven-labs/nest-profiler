@@ -50,7 +50,7 @@ What counts as a failure, per entrypoint kind and per collector. See [What count
 
 ### ProfilerErrorOptions
 
-The `error` option of `ProfilerModule.forRoot()` (the `http` kind), and of every package contributing a kind — `GraphQLCollectorModule`, `RabbitMqCollectorModule`.
+The `error` option of `ProfilerModule.forRoot()` (the `http` kind), and of every package contributing a kind — `GraphQLCollectorModule`, `RabbitMqCollectorModule`, `EventEmitterCollectorModule`.
 
 <AutoTypeTable
   path="packages/nest-profiler/src/analysis/profiler-error.ts"
@@ -256,10 +256,37 @@ async findAll(): Promise<Product[]> {
 }
 ```
 
+### createProfilerInstrument
+
+Builds the `instanceDecorator` that `NestFactory` takes through its `instrument` option (Nest
+`@nestjs/core` 11.1.4+). Every provider method call then becomes a span, so the trace carries the
+full call tree instead of only the spans you opened by hand. **Opt-in and development-only**: it
+places a Proxy on every provider instance, a cost paid whether or not the request is profiled. See
+[Recording every method call
+automatically](/docs/packages/nest-profiler/collectors#recording-every-method-call-automatically).
+
+```ts title="main.ts"
+import { createProfilerInstrument } from '@eleven-labs/nest-profiler';
+
+const app = await NestFactory.create(AppModule, {
+  instrument: createProfilerInstrument(),
+});
+```
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/instrument/profiler-instrument.ts"
+  name="ProfilerInstrumentOptions"
+/>
+
+`markInternal(target)` opts a provider of your own out of the recording, the same way the
+profiler's own providers are; `isInternal(target)` reads that mark back.
+
 ### TraceContributor
 
 Implemented by a collector that projects its already-collected entries onto the trace, so its
 queries or outgoing calls appear as spans in the waterfall alongside the ones you opened by hand.
+`entriesToSpans(entries, options)` turns a collector's already-timed entries into the `RawSpan[]`
+`getTraceSpans()` must return, without re-timing anything.
 
 <AutoTypeTable path="packages/nest-profiler/src/trace/build-trace.ts" name="TraceContributor" />
 
@@ -301,15 +328,6 @@ Interface for plugging in a custom storage backend.
 <AutoTypeTable
   path="packages/nest-profiler/src/storage/storage-adapter.interface.ts"
   name="IProfilerStorageAdapter"
-/>
-
-### StorageFindOptions
-
-Filter options accepted by `IProfilerStorageAdapter.findAll()`.
-
-<AutoTypeTable
-  path="packages/nest-profiler/src/storage/storage-adapter.interface.ts"
-  name="StorageFindOptions"
 />
 
 ### FileStorageAdapterOptions
@@ -376,8 +394,11 @@ import {
   TracerService,
   TraceSpanDelegate,
   Span,
+  createProfilerInstrument,
+  markInternal,
+  entriesToSpans,
+  runInSpan,
   ProfilerStorageService,
-  ProfilerViewsSetup,
   CollectorRegistry,
   ProfilerCollector,
   HTTP_ICON,
@@ -400,7 +421,6 @@ import type {
   ProfilerModuleAsyncOptions,
   IProfilerCollector,
   IProfilerStorageAdapter,
-  StorageFindOptions,
   FileStorageAdapterOptions,
   MemoryStorageAdapterOptions,
   CollectorPanelInfo,
@@ -431,6 +451,8 @@ import type {
   TraceSpanStatus,
   RawSpan,
   TraceContributor,
+  ProfilerInstrumentOptions,
+  EntrySpanOptions,
   SecurityContext,
   CurlInput,
   OptionalPeer,

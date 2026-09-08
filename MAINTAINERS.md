@@ -4,15 +4,15 @@ Everything needed to release, automate, and administer this monorepo. Day-to-day
 
 ## Tooling at a glance
 
-| Concern            | Tool                              | Entry point                                        |
-| ------------------ | --------------------------------- | -------------------------------------------------- |
-| Task orchestration | Turborepo                         | `turbo.json` (always via root `pnpm` scripts)      |
-| Versioning/publish | Changesets                        | `.changeset/config.json`, `scripts/changesets/*`   |
-| Git hooks          | Husky + lint-staged + commitlint  | `.husky/`, `*.config.mjs`                          |
-| Lint/format/types  | `@repo/*` presets                 | `packages/configs/*`                               |
-| Package gates      | publint, `npm pack` dry-run, attw | `pnpm publint` / `pnpm pack:dry-run` / `pnpm attw` |
-| Example databases  | Docker Compose (Postgres + Mongo) | `pnpm docker:up` / `docker:down` / `docker:reset`  |
-| Docs site          | Fumadocs (Next.js)                | `docs/` — deployed by Vercel's Git integration     |
+| Concern            | Tool                                         | Entry point                                        |
+| ------------------ | -------------------------------------------- | -------------------------------------------------- |
+| Task orchestration | Turborepo                                    | `turbo.json` (always via root `pnpm` scripts)      |
+| Versioning/publish | Changesets                                   | `.changeset/config.json`, `scripts/changesets/*`   |
+| Git hooks          | Husky + lint-staged + commitlint             | `.husky/`, `*.config.mjs`                          |
+| Lint/format/types  | `@repo/*` presets                            | `packages/configs/*`                               |
+| Package gates      | publint, `npm pack` dry-run, attw            | `pnpm publint` / `pnpm pack:dry-run` / `pnpm attw` |
+| Example databases  | Docker Compose (Postgres + Mongo + RabbitMQ) | `pnpm docker:up` / `docker:down` / `docker:reset`  |
+| Docs site          | Fumadocs (Next.js)                           | `docs/` — deployed by Vercel's Git integration     |
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ Releases run in **CI** from `main` via `changesets/action` (`release.yml`).
 2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`: `changeset version` → fill lockstep changelogs).
 3. Merging that PR publishes every bumped package with the `latest` dist-tag.
 
-The whole suite is a Changesets `fixed` group, so all 11 packages move to the same version.
+The whole suite is a Changesets `fixed` group, so all 14 packages move to the same version.
 
 ### Alpha / beta prereleases
 

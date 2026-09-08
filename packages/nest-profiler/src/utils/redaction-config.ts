@@ -6,12 +6,11 @@ import type { RedactOptions } from './redact.utils';
 
 /**
  * The effective masking configuration for one profiler instance, resolved once from
- * {@link ProfilerModuleOptions.redaction} and the deprecated flat options it replaces.
+ * {@link ProfilerModuleOptions.redaction}.
  *
  * Resolved in one shared place rather than per capture site: the middleware (request headers,
  * cookies, query string, body, session) and the interceptor (response headers, response body)
- * both mask, and a second copy of this merge is how the two drift apart — exactly the drift
- * this branch fixed in `nest-profiler-rabbitmq`.
+ * both mask, and a second copy of this merge is how the two drift apart.
  */
 export interface ResolvedRedactionConfig {
   /** Header names (lowercase) masked on capture, request **and** response. */
@@ -27,35 +26,27 @@ export interface ResolvedRedactionConfig {
 }
 
 /**
- * Merges the unified `redaction` block with the deprecated flat options (`maskHeaders`,
- * `maskCookies`, `maskQueryParams`, `useDefaultMask*`). Every list is **additive**: naming an
- * entry through either surface extends the built-ins rather than replacing them.
+ * Resolves the `redaction` block into the sets every capture site masks against. Each list is
+ * **additive** over the built-ins: naming an entry extends them rather than replacing them, so
+ * adding one header can never silently stop `authorization` from being masked. `useDefaults:
+ * false` is the deliberate, total opt-out — it drops every built-in list at once.
  */
 export function resolveRedactionConfig(options: ProfilerModuleOptions): ResolvedRedactionConfig {
   const redaction = options.redaction;
-  // Turning defaults off through *either* the unified block or a deprecated flat flag disables
-  // them — the safety net only ever narrows on an explicit, deliberate opt-out, never widens
-  // back on because the other (soon-removed) option still says `true`.
-  const useDefaultHeaders =
-    redaction?.useDefaults !== false && options.useDefaultMaskHeaders !== false;
-  const useDefaultQueryParams =
-    redaction?.useDefaults !== false && options.useDefaultMaskQueryParams !== false;
+  const useDefaults = redaction?.useDefaults !== false;
   const replacement = redaction?.replacement ?? REDACTED;
 
   return {
     maskHeaders: new Set(
-      [
-        ...(useDefaultHeaders ? DEFAULT_MASK_HEADERS : []),
-        ...(options.maskHeaders ?? []),
-        ...(redaction?.headers ?? []),
-      ].map((h) => h.toLowerCase()),
+      [...(useDefaults ? DEFAULT_MASK_HEADERS : []), ...(redaction?.headers ?? [])].map((h) =>
+        h.toLowerCase(),
+      ),
     ),
     maskQueryParams: buildMaskedQueryParams([
-      ...(useDefaultQueryParams ? DEFAULT_MASK_QUERY_PARAMS : []),
-      ...(options.maskQueryParams ?? []),
+      ...(useDefaults ? DEFAULT_MASK_QUERY_PARAMS : []),
       ...(redaction?.queryParams ?? []),
     ]),
-    maskCookies: new Set([...(options.maskCookies ?? []), ...(redaction?.cookies ?? [])]),
+    maskCookies: new Set(redaction?.cookies ?? []),
     replacement,
     redactOptions: {
       maskKeys: redaction?.keys ?? [],
@@ -63,7 +54,7 @@ export function resolveRedactionConfig(options: ProfilerModuleOptions): Resolved
       replacement,
       // `useDefaults: false` takes masking over entirely: the built-in sensitive-key pattern goes
       // with the built-in header/query lists, leaving only the names spelled out in `keys`.
-      ...(redaction?.useDefaults === false ? { keyPattern: /(?!)/ } : {}),
+      ...(useDefaults ? {} : { keyPattern: /(?!)/ }),
     },
   };
 }
