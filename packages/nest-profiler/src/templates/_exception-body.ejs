@@ -1,0 +1,26 @@
+<%#
+  What an exception says about itself: its message, or the lines its `HttpException` payload
+  carries instead, plus whatever else that payload held. Shared between the primary exception and
+  each `cause`. Locals: message (string), details (unknown), msgClass (string).
+%>
+<% const detail = exceptionDetails(details, message); %>
+<% if (detail.lines.length > 0) { %>
+  <%# The payload wins over `message`: `BadRequestException(violations)` reports the generic
+      "Bad Request Exception" as its message and the field errors as its payload. %>
+  <ul class="mt-0.5 space-y-0.5">
+    <% for (const line of detail.lines) { %>
+      <li class="<%= msgClass %> flex gap-1.5 text-xs">
+        <span class="shrink-0 select-none" aria-hidden="true">•</span>
+        <span class="break-words font-mono"><%= line %></span>
+      </li>
+    <% } %>
+  </ul>
+<% } else { %>
+  <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= message %></p>
+<% } %>
+<% if (detail.rest) { %>
+  <div class="mt-3">
+    <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Response payload</p>
+    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(detail.rest) %></code></pre>
+  </div>
+<% } %>

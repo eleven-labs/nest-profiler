@@ -66,6 +66,8 @@ export default registerAs('profiler', () => {
     // IANA timezone the dashboard renders timestamps in. Unset ⇒ the timezone the process runs
     // in, which on a hosted deployment (containers usually run UTC) is rarely the reader's.
     timezone: process.env['PROFILER_TIMEZONE'],
+    // Editor the Exceptions tab deep-links source locations to. Unset ⇒ plain text.
+    editor: process.env['PROFILER_EDITOR'],
     // Collector option driven from config to showcase the collectors' `forRootAsync` (see AuthModule).
     maskUserFields: (process.env['PROFILER_MASK_USER_FIELDS'] ?? 'password,refreshToken')
       .split(',')

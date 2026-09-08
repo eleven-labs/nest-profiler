@@ -129,7 +129,8 @@ export type {
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
-export { toExceptionEntry } from './analysis/to-exception-entry';
+export { toExceptionEntry, resolveExceptionCaptureOptions } from './analysis/to-exception-entry';
+export type { ExceptionCaptureOptions } from './analysis/to-exception-entry';
 export type {
   CollectorModuleOptions,
   TagSeverityOptions,
@@ -183,13 +184,19 @@ export type {
 } from './utils/redaction-options';
 export { resolveRedactionConfig } from './utils/redaction-config';
 export type { ResolvedRedactionConfig } from './utils/redaction-config';
-export { buildSourceContext, resolveSourceContextOptions } from './utils/source-context.util';
+export {
+  analyzeStack,
+  resolveSourceContextOptions,
+  resolveStackAnalysisOptions,
+} from './utils/source-context.util';
 export type {
   SourceContextOptions,
   SourceCodeFrame,
   SourceCodeLine,
+  StackAnalysisOptions,
 } from './utils/source-context.util';
-export type { ToExceptionEntryOptions } from './analysis/to-exception-entry';
+export { createEditorLink, resolveEditorTemplate, EDITOR_NAMES } from './views/editor-link';
+export type { EditorLink, ProfilerEditorName } from './views/editor-link';
 export {
   DEFAULT_MASK_HEADERS,
   extractHeaders,

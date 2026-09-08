@@ -119,7 +119,7 @@ export class TracerService {
     if (!profile) return;
 
     profile.exceptions.push({
-      ...toExceptionEntry(error, { sourceContext: this.core?.sourceContext }),
+      ...toExceptionEntry(error, this.core?.exceptionCapture ?? {}),
       handled: true,
     });
 

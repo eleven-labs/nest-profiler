@@ -184,9 +184,9 @@ export class CommandProfiler implements OnModuleInit {
     };
 
     if (error) {
-      // Same `sourceContext` setting as the HTTP path — resolved once by the core service, so a
-      // command's stack frames get the code excerpt the option promises for every exception.
-      profile.exceptions.push(toExceptionEntry(error, { sourceContext: this.core?.sourceContext }));
+      // Same stack settings as the HTTP path — resolved once by the core service, so a command's
+      // frames get the grouping and the code excerpt the options promise for every exception.
+      profile.exceptions.push(toExceptionEntry(error, this.core?.exceptionCapture ?? {}));
     }
 
     profile.entrypoint.data.success = !error;

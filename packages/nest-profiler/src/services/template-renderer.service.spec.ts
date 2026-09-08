@@ -402,87 +402,232 @@ describe('TemplateRendererService', () => {
   });
 
   describe('detail — Exceptions tab', () => {
-    it('renders a code frame under the stack when the exception carries one', async () => {
-      const html = await service.render('detail', {
+    const APP_FRAME = {
+      file: 'src/catalog/application/product.service.ts',
+      absoluteFile: '/app/src/catalog/application/product.service.ts',
+      line: 49,
+      column: 21,
+      function: 'ProductService.create',
+      isAsync: true,
+      isApplication: true,
+      lines: [
+        { number: 48, code: 'const a = 1;', isFaultLine: false },
+        { number: 49, code: 'throw new Error("boom");', isFaultLine: true },
+        { number: 50, code: 'const b = 2;', isFaultLine: false },
+      ],
+    };
+    const VENDOR_FRAME = {
+      file: 'typeorm/query-builder/InsertQueryBuilder.js',
+      line: 166,
+      function: 'InsertQueryBuilder.execute',
+      isApplication: false,
+    };
+
+    const renderException = (
+      exception: Record<string, unknown>,
+      overrides: Record<string, unknown> = {},
+    ): Promise<string> =>
+      service.render('detail', {
         ...MINIMAL_DETAIL_DATA,
         activeTab: 'exceptions',
         entrypointTabTemplate: undefined,
-        profile: {
-          ...MINIMAL_DETAIL_DATA.profile,
-          exceptions: [
-            {
-              name: 'Error',
-              message: 'boom',
-              stack: 'Error: boom\n    at x (/app/src/foo.ts:10:5)',
-              timestamp: Date.now(),
-              frames: [
-                {
-                  file: '/app/src/foo.ts',
-                  line: 10,
-                  column: 5,
-                  function: 'x',
-                  lines: [
-                    { number: 9, code: 'const a = 1;', isFaultLine: false },
-                    { number: 10, code: 'throw new Error("boom");', isFaultLine: true },
-                    { number: 11, code: 'const b = 2;', isFaultLine: false },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
+        profile: { ...MINIMAL_DETAIL_DATA.profile, exceptions: [exception], ...overrides },
       });
 
-      expect(html).toContain('/app/src/foo.ts');
+    const anException = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+      name: 'QueryFailedError',
+      message: 'null value in column "price" violates not-null constraint',
+      stack: 'QueryFailedError: null value\n    at x (/app/src/foo.ts:10:5)',
+      timestamp: Date.now(),
+      ...extra,
+    });
+
+    it('leads with the throw site, its excerpt and the faulty line', async () => {
+      const html = await renderException(anException({ frames: [APP_FRAME] }));
+
+      expect(html).toContain('Thrown at');
+      expect(html).toContain('ProductService.create');
+      expect(html).toContain('>async<');
+      expect(html).toContain('src/catalog/application/product.service.ts:49:21');
       expect(html).toContain('throw new Error(&#34;boom&#34;);');
+      // The faulty line carries the danger background and a caret under its column.
+      expect(html).toContain('bg-danger-bg');
+      expect(html).toContain('language-typescript');
     });
 
-    it('renders a code frame for a cause as well as the primary exception', async () => {
-      const html = await service.render('detail', {
-        ...MINIMAL_DETAIL_DATA,
-        activeTab: 'exceptions',
-        entrypointTabTemplate: undefined,
-        profile: {
-          ...MINIMAL_DETAIL_DATA.profile,
-          exceptions: [
-            {
-              name: 'Error',
-              message: 'outer',
-              stack: 'Error: outer',
-              timestamp: Date.now(),
-              cause: {
-                name: 'Error',
-                message: 'inner',
-                stack: 'Error: inner',
-                timestamp: Date.now(),
-                frames: [
-                  {
-                    file: '/app/src/bar.ts',
-                    line: 3,
-                    lines: [{ number: 3, code: 'fail();', isFaultLine: true }],
-                  },
-                ],
+    it('collapses the dependency and Node-internal frames behind one count', async () => {
+      const html = await renderException(
+        anException({ frames: [APP_FRAME, VENDOR_FRAME, { ...VENDOR_FRAME, line: 200 }] }),
+      );
+
+      expect(html).toContain('2 frames in dependencies and Node internals');
+      expect(html).toContain('typeorm/query-builder/InsertQueryBuilder.js:166');
+    });
+
+    it('groups the remaining application frames behind their own disclosure', async () => {
+      const html = await renderException(
+        anException({ frames: [APP_FRAME, { ...APP_FRAME, line: 12, lines: undefined }] }),
+      );
+
+      expect(html).toContain('1 more application frame');
+    });
+
+    it('names the framework throw site on one line when no frame is the application', async () => {
+      // A DTO rejected by a pipe throws entirely inside the framework: promoting one of those
+      // frames to "Thrown at" would emphasise the one line the reader cannot act on.
+      const html = await renderException(anException({ frames: [VENDOR_FRAME] }));
+
+      expect(html).not.toContain('Thrown at');
+      expect(html).toContain('thrown inside');
+      expect(html).toContain('InsertQueryBuilder.execute');
+      expect(html).toContain('none of the frames are yours');
+    });
+
+    it('drops the generic class message when the payload says more', async () => {
+      const html = await renderException(
+        anException({
+          name: 'BadRequestException',
+          message: 'Bad Request Exception',
+          details: { statusCode: 400, message: ['name should not be empty'] },
+        }),
+      );
+
+      expect(html).toContain('name should not be empty');
+      expect(html).not.toContain('Bad Request Exception');
+    });
+
+    it('lists the field errors an HttpException payload carries', async () => {
+      const html = await renderException(
+        anException({
+          name: 'BadRequestException',
+          message: 'Bad Request Exception',
+          frames: [VENDOR_FRAME],
+          details: {
+            statusCode: 400,
+            error: 'Bad Request',
+            message: ['name should not be empty', 'price must not be less than 0'],
+          },
+        }),
+      );
+
+      expect(html).toContain('name should not be empty');
+      expect(html).toContain('price must not be less than 0');
+      // `statusCode` and `error` add nothing: the status is the profile's, `error` the class name.
+      expect(html).not.toContain('Response payload');
+    });
+
+    it('renders whatever a payload carries beyond its message', async () => {
+      const html = await renderException(
+        anException({ details: { statusCode: 409, message: 'Conflict', conflictingId: 42 } }),
+      );
+
+      expect(html).toContain('Response payload');
+      expect(html).toContain('conflictingId');
+    });
+
+    it('does not repeat a payload message that is already the exception message', async () => {
+      const html = await renderException(
+        anException({
+          message: 'Product #9 not found',
+          details: { message: 'Product #9 not found' },
+        }),
+      );
+
+      expect(html.match(/Product #9 not found/g)).toHaveLength(1);
+    });
+
+    it('names the handler the exception came out of', async () => {
+      const html = await renderException(anException({ frames: [APP_FRAME] }), {
+        route: {
+          controller: 'ProductController',
+          handler: 'create',
+          path: '/products',
+          method: 'POST',
+        },
+      });
+
+      expect(html).toContain('thrown in');
+      expect(html).toContain('ProductController.create');
+    });
+
+    it('renders a handled exception as caught rather than as a failure', async () => {
+      const html = await renderException(anException({ frames: [APP_FRAME], handled: true }), {
+        route: {
+          controller: 'ProductController',
+          handler: 'create',
+          path: '/products',
+          method: 'POST',
+        },
+      });
+
+      expect(html).toContain('Handled');
+      expect(html).toContain('caught in');
+      expect(html).not.toContain('bg-danger-bg border-danger-line');
+    });
+
+    it('renders the frames of a cause as well as of the primary exception', async () => {
+      const html = await renderException(
+        anException({
+          frames: [APP_FRAME],
+          cause: {
+            name: 'Error',
+            message: 'inner',
+            stack: 'Error: inner',
+            timestamp: Date.now(),
+            frames: [
+              {
+                file: 'src/bar.ts',
+                line: 3,
+                isApplication: true,
+                lines: [{ number: 3, code: 'fail();', isFaultLine: true }],
               },
-            },
-          ],
-        },
-      });
+            ],
+          },
+        }),
+      );
 
-      expect(html).toContain('/app/src/bar.ts');
+      expect(html).toContain('Caused by');
+      expect(html).toContain('src/bar.ts:3');
+      expect(html).toContain('fail();');
     });
 
-    it('omits the code frame block when the exception carries no frames', async () => {
-      const html = await service.render('detail', {
+    it('falls back to the raw stack when no frame could be parsed out of it', async () => {
+      const html = await renderException(anException({ stack: 'QueryFailedError: null value' }));
+
+      expect(html).toContain('QueryFailedError: null value');
+    });
+
+    it('renders a source location as plain text when no editor is configured', async () => {
+      const html = await renderException(anException({ frames: [APP_FRAME] }));
+
+      expect(html).not.toContain('vscode://');
+    });
+
+    it('links a source location to the configured editor', async () => {
+      const withEditor = new TemplateRendererService(new ClientAssetRegistry(), {
+        editor: 'vscode',
+      });
+      const html = await withEditor.render('detail', {
         ...MINIMAL_DETAIL_DATA,
         activeTab: 'exceptions',
         entrypointTabTemplate: undefined,
         profile: {
           ...MINIMAL_DETAIL_DATA.profile,
-          exceptions: [{ name: 'Error', message: 'boom', stack: 'Error: boom', timestamp: 0 }],
+          exceptions: [anException({ frames: [APP_FRAME] })],
         },
       });
 
-      expect(html).toContain('boom');
+      expect(html).toContain('vscode://file//app/src/catalog/application/product.service.ts:49');
+    });
+
+    it('warns and renders plain text when the editor name is unknown', () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      try {
+        new TemplateRendererService(new ClientAssetRegistry(), { editor: 'notepad' });
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Unknown editor "notepad"'));
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 

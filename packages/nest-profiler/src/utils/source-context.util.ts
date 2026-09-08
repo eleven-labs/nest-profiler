@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { extname, resolve, sep } from 'node:path';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-/** Tunables for {@link ProfilerModuleOptions.sourceContext}. */
+/** Tunables for {@link ProfilerModuleOptions.sourceContext} — the source excerpts, not the frames. */
 export interface SourceContextOptions {
   /** Lines shown above and below the frame's own line. Default: `5`. */
   linesOfContext?: number;
-  /** Maximum number of application stack frames annotated with a code excerpt. Default: `5`. */
+  /** Maximum number of application frames annotated with a code excerpt. Default: `5`. */
   maxFrames?: number;
 }
 
@@ -17,17 +18,56 @@ export interface SourceCodeLine {
   isFaultLine: boolean;
 }
 
-/** A single application stack frame, annotated with the source lines around it. */
+/**
+ * One parsed `Error#stack` frame — application code, a dependency or a Node internal alike.
+ *
+ * The whole stack is kept, not only the application part: the UI needs the dependency frames to
+ * group and count them, and dropping them left the raw stack string as the only way to see what
+ * a query builder was doing when it threw.
+ */
 export interface SourceCodeFrame {
+  /**
+   * Display path: relative to the project root for an application frame, relative to its package
+   * root for a dependency (`typeorm/query-runner/PostgresQueryRunner.js`), and untouched for
+   * anything else (`node:internal/process/task_queues`).
+   */
   file: string;
+  /**
+   * Absolute path, set only for an application frame that resolved under the project root — the
+   * one form an editor link can open. Absent for everything else, which is also what makes it
+   * safe to hand to a URL.
+   */
+  absoluteFile?: string;
+  /** 1-based line the frame points at. */
   line: number;
+  /** 1-based column, when the stack carried one. */
   column?: number;
+  /** Function or `Class.method` name, without V8's `async`, `new` and `[as alias]` decorations. */
   function?: string;
-  lines: SourceCodeLine[];
+  /** `true` for a frame resumed from an `await` (V8 prints those as `at async Class.method`). */
+  isAsync?: boolean;
+  /** `true` when the frame is the application's own code rather than a dependency or Node itself. */
+  isApplication: boolean;
+  /**
+   * Source excerpt around {@link line}. Application frames only, and only while
+   * {@link ProfilerModuleOptions.sourceContext} is on and the frame is within its `maxFrames`.
+   */
+  lines?: SourceCodeLine[];
+}
+
+/** Settings {@link analyzeStack} reads. */
+export interface StackAnalysisOptions {
+  /** Root the excerpt reader is confined to, and display paths are relative to. Default: `process.cwd()`. */
+  projectRoot?: string;
+  /** Excerpt settings, or `undefined` to keep the frames without reading any source. */
+  sourceContext?: SourceContextOptions;
 }
 
 const DEFAULT_LINES_OF_CONTEXT = 5;
 const DEFAULT_MAX_FRAMES = 5;
+
+/** Upper bound on frames kept per exception — deep enough for any real stack, bounded for storage. */
+const MAX_STACK_FRAMES = 50;
 
 /** Extensions read for a code excerpt. Anything else (`.json`, a native addon…) is skipped. */
 const ALLOWED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.mts', '.cts']);
@@ -38,11 +78,23 @@ const MAX_CACHED_FILES = 200;
 /** A `line`/`column` component: bounded and unambiguous, so it cannot backtrack. */
 const POSITION_RE = /^\d{1,9}$/;
 
+const NODE_MODULES_SEGMENT = `${sep}node_modules${sep}`;
+
 interface RawFrame {
   function?: string;
+  isAsync: boolean;
   file: string;
   line: number;
   column: number;
+}
+
+/** Strips V8's `new ` prefix and ` [as alias]` suffix off a frame's function name. */
+function cleanFunctionName(name: string): string | undefined {
+  let cleaned = name.startsWith('new ') ? name.slice(4) : name;
+  const alias = cleaned.indexOf(' [as ');
+  if (alias !== -1) cleaned = cleaned.slice(0, alias);
+  cleaned = cleaned.trim();
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 /**
@@ -59,14 +111,23 @@ function parseStackFrame(rawLine: string): RawFrame | undefined {
   const trimmed = rawLine.trim();
   if (!trimmed.startsWith('at ')) return undefined;
 
+  let rest = trimmed.slice(3).trim();
+
+  // `async` prefixes the frame, not the function: stripping it first keeps it out of both the
+  // function name and — on an `at async /path:1:1` frame — the file.
+  let isAsync = false;
+  if (rest.startsWith('async ')) {
+    isAsync = true;
+    rest = rest.slice(6).trim();
+  }
+
   // `at fn (<location>)` → the function name is everything before the last ` (`; a frame with no
   // named function is `at <location>` and carries no parentheses at all.
-  let rest = trimmed.slice(3).trim();
   let fn: string | undefined;
   if (rest.endsWith(')')) {
     const open = rest.lastIndexOf(' (');
     if (open === -1) return undefined;
-    fn = rest.slice(0, open);
+    fn = cleanFunctionName(rest.slice(0, open));
     rest = rest.slice(open + 2, -1);
   }
 
@@ -81,7 +142,26 @@ function parseStackFrame(rawLine: string): RawFrame | undefined {
   const column = rest.slice(columnSep + 1);
   if (!POSITION_RE.test(line) || !POSITION_RE.test(column)) return undefined;
 
-  return { function: fn, file: rest.slice(0, lineSep), line: Number(line), column: Number(column) };
+  return {
+    function: fn,
+    isAsync,
+    file: toFilePath(rest.slice(0, lineSep)),
+    line: Number(line),
+    column: Number(column),
+  };
+}
+
+/**
+ * A frame's file as a filesystem path. V8 reports an ESM module's frames as `file://` URLs, which
+ * resolve to nothing and would leave every frame of an ESM application unreadable and unlinkable.
+ */
+function toFilePath(file: string): string {
+  if (!file.startsWith('file://')) return file;
+  try {
+    return fileURLToPath(file);
+  } catch {
+    return file;
+  }
 }
 
 /** Parses `Error#stack` into frames, skipping every line that is not one. */
@@ -94,26 +174,53 @@ function parseStackFrames(stack: string): RawFrame[] {
   return frames;
 }
 
-/** Whether a frame belongs to application code — never a dependency or a Node internal. */
-function isApplicationFrame(frame: RawFrame): boolean {
-  if (frame.file.startsWith('node:')) return false;
-  if (frame.file.includes('node_modules')) return false;
-  if (frame.file.includes('internal/')) return false;
-  if (frame.file.includes('<anonymous>') || frame.file.includes('[native code]')) return false;
-  return true;
+/** Native separators to `/`, so a display path reads the same on every platform. */
+function toDisplayPath(path: string): string {
+  return sep === '/' ? path : path.split(sep).join('/');
 }
 
 /**
- * Whether `file` may be read for a code excerpt: it must resolve **under `process.cwd()`** and
- * carry a recognised source extension. `Error#stack` is not a trusted input — a multi-line error
- * message can inject text that parses like a stack frame — so without this pair of guards,
- * logging a forged string would let a stack trace read an arbitrary file off the host.
+ * A dependency frame's path, relative to its own package root: the last `node_modules/` wins, so
+ * a pnpm store path (`node_modules/.pnpm/typeorm@0.3.27/node_modules/typeorm/…`) and a nested npm
+ * install both come out as `typeorm/…`.
  */
-function isReadableSourceFile(file: string): string | undefined {
-  if (!ALLOWED_EXTENSIONS.has(extname(file).toLowerCase())) return undefined;
-  const resolved = resolve(file);
-  const root = process.cwd() + sep;
-  return resolved.startsWith(root) ? resolved : undefined;
+function toPackageRelativePath(file: string): string {
+  const marker = file.lastIndexOf(NODE_MODULES_SEGMENT);
+  return marker === -1 ? file : file.slice(marker + NODE_MODULES_SEGMENT.length);
+}
+
+interface ClassifiedFrame {
+  isApplication: boolean;
+  file: string;
+  absoluteFile?: string;
+}
+
+/**
+ * Places a frame's file: the application's own source, a dependency, or neither (a Node internal,
+ * an `eval`, a path outside the project root).
+ *
+ * "Application" means **resolving under the project root** rather than merely not looking like a
+ * dependency, which is also the guard that keeps the excerpt reader inside the project: only a
+ * frame classified here as application is ever read off disk.
+ */
+function classifyFrame(file: string, projectRoot: string): ClassifiedFrame {
+  if (file.startsWith('node:')) return { isApplication: false, file };
+  if (file.includes(NODE_MODULES_SEGMENT)) {
+    return { isApplication: false, file: toDisplayPath(toPackageRelativePath(file)) };
+  }
+  // `<anonymous>`, `[native code]`, `eval at …` and pre-`node:` internals such as
+  // `internal/process/task_queues` — nothing that can be resolved, let alone read.
+  if (!isAbsolute(file)) return { isApplication: false, file };
+
+  const absoluteFile = resolve(file);
+  const root = resolve(projectRoot) + sep;
+  if (!absoluteFile.startsWith(root)) return { isApplication: false, file: toDisplayPath(file) };
+
+  return {
+    isApplication: true,
+    file: toDisplayPath(relative(resolve(projectRoot), absoluteFile)),
+    absoluteFile,
+  };
 }
 
 /** Read-through cache of file contents (split into lines), failures cached as `null` too. */
@@ -136,68 +243,108 @@ function getFileLines(absolutePath: string): string[] | undefined {
   return lines ?? undefined;
 }
 
-function readContextLines(
-  fileLines: string[],
+/**
+ * The excerpt around `faultLine`, or `undefined` when the file cannot be read or the line falls
+ * past its end — a forged stack, or a source edited since the build.
+ */
+function readExcerpt(
+  absolutePath: string,
   faultLine: number,
   linesOfContext: number,
-): SourceCodeLine[] {
+): SourceCodeLine[] | undefined {
+  if (!ALLOWED_EXTENSIONS.has(extname(absolutePath).toLowerCase())) return undefined;
+
+  const fileLines = getFileLines(absolutePath);
+  if (!fileLines || faultLine > fileLines.length) return undefined;
+
   const start = Math.max(1, faultLine - linesOfContext);
   const end = Math.min(fileLines.length, faultLine + linesOfContext);
-  const result: SourceCodeLine[] = [];
+  const excerpt: SourceCodeLine[] = [];
   for (let number = start; number <= end; number++) {
-    result.push({ number, code: fileLines[number - 1] ?? '', isFaultLine: number === faultLine });
+    excerpt.push({ number, code: fileLines[number - 1] ?? '', isFaultLine: number === faultLine });
   }
-  return result;
+  return excerpt.length > 0 ? excerpt : undefined;
 }
 
 /**
  * Normalizes {@link ProfilerModuleOptions.sourceContext} (`boolean | SourceContextOptions`) into
- * the shape {@link buildSourceContext} takes: `undefined` when off, `{}` for the defaults when
- * `true`, or the object itself.
+ * the shape {@link analyzeStack} takes: `undefined` when explicitly off, `{}` for the defaults
+ * when omitted or `true`, or the object itself.
  */
 export function resolveSourceContextOptions(
   option: boolean | SourceContextOptions | undefined,
 ): SourceContextOptions | undefined {
-  if (!option) return undefined;
-  return option === true ? {} : option;
+  if (option === false) return undefined;
+  return option === undefined || option === true ? {} : option;
 }
 
 /**
- * Builds the annotated code frames for an `Error#stack`, or `undefined` when the stack is
- * missing or carries no readable application frame. Never throws: a source excerpt is a nicety,
- * not a requirement, for a request that already failed.
+ * Resolves the two module options {@link analyzeStack} reads into the shape it takes, so every
+ * capture site — the interceptor, the catch-all filter, `TracerService.captureError`, a package
+ * building its own profile — annotates its exceptions on one setting.
  */
-export function buildSourceContext(
+export function resolveStackAnalysisOptions(options: {
+  projectRoot?: string;
+  sourceContext?: boolean | SourceContextOptions;
+}): StackAnalysisOptions {
+  const sourceContext = resolveSourceContextOptions(options.sourceContext);
+  return {
+    ...(options.projectRoot !== undefined ? { projectRoot: options.projectRoot } : {}),
+    ...(sourceContext !== undefined ? { sourceContext } : {}),
+  };
+}
+
+/**
+ * Turns an `Error#stack` into {@link SourceCodeFrame}s, annotating the application ones with a
+ * source excerpt when `sourceContext` is on.
+ *
+ * Parsing costs no I/O and always runs: a grouped, per-frame stack is strictly better than the
+ * raw string it replaces. Reading source off disk is what `sourceContext` gates, and it happens
+ * only for frames under the project root with an executable extension — `Error#stack` can carry
+ * attacker-influenced text, so without those two guards logging a forged string would let a
+ * stack trace read an arbitrary file off the host.
+ *
+ * Never throws: a stack view is a nicety, not a requirement, for a request that already failed.
+ */
+export function analyzeStack(
   stack: string | undefined,
-  options: SourceContextOptions = {},
+  options: StackAnalysisOptions = {},
 ): SourceCodeFrame[] | undefined {
   if (!stack) return undefined;
   try {
-    const linesOfContext = options.linesOfContext ?? DEFAULT_LINES_OF_CONTEXT;
-    const maxFrames = options.maxFrames ?? DEFAULT_MAX_FRAMES;
+    const projectRoot = options.projectRoot ?? process.cwd();
+    const { sourceContext } = options;
+    const linesOfContext = sourceContext?.linesOfContext ?? DEFAULT_LINES_OF_CONTEXT;
+    const maxFrames = sourceContext?.maxFrames ?? DEFAULT_MAX_FRAMES;
 
     const frames: SourceCodeFrame[] = [];
+    let excerpts = 0;
+
     for (const raw of parseStackFrames(stack)) {
-      if (frames.length >= maxFrames) break;
-      if (!isApplicationFrame(raw)) continue;
-      const absolutePath = isReadableSourceFile(raw.file);
-      if (!absolutePath) continue;
-      const fileLines = getFileLines(absolutePath);
-      if (!fileLines) continue;
+      if (frames.length >= MAX_STACK_FRAMES) break;
+      const placed = classifyFrame(raw.file, projectRoot);
 
-      // A line number past the end of the file yields no excerpt — a forged stack, or a source
-      // edited since it was cached. Skip the frame rather than render an empty code block.
-      const lines = readContextLines(fileLines, raw.line, linesOfContext);
-      if (lines.length === 0) continue;
-
-      frames.push({
-        file: raw.file,
+      const frame: SourceCodeFrame = {
+        file: placed.file,
+        ...(placed.absoluteFile !== undefined ? { absoluteFile: placed.absoluteFile } : {}),
         line: raw.line,
         column: raw.column,
-        function: raw.function,
-        lines,
-      });
+        ...(raw.function !== undefined ? { function: raw.function } : {}),
+        ...(raw.isAsync ? { isAsync: true } : {}),
+        isApplication: placed.isApplication,
+      };
+
+      if (sourceContext && placed.absoluteFile && excerpts < maxFrames) {
+        const excerpt = readExcerpt(placed.absoluteFile, raw.line, linesOfContext);
+        if (excerpt) {
+          frame.lines = excerpt;
+          excerpts++;
+        }
+      }
+
+      frames.push(frame);
     }
+
     return frames.length > 0 ? frames : undefined;
   } catch {
     return undefined;

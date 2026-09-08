@@ -55,6 +55,11 @@ class ProductService {
     throw new Error('nope');
   }
 
+  async boomLater(): Promise<never> {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    throw new Error('nope, later');
+  }
+
   countdown(n: number): number {
     return n <= 0 ? 0 : this.countdown(n - 1);
   }
@@ -405,6 +410,63 @@ describe('createProfilerInstrument', () => {
 
       expect(service.create('outside')).toBe('saved:outside');
       expect(spans()).toHaveLength(0);
+    });
+  });
+
+  describe('stack labels', () => {
+    // A traced call runs against the Proxy so a self-call nests, and V8 types every frame whose
+    // receiver is a Proxy as "Proxy" — on the very frame the Exceptions tab leads with.
+    it('names the class rather than the Proxy on a synchronous throw', () => {
+      const service = instrument(new ProductService(new Repository()));
+
+      const error = profiled(() => {
+        try {
+          service.boom();
+          return undefined;
+        } catch (caught) {
+          return caught as Error;
+        }
+      });
+
+      expect(error?.stack).toContain('ProductService.boom');
+      expect(error?.stack).not.toContain('Proxy.boom');
+    });
+
+    it('names the class rather than the Proxy on a rejected promise', async () => {
+      const service = instrument(new ProductService(new Repository()));
+
+      const error = await profiled(() => service.boomLater()).catch(
+        (caught: unknown) => caught as Error,
+      );
+
+      expect(error.stack).toContain('ProductService.boomLater');
+      expect(error.stack).not.toContain('Proxy.boomLater');
+    });
+
+    it('leaves an error with an unwritable stack alone rather than masking it', () => {
+      const service = instrument(new ProductService(new Repository()));
+      const frozen = new Error('frozen');
+      Object.defineProperty(frozen, 'stack', {
+        value: '\n    at Proxy.throwFrozen (/app/src/x.ts:1:1)',
+        writable: false,
+      });
+      class Frozen {
+        throwFrozen(): never {
+          throw frozen;
+        }
+      }
+
+      const error = profiled(() => {
+        try {
+          instrument(new Frozen()).throwFrozen();
+          return undefined;
+        } catch (caught) {
+          return caught as Error;
+        }
+      });
+
+      expect(error).toBe(frozen);
+      expect(service).toBeDefined();
     });
   });
 });

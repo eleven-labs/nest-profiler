@@ -1,14 +1,64 @@
 <%#
-  Source-code excerpts around an exception's application stack frames (opt-in via
-  `sourceContext`). Shared between the primary exception and each `cause` in the chain.
+  An exception's stack, grouped: the throw site expanded, the remaining application frames one
+  click away, and everything below the application — dependencies and Node internals — collapsed
+  into a single count. Shared between the primary exception and each `cause` in the chain.
   Locals: frames (SourceCodeFrame[]), borderClass (string).
 %>
-<% for (const frame of frames) { %>
-  <div class="mt-3 pt-3 border-t <%= borderClass %>">
-    <p class="text-foreground-faint text-2xs font-mono mb-1.5 truncate">
-      <%= frame.file %><% if (frame.function) { %> — <span class="text-foreground-muted"><%= frame.function %>()</span><% } %>
+<%
+  const appFrames = frames.filter((frame) => frame.isApplication);
+  const vendorFrames = frames.filter((frame) => !frame.isApplication);
+  const [primaryFrame, ...restAppFrames] = appFrames;
+  // Nothing of the application in the stack — a DTO rejected by a pipe, a driver throwing under
+  // its own await. Promoting a framework frame to "Thrown at" would put false emphasis on the one
+  // line the reader can do nothing about, so it is named on a single line instead.
+  const frameworkThrow = appFrames.length === 0 ? vendorFrames[0] : undefined;
+%>
+<div class="mt-3 border-t <%= borderClass %> pt-3">
+  <% if (primaryFrame) { %>
+    <%- include('_exception-frame', { frame: primaryFrame, borderClass, primary: true }) %>
+  <% } %>
+
+  <% if (frameworkThrow) { %>
+    <p class="font-mono text-2xs text-foreground-muted truncate" title="<%= frameworkThrow.file %>:<%= frameworkThrow.line %>">
+      thrown inside
+      <span class="text-foreground-secondary"><%= frameworkThrow.function ?? '(anonymous)' %></span>
+      — <%= frameworkThrow.file %>:<%= frameworkThrow.line %>, none of the frames are yours
     </p>
-    <pre class="text-xs overflow-x-auto leading-relaxed rounded border border-line bg-surface-muted"><% for (const line of frame.lines) { %><span class="flex <%= line.isFaultLine ? 'bg-danger-bg text-danger' : 'text-code-text' %>"><span class="w-10 shrink-0 text-right pr-2 select-none text-foreground-faint"><%= line.number %></span><span class="flex-1 whitespace-pre"><%= line.code %></span></span>
-<% } %></pre>
-  </div>
-<% } %>
+  <% } %>
+
+  <% if (restAppFrames.length > 0) { %>
+    <details class="group mt-2">
+      <summary class="flex cursor-pointer select-none list-none items-center gap-1.5 font-mono text-2xs text-foreground-muted hover:text-foreground">
+        <svg class="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <%= restAppFrames.length %> more application frame<%= restAppFrames.length > 1 ? 's' : '' %>
+      </summary>
+      <div class="mt-2 space-y-2">
+        <% for (const frame of restAppFrames) { %>
+          <%- include('_exception-frame', { frame, borderClass, primary: false }) %>
+        <% } %>
+      </div>
+    </details>
+  <% } %>
+
+  <% if (vendorFrames.length > 0) { %>
+    <details class="group mt-2">
+      <summary class="flex cursor-pointer select-none list-none items-center gap-1.5 font-mono text-2xs text-foreground-muted hover:text-foreground">
+        <svg class="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <%= vendorFrames.length %> frame<%= vendorFrames.length > 1 ? 's' : '' %> in dependencies and Node internals
+      </summary>
+      <ul class="mt-2 divide-y divide-line-subtle overflow-hidden rounded border border-line bg-surface-muted">
+        <% for (const frame of vendorFrames) { %>
+          <li class="flex items-baseline justify-between gap-4 px-3 py-1.5 font-mono text-2xs">
+            <span class="min-w-0 truncate text-foreground-secondary"><%= frame.function ?? '(anonymous)' %></span>
+            <%# A workspace-linked package resolves outside the project root, so its path stays absolute and long. %>
+            <span class="max-w-[55%] shrink-0 truncate text-foreground-faint" title="<%= frame.file %>:<%= frame.line %>"><%= frame.file %>:<%= frame.line %></span>
+          </li>
+        <% } %>
+      </ul>
+    </details>
+  <% } %>
+</div>

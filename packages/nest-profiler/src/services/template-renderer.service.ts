@@ -6,6 +6,8 @@ import { HELPERS, PUBLIC_DIR, TEMPLATES_DIR } from '../views/template-engine';
 import { assetVersionQuery } from '../views/asset-version';
 import { createDateHelpers, hostTimezone, isValidTimezone } from '../views/date-helpers';
 import type { DateHelpers } from '../views/date-helpers';
+import { EDITOR_NAMES, createEditorLink, resolveEditorTemplate } from '../views/editor-link';
+import type { EditorLink } from '../views/editor-link';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ClientAssetRegistry } from './client-asset-registry.service';
@@ -21,6 +23,8 @@ export class TemplateRendererService {
    */
   private readonly displayTimezone: string | undefined;
   private readonly dateHelpers: DateHelpers;
+  /** Builds the editor deep-link for a source location, or `''` when no editor is configured. */
+  private readonly editorLink: EditorLink;
 
   constructor(
     private readonly clientAssets: ClientAssetRegistry,
@@ -30,6 +34,16 @@ export class TemplateRendererService {
   ) {
     this.displayTimezone = this.resolveTimezone(options?.timezone);
     this.dateHelpers = createDateHelpers(this.displayTimezone);
+    this.editorLink = createEditorLink(this.resolveEditor(options?.editor));
+  }
+
+  private resolveEditor(configured?: string): string | undefined {
+    if (!configured || resolveEditorTemplate(configured)) return configured;
+    this.logger.warn(
+      `Unknown editor "${configured}" - source locations render as plain text. ` +
+        `Expected one of ${EDITOR_NAMES.join(', ')}, or a URL template containing "%f".`,
+    );
+    return undefined;
   }
 
   private resolveTimezone(configured?: string): string | undefined {
@@ -57,12 +71,14 @@ export class TemplateRendererService {
     // credential onto links. Both default to no-ops here; an explicit value in `data` wins.
     // `isoDate`/`timeOnly` come bound to the configured timezone, overriding the
     // host-timezone defaults `HELPERS` carries, and `displayTimezone` labels them in the nav.
+    // `editorLink` is bound to the configured editor, and returns '' when there is none.
     return ejs.renderFile(
       templatePath,
       {
         ...HELPERS,
         ...this.dateHelpers,
         displayTimezone: this.displayTimezone,
+        editorLink: this.editorLink,
         assetVersion: this.assetVersion,
         link: (href: string) => href,
         linkQueryPairs: [],

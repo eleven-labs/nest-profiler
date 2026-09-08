@@ -13,6 +13,7 @@ import type { SafeDataOptions } from './utils/safe-data.utils';
 import type { ProfilerRuntimeOptions } from './runtime/runtime-metrics.interface';
 import type { ProfilerRedactionOptions } from './utils/redaction-options';
 import type { SourceContextOptions } from './utils/source-context.util';
+import type { ProfilerEditorName } from './views/editor-link';
 import type { SummaryPrimitive } from './storage/profile-summary';
 
 /**
@@ -395,20 +396,41 @@ export interface ProfilerModuleOptions {
   debug?: boolean;
 
   /**
-   * Attach a source-code excerpt to every captured exception's stack frames — the Symfony
-   * exception page, locally: no data ever leaves the machine. Off by default (it reads files off
-   * disk on every exception). Pass `true` for the defaults, or tune `linesOfContext`/`maxFrames`.
+   * Attach a source-code excerpt to every captured exception's application stack frames — the
+   * Symfony exception page, locally: no data ever leaves the machine. Default: `true`. Pass
+   * `false` to keep the grouped stack without reading any source, or an object to tune
+   * `linesOfContext`/`maxFrames`.
    *
    * Applies to every captured exception, whichever entrypoint raised it — an HTTP request, a
    * CLI command, a consumed message.
    *
-   * Only application frames are read (`node_modules`, `node:` and `internal/` frames are
-   * skipped), and only files under `process.cwd()` with a recognised source extension — a
-   * hardened stack parse, since `Error#stack` can carry attacker-influenced text. Source maps are
-   * not resolved here: run Node with `--enable-source-maps` and `Error.stack` already carries
-   * original-source positions.
+   * Only application frames are read — those resolving under {@link projectRoot}, with a
+   * recognised source extension. Both guards matter: `Error#stack` can carry
+   * attacker-influenced text, so a reader without them would turn a forged error message into
+   * "read any file off the host". Source maps are not resolved: run Node with
+   * `--enable-source-maps` and `Error.stack` already carries original-source positions.
    */
   sourceContext?: boolean | SourceContextOptions;
+
+  /**
+   * Root the application's own source lives under. Default: `process.cwd()`.
+   *
+   * Two jobs: it tells an application stack frame apart from a dependency or a Node internal, and
+   * it is the directory {@link sourceContext} is allowed to read inside. Set it when the process
+   * does not start from the application root — a monorepo launched from the repo root, say.
+   */
+  projectRoot?: string;
+
+  /**
+   * Turn every source location in the Exceptions tab into a link that opens the file in your
+   * editor, at the right line — Symfony's `framework.ide`. Default: none, locations render as
+   * plain text.
+   *
+   * A known name (`vscode`, `vscode-insiders`, `cursor`, `windsurf`, `zed`, `webstorm`, `idea`,
+   * `phpstorm`, `sublime`, `textmate`) or a URL template carrying `%f` (absolute path) and `%l`
+   * (line), e.g. `'myeditor://open?file=%f&line=%l'`.
+   */
+  editor?: ProfilerEditorName | (string & {});
 }
 
 /** Configuration for the performance-tagging rule engine ({@link analyzeProfile}). */

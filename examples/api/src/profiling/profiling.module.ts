@@ -154,6 +154,8 @@ export class ProfilingModule {
             // Times are rendered server-side: without this the dashboard of a UTC container
             // shows UTC to whoever reads it. Unset ⇒ the timezone the process runs in.
             timezone: config.get<string>('profiler.timezone'),
+            // Deep-links the Exceptions tab's source locations into the editor (local dev only).
+            editor: config.get<string>('profiler.editor'),
             // Demo captures bodies for a richer UI. In production, prefer `collectBody: false`
             // (or a small `maxBodySize` / tighter `bodyCaptureLimits`) and ALWAYS lock the dashboard
             // — which exposes captured requests — behind `security` (see `resolveProfilerSecurity`).

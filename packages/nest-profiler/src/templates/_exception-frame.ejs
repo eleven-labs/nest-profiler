@@ -1,0 +1,37 @@
+<%#
+  One application stack frame: its signature, its location, and the source excerpt around it when
+  `sourceContext` is on. Locals: frame (SourceCodeFrame), borderClass (string), primary (boolean).
+  Globals: editorLink (bound to the `editor` option — returns '' when there is none).
+%>
+<%
+  const href = frame.absoluteFile ? editorLink(frame.absoluteFile, frame.line) : '';
+  const location = `${frame.file}:${frame.line}${frame.column ? `:${frame.column}` : ''}`;
+  // Guard the caret against a forged or stale column that would indent it off the excerpt.
+  const faultLine = (frame.lines ?? []).find((line) => line.isFaultLine);
+  const caret = frame.column > 1 && faultLine && frame.column <= faultLine.code.length + 1
+    ? ' '.repeat(frame.column - 1)
+    : null;
+%>
+<div class="rounded-lg border <%= borderClass %> p-3">
+  <div class="flex items-center gap-2 flex-wrap">
+    <% if (primary) { %>
+      <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-widest uppercase badge-tag-error shrink-0">Thrown at</span>
+    <% } %>
+    <span class="font-mono text-xs font-semibold text-foreground truncate"><%= frame.function ?? '(anonymous)' %></span>
+    <% if (frame.isAsync) { %>
+      <span class="px-1.5 py-0.5 rounded text-2xs font-medium badge-default shrink-0">async</span>
+    <% } %>
+  </div>
+  <p class="mt-1 font-mono text-2xs text-foreground-faint truncate" title="<%= location %>">
+    <% if (href) { %>
+      <a href="<%= href %>" class="hover:text-foreground hover:underline"><%= location %></a>
+    <% } else { %>
+      <%= location %>
+    <% } %>
+  </p>
+  <%# Every row is a flex line inside the <pre>, so the loop emits no newline of its own: in a
+      pre, a stray "\n" between two block-level rows renders as a blank line. %>
+  <% if (frame.lines && frame.lines.length > 0) { %>
+    <pre class="mt-2.5 overflow-x-auto rounded border border-line bg-surface-muted text-xs leading-5"><% for (const line of frame.lines) { %><span class="flex <%= line.isFaultLine ? 'bg-danger-bg' : '' %>"><span class="w-12 shrink-0 select-none border-r border-line-subtle px-2 text-right tabular-nums <%= line.isFaultLine ? 'text-danger' : 'text-foreground-faint' %>"><%= line.number %></span><code class="language-typescript flex-1 whitespace-pre px-3"><%= line.code %></code></span><% if (line.isFaultLine && caret !== null) { %><span class="flex"><span class="w-12 shrink-0 border-r border-line-subtle"></span><span class="flex-1 select-none whitespace-pre px-3 text-danger"><%= caret %>^</span></span><% } %><% } %></pre>
+  <% } %>
+</div>

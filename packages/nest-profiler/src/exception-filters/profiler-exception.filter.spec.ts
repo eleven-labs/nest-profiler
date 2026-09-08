@@ -71,7 +71,10 @@ describe('ProfilerExceptionFilter', () => {
 
     filter.catch(new UnauthorizedException('nope'), host);
 
-    expect(profile.exceptions[0]?.frames?.[0]?.file).toBe(__filename);
+    expect(profile.exceptions[0]?.frames?.[0]).toMatchObject({
+      file: 'src/exception-filters/profiler-exception.filter.spec.ts',
+      isApplication: true,
+    });
   });
 
   it('does not double-record when the interceptor already finalized the profile', () => {
