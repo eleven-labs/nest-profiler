@@ -8,6 +8,8 @@ import type {
   TaggableCollector,
   TaggableEntry,
 } from '../analysis/taggable-collector.interface';
+import { entriesToSpans } from '../trace/entries-to-spans';
+import type { RawSpan, TraceContributor } from '../trace/build-trace';
 
 /** Default per-collector thresholds, used when a subclass exposes no options. */
 const DEFAULT_TAG_CONFIG: TagConfig = {
@@ -31,7 +33,7 @@ const DEFAULT_TAG_CONFIG: TagConfig = {
  * and — when they need to post-process drained entries — a `transform` override.
  */
 export abstract class AbstractQueryCollector<TEntry extends TaggableEntry>
-  implements IProfilerCollector, TaggableCollector
+  implements IProfilerCollector, TaggableCollector, TraceContributor
 {
   /** Collector name — used as the panel id and the post-collect storage key. */
   abstract readonly name: string;
@@ -39,6 +41,8 @@ export abstract class AbstractQueryCollector<TEntry extends TaggableEntry>
   protected abstract readonly queriesKey: string;
   /** Performance-rule domain; query collectors share the `'query'` domain. */
   readonly tagDomain: string = 'query';
+  /** Sidebar group, when the collector shares a panel with others (`'database'`). */
+  readonly group?: string;
 
   /** Absolute path to the EJS panel template rendering the collected entries. */
   abstract getTemplatePath(): string;
@@ -79,5 +83,31 @@ export abstract class AbstractQueryCollector<TEntry extends TaggableEntry>
   /** Post-process drained entries before they are stored. Identity by default. */
   protected transform(queries: TEntry[]): TEntry[] {
     return queries;
+  }
+
+  /**
+   * Projects the collected queries onto the unified trace, so each one is drawn as a bar under
+   * the span that issued it instead of only living in this collector's panel.
+   *
+   * Implemented once here rather than in each ORM package: every query collector already produces
+   * entries of the same shape, and a query is a query whichever driver reported it.
+   */
+  getTraceSpans(profile: Profile): RawSpan[] {
+    return entriesToSpans(this.getTaggableEntries(profile), {
+      kind: 'db',
+      collector: this.name,
+      // Grouped collectors share one panel, so the link must target the group, not the collector.
+      tab: this.group ?? this.name,
+      label: (entry) => this.spanLabel(entry),
+      meta: (entry) => this.spanMeta(entry),
+    });
+  }
+
+  /** The bar's label — the SQL text, the Mongo operation. Overridden by subclasses. */
+  protected abstract spanLabel(entry: TEntry): string;
+
+  /** Extra values shown when a bar is expanded. Empty by default. */
+  protected spanMeta(_entry: TEntry): Record<string, string | number | boolean> | undefined {
+    return undefined;
   }
 }

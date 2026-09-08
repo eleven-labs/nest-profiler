@@ -50,24 +50,23 @@ requires no `debug` flag.
 
 ## Step 3 - Instrument your services with spans
 
-Use `startSpan()` to add meaningful labels to the Performance tab's execution timeline alongside your MikroORM calls:
+Wrap your repository calls in `span()` so the Performance tab's execution trace labels them, and so the MikroORM queries they issue are nested underneath rather than listed flat against the request:
 
 ```ts
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 import { EntityManager } from '@mikro-orm/core';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly em: EntityManager,
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
   ) {}
 
   async findAll(): Promise<Product[]> {
-    const stop = this.profiler.startSpan('db.products.findAll');
-    const result = await this.em.fork().find(Product, {}, { orderBy: { createdAt: 'DESC' } });
-    stop();
-    return result;
+    return this.tracer.span('db.products.findAll', () =>
+      this.em.fork().find(Product, {}, { orderBy: { createdAt: 'DESC' } }),
+    );
   }
 }
 ```

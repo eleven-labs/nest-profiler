@@ -6,6 +6,7 @@ import { GraphQLContextAdapter } from './graphql-context.adapter';
 function makeProfile(): Profile<HttpRequestData> {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'POST', url: '/graphql', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },

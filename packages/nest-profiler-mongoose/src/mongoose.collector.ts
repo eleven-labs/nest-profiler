@@ -34,6 +34,20 @@ export class MongooseCollector extends AbstractQueryCollector<MongooseQueryEntry
   readonly groupPriority = 10;
   protected readonly queriesKey = MONGOOSE_QUERIES_KEY;
 
+  /**
+   * The runnable mongosh command when the collector precomputed one, else the operation. Either
+   * reads as "what was actually run", which is what a bar on the trace has to say in one line.
+   */
+  protected spanLabel(entry: MongooseQueryEntry): string {
+    return entry.command ?? `${entry.collection}.${entry.operation}()`;
+  }
+
+  protected spanMeta(
+    entry: MongooseQueryEntry,
+  ): Record<string, string | number | boolean> | undefined {
+    return { collection: entry.collection, operation: entry.operation };
+  }
+
   constructor(
     @Optional()
     @Inject(MONGOOSE_COLLECTOR_OPTIONS)

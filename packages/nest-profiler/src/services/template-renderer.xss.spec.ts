@@ -26,6 +26,7 @@ const REQUESTS_SECTION = path.join(TEMPLATES_DIR, 'sections', 'requests-section.
 function baseProfile(): Record<string, unknown> {
   return {
     token: 'xss-token-1234567890',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/hello', headers: {}, query: {} } },
     response: { statusCode: 200, headers: {} },

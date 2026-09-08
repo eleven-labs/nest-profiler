@@ -9,6 +9,7 @@ function makeProfile(overrides: {
 }): Profile<HttpRequestData> {
   return {
     token: Math.random().toString(36).slice(2),
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: {
       type: 'http',

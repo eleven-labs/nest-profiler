@@ -5,6 +5,11 @@ export interface CacheOperationEntry {
   key: string;
   duration: number;
   startedAt: number;
+  /**
+   * The trace span open when this entry was captured (see the core's `TaggableEntry`). Stamped by
+   * `appendCollectorEntry`; it nests this call under the `tracer.span()` that issued it.
+   */
+  parentSpanId?: string;
   /** Error message when the underlying cache operation rejected (a cache backend failure). */
   error?: string;
 }

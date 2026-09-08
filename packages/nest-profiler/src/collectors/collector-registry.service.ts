@@ -210,6 +210,7 @@ export class CollectorRegistry implements OnModuleInit {
   private emptyGlobalProfile(): Profile {
     return {
       token: '',
+      traceId: '',
       createdAt: 0,
       entrypoint: {
         type: HTTP_ENTRYPOINT_TYPE,

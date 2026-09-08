@@ -90,8 +90,9 @@ export class CommandProfiler implements OnModuleInit {
       // Persistence must never fail the command or, worse, replace the command's own error:
       // swallow + log storage/collect failures so `if (error) throw error` below always wins.
       try {
-        await core.collectorRegistry.collectAll(profile);
-        await core.storage.save(profile);
+        // The core's own pipeline, awaited: collectors, the tagging engine, the unified trace and
+        // the save. Calling `collectAll` + `save` by hand here used to skip the middle two.
+        await core.persist(profile);
       } catch (persistErr) {
         const message = persistErr instanceof Error ? persistErr.message : String(persistErr);
         this.logger.warn(`Failed to persist command profile: ${message}`);
@@ -151,6 +152,8 @@ export class CommandProfiler implements OnModuleInit {
     };
     const profile: Profile<CommandInfo> = {
       token: randomUUID(),
+      // A command run is the start of its own trace: nothing upstream handed it an id.
+      traceId: randomUUID(),
       createdAt: startTime,
       // The `command` entrypoint type (registered by CommanderCollectorModule)
       // gives this profile its dedicated list table and Command detail tab.

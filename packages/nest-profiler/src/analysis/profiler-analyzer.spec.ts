@@ -15,6 +15,7 @@ const CONFIG: TagConfig = {
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },

@@ -580,8 +580,46 @@ describe('ProfilerMiddleware', () => {
       // The hostile header value is never used as the storage token.
       expect(profile?.token).not.toBe('../../evil');
       expect(profile?.token).toMatch(/^[0-9a-f-]{36}$/);
-      // It is preserved as a display-only correlation attribute instead.
-      expect(reqData(profile)?.requestId).toBe('../../evil');
+      // Nor is it adopted as the trace id: that value *is* allowed to come from the caller, so it
+      // is validated instead of trusted. `/` is outside the accepted charset, so the header is
+      // dropped and a generated id takes its place — which matters because the trace id is echoed
+      // into log lines and rendered in the UI.
+      expect(profile?.traceId).not.toBe('../../evil');
+      expect(profile?.traceId).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it('refuses a trace id carrying a newline, which would forge log entries', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        {
+          method: 'GET',
+          url: '/p',
+          headers: { 'x-request-id': 'ok\n[ERROR] forged line' },
+          query: {},
+        },
+        cls,
+      );
+      expect(profile?.traceId).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it('refuses an over-long trace id rather than carrying it into every log line', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/p', headers: { 'x-request-id': 'a'.repeat(129) }, query: {} },
+        cls,
+      );
+      expect(profile?.traceId).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it('adopts a well-formed inbound trace id so both services file the request alike', async () => {
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/p', headers: { 'x-request-id': 'req-01HZY.ab_c~d' }, query: {} },
+        cls,
+      );
+      expect(profile?.traceId).toBe('req-01HZY.ab_c~d');
+      // Still not the storage token: adopting one must not let a caller address storage.
+      expect(profile?.token).toMatch(/^[0-9a-f-]{36}$/);
     });
 
     it('records the first value when x-request-id is an array, as a correlation attribute', async () => {
@@ -591,7 +629,7 @@ describe('ProfilerMiddleware', () => {
         cls,
       );
       expect(profile?.token).toMatch(/^[0-9a-f-]{36}$/);
-      expect(reqData(profile)?.requestId).toBe('req-a');
+      expect(profile?.traceId).toBe('req-a');
     });
 
     it('excludes function values from captured session data', async () => {

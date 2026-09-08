@@ -5,15 +5,15 @@ Profiling adds no measurable latency to your endpoints: the response (or the thr
 Two consequences to be aware of:
 
 - A client following `X-Debug-Token-Link` right after receiving the response may briefly get a 404 — the profile typically lands within a few milliseconds, never slow enough for a human click to notice.
-- Automated tests that assert on a stored profile right after a request must wait for the deferred persistence with `ProfilerService.flush()`.
+- Automated tests that assert on a stored profile right after a request must wait for the deferred persistence with `TracerService.flush()`.
 
 ## Testing with `flush()`
 
 ```ts
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 
 const res = await request(app.getHttpServer()).get('/users');
-await app.get(ProfilerService).flush(); // waits for the deferred collect + save
+await app.get(TracerService).flush(); // waits for the deferred collect + save
 
 const profile = await request(app.getHttpServer()).get(
   `/_profiler/${res.headers['x-debug-token']}/data`,

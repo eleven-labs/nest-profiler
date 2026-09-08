@@ -11,6 +11,7 @@ const AT = 1_700_000_000_000;
 function makeProfile(token = 't'): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt: AT,
     entrypoint: { type: 'http', data: {} },
     performance: { startTime: AT, heapUsed: 0 },

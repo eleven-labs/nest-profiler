@@ -117,7 +117,7 @@ describe('CLI commands (e2e) — commander collector + cross-process shared stor
         ]),
       );
 
-      expect((profile.spans ?? []).map((s) => s.phase)).toContain('cli.content-sync.fetch');
+      expect((profile.trace ?? []).map((s) => s.label)).toContain('cli.content-sync.fetch');
     } finally {
       unlockNetwork();
     }

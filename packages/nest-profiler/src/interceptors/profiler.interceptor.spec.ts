@@ -16,6 +16,7 @@ import type { IContextAdapter } from '../adapters/context-adapter.interface';
 function makeProfile(): Profile<HttpRequestData> {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/hello', headers: {}, query: {} } },
     performance: { startTime: Date.now() - 5, heapUsed: 0 },
@@ -75,6 +76,7 @@ interface CoreMock {
   enrichHttpResponse: jest.Mock;
   schedulePersist: jest.Mock;
   scheduleSave: jest.Mock;
+  collect: jest.Mock;
 }
 
 function makeCore(adapter?: IContextAdapter): CoreMock {
@@ -96,6 +98,11 @@ function makeCore(adapter?: IContextAdapter): CoreMock {
     scheduleSave: jest.fn((profile: Profile) => {
       core.storage.save(profile);
     }),
+    // Completes a profile without storing it: what the toolbar path awaits before rendering.
+    collect: jest.fn(
+      (profile: Profile): Promise<void> =>
+        core.collectorRegistry.collectAll(profile) as Promise<void>,
+    ),
   };
   return core;
 }
@@ -409,6 +416,25 @@ describe('ProfilerInterceptor', () => {
       ).rejects.toThrow('boom');
 
       expect(profile.exceptions[0]?.frames?.[0]?.file).toBe(__filename);
+    });
+
+    it('completes the profile — tags and trace included — before rendering the toolbar', async () => {
+      // Regression: this path called the collector registry directly, which skipped the tagging
+      // engine and the trace assembly. An HTML response was stored without either.
+      const profile = makeProfile();
+      const core = makeCore();
+      const res = makeRes({ 'content-type': 'text/html; charset=utf-8' });
+      const interceptor = makeInterceptor(profile, core);
+
+      await lastValueFrom(
+        interceptor.intercept(
+          makeCtx({ method: 'GET', url: '/page' }, res),
+          handler('<html><body>hi</body></html>'),
+        ),
+      );
+
+      expect(core.collect).toHaveBeenCalledWith(profile);
+      expect(core.storage.save).toHaveBeenCalledWith(profile);
     });
 
     it('HTML responses still wait for collectors so the toolbar shows their panels', async () => {

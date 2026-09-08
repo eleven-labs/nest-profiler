@@ -138,14 +138,14 @@ Populated by the Auth collector when `request.user` is present.
   name="ExceptionEntry"
 />
 
-### TimelineSpan
+### TraceSpan
 
-Entry written by `ProfilerService.startSpan()`.
+One node of the unified trace on `Profile.trace` - the single representation of "a piece of work
+that took time", whatever produced it: the entrypoint itself, a framework phase, an outgoing HTTP
+call, a database query, a GraphQL field, or a `TracerService.span()` written by hand. Stored flat
+and linked by `parentId`, so it serializes without cycles; the UI rebuilds the tree at render time.
 
-<AutoTypeTable
-  path="packages/nest-profiler/src/interfaces/profile.interface.ts"
-  name="TimelineSpan"
-/>
+<AutoTypeTable path="packages/nest-profiler/src/interfaces/profile.interface.ts" name="TraceSpan" />
 
 ### LogEntry
 
@@ -206,14 +206,44 @@ Return value of a `LogArgsParser`: what the profiler stores for one log call.
 
 ## Service
 
-### ProfilerService
+### TracerService
 
-Injectable facade. Inject it in any provider or controller to instrument your application.
+Injectable facade. Inject it in any provider or controller to instrument your application: open
+trace spans, report errors your code caught itself, and read the identifiers of the profile in
+flight. Every method is a no-op outside a profiled execution - see
+[Trace spans](/docs/packages/nest-profiler/collectors#trace-spans).
+
+<AutoTypeTable path="packages/nest-profiler/src/services/tracer.service.ts" name="TracerService" />
+
+### TraceSpanDelegate
+
+The handle on an open span, passed to the `span()` callback and returned by `startSpan()`.
 
 <AutoTypeTable
-  path="packages/nest-profiler/src/services/nest-profiler.service.ts"
-  name="ProfilerService"
+  path="packages/nest-profiler/src/trace/trace-span.delegate.ts"
+  name="TraceSpanDelegate"
 />
+
+### Span
+
+Method decorator recording a method as one span of the trace, without touching its body. Same
+nesting and error marking as `TracerService.span()`, but it leaves `return` meaning what it means
+and needs no injection. See
+[Measuring a whole method](/docs/packages/nest-profiler/collectors#measuring-a-whole-method-span).
+
+```ts
+@Span('db.products.findAll')
+async findAll(): Promise<Product[]> {
+  return this.repo.findAll();
+}
+```
+
+### TraceContributor
+
+Implemented by a collector that projects its already-collected entries onto the trace, so its
+queries or outgoing calls appear as spans in the waterfall alongside the ones you opened by hand.
+
+<AutoTypeTable path="packages/nest-profiler/src/trace/build-trace.ts" name="TraceContributor" />
 
 ## Collectors
 
@@ -325,7 +355,9 @@ Registry of client-side script bundles the profiler serves same-origin and injec
 ```ts
 import {
   ProfilerModule,
-  ProfilerService,
+  TracerService,
+  TraceSpanDelegate,
+  Span,
   ProfilerStorageService,
   ProfilerViewsSetup,
   CollectorRegistry,
@@ -368,7 +400,12 @@ import type {
   LogArgsParser,
   ParsedLogCall,
   ProfilerLoggerOptions,
-  TimelineSpan,
+  TraceSpan,
+  TraceSpanKind,
+  TraceSpanLane,
+  TraceSpanStatus,
+  RawSpan,
+  TraceContributor,
   SecurityContext,
   CurlInput,
   OptionalPeer,

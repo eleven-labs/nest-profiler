@@ -4,8 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule } from './nest-profiler.module';
-import { ProfilerService } from './services/nest-profiler.service';
-import { NoopProfilerService } from './services/noop-profiler.service';
+import { TracerService } from './services/tracer.service';
+
 import { ProfilerStorageService } from './services/profiler-storage.service';
 import { CollectorRegistry } from './collectors/collector-registry.service';
 import type { IProfilerStorageAdapter } from './storage';
@@ -14,6 +14,7 @@ import type { Profile } from './interfaces/profile.interface';
 function makeProfile(token: string): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -28,19 +29,19 @@ describe('ProfilerModule', () => {
     const module = await Test.createTestingModule({
       imports: [ProfilerModule.forRoot()],
     }).compile();
-    expect(module.get(ProfilerService)).toBeInstanceOf(ProfilerService);
+    expect(module.get(TracerService)).toBeInstanceOf(TracerService);
     expect(module.get(ProfilerStorageService)).toBeInstanceOf(ProfilerStorageService);
     expect(module.get(CollectorRegistry)).toBeInstanceOf(CollectorRegistry);
     await module.close();
   });
 
-  it('forRoot({ enabled: false }) registers only the no-op ProfilerService', async () => {
+  it('forRoot({ enabled: false }) registers only the no-op TracerService', async () => {
     const module = await Test.createTestingModule({
       imports: [ProfilerModule.forRoot({ enabled: false })],
     }).compile();
-    // ProfilerService stays injectable everywhere (main.ts, consumer services),
-    // backed by the zero-dependency no-op service…
-    expect(module.get(ProfilerService)).toBeInstanceOf(NoopProfilerService);
+    // TracerService stays injectable everywhere (main.ts, consumer services), resolving with
+    // none of its optional dependencies — which is what makes every method a no-op…
+    expect(module.get(TracerService)).toBeInstanceOf(TracerService);
     // …but the active layer is absent.
     expect(() => module.get(CollectorRegistry)).toThrow();
     expect(() => module.get(ProfilerStorageService)).toThrow();
@@ -99,7 +100,7 @@ describe('ProfilerModule', () => {
         }),
       ],
     }).compile();
-    expect(module.get(ProfilerService)).toBeInstanceOf(ProfilerService);
+    expect(module.get(TracerService)).toBeInstanceOf(TracerService);
     await module.close();
   });
 });

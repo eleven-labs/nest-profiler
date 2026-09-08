@@ -24,6 +24,7 @@ function makeProfile(
 ): Profile {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt: o.createdAt ?? Date.now(),
     entrypoint: {
       type: o.type ?? 'http',

@@ -73,7 +73,7 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
       expect(cache.map((c) => c.operation)).toEqual(expect.arrayContaining(['GET_MISS', 'SET']));
       expect(cache.find((c) => c.operation === 'SET')?.key).toBe('external:articles');
 
-      const phases = (profile.spans ?? []).map((s) => s.phase);
+      const phases = (profile.trace ?? []).map((s) => s.label);
       expect(phases).toEqual(expect.arrayContaining(['http.articles', 'http.articles.authors']));
     });
 

@@ -1,6 +1,6 @@
 import { Controller, Get, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 
 /**
  * Artificial endpoints that showcase profiler features (nested timeline spans, a server failure).
@@ -15,27 +15,22 @@ import { ProfilerService } from '@eleven-labs/nest-profiler';
 export class DiagnosticsController {
   private readonly logger = new Logger(DiagnosticsController.name);
 
-  constructor(private readonly profiler: ProfilerService) {}
+  constructor(private readonly tracer: TracerService) {}
 
   @Get('slow')
   @ApiOperation({ summary: 'Simulate a slow request with nested timeline spans' })
   @ApiResponse({ status: 200, description: 'Completed — check the Performance tab in /_profiler' })
   async slowEndpoint(): Promise<Record<string, unknown>> {
-    const stopTotal = this.profiler.startSpan('slow.total');
+    // Nested `span()` calls produce a real tree in the waterfall: the three steps are drawn
+    // *inside* `slow.total`, because each one opened while it was the active span. Nothing links
+    // them explicitly — the async context does it.
+    await this.tracer.span('slow.total', async (span) => {
+      await this.tracer.span('slow.step.fetch', () => new Promise((r) => setTimeout(r, 30)));
+      await this.tracer.span('slow.step.process', () => new Promise((r) => setTimeout(r, 20)));
+      await this.tracer.span('slow.step.serialize', () => new Promise((r) => setTimeout(r, 10)));
+      span.setTag('steps', 3);
+    });
 
-    const stopA = this.profiler.startSpan('slow.step.fetch');
-    await new Promise((r) => setTimeout(r, 30));
-    stopA();
-
-    const stopB = this.profiler.startSpan('slow.step.process');
-    await new Promise((r) => setTimeout(r, 20));
-    stopB();
-
-    const stopC = this.profiler.startSpan('slow.step.serialize');
-    await new Promise((r) => setTimeout(r, 10));
-    stopC();
-
-    stopTotal();
     this.logger.log('Slow endpoint completed');
     return { message: 'Slow operation completed — check the Performance tab in /_profiler' };
   }

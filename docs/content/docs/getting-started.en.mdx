@@ -57,7 +57,7 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
 export class AppModule {}
 ```
 
-Log capture keeps working when off with nothing extra (`createProfilerLogger` is DI-free — see below). Only if a service injects `ProfilerService` **directly** (custom `startSpan`, events, exceptions…) do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`, gated on `(env) => !isProfilerEnabled(env)`, so that injection still resolves — see [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Log capture keeps working when off with nothing extra (`createProfilerLogger` is DI-free — see below). Only if a service injects `TracerService` **directly** (`span()`, `captureError()`, attributes…) do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`, gated on `(env) => !isProfilerEnabled(env)`, so that injection still resolves — see [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Async configuration
 
@@ -80,7 +80,7 @@ ConditionalModule.registerWhen(
 
 The wiring shown above is the recommended toggle: the `isProfilerEnabled` predicate (here reading `PROFILER_ENABLED`) decides whether the active `ProfilerModule` is loaded, so the profiler is off in production.
 
-Gate each optional collector package the same way. When several profiler modules sit at the root, group them into a single module (the [example app](/docs/example-api) bundles the core plus its global collectors into one `ProfilingModule`) so the composition root keeps a single gate for the active bundle — plus the no-op fallback only if the app injects `ProfilerService` directly. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Gate each optional collector package the same way. When several profiler modules sit at the root, group them into a single module (the [example app](/docs/example-api) bundles the core plus its global collectors into one `ProfilingModule`) so the composition root keeps a single gate for the active bundle — plus the no-op fallback only if the app injects `TracerService` directly. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## Enable log capture
 

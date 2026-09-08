@@ -28,7 +28,7 @@ import { not } from './config/env-condition.js';
  *
  * The profiler is toggled the recommended way: `ConditionalModule.registerWhen` loads the active
  * `ProfilerModule` when `PROFILER_ENABLED` is on, and `ProfilerNoopModule` otherwise — so
- * `ProfilerService` stays injectable everywhere even when profiling is off. The `enabled` option
+ * `TracerService` stays injectable everywhere even when profiling is off. The `enabled` option
  * (still supported by every profiler module) is the alternative.
  */
 @Module({
@@ -53,7 +53,7 @@ import { not } from './config/env-condition.js';
     CacheModule.register({ isGlobal: true, ttl: 30000 }),
 
     // Profiler: one gate loads the whole active bundle (core + global collectors), the other the
-    // zero-cost no-op fallback so ProfilerService stays injectable when profiling is off.
+    // zero-cost no-op fallback so TracerService stays injectable when profiling is off.
     ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
     ConditionalModule.registerWhen(
       ProfilerNoopModule.forRoot({ isGlobal: true }),

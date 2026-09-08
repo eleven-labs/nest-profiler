@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { ProfilerModule } from '../nest-profiler.module';
-import { ProfilerService } from '../services/nest-profiler.service';
+import { TracerService } from '../services/tracer.service';
 import { ProfilerStorageService } from '../services/profiler-storage.service';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 
@@ -46,7 +46,7 @@ async function profiledRequestLink(app: INestApplication, path: string): Promise
   const res = await request(app.getHttpServer() as Server).get(path);
   expect(res.status).toBe(200);
   // Persistence is deferred off the response path — drain it before asserting on stored profiles.
-  await app.get(ProfilerService).flush();
+  await app.get(TracerService).flush();
   const link = res.headers['x-debug-token-link'];
   if (typeof link !== 'string') throw new Error('expected the x-debug-token-link header to be set');
   return link;
@@ -191,7 +191,7 @@ describe('ProfilerController routing transforms (#197)', () => {
       await request(app.getHttpServer() as Server)
         .get('/_profiler')
         .expect(200);
-      await app.get(ProfilerService).flush();
+      await app.get(TracerService).flush();
 
       const { items } = await storage.query({ filters: [], page: 1, pageSize: 50 });
       const urls = items.map((p) => (p as Profile<HttpRequestData>).entrypoint.data.url);

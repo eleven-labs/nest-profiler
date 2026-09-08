@@ -14,6 +14,7 @@ const AT = 1_700_000_000_000;
 function makeProfile(): Profile {
   const profile: Profile = {
     token: 't',
+    traceId: 'trace-test',
     createdAt: AT,
     entrypoint: { type: 'http', data: {} },
     performance: { startTime: AT, heapUsed: 0 },

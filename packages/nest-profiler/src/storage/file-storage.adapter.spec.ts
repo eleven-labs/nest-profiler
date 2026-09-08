@@ -12,6 +12,7 @@ import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 function makeProfile(token: string, createdAt = Date.now()): Profile<HttpRequestData> {
   return {
     token,
+    traceId: `trace-${token}`,
     createdAt,
     entrypoint: { type: 'http', data: { method: 'GET', url: `/${token}`, headers: {}, query: {} } },
     performance: { startTime: createdAt, heapUsed: 0, duration: 10 },

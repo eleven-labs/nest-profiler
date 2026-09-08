@@ -47,32 +47,30 @@ The collector injects the `Connection` automatically via `@InjectConnection()`.
 ## Step 3 - Instrument your services with spans
 
 ```ts
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     @InjectModel(Review.name) private readonly model: Model<ReviewDocument>,
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
   ) {}
 
   async findAll(): Promise<ReviewDocument[]> {
-    const stop = this.profiler.startSpan('mongo.reviews.findAll');
-    const result = await this.model.find().sort({ createdAt: -1 }).exec();
-    stop();
-    return result;
+    return this.tracer.span('mongo.reviews.findAll', () =>
+      this.model.find().sort({ createdAt: -1 }).exec(),
+    );
   }
 
   async getStats() {
-    const stop = this.profiler.startSpan('mongo.reviews.aggregate');
-    const result = await this.model
-      .aggregate([
-        { $match: { status: 'approved' } },
-        { $group: { _id: '$productId', avgRating: { $avg: '$rating' } } },
-      ])
-      .exec();
-    stop();
-    return result;
+    return this.tracer.span('mongo.reviews.aggregate', () =>
+      this.model
+        .aggregate([
+          { $match: { status: 'approved' } },
+          { $group: { _id: '$productId', avgRating: { $avg: '$rating' } } },
+        ])
+        .exec(),
+    );
   }
 }
 ```

@@ -18,6 +18,7 @@ class CreateWidgetDto extends createZodDto(WidgetSchema) {}
 function makeProfile(): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'POST', url: '/widgets', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },

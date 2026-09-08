@@ -4,6 +4,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function httpProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: 123,
     entrypoint: {
       type: 'http',
@@ -23,6 +24,7 @@ describe('summarizeProfile', () => {
     const summary = summarizeProfile(httpProfile());
     expect(summary).toMatchObject({
       token: 'tok',
+      traceId: 'trace-test',
       createdAt: 123,
       type: 'http',
       method: 'GET',

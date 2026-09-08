@@ -1,4 +1,6 @@
 import type { Profile } from '../interfaces/profile.interface';
+import type { RawSpan } from '../trace/build-trace';
+import type { TraceSpanDelegate } from '../trace/trace-span.delegate';
 
 /**
  * Transport plumbing attached to a profile for the length of the request, and to nothing else.
@@ -23,6 +25,17 @@ interface ProfileRuntimeState {
    * Reads back the body the transport actually wrote. See {@link setTransportResponseBody}.
    */
   readTransportBody?: () => unknown;
+  /**
+   * Spans opened through `TracerService`, closed and waiting to be merged into the trace by
+   * `buildTrace()`. Held here rather than on the profile because they are raw material: what the
+   * stored document carries is `Profile.trace`, assembled from these *and* from every collector's
+   * entries, not this list.
+   */
+  manualSpans: RawSpan[];
+  /** Spans currently open, by id — what `TracerService.activeSpan()` resolves against. */
+  openSpans: Map<string, TraceSpanDelegate>;
+  /** Monotonic counter behind span ids; unique within a profile, which is all that is needed. */
+  spanCounter: number;
 }
 
 const states = new WeakMap<Profile, ProfileRuntimeState>();
@@ -30,7 +43,12 @@ const states = new WeakMap<Profile, ProfileRuntimeState>();
 function stateOf(profile: Profile): ProfileRuntimeState {
   const existing = states.get(profile);
   if (existing) return existing;
-  const created: ProfileRuntimeState = { deferCollection: false };
+  const created: ProfileRuntimeState = {
+    deferCollection: false,
+    manualSpans: [],
+    openSpans: new Map(),
+    spanCounter: 0,
+  };
   states.set(profile, created);
   return created;
 }
@@ -67,4 +85,35 @@ export function setTransportResponseBody(profile: Profile, read: () => unknown):
  */
 export function readTransportResponseBody(profile: Profile): unknown {
   return states.get(profile)?.readTransportBody?.();
+}
+
+/** Mints a span id unique within this profile. */
+export function nextSpanId(profile: Profile): string {
+  const state = stateOf(profile);
+  return `s${(state.spanCounter += 1)}`;
+}
+
+/** Records a closed span, to be merged into the trace by `buildTrace()`. */
+export function appendManualSpan(profile: Profile, span: RawSpan): void {
+  stateOf(profile).manualSpans.push(span);
+}
+
+/** Every span closed so far on this profile. */
+export function manualSpansOf(profile: Profile): RawSpan[] {
+  return states.get(profile)?.manualSpans ?? [];
+}
+
+/** Registers a span as open, so `activeSpan()` can hand its delegate back. */
+export function trackOpenSpan(profile: Profile, span: TraceSpanDelegate): void {
+  stateOf(profile).openSpans.set(span.spanId, span);
+}
+
+/** The delegate of an open span, or `undefined` once it has closed. */
+export function getOpenSpan(profile: Profile, id: string): TraceSpanDelegate | undefined {
+  return states.get(profile)?.openSpans.get(id);
+}
+
+/** Forgets a span that has closed, so the map cannot grow for the life of the request. */
+export function releaseOpenSpan(profile: Profile, id: string): void {
+  states.get(profile)?.openSpans.delete(id);
 }

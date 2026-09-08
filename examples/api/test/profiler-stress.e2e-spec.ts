@@ -7,7 +7,7 @@
  */
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 import { createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
 
 const CONCURRENT_BURST = 25;
@@ -59,7 +59,7 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
 
     // …and the per-kind views show the whole burst, none lost to storage races: GraphQL mutations
     // land on the GraphQL view, the REST calls on the HTTP view.
-    await app.get(ProfilerService).flush();
+    await app.get(TracerService).flush();
     const [gqlList, httpList] = await Promise.all([
       request(server(app)).get('/_profiler').query({ view: 'graphql' }),
       request(server(app)).get('/_profiler').query({ view: 'http' }),
@@ -78,7 +78,7 @@ describe('Profiler stress (e2e) — concurrent bursts and list integrity', () =>
     }
 
     // The mutations are GraphQL, so they land on the GraphQL view.
-    await app.get(ProfilerService).flush();
+    await app.get(TracerService).flush();
     const list = await request(server(app)).get('/_profiler').query({ view: 'graphql' });
     for (const token of tokens) {
       expect(list.text).toContain(short(token));

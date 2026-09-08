@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { Span, TracerService } from '@eleven-labs/nest-profiler';
 import { ProductRepository } from '../domain/product.repository.js';
 import type { NewProduct, Product } from '../domain/product.js';
 import { PRODUCT_SEED } from './product.seed.js';
@@ -15,7 +15,7 @@ export class ProductService implements OnApplicationBootstrap {
 
   constructor(
     private readonly repo: ProductRepository,
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -26,28 +26,23 @@ export class ProductService implements OnApplicationBootstrap {
     this.logger.log(`Database seeded with ${PRODUCT_SEED.length} products`);
   }
 
+  @Span('db.products.findAll')
   async findAll(): Promise<Product[]> {
     this.logger.log('Fetching all products');
-    const stop = this.profiler.startSpan('db.products.findAll');
     const products = await this.repo.findAll();
-    stop();
     this.logger.debug(`Found ${products.length} products`);
     return products;
   }
 
+  @Span('db.products.exportCsv')
   async exportCsv(): Promise<string> {
     this.logger.log('Streaming all products to CSV');
-    const stop = this.profiler.startSpan('db.products.exportCsv');
-    const csv = await this.repo.streamCsv();
-    stop();
-    return csv;
+    return this.repo.streamCsv();
   }
 
   async findOne(id: number): Promise<Product> {
     this.logger.log(`Fetching product #${id}`);
-    const stop = this.profiler.startSpan('db.products.findOne');
-    const product = await this.repo.findById(id);
-    stop();
+    const product = await this.tracer.span('db.products.findOne', () => this.repo.findById(id));
     if (!product) {
       this.logger.warn(`Product #${id} not found`);
       throw new NotFoundException(`Product #${id} not found`);
@@ -57,9 +52,9 @@ export class ProductService implements OnApplicationBootstrap {
 
   async create(data: NewProduct): Promise<Product> {
     this.logger.log(`Creating product: ${data.name}`);
-    const stop = this.profiler.startSpan('db.products.create');
-    const product = await this.repo.create({ ...data, inStock: data.inStock ?? true });
-    stop();
+    const product = await this.tracer.span('db.products.create', () =>
+      this.repo.create({ ...data, inStock: data.inStock ?? true }),
+    );
     this.logger.log(`Product #${product.id} created`);
     return product;
   }
@@ -68,9 +63,7 @@ export class ProductService implements OnApplicationBootstrap {
     this.logger.log(`Updating product #${id}`);
     // No existence check on purpose: a non-matching id issues an UPDATE that affects 0 rows —
     // a silent failure the profiler flags with the `zero-rows` tag.
-    const stop = this.profiler.startSpan('db.products.update');
-    const affected = await this.repo.update(id, data);
-    stop();
+    const affected = await this.tracer.span('db.products.update', () => this.repo.update(id, data));
     this.logger.log(`Product #${id} update affected ${affected} row(s)`);
     return affected;
   }
@@ -78,9 +71,7 @@ export class ProductService implements OnApplicationBootstrap {
   async remove(id: number): Promise<void> {
     this.logger.log(`Deleting product #${id}`);
     await this.findOne(id);
-    const stop = this.profiler.startSpan('db.products.delete');
-    await this.repo.delete(id);
-    stop();
+    await this.tracer.span('db.products.delete', () => this.repo.delete(id));
     this.logger.log(`Product #${id} deleted`);
   }
 }

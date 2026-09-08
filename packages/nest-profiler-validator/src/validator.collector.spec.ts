@@ -7,6 +7,7 @@ import type { ValidationEntry } from './validator-collector.interface';
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: {
       type: 'http',

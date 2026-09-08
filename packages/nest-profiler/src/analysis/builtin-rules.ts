@@ -2,6 +2,7 @@ import type { PerformanceRule } from './performance-rule.interface';
 import { resolveEntryErrorClassifier } from './profiler-error';
 import { BUILTIN_TAG_IDS } from './profiler-tag.interface';
 import type { TaggableEntry } from './taggable-collector.interface';
+import { unhandledExceptions } from './profiler-error';
 
 /** Applied to collectors that expose no `isErrorEntry`: an entry error, or a status ≥ 500. */
 const defaultEntryIsError = resolveEntryErrorClassifier();
@@ -118,13 +119,16 @@ export const errorRule: PerformanceRule = {
       }
     }
     if (ctx.isProfileError()) {
+      const unhandled = unhandledExceptions(ctx.profile).length;
       ctx.tagProfile({
         id: BUILTIN_TAG_IDS.error,
         label: 'Error',
         severity: ctx.profileErrorSeverity,
         // A kind can fail without an exception (a bare 500), so an absent count means
         // "failed", not "zero failures" — `upsertTag` keeps the highest count seen.
-        ...(ctx.profile.exceptions.length > 0 ? { count: ctx.profile.exceptions.length } : {}),
+        // Handled exceptions are excluded: they are part of the story of the request, not part
+        // of the reason it failed.
+        ...(unhandled > 0 ? { count: unhandled } : {}),
       });
     }
   },

@@ -9,6 +9,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function makeProfile(): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -72,7 +73,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
   });
 
   it('captures pino-specific "info" AND has the real pino emit it', () => {
-    const logger = createProfilerLogger(pino);
+    const logger = createProfilerLogger(pino, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.info('hello from pino'));
 
@@ -87,7 +88,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
   });
 
   it('captures pino "trace" as the profiler "verbose" level', () => {
-    const logger = createProfilerLogger(pino);
+    const logger = createProfilerLogger(pino, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.trace('tracing'));
 
@@ -96,7 +97,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
   });
 
   it('captures NestJS-style "debug" too', () => {
-    const logger = createProfilerLogger(pino);
+    const logger = createProfilerLogger(pino, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.debug('debugging'));
 
@@ -105,7 +106,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
   });
 
   it('passes pino-specific methods (setContext) straight through without capturing', () => {
-    const logger = createProfilerLogger(pino);
+    const logger = createProfilerLogger(pino, { attachTraceIdToLogs: false });
 
     withProfile(() => expect(() => logger.setContext('SomeContext')).not.toThrow());
     expect(profile.logs).toHaveLength(0);
@@ -113,7 +114,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
 
   it('captures the pino object-first convention as message + data', async () => {
     const fresh = await moduleRef.resolve(PinoLogger);
-    const logger = createProfilerLogger(fresh);
+    const logger = createProfilerLogger(fresh, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.info({ userId: 42 }, 'user logged in'));
 
@@ -129,7 +130,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
   it('falls back to the PinoLogger instance context (the @InjectPinoLogger case)', async () => {
     const fresh = await moduleRef.resolve(PinoLogger);
     fresh.setContext('PostsController');
-    const logger = createProfilerLogger(fresh);
+    const logger = createProfilerLogger(fresh, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.info('from an injected logger'));
 
@@ -143,7 +144,7 @@ describe('createProfilerLogger with nestjs-pino', () => {
 
   it('captures error(err) with the Error serialized as data', async () => {
     const fresh = await moduleRef.resolve(PinoLogger);
-    const logger = createProfilerLogger(fresh);
+    const logger = createProfilerLogger(fresh, { attachTraceIdToLogs: false });
 
     withProfile(() => logger.error(new Error('kaput')));
 

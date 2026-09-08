@@ -8,6 +8,11 @@ export interface QueryEntry {
   duration: number;
   type: QueryType;
   startedAt: number;
+  /**
+   * The trace span open when this entry was captured (see the core's `TaggableEntry`). Stamped by
+   * `appendCollectorEntry`; it nests this call under the `tracer.span()` that issued it.
+   */
+  parentSpanId?: string;
   error?: string;
   /** True for streaming reads (e.g. `QueryRunner.stream()` / `QueryBuilder.stream()`). */
   streaming?: boolean;

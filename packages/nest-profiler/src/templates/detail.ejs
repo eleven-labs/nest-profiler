@@ -327,10 +327,11 @@
               </div>
             </section>
 
-            <%# The spans from `startSpan()` live here too — rendered only when the profile has
-                any, so an uninstrumented app is never told what it is not missing. %>
-            <% if (profile.spans && profile.spans.length > 0) { %>
-              <%- include('sections/timeline-section', { profile, timeOnly }) %>
+            <%# The unified trace: every timed operation of the request on one axis — the
+                entrypoint, framework phases, outgoing calls, queries, and the spans opened with
+                `tracer.span()`. `buildTrace` always emits the root, so this always has content. %>
+            <% if (profile.trace && profile.trace.length > 0) { %>
+              <%- include('sections/timeline-section', { profile, timeOnly, formatDuration, tagBadges, highlightSql }) %>
             <% } %>
 
           <% } else if (activeTab === 'logs') { %>

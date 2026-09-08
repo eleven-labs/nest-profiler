@@ -13,6 +13,15 @@ import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
  */
 export interface TaggableEntry {
   duration: number;
+  /** Epoch ms the call started, used to place it on the trace. */
+  startedAt?: number;
+  /**
+   * The {@link TraceSpan} that was open when this entry was captured, stamped by
+   * `appendCollectorEntry`. It is what lets a query or an outgoing call be drawn *under* the
+   * `tracer.span()` that issued it, rather than flat against the request — and it is exact, since
+   * it comes from the async context rather than from comparing time windows.
+   */
+  parentSpanId?: string;
   /** Deterministic, parameter-free key used to group repeated calls (N+1). */
   fingerprint?: string;
   /** Populated by the engine — the tags applied to this entry. */

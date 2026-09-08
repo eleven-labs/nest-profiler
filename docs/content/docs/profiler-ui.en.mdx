@@ -58,7 +58,7 @@ The **Performance** tab groups everything about what the execution cost. It lead
 
 The CPU share is the one that changes what you do next. Near 100% the request was computing, near 0% it was waiting on something — and a slow endpoint is fixed very differently in the two cases, so the tab names it rather than leaving you to divide: _CPU-bound_, _waiting on I/O_, or _mixed_. Under `Resource usage` below the tiles sit the user/system split, the resident set and its delta, the heap before and after, and the garbage collections that ran during the request — the explanation for a latency spike a duration alone cannot give.
 
-The **execution timeline** of the spans recorded with `startSpan()` closes the tab, rendered as synchronized bars plus a per-phase table. A profile with no span simply shows no timeline.
+The **execution trace** closes the tab: every timed operation of the request on one axis — the entrypoint, framework phases, outgoing calls, database queries and the spans you opened with `tracer.span()` — nested by causality, foldable, each bar showing its self-time and deep-linking to the panel row holding its detail. Above it, a flat **Request Lifecycle** band breaks the request into its framework phases.
 
 One thing to know before reading a number: these are process-wide deltas over the request's window, not an isolated measurement of that one execution. Node runs a single thread, so under concurrent traffic a request is charged with what its neighbours spent too — which is why a CPU share above 100% reads _includes concurrent work_ rather than claiming the request was CPU-bound. The tab says so under the figures, and [CPU and memory](/docs/packages/nest-profiler/configuration#cpu-and-memory) has the full picture.
 

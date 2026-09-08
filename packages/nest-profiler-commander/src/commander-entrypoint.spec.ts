@@ -7,6 +7,7 @@ import type { CommandInfo } from './commander-collector.interface';
 function makeProfile(data: CommandInfo): Profile<CommandInfo> {
   return {
     token: 'tok',
+    traceId: 'trace-test',
     createdAt: 0,
     entrypoint: { type: COMMAND_ENTRYPOINT_TYPE, data },
     performance: { startTime: 0, heapUsed: 0 },

@@ -48,23 +48,22 @@ No other configuration is needed - the collector injects the `DataSource` automa
 
 ## Step 3 - Instrument your services with spans
 
-Use `startSpan()` to add meaningful labels to the Performance tab's execution timeline alongside your TypeORM calls:
+Wrap your repository calls in `span()` so the Performance tab's execution trace labels them, and so the TypeORM queries they issue are nested underneath rather than listed flat against the request:
 
 ```ts
-import { ProfilerService } from '@eleven-labs/nest-profiler';
+import { TracerService } from '@eleven-labs/nest-profiler';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product) private readonly repo: Repository<Product>,
-    private readonly profiler: ProfilerService,
+    private readonly tracer: TracerService,
   ) {}
 
   async findAll(): Promise<Product[]> {
-    const stop = this.profiler.startSpan('db.products.findAll');
-    const result = await this.repo.find({ order: { createdAt: 'DESC' } });
-    stop();
-    return result;
+    return this.tracer.span('db.products.findAll', () =>
+      this.repo.find({ order: { createdAt: 'DESC' } }),
+    );
   }
 }
 ```

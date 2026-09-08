@@ -17,6 +17,7 @@ import type { Profile } from '../interfaces/profile.interface';
 function makeProfile(): Profile {
   return {
     token: 'test',
+    traceId: 'trace-test',
     createdAt: Date.now(),
     entrypoint: { type: 'http', data: { method: 'GET', url: '/', headers: {}, query: {} } },
     performance: { startTime: Date.now(), heapUsed: 0 },
@@ -89,7 +90,7 @@ describe('createProfilerLogger with nest-winston', () => {
 
   describe('NestJS LoggerService provider (the app.useLogger case)', () => {
     it('captures log(message, context) AND has the real winston emit it', () => {
-      const logger = createProfilerLogger(nestLogger);
+      const logger = createProfilerLogger(nestLogger, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger.log('hello from nest-winston', 'AppService'));
 
@@ -108,7 +109,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('honors the NestJS error(message, stack, context) contract', () => {
-      const logger = createProfilerLogger(nestLogger);
+      const logger = createProfilerLogger(nestLogger, { attachTraceIdToLogs: false });
       const stack = 'Error: boom\n    at handler (file.js:1:1)';
 
       withProfile(() => void logger.error('boom', stack, 'AppService'));
@@ -126,7 +127,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('captures warn/debug/verbose at their own levels', () => {
-      const logger = createProfilerLogger(nestLogger);
+      const logger = createProfilerLogger(nestLogger, { attachTraceIdToLogs: false });
 
       withProfile(() => {
         logger.warn('www');
@@ -145,7 +146,7 @@ describe('createProfilerLogger with nest-winston', () => {
     it('falls back to the instance context set with setContext()', () => {
       const fresh = new NestWinstonLogger(winston);
       fresh.setContext('PostsController');
-      const logger = createProfilerLogger(fresh);
+      const logger = createProfilerLogger(fresh, { attachTraceIdToLogs: false });
 
       withProfile(() => void logger.log('from an injected logger'));
 
@@ -160,7 +161,7 @@ describe('createProfilerLogger with nest-winston', () => {
 
   describe('raw winston logger provider (the direct-injection case)', () => {
     it('captures winston "info" as the profiler "log" level', () => {
-      const logger = createProfilerLogger(winston);
+      const logger = createProfilerLogger(winston, { attachTraceIdToLogs: false });
 
       withProfile(() => logger.info('hello from winston'));
 
@@ -171,7 +172,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('captures the message-first meta convention as message + data', () => {
-      const logger = createProfilerLogger(winston);
+      const logger = createProfilerLogger(winston, { attachTraceIdToLogs: false });
 
       withProfile(() => logger.warn('user not found', { userId: 42 }));
 
@@ -185,7 +186,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('keeps printf interpolation working through the proxy', () => {
-      const logger = createProfilerLogger(winston);
+      const logger = createProfilerLogger(winston, { attachTraceIdToLogs: false });
 
       withProfile(() => logger.info('hello %s', 'world'));
 
@@ -199,8 +200,8 @@ describe('createProfilerLogger with nest-winston', () => {
 
     it('captures winston-only "silly" through an extended LogMethodMap', () => {
       const logger = createProfilerLogger(winston, {
-        ...DEFAULT_LOG_METHODS,
-        silly: 'verbose',
+        attachTraceIdToLogs: false,
+        logMethods: { ...DEFAULT_LOG_METHODS, silly: 'verbose' },
       });
 
       withProfile(() => logger.silly('shhh'));
@@ -213,6 +214,7 @@ describe('createProfilerLogger with nest-winston', () => {
 
     it("supports winston's level-first log(level, message) via a custom parseArgs", () => {
       const logger = createProfilerLogger(winston, {
+        attachTraceIdToLogs: false,
         parseArgs: (method, args, delegate) =>
           method === 'log'
             ? { message: typeof args[1] === 'string' ? args[1] : '' }
@@ -228,7 +230,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('captures error(err) with the Error serialized as data', () => {
-      const logger = createProfilerLogger(winston);
+      const logger = createProfilerLogger(winston, { attachTraceIdToLogs: false });
 
       withProfile(() => logger.error(new Error('kaput')));
 
@@ -242,7 +244,7 @@ describe('createProfilerLogger with nest-winston', () => {
     });
 
     it('passes winston-specific members (level, child) straight through without capturing', () => {
-      const logger = createProfilerLogger(winston);
+      const logger = createProfilerLogger(winston, { attachTraceIdToLogs: false });
 
       withProfile(() => {
         expect(logger.level).toBe('silly');

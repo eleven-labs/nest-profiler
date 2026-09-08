@@ -7,6 +7,7 @@ import type { CommandInfo } from './commander-collector.interface';
 function profileWith(data: Partial<CommandInfo>): Profile<CommandInfo> {
   return {
     token: 'abcdef1234',
+    traceId: 'trace-test',
     createdAt: 0,
     entrypoint: {
       type: COMMAND_ENTRYPOINT_TYPE,
