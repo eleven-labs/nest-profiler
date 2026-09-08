@@ -57,6 +57,8 @@ git push                     # CI opens the version PR; merging publishes `alpha
 
 `pnpm release` resolves the dist-tag from `.changeset/pre.json`, so CI publishes under the matching tag automatically. Consumers install with `pnpm add @eleven-labs/nest-profiler@alpha`.
 
+Each prerelease version moves the changesets it consumed into `.changeset/pre/`, where they wait for the stable release — they are not lost, and the version PR is expected to carry them.
+
 ### Pointing `latest` at the newest prerelease
 
 **Manual step, to run after every prerelease publish** — until the first stable version ships.
@@ -81,7 +83,7 @@ git commit -am "chore: exit prerelease mode"
 git push                                  # CI's Release workflow then cuts the stable version PR
 ```
 
-`changeset pre exit` does not delete `.changeset/pre.json`; it sets `"mode": "exit"`. The next `changeset version` (run by the Release workflow once the commit lands on `main`) produces stable versions from the accumulated changesets and removes `pre.json`.
+`changeset pre exit` does not delete `.changeset/pre.json`; it sets `"mode": "exit"`. The next `changeset version` (run by the Release workflow once the commit lands on `main`) produces stable versions from every changeset accumulated in `.changeset/pre/`, then removes both that folder and `pre.json`. Review that batch before merging the version PR: it is the changelog of the whole prerelease series.
 
 ### Versioning policy
 
