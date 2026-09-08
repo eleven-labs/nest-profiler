@@ -31,6 +31,17 @@ import { RuntimeMetricsService } from './runtime/runtime-metrics.service';
 import { RuntimeCollector } from './runtime/runtime.collector';
 import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
 import { PROFILER_BASE_PATH } from './constants';
+import { markInternal } from './instrument/internal-marker';
+
+/**
+ * Brands a provider as a profiler internal on its way into the module, so the optional automatic
+ * instrumentation never records the profiler observing itself. Applied over the whole list rather
+ * than class by class: a provider added later is marked without anyone having to remember.
+ */
+function markInternalProvider<T>(provider: T): T {
+  markInternal([provider]);
+  return provider;
+}
 
 /** The entry shape `setGlobalPrefix()` stores, read off Nest's own signature. */
 type ExcludedRoute = NonNullable<
@@ -91,7 +102,9 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
       return {
         module: ProfilerModule,
         global,
-        providers: [{ provide: PROFILER_ENABLED, useValue: false }, TracerService],
+        providers: [{ provide: PROFILER_ENABLED, useValue: false }, TracerService].map(
+          markInternalProvider,
+        ),
         exports: [TracerService],
       };
     }
@@ -151,7 +164,7 @@ export class ProfilerModule extends ConfigurableModuleClass implements NestModul
         { provide: APP_INTERCEPTOR, useExisting: ProfilerInterceptor },
         ProfilerExceptionFilter,
         { provide: APP_FILTER, useExisting: ProfilerExceptionFilter },
-      ],
+      ].map(markInternalProvider),
       exports: [
         TracerService,
         ProfilerStorageService,

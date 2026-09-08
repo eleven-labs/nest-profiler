@@ -77,6 +77,8 @@ interface SetupParams {
   clsThrows?: boolean;
   /** What DiscoveryService.getProviders() surfaces. Defaults to the bare axios instance itself. */
   providers?: (ax: ReturnType<typeof axios.create>) => unknown[];
+  /** Trace id the CLS store reports, for the propagation tests. */
+  traceId?: string;
 }
 
 function setup(
@@ -92,8 +94,9 @@ function setup(
 
   const profile = params.profile === undefined ? makeProfile() : params.profile;
   const cls = {
-    get: jest.fn(() => {
+    get: jest.fn((key: string) => {
       if (params.clsThrows) throw new Error('outside CLS');
+      if (key === 'profiler.traceId') return params.traceId;
       return profile ?? undefined;
     }),
   } as unknown as ClsService;
@@ -291,5 +294,82 @@ describe('AxiosInstrumentation — auto-discovery', () => {
 
     await ax.get('https://api.example.com/data');
     expect(entriesOf(profile)).toHaveLength(1);
+  });
+});
+
+describe('AxiosInstrumentation — trace id propagation', () => {
+  /** Captures the headers the adapter was handed, which is what actually leaves the process. */
+  function capturingAdapter(seen: Record<string, unknown>[]): AxiosAdapter {
+    return (config) => {
+      seen.push({ ...(config.headers as Record<string, unknown>) });
+      return Promise.resolve({
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      } as never);
+    };
+  }
+
+  it('adds nothing when propagation is off, which is the default', async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { ax } = setup({}, { adapter: capturingAdapter(seen), traceId: 'trace-1' });
+
+    await ax.get('https://api.example.com/x');
+
+    expect(seen[0]?.['x-request-id']).toBeUndefined();
+  });
+
+  it('forwards the trace id on the default header when asked', async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { ax } = setup(
+      { propagateTraceId: true },
+      { adapter: capturingAdapter(seen), traceId: 'trace-1' },
+    );
+
+    await ax.get('https://api.example.com/x');
+
+    expect(seen[0]?.['x-request-id']).toBe('trace-1');
+  });
+
+  it('honours a custom header name', async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { ax } = setup(
+      { propagateTraceId: 'x-correlation-id' },
+      { adapter: capturingAdapter(seen), traceId: 'trace-1' },
+    );
+
+    await ax.get('https://api.example.com/x');
+
+    expect(seen[0]?.['x-correlation-id']).toBe('trace-1');
+    expect(seen[0]?.['x-request-id']).toBeUndefined();
+  });
+
+  it('leaves a header the caller set explicitly alone', async () => {
+    // They wrote it on purpose; overwriting would break the correlation they were setting up.
+    const seen: Record<string, unknown>[] = [];
+    const { ax } = setup(
+      { propagateTraceId: true },
+      { adapter: capturingAdapter(seen), traceId: 'trace-1' },
+    );
+
+    await ax.get('https://api.example.com/x', { headers: { 'X-Request-Id': 'caller-wins' } });
+
+    expect(seen[0]?.['X-Request-Id']).toBe('caller-wins');
+  });
+
+  it('adds nothing outside a profiled request', async () => {
+    // A call made during bootstrap or from a background task: propagation is an aid, never a
+    // precondition for the call.
+    const seen: Record<string, unknown>[] = [];
+    const { ax } = setup(
+      { propagateTraceId: true },
+      { adapter: capturingAdapter(seen), profile: null, traceId: undefined },
+    );
+
+    await ax.get('https://api.example.com/x');
+
+    expect(seen[0]?.['x-request-id']).toBeUndefined();
   });
 });

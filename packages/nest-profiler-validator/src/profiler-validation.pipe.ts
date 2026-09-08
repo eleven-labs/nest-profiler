@@ -1,7 +1,7 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
-import { appendCollectorEntry, readProfile } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile, markInternal } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
 import { VALIDATOR_KEY } from './validator-collector.interface';
 import type { ValidationViolationExtractor } from './violation-extractor.interface';
@@ -119,3 +119,8 @@ export const createProfilerValidationPipe = (
   inner: PipeTransform,
   extractors: readonly ValidationViolationExtractor[] = DEFAULT_EXTRACTORS,
 ): ProfilerValidationPipe => new ProfilerValidationPipe(inner, extractors);
+
+// The pipe runs on the request path but belongs to the profiler, so the optional automatic
+// instrumentation must not record it. Marked here rather than in a module because the pipe is
+// registered through a factory, not through `buildCollectorModule`.
+markInternal([ProfilerValidationPipe]);

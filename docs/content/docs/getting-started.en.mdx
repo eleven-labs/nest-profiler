@@ -332,7 +332,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/v1/auth/me  # 
 curl -X POST http://localhost:3000/api/v1/articles \
   -H "Content-Type: application/json" \
   -d '{"title":"Hi","body":"too short"}'  # Validator violations
-curl http://localhost:3000/api/v1/slow            # Timeline spans
+curl http://localhost:3000/api/v1/slow            # Nested trace spans
 
 # GraphQL - requires FEATURE_GRAPHQL=true (default), served over the catalog
 # Query with operation name

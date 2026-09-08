@@ -15,6 +15,7 @@
   const kindColors = {
     entrypoint:      'var(--color-nest)',
     phase:           '#6366f1',
+    method:          '#a78bfa',
     http:            '#06b6d4',
     db:              '#10b981',
     'graphql-field': '#8b5cf6',
@@ -23,6 +24,7 @@
   const kindLabels = {
     entrypoint: 'Request',
     phase: 'Phase',
+    method: 'Method',
     http: 'HTTP',
     db: 'Database',
     'graphql-field': 'GraphQL',
@@ -34,6 +36,7 @@
   const kindHints = {
     entrypoint: 'The profiled request, command or message — the whole time budget.',
     phase: 'A section of your code, opened with tracer.span(). It groups the work it triggered; its own cost is its self-time.',
+    method: 'One provider method call, recorded by the automatic instrumentation — who called whom. Its own cost is its self-time.',
     http: 'One outgoing HTTP call — a leaf, timed from send to response.',
     db: 'One database statement — a leaf. A "transaction" row groups a BEGIN … COMMIT run.',
     'graphql-field': 'One resolved GraphQL field; it groups the calls that resolving it issued.',
@@ -92,7 +95,30 @@
   }
   for (const root of roots) walk(root, 0);
 
+  // Critical path: from the root, at each level follow the child that finishes last. That chain is
+  // what decided the total — shortening anything off it moves nothing. Computed here, where the
+  // tree is already built, rather than client-side over the DOM.
+  const criticalIds = new Set();
+  (function walkCritical(node) {
+    if (!node) return;
+    criticalIds.add(node.id);
+    const kids = children.get(node.id) || [];
+    if (!kids.length) return;
+    let last = kids[0];
+    for (const kid of kids) {
+      if (kid.startedAt + kid.duration > last.startedAt + last.duration) last = kid;
+    }
+    walkCritical(last);
+  })(roots[0]);
+
   const usedKinds = [...new Set(spans.map((s) => s.kind))];
+
+  // Automatic instrumentation records one span per provider method call, which is exactly the
+  // information you want when asking "who issued this query" — and exactly the noise you do not
+  // want when asking "which query is slow". A lens rather than a second panel: same tree, same
+  // ids, three readings. Rows are hidden by the client behaviour, so switching costs no round trip
+  // and a hidden row's children stay attached to their real parent.
+  const hasMethodSpans = usedKinds.includes('method');
 
   // Flat request-lifecycle band (Symfony-style), rendered above the causal waterfall on the same
   // time axis. Non-nested, so it never competes with the trace's containment nesting.
@@ -127,7 +153,9 @@
 <div class="mb-6">
   <div class="flex items-center justify-between mb-2">
     <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Execution Trace</h2>
-    <span class="text-foreground-faint text-xs tabular-nums"><%= formatDuration(totalDur) + 'ms' %> total</span>
+    <span class="text-foreground-faint text-xs tabular-nums">
+      <span data-trace-count hidden></span><%= formatDuration(totalDur) + 'ms' %> total
+    </span>
   </div>
 
   <% if (spans.length === 0) { %>
@@ -136,6 +164,40 @@
       <p class="text-foreground-faint text-xs">Outgoing HTTP calls and database queries appear here automatically; use <code class="bg-surface border border-line px-1.5 py-0.5 rounded">tracer.span('name', work)</code> to add your own.</p>
     </div>
   <% } else { %>
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      <button type="button"
+              class="trace-critical px-2 py-0.5 rounded border border-line text-2xs text-foreground-muted hover:text-foreground transition-colors"
+              data-trace-critical
+              title="Dim everything off the chain that decided the total duration. Shortening a span off it moves nothing."
+              aria-pressed="false">Critical path</button>
+<%# Hiding short spans is a *display* choice, so it lives here rather than at capture: a 0.04ms
+    parent can still contain 12ms of work, and dropping it at record time would lose that. %>
+      <label class="inline-flex items-center gap-1.5 text-2xs text-foreground-muted">
+        Hide under
+        <select data-trace-min class="bg-surface border border-line rounded px-1 py-0.5 text-2xs">
+          <% for (const ms of [0, 0.1, 0.5, 1, 5]) { %>
+            <option value="<%= ms %>"<%= ms === minDuration ? ' selected' : '' %>><%= ms === 0 ? 'nothing' : ms + 'ms' %></option>
+          <% } %>
+        </select>
+      </label>
+    </div>
+
+    <% if (hasMethodSpans) { %>
+      <div class="flex items-center gap-2 mb-3" data-trace-lens-group>
+        <span class="text-2xs text-foreground-faint uppercase tracking-widest mr-1">Show</span>
+        <% for (const lens of [
+             { key: 'all', label: 'All', hint: 'Every span, code and I/O alike.' },
+             { key: 'io', label: 'I/O only', hint: 'Hide provider method calls — what the request spent its time waiting on.' },
+             { key: 'code', label: 'Code only', hint: 'Only your provider methods — who called whom.' },
+           ]) { %>
+          <button type="button"
+                  class="trace-lens px-2 py-0.5 rounded border border-line text-2xs text-foreground-muted hover:text-foreground transition-colors"
+                  data-trace-lens="<%= lens.key %>"
+                  title="<%= lens.hint %>"><%= lens.label %></button>
+        <% } %>
+      </div>
+    <% } %>
+
     <% if (usedKinds.length > 1) { %>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
         <% for (const kind of usedKinds) { %>
@@ -161,6 +223,9 @@
           const labelClass = 'text-xs truncate min-w-0 flex-1 ' + (isError ? 'text-danger' : 'text-foreground-secondary');
         %>
         <div class="flex items-center gap-3 group"
+             data-trace-kind="<%= span.kind %>"
+             data-trace-duration="<%= span.duration %>"
+             <% if (criticalIds.has(span.id)) { %>data-trace-critical-node<% } %>
              data-trace-node="<%= span.id %>"
              <% if (span.parentId) { %>data-trace-parent="<%= span.parentId %>"<% } %>>
           <div class="w-56 shrink-0 flex items-center gap-1" style="padding-left:<%= indent %>px;">
@@ -248,7 +313,13 @@
         <tbody class="divide-y divide-line-subtle">
           <% for (const row of rows) { %>
             <% const span = row.span; %>
-            <tr class="hover:bg-surface-muted transition-colors">
+<%# Tagged like the bar above it, and with the same span id: the table is the *same* trace read as
+    a list, so a lens or a fold that hides a bar must hide its row too — otherwise "I/O only" still
+    lists every method underneath, which is exactly the contradiction this pairing removes. %>
+            <tr class="hover:bg-surface-muted transition-colors"
+                data-trace-row="<%= span.id %>"
+                data-trace-kind="<%= span.kind %>"
+                data-trace-duration="<%= span.duration %>">
               <td class="py-2 px-4 text-foreground text-xs font-medium">
                 <span style="padding-left:<%= row.depth * 14 %>px;" class="inline-flex items-center gap-1.5">
                   <span class="inline-block w-1.5 h-1.5 rounded-full" style="background:<%= kindColor(span.kind) %>;"></span>

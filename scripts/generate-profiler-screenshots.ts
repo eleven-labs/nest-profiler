@@ -68,6 +68,7 @@ interface Profile {
   exceptions?: unknown[];
   collectors?: Record<string, unknown>;
   tags?: Array<{ id?: string }>;
+  trace?: Array<{ kind?: string }>;
 }
 
 /** Load every stored profile in `dir`, most-recent first (stable, deterministic pick). */
@@ -89,6 +90,9 @@ function loadProfilesFrom(dir: string): Profile[] {
 const loadProfiles = (): Profile[] => loadProfilesFrom(PROFILER_DIR);
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+/** Whether the profile carries spans from the automatic instrumentation, not just I/O and phases. */
+const hasMethodSpans = (p: Profile): boolean =>
+  (p.trace ?? []).some((span) => span.kind === 'method');
 const typeOf = (p: Profile): string | undefined => p.entrypoint?.type;
 const isHttp = (p: Profile): boolean => typeOf(p) === 'http';
 const dataOf = (p: Profile): Record<string, unknown> => p.entrypoint?.data ?? {};
@@ -314,7 +318,14 @@ function run(
   });
 }
 
-function capture(filename: string, url: string): void {
+/**
+ * Shoot one URL.
+ *
+ * `height` overrides the default viewport for a shot whose subject is taller than it — the
+ * instrumented trace is a call tree, and a tree cut off halfway shows none of what it is there to
+ * show.
+ */
+function capture(filename: string, url: string, height: string = HEIGHT): void {
   execFileSync(
     CHROME_BIN,
     [
@@ -323,7 +334,7 @@ function capture(filename: string, url: string): void {
       '--no-sandbox',
       '--hide-scrollbars',
       '--force-device-scale-factor=1',
-      `--window-size=${WIDTH},${HEIGHT}`,
+      `--window-size=${WIDTH},${height}`,
       `--virtual-time-budget=${VIRTUAL_TIME_BUDGET}`,
       `--screenshot=${join(OUT_DIR, filename)}`,
       url,
@@ -386,6 +397,26 @@ async function bootApp(
 
 function stopApp(app: ChildProcess | undefined): void {
   if (app?.exitCode === null) app.kill();
+}
+
+/**
+ * Stop an app and wait for the port to actually come free.
+ *
+ * `kill()` only *asks*. Booting the next pass while the previous process still holds the port
+ * gives the worst possible failure: the new app dies on EADDRINUSE, the readiness probe is
+ * answered by the **old** one, and the pass then drives its request into the wrong app — so it
+ * times out waiting for a profile that was written somewhere else entirely. Silent, and it looks
+ * like the feature is broken rather than the pipeline.
+ */
+async function stopAppAndWait(app: ChildProcess | undefined): Promise<void> {
+  stopApp(app);
+  if (!app) return;
+  for (let i = 0; i < 40; i += 1) {
+    if (app.exitCode !== null || app.signalCode !== null) return;
+    await sleep(250);
+  }
+  app.kill('SIGKILL');
+  await sleep(500);
 }
 
 /**
@@ -544,7 +575,7 @@ async function main(): Promise<void> {
       //    storage. Drive one GET /products and shoot the Database tab as
       //    `mikro-orm.png` (mirrors database.png).
       console.log('  • mikro-orm.png (SQL_ORM=mikro-orm pass)');
-      stopApp(app);
+      await stopAppAndWait(app);
       app = undefined;
       const mikroDir = mkdtempSync(join(tmpdir(), 'profiler-mikro-'));
       try {
@@ -570,6 +601,52 @@ async function main(): Promise<void> {
         stopApp(app);
         app = undefined;
         rmSync(mikroDir, { recursive: true, force: true });
+      }
+    }
+
+    // 8b. Automatic instrumentation — the full call tree, which no other shot can show: the
+    //     profiles the other captures read come from the e2e suite, and that suite never applies
+    //     the option at all: it builds the app through `Test.createTestingModule`, not through
+    //     `main.ts`, so `NestFactory`'s `instrument` is never passed.
+    //     So this pass boots the compiled `main.ts` against fresh storage, drives one
+    //     GET /products — controller → service → repository → SELECT, the shape the feature is
+    //     for — and shoots the Performance tab. The lens only renders when the trace carries
+    //     method spans, so this is also the only shot that shows it.
+    if (!skip('SKIP_APP') && wanted('trace-instrumented.png')) {
+      console.log('  • trace-instrumented.png (PROFILER_INSTRUMENT pass)');
+      await stopAppAndWait(app);
+      app = undefined;
+      const instrumentDir = mkdtempSync(join(tmpdir(), 'profiler-instrument-'));
+      try {
+        app = await bootApp(logFile, instrumentDir, {
+          // Explicit even though the example app now defaults it on: a screenshot must not depend
+          // on a default that may change.
+          PROFILER_INSTRUMENT: 'true',
+          SQL_ORM: 'typeorm',
+          FEATURE_MONGOOSE: 'false',
+          FEATURE_GRAPHQL: 'false',
+          FEATURE_RABBITMQ: 'false',
+          FEATURE_PINO_LOGGER: 'false',
+        });
+        await fetch(`${API_URL}${api('/products')}`);
+        const instrumented = await waitForProfileIn(
+          instrumentDir,
+          (p) => httpGet(api('/products'))(p) && hasMethodSpans(p),
+        );
+        // Taller than the default: the whole point of this shot is the depth of the tree.
+        capture(
+          'trace-instrumented.png',
+          `${PROFILER_URL}/${instrumented.token}?tab=performance`,
+          '1500',
+        );
+      } catch (error) {
+        console.warn(
+          `  ⚠ SKIPPED instrument pass (${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        stopApp(app);
+        app = undefined;
+        rmSync(instrumentDir, { recursive: true, force: true });
       }
     }
 

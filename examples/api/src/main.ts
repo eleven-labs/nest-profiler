@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
-import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { createProfilerInstrument, createProfilerLogger } from '@eleven-labs/nest-profiler';
 import {
   createProfilerValidationPipe,
   createClassValidatorPipe,
@@ -15,7 +15,21 @@ import { AppModule } from './app.module.js';
 import { applyGlobalPrefix } from './config/global-prefix.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // On by default *here*, unlike the library: this app exists to show what the profiler can do,
+  // and the call tree — who called whom, and what each cost — is invisible without it. Set
+  // PROFILER_INSTRUMENT=false to see the trace as an application that has not opted in sees it.
+  //
+  // It stays opt-in in the library itself: it places a Proxy on every provider, so every property
+  // access goes through a trap whether or not the request is profiled. That is a demo's cost to
+  // pay, not a production application's.
+  const instrumentEnabled = !['0', 'false', 'off', 'no'].includes(
+    (process.env.PROFILER_INSTRUMENT ?? '').trim().toLowerCase(),
+  );
+
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    ...(instrumentEnabled ? { instrument: createProfilerInstrument() } : {}),
+  });
 
   const configService = app.get(ConfigService);
   const port = configService.getOrThrow<number>('app.port');

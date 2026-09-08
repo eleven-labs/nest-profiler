@@ -45,17 +45,18 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 The app uses flags to conditionally load infrastructure-dependent contexts. All infra-backed features are **off by default**, so a bare run needs no database or broker. Set them in `.env`:
 
-| Variable                | Default     | Description                                                                                       |
-| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
-| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                              |
-| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                        |
-| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                          |
-| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                       |
-| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`) |
-| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                               |
-| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                                         |
-| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                          |
-| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                         |
+| Variable                | Default     | Description                                                                                                                                                                                        |
+| ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                                                                                                                               |
+| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
+| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
+| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                                                                                        |
+| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
+| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                                                                                                |
+| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
+| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
+| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                          |
+| `PROFILER_INSTRUMENT`   | `true`      | Automatic instrumentation: one span per provider method call, so the Execution Trace shows the full call tree. On here because this app is a demo; **opt-in and development-only** in your own app |
 
 `PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
@@ -168,7 +169,7 @@ mutation CreateProduct($input: CreateProductInput!) {
 }
 ```
 
-Each operation generates a profile with a **GQL** badge. The **Timeline** tab shows the `db.products.*` spans — declared once in `ProductService` and shared by the REST and GraphQL entrypoints.
+Each operation generates a profile with a **GQL** badge. The **Execution Trace** shows the `db.products.*` spans — declared once in `ProductService` and shared by the REST and GraphQL entrypoints.
 
 ## Module architecture
 
@@ -238,7 +239,7 @@ The `in-memory` adapter is identical in shape but binds `InMemoryProductReposito
 
 ### Toggling the profiler: one bundle + `ProfilerNoopModule`
 
-`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `ProfilerService` (injected in `main.ts`, `ProductService`, the CLI commands, the content service…) therefore stays resolvable even when profiling is off, at no runtime cost.
+`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `TracerService` (injected in `ProductService`, the CLI commands, the content service…) therefore stays resolvable even when profiling is off, at no runtime cost.
 
 ```ts title="app.module.ts"
 ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),
@@ -293,11 +294,11 @@ All business routes are served under the global prefix **`/api/v1`**. Only `GET 
 
 ### Health (`HealthModule`) & Diagnostics (`DiagnosticsModule`)
 
-| Endpoint            | Collector demo | Description                                              |
-| ------------------- | -------------- | -------------------------------------------------------- |
-| `GET /health`       | Logs           | Health check with timestamp                              |
-| `GET /api/v1/slow`  | Timeline       | 3 nested spans: fetch → process → serialize              |
-| `GET /api/v1/crash` | Exceptions     | Throws a 500 — tagged `error`, kept by the Errors filter |
+| Endpoint            | Collector demo  | Description                                              |
+| ------------------- | --------------- | -------------------------------------------------------- |
+| `GET /health`       | Logs            | Health check with timestamp                              |
+| `GET /api/v1/slow`  | Execution Trace | 3 nested spans: fetch → process → serialize              |
+| `GET /api/v1/crash` | Exceptions      | Throws a 500 — tagged `error`, kept by the Errors filter |
 
 There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nestjs-profiler-module.vercel.app/en/docs/packages/nest-profiler/error-classification).
 
@@ -400,32 +401,48 @@ curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
   -d '{"operationName":"CreateProduct","query":"mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name } }","variables":{"input":{"name":"NestJS in Action","price":29.99}}}'
 ```
 
-### Timeline & Config tabs
+### Execution Trace & Config tabs
 
 ```bash
-curl http://localhost:3000/api/v1/slow   # Timeline: slow.step.* + slow.total spans
+curl http://localhost:3000/api/v1/slow   # Trace: slow.step.* nested under slow.total
 ```
 
 Any request → **Config** tab shows `app.*` and `database.*` keys from `registerAs` factories (`database.password` is masked).
 
-## Log capture in `main.ts`
+## What `main.ts` wires
 
-The profiler's log collector is **logger-agnostic**: `profilerService.createLogger()` wraps any `LoggerService`, so capture works with NestJS's `ConsoleLogger` or a third-party logger such as `nestjs-pino`. `FEATURE_PINO_LOGGER` toggles which one is used — no profiler code changes.
+Two things, both visible in `examples/api/src/main.ts`.
+
+### Automatic instrumentation
+
+`createProfilerInstrument()` builds the `instanceDecorator` that `NestFactory` takes through its `instrument` option. Every provider method call then becomes a span, so the **Execution Trace** shows the full call tree — controller, service, repository — with the SQL nested under the method that issued it.
 
 ```ts title="main.ts"
-const app = await NestFactory.create(AppModule, { bufferLogs: true });
-const profilerService = app.get(ProfilerService);
+const app = await NestFactory.create(AppModule, {
+  bufferLogs: true,
+  ...(instrumentEnabled ? { instrument: createProfilerInstrument() } : {}),
+});
+```
 
-const baseLogger = isPinoLoggerEnabled(process.env)
+It is **on by default here and off by default in the library**, and the difference is deliberate: this app exists to show what the profiler can do, and the call tree is invisible without it. In your own application it proxies every provider, so every property access goes through a trap whether or not the request is profiled — a demo's cost to pay, not a production application's. Set `PROFILER_INSTRUMENT=false` to see a trace as an application that has not opted in sees it.
+
+### Log capture
+
+The log collector is **logger-agnostic**: `createProfilerLogger()` wraps any `LoggerService`, so capture works with NestJS's `ConsoleLogger` or a third-party logger such as `nestjs-pino`. `FEATURE_PINO_LOGGER` toggles which one is used — no profiler code changes.
+
+```ts title="main.ts"
+const baseLogger: LoggerService = isPinoLoggerEnabled
   ? app.get(PinoLogger) // nestjs-pino
   : new ConsoleLogger('ExampleApi'); // NestJS default
 
-app.useLogger(profilerService.createLogger(baseLogger));
+app.useLogger(createProfilerLogger(baseLogger));
 await app.listen(port);
 ```
 
+`createProfilerLogger` is **DI-free** — it reads the active profile from the CLS store — so it needs no service to be resolved and stays a transparent pass-through when the profiler is off.
+
 ### Capturing a directly-injected logger
 
-`app.useLogger()` only captures logs flowing through NestJS's `Logger`. `ArticleService` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `profiler.createLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode (`FEATURE_PINO_LOGGER=true`), call `GET /api/v1/articles`, and check the **Logs** tab.
+`app.useLogger()` only captures logs flowing through NestJS's `Logger`. `ArticleService` shows the other case: it injects `nestjs-pino`'s `PinoLogger` directly and wraps it with `createProfilerLogger(pinoLogger)`, so even pino's own `info()` is captured. Run in pino mode (`FEATURE_PINO_LOGGER=true`), call `GET /api/v1/articles`, and check the **Logs** tab.
 
 Open `http://localhost:3000/_profiler` to browse all profiles.

@@ -1,4 +1,5 @@
 import type { DynamicModule, ModuleMetadata, Provider } from '@nestjs/common';
+import { markInternal } from './instrument/internal-marker';
 
 /**
  * The collector-specific wiring merged on top of the `DynamicModule` produced by a
@@ -47,7 +48,16 @@ export function buildCollectorModule(
     ...base,
     module: base.module,
     imports: [...(base.imports ?? []), ...(shape.imports ?? [])],
-    providers: [...(base.providers ?? []), ...(shape.providers ?? [])],
+    // Branded as profiler internals so the optional automatic instrumentation never records the
+    // collectors observing the request — one point for all thirteen packages, since every
+    // collector module is built here.
+    providers: markInternalProviders([...(base.providers ?? []), ...(shape.providers ?? [])]),
     exports: [...(base.exports ?? []), ...(shape.exports ?? [])],
   };
+}
+
+/** Brands every provider of a collector module as a profiler internal, and returns the list. */
+function markInternalProviders(providers: Provider[]): Provider[] {
+  markInternal(providers);
+  return providers;
 }

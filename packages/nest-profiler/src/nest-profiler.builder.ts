@@ -347,6 +347,18 @@ export interface ProfilerModuleOptions {
   alwaysProfile?: ProfilerForceProfileFilter;
 
   /**
+   * Default for the Execution Trace's "Hide under" control, in milliseconds. Default: `0` — show
+   * every span.
+   *
+   * Zero on purpose. Hiding by default is the wrong bias for a debugging tool: a developer who
+   * cannot find a span they know they opened has no reason to suspect a threshold, and will
+   * conclude the profiler missed it. The control sits one click away in the panel, and a team that
+   * always wants the same floor sets it here. `0.1` is a sensible value once the automatic
+   * instrumentation is on, where sub-tenth-of-a-millisecond method calls are noise.
+   */
+  traceMinDuration?: number;
+
+  /**
    * Header the inbound **trace id** is adopted from, case-insensitive. Default: `'x-request-id'`.
    *
    * The trace id is the profile's *correlation* identity: printed into your application's log

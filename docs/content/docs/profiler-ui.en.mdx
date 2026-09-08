@@ -60,9 +60,15 @@ The CPU share is the one that changes what you do next. Near 100% the request wa
 
 The **execution trace** closes the tab: every timed operation of the request on one axis — the entrypoint, framework phases, outgoing calls, database queries and the spans you opened with `tracer.span()` — nested by causality, foldable, each bar showing its self-time and deep-linking to the panel row holding its detail. Above it, a flat **Request Lifecycle** band breaks the request into its framework phases.
 
+With the optional [automatic instrumentation](/docs/packages/nest-profiler/collectors#recording-every-method-call-automatically) on, the trace also carries one bar per provider method call — the full call tree, controller down to repository, with the query nested under the method that issued it. Those bars answer "who issued this query" and are noise when the question is "which query is slow", so the panel offers a lens over the **same** tree — **All**, **I/O only**, **Code only**. It filters the bars and the table under them together, and a hidden bar leaves its children attached to their real parent: you change how much of the trace you see, never which trace.
+
+Two controls sit beside it and apply to any trace. **Critical path** dims everything off the chain that decided the total — from the root, the child that finishes last, all the way down; shortening a span off that chain moves nothing, which is what makes it the place to look first. **Hide under** drops spans below a threshold, defaulting to the `traceMinDuration` module option — `0`, show everything, because a developer who cannot find a span they know they opened has no reason to suspect a threshold.
+
+![Execution Trace with the automatic instrumentation on: the call tree from the controller down to the SQL statement, the All / I/O only / Code only lens, and the table below mirroring the bars](/screenshots/profiler/trace-instrumented.png)
+
 One thing to know before reading a number: these are process-wide deltas over the request's window, not an isolated measurement of that one execution. Node runs a single thread, so under concurrent traffic a request is charged with what its neighbours spent too — which is why a CPU share above 100% reads _includes concurrent work_ rather than claiming the request was CPU-bound. The tab says so under the figures, and [CPU and memory](/docs/packages/nest-profiler/configuration#cpu-and-memory) has the full picture.
 
-![Performance tab with duration, CPU time, heap delta, event-loop utilization and the execution timeline of the recorded spans](/screenshots/profiler/performance.png)
+![Performance tab with duration, CPU time, heap delta, event-loop utilization and the execution trace of the recorded spans](/screenshots/profiler/performance.png)
 
 The **Logs** tab lists entries captured through `createProfilerLogger()`. Each row shows the message first - with structured payloads rendered as a JSON block under it - then the logger context name. See the [Log capture](/docs/packages/nest-profiler/logs) page for the supported logger conventions.
 
