@@ -6,7 +6,7 @@ seo:
   description: API reference for @eleven-labs/nest-profiler-http - the client-agnostic HTTP Client panel, recorder, instrumentation interface and the bundled axios/fetch adapters.
 ---
 
-This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder` and the `HttpInstrumentation` interface. It ships two opt-in adapters — `AxiosInstrumentation` (`/axios`) and `FetchInstrumentation` (`/fetch`) — each on its own subpath, both capturing request and response bodies safely. You select which client(s) to instrument; nothing is patched unless listed. Any other client (undici, got, a custom module…) can feed the same panel through the recorder or a custom `HttpInstrumentation`.
+This package owns the **HTTP Client** panel: the `HttpRequestEntry` contract, the collector, the injectable `HttpProfilerRecorder` and the `HttpInstrumentation` interface. It ships two opt-in adapters — `AxiosInstrumentation` (`/axios`) and `FetchInstrumentation` (`/fetch`) — each on its own subpath, both capturing request and response bodies safely, plus two opt-in phases providers (`/phases`) that break a call down into DNS, handshake, time-to-first-byte and download. You select which client(s) to instrument; nothing is patched unless listed. Any other client (undici, got, a custom module…) can feed the same panel through the recorder or a custom `HttpInstrumentation`.
 
 ## Module
 
@@ -84,6 +84,35 @@ import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 
 Patches `globalThis.fetch` once (Node ≥ 22 built-in). A single global hook captures every caller. Response bodies are read (via `Response.clone()`) only when `captureResponseBody` is enabled; request bodies are captured for serialisable `init.body` (string / `URLSearchParams`). No dependency.
 
+## Phases providers
+
+A phases provider is an `HttpInstrumentation` that **records nothing**: it measures where a call spent its time and leaves the breakdown for the adapter that records it. Both are opt-in, listed in `instrumentations` like any adapter, and exported from the `/phases` subpath.
+
+```ts
+import { NodeHttpPhases, UndiciPhases } from '@eleven-labs/nest-profiler-http/phases';
+
+HttpCollectorModule.forRoot({
+  instrumentations: [AxiosInstrumentation, NodeHttpPhases, FetchInstrumentation, UndiciPhases],
+});
+```
+
+### NodeHttpPhases
+
+Wraps `request`/`get` on `node:http` and `node:https` to start a timer on every outgoing request, covering every client built on them — axios, superagent, `got`, `node-fetch`, a hand-rolled `https.request`. Reports `wait`, `dns`, `tcp`, `tls`, `request`, `firstByte` and `download`.
+
+This is the timings-only counterpart of the `node:http` _recording_ adapter this package deliberately does not ship. The objection to that adapter does not apply: capturing a response body means reading the stream, which steals chunks from a caller consuming it in paused mode, whereas a timer only notes when events fired and leaves both streams untouched. It cannot double-record either, because it records nothing.
+
+Not covered: a request built with `new http.ClientRequest(...)`, and any client holding a reference to `http.request` captured before bootstrap. Time those with `instrumentClientRequest`.
+
+### UndiciPhases
+
+Subscribes to undici's `diagnostics_channel` events, which is the only way to time `fetch`: Node's built-in `fetch` runs on undici and never goes through `node:http`. Reports `wait`, `connect`, `request`, `firstByte` and `download`.
+
+Correlation with the recorded call is exact rather than heuristic — the channel subscribers run in the async context of the `fetch()` that triggered them, so they find that call's phase slot. Two limits are inherent to what undici reports, and both degrade visibly rather than silently:
+
+- **the handshake is not broken down** — undici publishes one `connected` event covering DNS, TCP and TLS, reported as the coarse `connect` phase. A request on a pooled connection reports none, which is correct: it connected nothing.
+- **`download` is often absent** — `fetch()` resolves as soon as the response _headers_ arrive, which is when the adapter records the call. A body still streaming then has no measured download phase.
+
 ## Types
 
 ### HttpRequestEntry
@@ -94,6 +123,14 @@ One entry per outgoing HTTP request, surfaced in the HTTP Client panel. Client-a
   path="packages/nest-profiler-http/src/http-request.interface.ts"
   name="HttpRequestEntry"
 />
+
+### HttpPhases
+
+Where an outgoing call spent its time, as a breakdown of **durations in milliseconds**. Durations rather than absolute marks, because that is the shape a client can actually produce: `node:http` exposes socket events, undici publishes channel events, a bespoke transport may know nothing but its own time-to-first-byte — all three can fill a subset of these fields, whereas none of them share a time base.
+
+Every field is optional, and the phases are not required to add up to the call's `duration`: the difference is client-side time (interceptors, serialisation, queueing the client never reported) and the panel draws it as an explicit remainder rather than inflating a phase to make the arithmetic tidy. The names are the de-facto vocabulary — `got`/`@szmarczak/http-timer` use them, and they map onto the browser's `PerformanceResourceTiming`.
+
+<AutoTypeTable path="packages/nest-profiler-http/src/http-phases.interface.ts" name="HttpPhases" />
 
 ### HttpCaptureOptions
 
@@ -122,6 +159,16 @@ Client-agnostic header redaction helpers shared by instrumentations.
 - `extractHeaders(headers: unknown, maskHeaders: Iterable<string>, options?: ExtractHeadersOptions): Record<string, string>` - normalises a header bag (a `fetch` `Headers`, an axios `AxiosHeaders` or a plain record) into a flat record, replacing the values of `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Pass `recorder.maskHeaders` to honour the configured mask list. `options.replacement` writes a different sentinel; `options.multiValue` keeps a repeated header as an array instead of joining its values.
 - `formatHeaderValue(value: unknown): string` - renders an arbitrary header value as a display string.
 
+### Phase helpers
+
+Everything needed to feed `phases` from a client with no bundled provider.
+
+- `readHttpPhases(source: unknown): HttpPhases | undefined` - finds the breakdown behind whatever object an instrumentation holds: an `AxiosResponse`, an axios error, a `ClientRequest`, an `IncomingMessage`, a `follow-redirects` wrapper (the final hop wins — its phases describe the response the caller got), or a `got` response, whose native `timings` are read without this package depending on `@szmarczak/http-timer`. Returns `undefined` when nothing timed the call, which is the normal state with no provider installed.
+- `instrumentClientRequest(request: ClientRequest): void` - times one `node:http` request by listening to the events it already emits, with no global patch. Call it on a freshly created request (the `socket` event is deferred to the next tick, so instrumenting right after `http.request(...)` is always in time); idempotent. Useful when a client hands you its request: `got.stream(url).on('request', (req) => instrumentClientRequest(req))`.
+- `phasesOfClientRequest(request: ClientRequest): HttpPhases | undefined` - the breakdown measured for an instrumented request.
+- `openPhaseSlot<T>(execute: (slot: HttpPhaseSlot) => T): T` / `activePhaseSlot(): HttpPhaseSlot | undefined` / `phaseSlotsEnabled(): boolean` / `registerPhaseSlotProvider(): void` - the async-context channel a provider and an adapter use when the client never exposes its transport (the `fetch` + undici case). An adapter opens a slot around each call only while `phaseSlotsEnabled()`, so with no provider installed no async context is entered at all.
+- `sumHttpPhases(phases)`, `hasHttpPhases(phases)`, `formatPhaseDuration(ms)`, `HTTP_PHASE_SEQUENCE`, `HTTP_PHASE_LABELS`, `HTTP_PHASE_HINTS` - the display vocabulary, shared by the panel and the trace so a phase is named and explained the same way everywhere.
+
 ### Constants
 
 - `HTTP_CLIENT_REQUESTS_KEY` - the private `profile.collectors` key where instrumentations accumulate raw `HttpRequestEntry` items before the collector migrates them to the public `http-client` key.
@@ -144,6 +191,19 @@ import {
   HTTP_CLIENT_REQUESTS_KEY,
   HTTP_COLLECTOR_OPTIONS,
   HTTP_INSTRUMENTATIONS,
+  readHttpPhases,
+  instrumentClientRequest,
+  phasesOfClientRequest,
+  openPhaseSlot,
+  activePhaseSlot,
+  phaseSlotsEnabled,
+  registerPhaseSlotProvider,
+  sumHttpPhases,
+  hasHttpPhases,
+  formatPhaseDuration,
+  HTTP_PHASE_SEQUENCE,
+  HTTP_PHASE_LABELS,
+  HTTP_PHASE_HINTS,
 } from '@eleven-labs/nest-profiler-http';
 
 import type {
@@ -151,11 +211,17 @@ import type {
   HttpInstrumentation,
   HttpRequestEntry,
   HttpCaptureOptions,
+  HttpPhases,
+  HttpPhaseName,
+  HttpPhaseSlot,
 } from '@eleven-labs/nest-profiler-http';
 
 // Adapters — one per subpath:
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
+
+// Phases providers — same subpath, both optional:
+import { NodeHttpPhases, UndiciPhases } from '@eleven-labs/nest-profiler-http/phases';
 ```
 
 ## Installation

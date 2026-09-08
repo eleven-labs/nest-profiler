@@ -9,6 +9,7 @@ import type {
 } from './http-request.interface';
 import { redact, tryResolve } from '@eleven-labs/nest-profiler';
 import { appendHttpRequestEntry } from './append-http-request-entry.util';
+import { hasHttpPhases } from './http-phases.interface';
 import {
   DEFAULT_MASK_HEADERS,
   extractHeaders,
@@ -89,6 +90,10 @@ export class HttpProfilerRecorder implements OnModuleInit {
       startedAt: input.startedAt,
       error: input.error,
     };
+
+    // Copied, not referenced: a provider keeps refining the breakdown it measured (undici fills
+    // `download` when the body ends), and an entry already recorded must stop changing.
+    if (hasHttpPhases(input.phases)) entry.phases = { ...input.phases };
 
     if (opts.captureRequestHeaders !== false && input.requestHeaders != null) {
       entry.requestHeaders = extractHeaders(input.requestHeaders, this.maskHeaders);

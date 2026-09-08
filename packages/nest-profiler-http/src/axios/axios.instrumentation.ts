@@ -4,6 +4,7 @@ import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'a
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
 import { hasHeader } from '../propagate-trace-id';
+import { readHttpPhases } from '../phases/read-http-phases';
 
 interface ProfilerAxiosConfig extends InternalAxiosRequestConfig {
   _profilerStart?: number;
@@ -68,21 +69,33 @@ export class AxiosInstrumentation implements HttpInstrumentation {
 
     axiosRef.interceptors.response.use(
       (response: AxiosResponse) => {
-        this.capture(recorder, response.config as ProfilerAxiosConfig, response, undefined);
+        this.capture(
+          recorder,
+          response.config as ProfilerAxiosConfig,
+          response,
+          undefined,
+          response,
+        );
         return response;
       },
       (error: Error & { config?: ProfilerAxiosConfig; response?: AxiosResponse }) => {
-        this.capture(recorder, error.config ?? {}, error.response, error.message);
+        this.capture(recorder, error.config ?? {}, error.response, error.message, error);
         return Promise.reject(error);
       },
     );
   }
 
+  /**
+   * `phaseSource` is the response on success and the error on failure — whichever object still
+   * holds a path to the underlying request, which is where a phases provider left its
+   * measurements. `readHttpPhases` returns `undefined` when no provider is installed.
+   */
   private capture(
     recorder: HttpProfilerRecorder,
     config: Partial<ProfilerAxiosConfig>,
     response: AxiosResponse | undefined,
     error: string | undefined,
+    phaseSource: unknown,
   ): void {
     recorder.capture({
       method: typeof config.method === 'string' ? config.method : 'GET',
@@ -91,6 +104,7 @@ export class AxiosInstrumentation implements HttpInstrumentation {
       duration: config._profilerStart ? Date.now() - config._profilerStart : 0,
       statusCode: response?.status,
       error,
+      phases: readHttpPhases(phaseSource),
       requestHeaders: config.headers,
       requestBody: config._profilerRequestBody,
       responseHeaders: response?.headers,

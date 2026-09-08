@@ -7,6 +7,36 @@
   const dupGroups = new Set(requests.filter(r => hasTag(r, 'n-plus-one') && r.fingerprint).map(r => r.fingerprint));
   const slowSev = sevOfTag(requests, 'slow');
   const nPlusOneSev = sevOfTag(requests, 'n-plus-one');
+
+  // Phase vocabulary, in the order phases occur. Inline (like the timeline's kind maps) because a
+  // template cannot import the package's TypeScript — the same names live in HTTP_PHASE_LABELS.
+  const phaseMeta = [
+    ['wait',      'Wait',           '#94a3b8', 'Client-side queueing before the transport started connecting — a saturated agent shows up here.'],
+    ['dns',       'DNS',            '#a78bfa', 'Resolving the hostname. Absent on a reused connection or an IP literal.'],
+    ['tcp',       'TCP',            '#60a5fa', 'TCP handshake. Absent on a reused connection.'],
+    ['tls',       'TLS',            '#34d399', 'TLS handshake. Absent on plain HTTP and on a reused connection.'],
+    ['connect',   'Connect',        '#38bdf8', 'DNS + TCP + TLS together, for a client that cannot break the handshake down (undici).'],
+    ['request',   'Request',        '#fbbf24', 'Sending the request, until its last byte left the process.'],
+    ['firstByte', 'Waiting (TTFB)', '#f472b6', 'Waiting for the first response byte — upstream think time plus return latency.'],
+    ['download',  'Download',       '#22d3ee', 'Streaming the response body, first byte to last.'],
+  ];
+  const phaseMs = (v) => (v >= 10 ? Math.round(v) : Math.round(v * 100) / 100) + 'ms';
+
+  // Only phases that actually cost something are drawn: a measured 0ms segment renders as
+  // nothing and would only add noise to the legend.
+  const phasesOf = (r) => {
+    const segments = phaseMeta
+      .map(([key, label, color, hint]) => [key, label, color, hint, r.phases ? r.phases[key] : undefined])
+      .filter(([, , , , value]) => typeof value === 'number' && value > 0);
+    if (segments.length === 0) return null;
+
+    const measured = segments.reduce((sum, [, , , , value]) => sum + value, 0);
+    // Normalised on whichever is larger: phases are timed on a monotonic clock while `duration`
+    // is millisecond-granular, so a fast call can measure marginally more than it lasted.
+    const total = Math.max(r.duration, measured);
+    const rest = Math.max(0, total - measured);
+    return { segments, measured, total, rest };
+  };
 %>
 
 <div class="flex items-center justify-between mb-4">
@@ -30,6 +60,7 @@
         <tr class="bg-surface-muted border-b border-line">
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Time</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-20">Duration</th>
+          <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-32">Phases</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Method</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">URL</th>
           <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest w-16">Status</th>
@@ -41,7 +72,8 @@
           <%
             const hasRequest = (r.requestHeaders && Object.keys(r.requestHeaders).length > 0) || r.requestBody != null;
             const hasResponse = (r.responseHeaders && Object.keys(r.responseHeaders).length > 0) || r.responseBody != null;
-            const hasDetails = hasRequest || hasResponse;
+            const phases = phasesOf(r);
+            const hasDetails = hasRequest || hasResponse || phases !== null;
             const detailsRowId = `http-row-details-${i}`;
             const slowTag = (r.tags || []).find(t => t.id === 'slow');
           %>
@@ -57,6 +89,24 @@
           >
             <td class="py-2 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap"><%= timeOnly(r.startedAt) %></td>
             <td class="py-2 px-4 text-left text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>"><%= r.duration %>ms</td>
+            <td class="py-2 px-4">
+              <% if (phases) { %>
+                <div class="flex h-2 w-full min-w-24 overflow-hidden rounded-sm bg-surface-muted"
+                     title="<%= phases.segments.map(([, label, , , value]) => label + ' ' + phaseMs(value)).join(' · ') %><%= phases.rest > 0 ? ' · Other ' + phaseMs(phases.rest) : '' %>">
+                  <% for (const [key, label, color, hint, value] of phases.segments) { %>
+                    <span style="width:<%= (value / phases.total) * 100 %>%;background:<%= color %>;"
+                          title="<%= label %> — <%= phaseMs(value) %>. <%= hint %>"></span>
+                  <% } %>
+                  <% if (phases.rest > 0) { %>
+                    <span style="width:<%= (phases.rest / phases.total) * 100 %>%;"
+                          class="bg-line"
+                          title="Other — <%= phaseMs(phases.rest) %> the phases do not account for: client-side work (interceptors, serialisation) and anything the client did not report."></span>
+                  <% } %>
+                </div>
+              <% } else { %>
+                <span class="text-foreground-faint text-2xs">—</span>
+              <% } %>
+            </td>
             <td class="py-2 px-4 whitespace-nowrap">
               <div class="inline-flex items-center gap-2">
                 <% if (hasDetails) { %>
@@ -92,8 +142,35 @@
 
           <% if (hasDetails) { %>
             <tr id="<%= detailsRowId %>" class="hidden bg-surface-subtle" data-http-details="true">
-              <td colspan="5" class="px-4 py-3">
+              <td colspan="6" class="px-4 py-3">
                 <div class="space-y-3">
+                  <% if (phases) { %>
+                    <section class="bg-surface border border-line-subtle rounded p-2.5">
+                      <p class="text-2xs text-foreground-faint uppercase tracking-widest font-semibold mb-1.5">Timing</p>
+                      <div class="space-y-1">
+                        <% for (const [key, label, color, hint, value] of phases.segments) { %>
+                          <div class="flex items-center gap-2 text-2xs">
+                            <span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background:<%= color %>;"></span>
+                            <span class="w-28 shrink-0 text-foreground-secondary cursor-help" title="<%= hint %>"><%= label %></span>
+                            <span class="w-16 shrink-0 text-right tabular-nums text-foreground"><%= phaseMs(value) %></span>
+                            <span class="min-w-0 grow">
+                              <span class="block h-1.5 rounded-sm" style="width:<%= (value / phases.total) * 100 %>%;background:<%= color %>;"></span>
+                            </span>
+                          </div>
+                        <% } %>
+                        <% if (phases.rest > 0) { %>
+                          <div class="flex items-center gap-2 text-2xs">
+                            <span class="inline-block h-2 w-2 shrink-0 rounded-sm bg-line"></span>
+                            <span class="w-28 shrink-0 text-foreground-muted cursor-help" title="Time the phases do not account for: client-side work (interceptors, serialisation) and anything the client did not report — for fetch, a response body still streaming when the call was recorded.">Other</span>
+                            <span class="w-16 shrink-0 text-right tabular-nums text-foreground-muted"><%= phaseMs(phases.rest) %></span>
+                            <span class="min-w-0 grow">
+                              <span class="block h-1.5 rounded-sm bg-line" style="width:<%= (phases.rest / phases.total) * 100 %>%;"></span>
+                            </span>
+                          </div>
+                        <% } %>
+                      </div>
+                    </section>
+                  <% } %>
                   <% if (hasRequest) { %>
                     <section class="bg-surface border border-line-subtle rounded p-2.5">
                       <p class="text-2xs text-foreground-faint uppercase tracking-widest font-semibold mb-1.5">Request</p>

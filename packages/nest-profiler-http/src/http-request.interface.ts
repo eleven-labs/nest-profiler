@@ -3,6 +3,7 @@ import type {
   RedactionHeaderOptions,
   RedactionQueryParamOptions,
 } from '@eleven-labs/nest-profiler';
+import type { HttpPhases } from './http-phases.interface';
 
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the
@@ -18,6 +19,14 @@ export interface HttpRequestEntry {
   statusCode?: number;
   duration: number;
   startedAt: number;
+  /**
+   * Where the call spent its time — DNS, handshake, waiting for the first byte, download.
+   *
+   * Present only when a phases provider timed this call (`NodeHttpPhases`, `UndiciPhases`) or the
+   * client measured it itself; a partial breakdown is normal and the panel shows whatever is
+   * missing as a remainder. See {@link HttpPhases}.
+   */
+  phases?: HttpPhases;
   /**
    * The trace span open when this entry was captured (see the core's `TaggableEntry`). Stamped by
    * `appendCollectorEntry`; it nests this call under the `tracer.span()` that issued it.
@@ -57,6 +66,8 @@ export interface HttpCaptureInput {
   duration: number;
   statusCode?: number;
   error?: string;
+  /** Phase breakdown, when the instrumentation could obtain one (see `readHttpPhases`). */
+  phases?: HttpPhases;
   requestHeaders?: unknown;
   requestBody?: unknown;
   responseHeaders?: unknown;

@@ -50,6 +50,30 @@ const errAdapter =
     return Promise.reject(err);
   };
 
+/**
+ * An adapter whose response carries a request object with timings on it — what a phases provider
+ * (`NodeHttpPhases`, or `got`'s own timer) leaves behind for the adapter to pick up.
+ */
+const timedAdapter =
+  (phases: Record<string, number>, opts: { fail?: boolean } = {}): AxiosAdapter =>
+  (config) => {
+    const request = { timings: { phases } };
+    if (opts.fail) {
+      const err = new Error('boom') as Error & { config?: unknown; request?: unknown };
+      err.config = config;
+      err.request = request;
+      return Promise.reject(err);
+    }
+    return Promise.resolve({
+      data: { ok: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request,
+    } as unknown as AxiosResponse);
+  };
+
 function recorderModuleRef(cls: unknown): ModuleRef {
   return { get: () => cls } as unknown as ModuleRef;
 }
@@ -294,6 +318,34 @@ describe('AxiosInstrumentation — auto-discovery', () => {
 
     await ax.get('https://api.example.com/data');
     expect(entriesOf(profile)).toHaveLength(1);
+  });
+});
+
+describe('AxiosInstrumentation — phases', () => {
+  it('records the breakdown a provider left on the response', async () => {
+    const { ax, profile } = setup(
+      {},
+      { adapter: timedAdapter({ dns: 2, tcp: 3, firstByte: 30, download: 1 }) },
+    );
+    await ax.get('https://api.example.com/data');
+
+    expect(firstEntry(profile).phases).toEqual({ dns: 2, tcp: 3, firstByte: 30, download: 1 });
+  });
+
+  it('records the breakdown of a call that failed', async () => {
+    const { ax, profile } = setup({}, { adapter: timedAdapter({ firstByte: 12 }, { fail: true }) });
+    await expect(ax.get('https://api.example.com/down')).rejects.toThrow('boom');
+
+    const entry = firstEntry(profile);
+    expect(entry.error).toBe('boom');
+    expect(entry.phases).toEqual({ firstByte: 12 });
+  });
+
+  it('records no breakdown when no provider timed the call', async () => {
+    const { ax, profile } = setup();
+    await ax.get('https://api.example.com/data');
+
+    expect(firstEntry(profile).phases).toBeUndefined();
   });
 });
 

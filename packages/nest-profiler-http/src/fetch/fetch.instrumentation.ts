@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
 import { hasHeader } from '../propagate-trace-id';
+import { openPhaseSlot, phaseSlotsEnabled } from '../phases/phase-slot';
+import type { HttpPhaseSlot } from '../phases/phase-slot';
 
 type FetchFn = typeof fetch;
 type PatchableFetch = FetchFn & { __profilerPatched?: boolean };
@@ -10,6 +12,9 @@ type PatchableFetch = FetchFn & { __profilerPatched?: boolean };
  * Built-in {@link HttpInstrumentation} for the global `fetch` (Node ≥ 22 built-in, undici-backed).
  * It patches `globalThis.fetch` once and records every call on the active profile via
  * {@link HttpProfilerRecorder}. A single global hook covers every caller — no per-instance wiring.
+ *
+ * Phase timings come from the `UndiciPhases` provider when it is registered: `fetch` never exposes
+ * its transport, so the two meet through the async context this adapter opens around each call.
  *
  * Response bodies are read (via `Response.clone()`) only when `captureResponseBody` is enabled, so
  * the default hot path never buffers a payload. Request bodies are captured only for serialisable
@@ -25,7 +30,11 @@ export class FetchInstrumentation implements HttpInstrumentation {
     // Soft no-op when fetch is unavailable, and idempotent if already patched.
     if (typeof original !== 'function' || original.__profilerPatched) return;
 
-    const patched: PatchableFetch = async (input, init) => {
+    const record = async (
+      input: RequestInfo | URL,
+      init: RequestInit | undefined,
+      slot: HttpPhaseSlot | undefined,
+    ): Promise<Response> => {
       const startedAt = Date.now();
       const method = resolveMethod(input, init);
       const url = resolveUrl(input);
@@ -46,6 +55,7 @@ export class FetchInstrumentation implements HttpInstrumentation {
           startedAt,
           duration: Date.now() - startedAt,
           statusCode: response.status,
+          phases: slot?.phases,
           requestHeaders,
           requestBody,
           responseHeaders: response.headers,
@@ -59,12 +69,21 @@ export class FetchInstrumentation implements HttpInstrumentation {
           startedAt,
           duration: Date.now() - startedAt,
           error: error instanceof Error ? error.message : String(error),
+          phases: slot?.phases,
           requestHeaders,
           requestBody,
         });
         throw error;
       }
     };
+
+    // The async context is entered only when a phases provider is installed: undici publishes its
+    // events from inside the `fetch` call, so the slot opened here is the one its subscribers find,
+    // and with no provider registered there is nothing to correlate and no context to pay for.
+    const patched: PatchableFetch = (input, init) =>
+      phaseSlotsEnabled()
+        ? openPhaseSlot((slot) => record(input, init, slot))
+        : record(input, init, undefined);
 
     patched.__profilerPatched = true;
     globalRef.fetch = patched;

@@ -94,8 +94,40 @@ You will see each outgoing request with:
 - **URL** - full URL including query parameters
 - **Status** - HTTP response status code (e.g., `200`, `404`)
 - **Duration** - round-trip time in milliseconds
+- **Phases** - a stacked bar breaking that duration down, once you add a phases provider (next step)
 
 The toolbar badge displays `{n}req` - for example `3req` when three outgoing requests were made during the incoming request.
+
+## Step 5 - Break each call into its phases
+
+A duration tells you the call took 180ms. A breakdown tells you whether that was DNS, a TLS handshake, an upstream thinking, or a large body coming down the wire — the difference between a fix in your infrastructure and a conversation with the team that owns the API.
+
+Phases are opt-in and selected exactly like an adapter. Which provider you need depends on the transport, not on the client's name:
+
+```ts title="posts.module.ts"
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+import { NodeHttpPhases } from '@eleven-labs/nest-profiler-http/phases';
+
+HttpCollectorModule.forRoot({
+  instrumentations: [AxiosInstrumentation, NodeHttpPhases],
+});
+```
+
+- **`NodeHttpPhases`** times every client built on `node:http`/`node:https` — axios, superagent, `got`, `node-fetch` — and reports `wait`, `dns`, `tcp`, `tls`, `request`, `firstByte`, `download`.
+- **`UndiciPhases`** times `fetch`, which runs on undici and never goes through `node:http`. It reports `wait`, `connect`, `request`, `firstByte`, `download`.
+
+Call the same endpoint again and the **Phases** column shows a stacked bar; hover a segment for its name and value, or expand the row for the full list. The same breakdown appears as labelled extras on the call's bar in the **Timeline** waterfall, next to the queries that ran alongside it.
+
+<Callout>
+  A partial breakdown is the normal case, not a bug. A reused keep-alive connection reports no
+  handshake — it connected nothing. An IP literal reports no DNS. undici publishes one `connected`
+  event covering DNS, TCP and TLS, so it reports a coarse `connect` phase instead of the three. And
+  since `fetch()` resolves on the response *headers*, a body still streaming when the call is
+  recorded has no measured `download`. Whatever the phases do not account for is drawn as an
+  explicit **Other** segment rather than folded into a neighbour.
+</Callout>
+
+A phases provider **records nothing** — no entry, no header, no body. It only notes when events fired, which is why a timings-only `node:http` hook is safe where a recording one is not: capturing a response body there would mean reading the stream and stealing chunks from a caller consuming it in paused mode.
 
 ## Combining with cache profiling
 
@@ -189,11 +221,45 @@ export class GotInstrumentation implements HttpInstrumentation {
 
 Register it like any bundled adapter — `HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation, GotInstrumentation] })`. The same shape works for undici (via `diagnostics_channel`), superagent (via a plugin), or a bespoke NestJS HTTP service: hook the client once in `install`, call `recorder.capture(...)` on each response.
 
+### Phases for your own client
+
+Add one line to `capture(...)`: `readHttpPhases(source)` finds the breakdown behind whatever object you hold — a response, an error, a `ClientRequest`, an `IncomingMessage`, a `follow-redirects` wrapper, or a `got` response — and returns `undefined` when nothing timed the call.
+
+```ts
+import { readHttpPhases } from '@eleven-labs/nest-profiler-http';
+
+recorder.capture({
+  method: response.request.options.method,
+  url: response.requestUrl.toString(),
+  startedAt: started,
+  duration: Date.now() - started,
+  statusCode: response.statusCode,
+  phases: readHttpPhases(response), // got exposes its own timings; a provider fills in for others
+  responseHeaders: response.headers,
+  responseBody: response.body,
+});
+```
+
+Three ways to get a breakdown, in order of how little work they are:
+
+1. **Your client uses `node:http` and `NodeHttpPhases` is installed** — pass the response or the error to `readHttpPhases`. Nothing else to do. `got` needs no provider at all: it embeds `@szmarczak/http-timer`, and its native `response.timings` are read directly.
+2. **Your client hands you its request object** — time it yourself, with no global patch: `got.stream(url).on('request', (req) => instrumentClientRequest(req))`.
+3. **Your client exposes neither** — measure what you can and pass it. Every field of `HttpPhases` is optional, so a transport that only knows its time-to-first-byte says exactly that:
+
+   ```ts
+   recorder.capture({ method, url, startedAt, duration, phases: { firstByte: 42 } });
+   ```
+
+   The panel draws the segments you provided and shows the rest as **Other**. Never inflate a phase to make the total add up: a missing phase reads as missing, a wrong one reads as a fact.
+
+For a client with no transport to reach at all — a `fetch`-like API that hides everything — a provider and an adapter can meet through the async context instead: open a slot around the call with `openPhaseSlot`, and have the provider write into `activePhaseSlot()`. That is exactly how `UndiciPhases` and `FetchInstrumentation` cooperate.
+
 ## How it works
 
 Each selected adapter installs once at bootstrap and funnels into the shared `HttpProfilerRecorder`:
 
 - **`AxiosInstrumentation`** enumerates the DI container with `DiscoveryService`, finds every axios instance (each `HttpService`, plus bare axios instances), and installs request/response interceptors on each — no `axiosRef` wiring, and it never imports `@nestjs/axios`.
 - **`FetchInstrumentation`** patches `globalThis.fetch` once.
+- **`NodeHttpPhases`** wraps `request`/`get` on `node:http` and `node:https` to start a timer on each outgoing request, and **`UndiciPhases`** subscribes to undici's `diagnostics_channel` events. Neither records anything: the adapter that records the call reads the breakdown they measured.
 
 Every adapter records the start time, then on completion the end time, status code and final URL, pushing an `HttpRequestEntry` to the current profile. Requests made outside a request context (e.g. in `onModuleInit`) are silently ignored since there is no active CLS profile.

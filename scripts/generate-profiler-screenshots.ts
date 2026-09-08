@@ -2,11 +2,14 @@
 /**
  * Fully automated profiler screenshot generation — no LLM in the loop.
  *
- * Flow: start the database containers, run the e2e suite (without the stress
- * spec) so every entrypoint kind and collector gets profiled into `.profiler`
- * (file storage), boot the example API against that same `.profiler`, then
- * derive the per-screenshot URLs from the stored profiles and capture them with
- * headless Chrome at a fixed, uniform size (drops straight into a carousel).
+ * Flow: start the database containers, build the packages, run the e2e suite
+ * (without the stress spec) so every entrypoint kind and collector gets profiled
+ * into `.profiler` (file storage), boot the example API against that same
+ * `.profiler`, then derive the per-screenshot URLs from the stored profiles and
+ * capture them with headless Chrome at a fixed, uniform size (drops straight
+ * into a carousel). The build comes before the suite on purpose: jest resolves
+ * the workspace packages to their `dist/`, so profiling a stale build would
+ * capture a new panel around old data.
  *
  * Two views can't share the main pass and get their own reboots afterwards:
  * `mikro-orm.png` (the catalog binds one SQL adapter per boot, so MikroORM runs
@@ -460,20 +463,25 @@ async function main(): Promise<void> {
       run('docker', ['compose', 'up', '-d']);
     }
 
-    // 2. Populate `.profiler` by running the e2e suite without the stress spec. The
+    // 2. Build before profiling, not after. Under jest the workspace packages resolve to their
+    //    `dist/`, so a suite run against a stale build records yesterday's collectors — and every
+    //    screenshot below is derived from those stored profiles. Building afterwards used to make
+    //    a changed collector render its new panel around old data (an empty column, a missing
+    //    badge), which reads as a broken feature rather than a stale build.
+    if (!skip('SKIP_BUILD')) {
+      console.log('▶ Building packages and the example API…');
+      run('pnpm', ['build', '--filter=example-api']);
+    }
+
+    // 3. Populate `.profiler` by running the e2e suite without the stress spec. The
     //    suite empties `.profiler` once at the start and keeps the profiles after.
     if (!skip('SKIP_TESTS')) {
       console.log('▶ Running e2e suite (no stress) to generate profiles…');
       run('pnpm', ['--filter=example-api', 'test:e2e:no-stress']);
     }
 
-    // 3. Boot the compiled example API against the same `.profiler` with the UI open.
+    // 4. Boot the compiled example API against the same `.profiler` with the UI open.
     if (!skip('SKIP_APP')) {
-      if (!skip('SKIP_BUILD')) {
-        console.log('▶ Building packages and the example API…');
-        run('pnpm', ['build', '--filter=example-api']);
-      }
-
       console.log(`▶ Starting the example API on port ${PORT}…`);
       app = await bootApp(logFile, PROFILER_DIR, {
         SQL_ORM: process.env.SQL_ORM ?? 'typeorm',
@@ -483,7 +491,7 @@ async function main(): Promise<void> {
       });
     }
 
-    // 4. Detail-tab screenshots — tokens derived from the stored profiles.
+    // 5. Detail-tab screenshots — tokens derived from the stored profiles.
     console.log('▶ Resolving screenshot targets from stored profiles…');
     const profiles = loadProfiles();
     if (profiles.length === 0) {
@@ -510,14 +518,14 @@ async function main(): Promise<void> {
       resolved += 1;
     }
 
-    // 5. List page — `?http_method=DELETE` shows the method filter active over the
+    // 6. List page — `?http_method=DELETE` shows the method filter active over the
     //    DELETE profiles, exercising the per-section filter bar.
     if (wanted('profiles-list.png')) {
       console.log('  • profiles-list.png');
       capture('profiles-list.png', `${PROFILER_URL}?http_method=DELETE`);
     }
 
-    // 6. Per-kind list views — each entrypoint kind is its own page, selected by `?view=`.
+    // 7. Per-kind list views — each entrypoint kind is its own page, selected by `?view=`.
     if (wanted('graphql-list.png')) {
       console.log('  • graphql-list.png');
       capture('graphql-list.png', `${PROFILER_URL}?view=graphql`);
@@ -534,7 +542,7 @@ async function main(): Promise<void> {
       capture('performance-tags-filter.png', `${PROFILER_URL}?view=graphql&graphql_tag=n-plus-one`);
     }
 
-    // 7. Global-scope panels — each is its own sidebar view, keyed by the collector name, and
+    // 8. Global-scope panels — each is its own sidebar view, keyed by the collector name, and
     //    renders its group disclosures open. Nothing to isolate or force: shoot the URL.
     for (const [file, view] of [
       ['config.png', 'config'],
@@ -570,7 +578,7 @@ async function main(): Promise<void> {
     // only run when this script manages the app (not under SKIP_APP) and when their
     // views are wanted (an ONLY run for other files skips these costly reboots).
     if (!skip('SKIP_APP') && wanted('mikro-orm.png')) {
-      // 8. MikroORM Database panel — the catalog binds exactly one SQL adapter per
+      // 9. MikroORM Database panel — the catalog binds exactly one SQL adapter per
       //    boot, so MikroORM needs its own run (SQL_ORM=mikro-orm) against fresh
       //    storage. Drive one GET /products and shoot the Database tab as
       //    `mikro-orm.png` (mirrors database.png).
@@ -650,7 +658,7 @@ async function main(): Promise<void> {
       }
     }
 
-    // 9. RabbitMQ delivery — @RabbitSubscribe messages become their own
+    // 10. RabbitMQ delivery — @RabbitSubscribe messages become their own
     //    profiles (the `rabbitmq` entrypoint). Boot with the broker on, POST a
     //    review to publish `review.created`, wait for the consumer's delivery
     //    profile, then shoot its Message detail tab and the RabbitMQ list

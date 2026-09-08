@@ -14,6 +14,23 @@ export type {
   HttpCaptureInput,
   HttpCaptureOptions,
 } from './http-request.interface';
+export type { HttpPhases, HttpPhaseName } from './http-phases.interface';
+export {
+  HTTP_PHASE_SEQUENCE,
+  HTTP_PHASE_LABELS,
+  HTTP_PHASE_HINTS,
+  sumHttpPhases,
+  hasHttpPhases,
+} from './http-phases.interface';
+export { readHttpPhases } from './phases/read-http-phases';
+export { instrumentClientRequest, phasesOfClientRequest } from './phases/client-request-timer';
+export {
+  openPhaseSlot,
+  activePhaseSlot,
+  phaseSlotsEnabled,
+  registerPhaseSlotProvider,
+} from './phases/phase-slot';
+export type { HttpPhaseSlot } from './phases/phase-slot';
 export { DEFAULT_MASK_HEADERS, extractHeaders, formatHeaderValue } from './http-redaction.util';
 export {
   DEFAULT_MASK_QUERY_PARAMS,
@@ -25,3 +42,7 @@ export {
 // library. Select an adapter from its subpath instead:
 //   import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 //   import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
+//
+// The phases providers patch a Node builtin / subscribe to diagnostics channels, so they are
+// selected the same explicit way:
+//   import { NodeHttpPhases, UndiciPhases } from '@eleven-labs/nest-profiler-http/phases';
