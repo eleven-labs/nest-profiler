@@ -4,19 +4,6 @@ import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summar
 
 export const PROFILER_STORAGE_ADAPTER = Symbol('PROFILER_STORAGE_ADAPTER');
 
-/**
- * @deprecated Superseded by {@link ProfilerQuery} / {@link IProfilerStorageAdapter.query}.
- * The dashboard no longer passes these HTTP-centric options; kept only for
- * backwards compatibility with custom adapters.
- */
-export interface StorageFindOptions {
-  method?: string;
-  statusCode?: number;
-  minDuration?: number;
-  maxDuration?: number;
-  urlPattern?: string;
-}
-
 export interface IProfilerStorageAdapter {
   /**
    * Whether profiles persisted by this adapter are visible to other processes — e.g. a
@@ -28,7 +15,7 @@ export interface IProfilerStorageAdapter {
    */
   readonly crossProcess?: boolean;
   save(profile: Profile): Promise<void> | void;
-  findAll(options?: StorageFindOptions): Promise<Profile[]> | Profile[];
+  findAll(): Promise<Profile[]> | Profile[];
   findOne(token: string): Promise<Profile | undefined> | Profile | undefined;
   clear(): Promise<void> | void;
 

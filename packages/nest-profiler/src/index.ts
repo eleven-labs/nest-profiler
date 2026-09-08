@@ -122,10 +122,7 @@ export type {
 export { normalizeSqlFingerprint, normalizeHttpFingerprint } from './analysis/fingerprint.utils';
 export type { ProfilerPerformanceOptions } from './nest-profiler.builder';
 export { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
-export type {
-  IProfilerStorageAdapter,
-  StorageFindOptions,
-} from './storage/storage-adapter.interface';
+export type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';

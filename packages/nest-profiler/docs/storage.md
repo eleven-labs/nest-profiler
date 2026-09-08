@@ -73,17 +73,13 @@ A local file database is cross-process (WAL) and its parent directory is created
 Implement `IProfilerStorageAdapter` to plug in any backend (Redis, database, …):
 
 ```ts
-import type {
-  IProfilerStorageAdapter,
-  StorageFindOptions,
-  Profile,
-} from '@eleven-labs/nest-profiler';
+import type { IProfilerStorageAdapter, Profile } from '@eleven-labs/nest-profiler';
 
 export class RedisStorageAdapter implements IProfilerStorageAdapter {
   async save(profile: Profile): Promise<void> {
     /* ... */
   }
-  async findAll(options?: StorageFindOptions): Promise<Profile[]> {
+  async findAll(): Promise<Profile[]> {
     /* ... */
   }
   async findOne(token: string): Promise<Profile | undefined> {

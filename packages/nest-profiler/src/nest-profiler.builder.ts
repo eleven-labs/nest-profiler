@@ -196,63 +196,11 @@ export interface ProfilerModuleOptions {
    * Unified redaction configuration — headers, cookies, query parameters and object keys in one
    * block, plus extra value `patterns` and a custom `replacement` sentinel. Applied to every
    * core capture path: request and response headers, cookies, the query string, captured bodies
-   * and session data. Merged additively with the deprecated flat options below when both are
-   * set. See [Redacting sensitive
+   * and session data. Every list is **additive** over the built-ins unless `useDefaults` is
+   * `false`. See [Redacting sensitive
    * data](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#redacting-sensitive-data).
    */
   redaction?: ProfilerRedactionOptions;
-
-  /**
-   * Cookie names whose value should be replaced with '***'.
-   *
-   * @deprecated Use {@link redaction}'s `cookies` instead. Kept functional (merged additively
-   * with `redaction.cookies`) for one release cycle.
-   */
-  maskCookies?: string[];
-
-  /**
-   * Extra request header names (case-insensitive) whose value is replaced with `[REDACTED]` at
-   * capture, before anything is persisted or shown. **Merged with** the built-in sensitive-header
-   * list (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`,
-   * `proxy-authorization`) — naming one header here never stops the built-ins from being masked.
-   * Drop them deliberately with {@link useDefaultMaskHeaders}.
-   *
-   * @deprecated Use {@link redaction}'s `headers` instead. Kept functional (merged additively
-   * with `redaction.headers`) for one release cycle.
-   */
-  maskHeaders?: string[];
-
-  /**
-   * Mask the built-in sensitive request headers on top of {@link maskHeaders}. Default: `true`.
-   * Set to `false` only to take over masking entirely — a captured `authorization` header is a
-   * replayable credential for as long as the profile lives.
-   *
-   * @deprecated Use {@link redaction}'s `useDefaults: false` instead.
-   */
-  useDefaultMaskHeaders?: boolean;
-
-  /**
-   * Extra query-parameter names (case-insensitive, `-`/`_` insensitive) whose value is replaced
-   * with `[REDACTED]` at capture, in both the stored URL and the parsed query. **Merged with**
-   * the built-in list (`token`, `access_token`, `code`, `state`, `signature`, `password`,
-   * `secret`, `api_key`…); drop those with {@link useDefaultMaskQueryParams}.
-   *
-   * Parameter names are kept and only values masked, so a captured URL still reads
-   * `?token=[REDACTED]` and stays diagnosable.
-   *
-   * @deprecated Use {@link redaction}'s `queryParams` instead. Kept functional (merged additively
-   * with `redaction.queryParams`) for one release cycle.
-   */
-  maskQueryParams?: string[];
-
-  /**
-   * Mask the built-in sensitive query parameters on top of {@link maskQueryParams}. Default:
-   * `true`. Set to `false` only to take over masking entirely — a password-reset token, an OAuth
-   * `code` or a URL signature is directly replayable from a stored profile.
-   *
-   * @deprecated Use {@link redaction}'s `useDefaults: false` instead.
-   */
-  useDefaultMaskQueryParams?: boolean;
 
   /**
    * Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses.

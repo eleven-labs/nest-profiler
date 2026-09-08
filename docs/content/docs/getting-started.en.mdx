@@ -99,18 +99,21 @@ await app.listen(3000);
 
 Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments - **not** in the root module - so the dependency is co-located with the code it observes.
 
-| Package                                | Panel       | Prerequisite                                                            |
-| -------------------------------------- | ----------- | ----------------------------------------------------------------------- |
-| `@eleven-labs/nest-profiler-typeorm`   | Database    | `TypeOrmModule.forRoot()`                                               |
-| `@eleven-labs/nest-profiler-mikro-orm` | Database    | `MikroOrmModule.forRoot()`                                              |
-| `@eleven-labs/nest-profiler-mongoose`  | MongoDB     | `MongooseModule.forRoot()` connection                                   |
-| `@eleven-labs/nest-profiler-http`      | HTTP Client | `@nestjs/axios` + `axios` (optional, for the bundled axios adapter)     |
-| `@eleven-labs/nest-profiler-cache`     | Cache       | `CacheModule.register({ isGlobal: true })`                              |
-| `@eleven-labs/nest-profiler-auth`      | Security    | Guard or middleware that sets `request.user`                            |
-| `@eleven-labs/nest-profiler-config`    | Config      | `ConfigModule.forRoot({ load: [...] })` with `registerAs` factories     |
-| `@eleven-labs/nest-profiler-validator` | Validator   | A validator: `class-validator` (default) or another (e.g. `nestjs-zod`) |
-| `@eleven-labs/nest-profiler-graphql`   | GraphQL     | `@nestjs/graphql` + a driver + `context` factory configured             |
-| `@eleven-labs/nest-profiler-commander` | Command     | `nest-commander` + a CLI bootstrap (`CommandFactory`)                   |
+| Package                                    | Panel       | Prerequisite                                                            |
+| ------------------------------------------ | ----------- | ----------------------------------------------------------------------- |
+| `@eleven-labs/nest-profiler-typeorm`       | Database    | `TypeOrmModule.forRoot()`                                               |
+| `@eleven-labs/nest-profiler-mikro-orm`     | Database    | `MikroOrmModule.forRoot()`                                              |
+| `@eleven-labs/nest-profiler-mongoose`      | MongoDB     | `MongooseModule.forRoot()` connection                                   |
+| `@eleven-labs/nest-profiler-http`          | HTTP Client | `@nestjs/axios` + `axios` (optional, for the bundled axios adapter)     |
+| `@eleven-labs/nest-profiler-cache`         | Cache       | `CacheModule.register({ isGlobal: true })`                              |
+| `@eleven-labs/nest-profiler-auth`          | Security    | Guard or middleware that sets `request.user`                            |
+| `@eleven-labs/nest-profiler-config`        | Config      | `ConfigModule.forRoot({ load: [...] })` with `registerAs` factories     |
+| `@eleven-labs/nest-profiler-validator`     | Validator   | A validator: `class-validator` (default) or another (e.g. `nestjs-zod`) |
+| `@eleven-labs/nest-profiler-graphql`       | GraphQL     | `@nestjs/graphql` + a driver + `context` factory configured             |
+| `@eleven-labs/nest-profiler-commander`     | Command     | `nest-commander` + a CLI bootstrap (`CommandFactory`)                   |
+| `@eleven-labs/nest-profiler-rabbitmq`      | RabbitMQ    | `@golevelup/nestjs-rabbitmq` + `amqplib`                                |
+| `@eleven-labs/nest-profiler-event-emitter` | Events      | `@nestjs/event-emitter`                                                 |
+| `@eleven-labs/nest-profiler-routes`        | Discover    | None — lists the routing table of every transport it finds              |
 
 ### Module-per-collector pattern
 
@@ -150,20 +153,18 @@ export class ProductsModule {}
 
 ```ts title="content/content.module.ts"
 import { ConditionalModule } from '@nestjs/config';
-import { HttpModule, HttpService } from '@nestjs/axios';
+import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 
 @Module({
   imports: [
     HttpModule, // provides HttpService
-    // The profiler never imports @nestjs/axios — hand it your HttpService.axiosRef:
+    // Nothing is instrumented unless you list it. The axios adapter auto-discovers every
+    // HttpService through DiscoveryService, so there is nothing else to hand it.
     ConditionalModule.registerWhen(
-      HttpCollectorModule.forRootAsync({
-        imports: [HttpModule],
-        inject: [HttpService],
-        useFactory: (http: HttpService) => ({ axiosRef: http.axiosRef }),
-      }),
+      HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
       isProfilerEnabled,
     ),
     ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
@@ -171,6 +172,8 @@ import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 })
 export class ContentModule {}
 ```
+
+Calling `fetch` instead of (or alongside) axios? Add `FetchInstrumentation` from the `/fetch` subpath to the same list, and a phases provider from `/phases` to break each call into DNS, handshake, time-to-first-byte and download. See [HTTP client profiling](/docs/tutorials/http-collector).
 
 ```ts title="auth/auth.module.ts"
 import { ConditionalModule } from '@nestjs/config';

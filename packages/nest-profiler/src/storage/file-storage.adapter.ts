@@ -1,8 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Profile } from '../interfaces/profile.interface';
-import type { IProfilerStorageAdapter, StorageFindOptions } from './storage-adapter.interface';
-import { applyProfileFilters } from './storage-filters';
+import type { IProfilerStorageAdapter } from './storage-adapter.interface';
 import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from './profile-summary';
 import { summarizeProfile } from './profile-summary';
 import type { ProfilerPage, ProfilerQuery } from './profiler-query';
@@ -93,7 +92,7 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
     });
   }
 
-  async findAll(options?: StorageFindOptions): Promise<Profile[]> {
+  async findAll(): Promise<Profile[]> {
     await this.init();
     const tokens = await this.withLock(async () => {
       await this.syncIndex();
@@ -105,11 +104,9 @@ export class FileStorageAdapter implements IProfilerStorageAdapter {
 
     // File reads happen outside the lock so list rendering never serializes behind a
     // burst of saves; an entry evicted meanwhile simply reads as null and is dropped.
-    const profiles = (await Promise.all(tokens.map((t) => this.readProfile(t)))).filter(
+    return (await Promise.all(tokens.map((t) => this.readProfile(t)))).filter(
       (p): p is Profile => p !== null,
     );
-
-    return applyProfileFilters(profiles, options);
   }
 
   async query(query: ProfilerQuery): Promise<ProfilerPage> {

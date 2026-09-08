@@ -7,7 +7,7 @@ seo:
 
 The profiler runs a single **analysis pass** once per profile — after every collector, before the profile is persisted — that flags common performance anti-patterns and attaches structured **tags** to the offending queries and HTTP calls. Tags surface as coloured pills in the panels and on the list page, where a **Performance tag** filter narrows the profiles down to a given issue.
 
-Detection spans every query collector (`typeorm`, `mikro-orm`, `mongoose`) and the outgoing-HTTP collector (`http`). Grouping is done once in the core on a per-entry **fingerprint** each collector supplies (normalized SQL, `collection + operation + filter shape`, or `method + normalized URL`), so the same query executed with different bind values is recognised as a repeat.
+Detection spans every collector that opts into the engine: the query collectors (`typeorm`, `mikro-orm`, `mongoose`), the outgoing-HTTP collector (`http`), the event emitter (`event`) and published RabbitMQ messages (`rabbitmq`). Grouping is done once in the core on a per-entry **fingerprint** each collector supplies (normalized SQL, `collection + operation + filter shape`, or `method + normalized URL`), so the same query executed with different bind values is recognised as a repeat.
 
 The detail page leads with a **Performance** banner summarising the issues, and colour-codes the affected collector tab (and its sub-tabs) by severity so a problematic panel stands out at a glance. Below, a GraphQL query that lists products and resolves each product's reviews from MongoDB (a classic N+1) is flagged `N+1 ×4`:
 
@@ -30,19 +30,17 @@ Each tag is a `ProfilerTag` — `{ id, label, severity, count?, detail? }` — a
 
 Thresholds live on each collector, so a Mongo slow query and a slow HTTP call can differ. Defaults:
 
-| Option                  | typeorm / mikro-orm / mongoose | http   |
-| ----------------------- | ------------------------------ | ------ |
-| `slowThreshold` (ms)    | `100`                          | `300`  |
-| `nPlusOneThreshold`     | `2`                            | `2`    |
-| `chattyThreshold`       | `20`                           | `10`   |
-| `largePayloadThreshold` | —                              | `1 MB` |
+| Option                  | typeorm / mikro-orm / mongoose | http   | event-emitter | rabbitmq (publish) |
+| ----------------------- | ------------------------------ | ------ | ------------- | ------------------ |
+| `slowThreshold` (ms)    | `100`                          | `300`  | `100`         | `50`               |
+| `nPlusOneThreshold`     | `2`                            | `2`    | `2`           | `2`                |
+| `chattyThreshold`       | `20`                           | `10`   | `20`          | `10`               |
+| `largePayloadThreshold` | —                              | `1 MB` | —             | —                  |
 
 ```ts
 TypeOrmCollectorModule.forRoot({ slowThreshold: 50, nPlusOneThreshold: 2 });
 HttpCollectorModule.forRoot({ slowThreshold: 500, largePayloadThreshold: 512 * 1024 });
 ```
-
-> **Migrating from `slowQueryThreshold`** — the option was renamed to `slowThreshold`, and the per-entry `isSlow` boolean was removed. "Slow" is now the `slow` tag, computed centrally by the engine (no longer at capture time); read it from `entry.tags` or `profile.tags`.
 
 ## Configuring severity
 

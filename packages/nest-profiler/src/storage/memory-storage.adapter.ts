@@ -1,6 +1,5 @@
 import type { Profile } from '../interfaces/profile.interface';
-import type { IProfilerStorageAdapter, StorageFindOptions } from './storage-adapter.interface';
-import { applyProfileFilters } from './storage-filters';
+import type { IProfilerStorageAdapter } from './storage-adapter.interface';
 
 export interface MemoryStorageAdapterOptions {
   /** Maximum profiles kept (LRU eviction). Default: 100. Set to `0` (or negative) for no cap. */
@@ -43,9 +42,8 @@ export class MemoryStorageAdapter implements IProfilerStorageAdapter {
     this.profiles.set(profile.token, profile);
   }
 
-  findAll(options?: StorageFindOptions): Profile[] {
-    const valid = [...this.profiles.values()].filter((p) => !this.isExpired(p.createdAt));
-    return applyProfileFilters(valid, options).reverse();
+  findAll(): Profile[] {
+    return [...this.profiles.values()].filter((p) => !this.isExpired(p.createdAt)).reverse();
   }
 
   findOne(token: string): Profile | undefined {

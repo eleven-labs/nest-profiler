@@ -113,7 +113,7 @@ describe('ProfilerMiddleware', () => {
     });
 
     it('masks specified cookie values', async () => {
-      ({ middleware, cls } = await createMiddleware({ maskCookies: ['auth_token'] }));
+      ({ middleware, cls } = await createMiddleware({ redaction: { cookies: ['auth_token'] } }));
 
       const profile = await runMiddleware(
         middleware,
@@ -301,8 +301,8 @@ describe('ProfilerMiddleware', () => {
       expect(headers['x-custom']).toBe('keep-me');
     });
 
-    it('merges maskHeaders on top of the defaults instead of replacing them', async () => {
-      ({ middleware, cls } = await createMiddleware({ maskHeaders: ['x-trace'] }));
+    it('merges redaction.headers on top of the defaults instead of replacing them', async () => {
+      ({ middleware, cls } = await createMiddleware({ redaction: { headers: ['x-trace'] } }));
       const profile = await runMiddleware(
         middleware,
         {
@@ -321,10 +321,9 @@ describe('ProfilerMiddleware', () => {
       expect(headers['x-custom']).toBe('keep-me');
     });
 
-    it('drops the built-in header list only when useDefaultMaskHeaders is false', async () => {
+    it('drops the built-in header list only under redaction.useDefaults: false', async () => {
       ({ middleware, cls } = await createMiddleware({
-        maskHeaders: ['x-trace'],
-        useDefaultMaskHeaders: false,
+        redaction: { headers: ['x-trace'], useDefaults: false },
       }));
       const profile = await runMiddleware(
         middleware,
@@ -408,8 +407,8 @@ describe('ProfilerMiddleware', () => {
       expect(reqData(profile)?.url).toBe('/users?sort=name&page=2');
     });
 
-    it('merges maskQueryParams on top of the defaults', async () => {
-      ({ middleware, cls } = await createMiddleware({ maskQueryParams: ['inviteRef'] }));
+    it('merges redaction.queryParams on top of the defaults', async () => {
+      ({ middleware, cls } = await createMiddleware({ redaction: { queryParams: ['inviteRef'] } }));
       const profile = await runMiddleware(
         middleware,
         {
@@ -428,10 +427,9 @@ describe('ProfilerMiddleware', () => {
       });
     });
 
-    it('drops the built-in query list only when useDefaultMaskQueryParams is false', async () => {
+    it('drops the built-in query list only under redaction.useDefaults: false', async () => {
       ({ middleware, cls } = await createMiddleware({
-        maskQueryParams: ['inviteRef'],
-        useDefaultMaskQueryParams: false,
+        redaction: { queryParams: ['inviteRef'], useDefaults: false },
       }));
       const profile = await runMiddleware(
         middleware,
@@ -1210,10 +1208,9 @@ function createStandaloneMiddleware(options: ProfilerModuleOptions = {}): {
 }
 
 describe('ProfilerMiddleware — redaction block', () => {
-  it('merges redaction.headers with the deprecated maskHeaders, both additive over the defaults', async () => {
+  it('keeps redaction.headers additive over the built-in defaults', async () => {
     const { middleware, cls } = createStandaloneMiddleware({
-      maskHeaders: ['x-legacy'],
-      redaction: { headers: ['x-trace'] },
+      redaction: { headers: ['x-legacy', 'x-trace'] },
     });
 
     const profile = await runMiddleware(
@@ -1235,10 +1232,9 @@ describe('ProfilerMiddleware — redaction block', () => {
     });
   });
 
-  it('merges redaction.cookies with the deprecated maskCookies', async () => {
+  it('masks every cookie named in redaction.cookies', async () => {
     const { middleware, cls } = createStandaloneMiddleware({
-      maskCookies: ['old_token'],
-      redaction: { cookies: ['new_token'] },
+      redaction: { cookies: ['old_token', 'new_token'] },
     });
 
     const profile = await runMiddleware(

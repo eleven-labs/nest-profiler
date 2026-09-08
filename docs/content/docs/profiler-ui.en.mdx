@@ -12,7 +12,7 @@ This page is a **visual tour** of the panels and tabs. For the reference side �
 
 ## Profiles list
 
-`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ) gets its own page under a **Profiling** group, and every global-scope collector is a view of its own — grouped under a heading when it belongs to a family (**Discover**, one view per transport; **Schemas**, one per ORM), flat otherwise (Runtime, Config). Each is badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing. Process-wide memory and CPU live in their own **Runtime** view rather than above the lists — a trend wants an axis made of time, not of traffic.
+`/_profiler` opens on a sticky sidebar of **views**. Each entrypoint kind (HTTP, GraphQL, Commands, RabbitMQ, Events) gets its own page under a **Profiling** group, and every global-scope collector is a view of its own — grouped under a heading when it belongs to a family (**Discover**, one view per transport; **Schemas**, one per ORM), flat otherwise (Runtime, Config). Each is badged with its count. Only the active view is rendered; it is picked server-side from a `?view=` link, so there is no client-side routing. Process-wide memory and CPU live in their own **Runtime** view rather than above the lists — a trend wants an axis made of time, not of traffic.
 
 Every list carries its own filter bar and is filtered independently: the universal filters (search, duration, **performance tag** — slow / N+1 / chatty / large payload / no rows — plus an **Exception** select and an **Errors** checkbox), the HTTP-status filters (status, status class) shown only on the kinds that carry an HTTP response (HTTP, GraphQL), and filters specific to that kind (e.g. HTTP **method**, RabbitMQ **delivery**/**exchange**/**handler**). A kind hides a universal filter that is redundant for it — the Commands list has no **Errors** checkbox, its **Status** filter already asking the same question.
 
@@ -92,7 +92,7 @@ The **MongoDB** collector (requires [`@eleven-labs/nest-profiler-mongoose`](/doc
 
 ![MongoDB tab showing a profiled Mongoose query with collection, operation and duration](/screenshots/profiler/mongodb.png)
 
-The **HTTP Client** collector shows outgoing requests triggered by `HttpService`.
+The **HTTP Client** collector shows the outgoing calls the request made, whichever client issued them — the bundled axios and fetch adapters, or one of your own. With a phases provider installed, each row also carries a stacked **Phases** bar breaking the duration into DNS, handshake, time-to-first-byte and download.
 
 ![HTTP Client tab showing a GET call to JSONPlaceholder](/screenshots/profiler/http-client.png)
 
@@ -111,6 +111,8 @@ The **RabbitMQ** collector (requires [`@eleven-labs/nest-profiler-rabbitmq`](/do
 ![Message tab showing a consumed review.created delivery with exchange, routing key, handler and JSON payload](/screenshots/profiler/rabbitmq.png)
 
 The **RabbitMQ** publish collector (same package, `RabbitMqPublishCollectorModule`) covers the other direction: the messages the profiled request **published** through `AmqpConnection.publish`, one row each with its exchange, routing key, message properties, headers, payload, duration and outcome — plus a copy button holding a runnable `channel.publish(...)` snippet.
+
+The **Events** collector (requires [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter)) covers `@nestjs/event-emitter` in both directions: the **Events** panel lists every `emit` / `emitAsync` the profiled execution made, and each `@OnEvent` handler run becomes an `event` profile of its own — with its own **Events** view in the sidebar, a **Status** filter, and every other panel (Logs, Database, HTTP Client…) describing what that handler did rather than what the publishing request did.
 
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 

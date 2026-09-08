@@ -18,7 +18,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, Axios, Cache, Commander, Auth, Config, Validator, GraphQL, RabbitMQ."
+    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, HTTP, Cache, Commander, Auth, Config, Routes, Validator, GraphQL, RabbitMQ, event emitter."
   />
   <Card
     href="/docs/example-api"
@@ -39,25 +39,28 @@ The ecosystem is built around an **extensible collector architecture**: the core
 
 ## Packages
 
-| Package                                                                                  | Panel       | What it captures                                                                         |
-| ---------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
-| [`@eleven-labs/nest-profiler`](/docs/packages/nest-profiler)                             | Core        | Request, response, logs, exceptions, performance spans                                   |
-| [`@eleven-labs/nest-profiler-typeorm`](/docs/packages/nest-profiler-typeorm)             | Database    | SQL queries with type, duration, slow-query highlighting                                 |
-| [`@eleven-labs/nest-profiler-mikro-orm`](/docs/packages/nest-profiler-mikro-orm)         | Database    | SQL queries with type, duration, slow-query highlighting (MikroORM)                      |
-| [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)           | MongoDB     | Mongoose queries & aggregations: collection, operation, duration, result count           |
-| [`@eleven-labs/nest-profiler-http`](/docs/packages/nest-profiler-http)                   | HTTP Client | Outgoing requests via `HttpService`: method, URL, status, duration                       |
-| [`@eleven-labs/nest-profiler-cache`](/docs/packages/nest-profiler-cache)                 | Cache       | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                                      |
-| [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)         | Command     | `nest-commander` CLI runs: name, arguments, options, outcome                             |
-| [`@eleven-labs/nest-profiler-auth`](/docs/packages/nest-profiler-auth)                   | Security    | `request.user`, JWT claims, roles - sensitive fields masked                              |
-| [`@eleven-labs/nest-profiler-config`](/docs/packages/nest-profiler-config)               | Config      | `ConfigService` snapshot with secret masking                                             |
-| [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator)         | Validator   | DTO validation results - property violations with constraint names                       |
-| [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)             | GraphQL     | GraphQL queries/mutations: operation type, name, query, variables                        |
-| [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)           | RabbitMQ    | Consumed `@RabbitSubscribe` messages, and published ones: exchange, routing key, payload |
-| [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter) | Events      | `@nestjs/event-emitter` emissions and each `@OnEvent` handler execution                  |
+| Package                                                                                  | Panel       | What it captures                                                                                      |
+| ---------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| [`@eleven-labs/nest-profiler`](/docs/packages/nest-profiler)                             | Core        | Request, response, logs, exceptions, performance spans                                                |
+| [`@eleven-labs/nest-profiler-typeorm`](/docs/packages/nest-profiler-typeorm)             | Database    | SQL queries with type, duration, slow-query highlighting                                              |
+| [`@eleven-labs/nest-profiler-mikro-orm`](/docs/packages/nest-profiler-mikro-orm)         | Database    | SQL queries with type, duration, slow-query highlighting (MikroORM)                                   |
+| [`@eleven-labs/nest-profiler-mongoose`](/docs/packages/nest-profiler-mongoose)           | MongoDB     | Mongoose queries & aggregations: collection, operation, duration, result count                        |
+| [`@eleven-labs/nest-profiler-http`](/docs/packages/nest-profiler-http)                   | HTTP Client | Outgoing calls from any client (axios, fetch, your own): method, URL, status, duration, phase timings |
+| [`@eleven-labs/nest-profiler-cache`](/docs/packages/nest-profiler-cache)                 | Cache       | GET_HIT / GET_MISS / SET / DEL with hit-ratio badge                                                   |
+| [`@eleven-labs/nest-profiler-commander`](/docs/packages/nest-profiler-commander)         | Command     | `nest-commander` CLI runs: name, arguments, options, outcome                                          |
+| [`@eleven-labs/nest-profiler-auth`](/docs/packages/nest-profiler-auth)                   | Security    | `request.user`, JWT claims, roles - sensitive fields masked                                           |
+| [`@eleven-labs/nest-profiler-config`](/docs/packages/nest-profiler-config)               | Config      | `ConfigService` snapshot with secret masking                                                          |
+| [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes)               | Discover    | The routing table of each transport, discovered at startup: route, handler, guards, inputs            |
+| [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator)         | Validator   | DTO validation results - property violations with constraint names                                    |
+| [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)             | GraphQL     | GraphQL queries/mutations: operation type, name, query, variables                                     |
+| [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)           | RabbitMQ    | Consumed `@RabbitSubscribe` messages, and published ones: exchange, routing key, payload              |
+| [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter) | Events      | `@nestjs/event-emitter` emissions and each `@OnEvent` handler execution                               |
 
 ## Key features
 
 - **Floating toolbar** - injected into HTML responses with per-collector badges (query count, hit ratio, violation count, …)
+- **Unified execution trace** - the entrypoint, framework phases, queries, outgoing calls and your own `tracer.span()` on one waterfall, nested by causality
+- **Performance tags** - a rule engine flags slow queries, N+1, chatty endpoints, large payloads and zero-row writes, and makes them filterable on the list page
 - **Extensible collectors** - implement `IProfilerCollector` to add your own panel with a custom EJS template and toolbar badge
 - **Three storage backends** - in-memory LRU (default), file-based persistence that survives restarts, or a first-party SQLite adapter that filters and paginates in the database
 - **Request sampling & path filtering** - `sampleRate` and `ignorePaths` to control overhead in busy environments

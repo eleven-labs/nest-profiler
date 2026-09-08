@@ -2,8 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createClient, type Client, type InValue, type Row } from '@libsql/client';
 import type { Profile } from '../../interfaces/profile.interface';
-import type { IProfilerStorageAdapter, StorageFindOptions } from '../storage-adapter.interface';
-import { applyProfileFilters } from '../storage-filters';
+import type { IProfilerStorageAdapter } from '../storage-adapter.interface';
 import type { IndexAttributesProvider, SummaryPrimitive } from '../profile-summary';
 import { summarizeProfile } from '../profile-summary';
 import type { FilterCriterion, ProfilerPage, ProfilerQuery } from '../profiler-query';
@@ -161,14 +160,13 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     return profile ? (JSON.parse(profile) as Profile) : undefined;
   }
 
-  async findAll(options?: StorageFindOptions): Promise<Profile[]> {
+  async findAll(): Promise<Profile[]> {
     await this.ready;
     const result = await this.client.execute({
       sql: 'SELECT profile FROM profiles WHERE created_at >= ? ORDER BY created_at DESC',
       args: [this.minCreatedAt()],
     });
-    const profiles = result.rows.map((row) => JSON.parse(stringColumn(row, 'profile')) as Profile);
-    return applyProfileFilters(profiles, options);
+    return result.rows.map((row) => JSON.parse(stringColumn(row, 'profile')) as Profile);
   }
 
   async query(query: ProfilerQuery): Promise<ProfilerPage> {

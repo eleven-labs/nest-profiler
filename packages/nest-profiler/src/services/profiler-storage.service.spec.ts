@@ -126,12 +126,12 @@ describe('ProfilerStorageService', () => {
 
     const p = makeProfile('y');
     await svc.save(p);
-    await svc.findAll({ method: 'GET' });
+    await svc.findAll();
     await svc.findOne('y');
     await svc.clear();
 
     expect(save).toHaveBeenCalledWith(p);
-    expect(findAll).toHaveBeenCalledWith({ method: 'GET' });
+    expect(findAll).toHaveBeenCalledWith();
     expect(findOne).toHaveBeenCalledWith('y');
     expect(clear).toHaveBeenCalled();
   });
