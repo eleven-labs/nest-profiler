@@ -27,8 +27,8 @@ import {
 } from '../entrypoints/builtin-http-entrypoint';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import type { SummaryPrimitive } from '../storage/profile-summary';
-import { resolveSourceContextOptions } from '../utils/source-context.util';
-import type { SourceContextOptions } from '../utils/source-context.util';
+import { resolveExceptionCaptureOptions } from '../analysis/to-exception-entry';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
 
 /** Default display order for contributed filters with no explicit `order`. */
 const DEFAULT_FILTER_ORDER = 100;
@@ -55,11 +55,11 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   /** Build/release identifier stamped on every profile, from `version`. */
   private readonly version: string | undefined;
   /**
-   * Resolved {@link ProfilerModuleOptions.sourceContext}, or `undefined` when off. Exposed so a
-   * package building its own profile (`@eleven-labs/nest-profiler-commander`) annotates its
-   * exceptions on the same setting as the HTTP path, instead of silently opting out of it.
+   * Resolved exception-capture settings. Exposed so a package building its own profile
+   * (`@eleven-labs/nest-profiler-commander`) records its exceptions on the same settings as the
+   * HTTP path, instead of silently opting out of them.
    */
-  readonly sourceContext: SourceContextOptions | undefined;
+  readonly exceptionCapture: ExceptionCaptureOptions;
 
   constructor(
     readonly storage: ProfilerStorageService,
@@ -86,7 +86,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     this.staticAttributes =
       typeof options.attributes === 'function' ? {} : (options.attributes ?? {});
     this.version = options.version;
-    this.sourceContext = resolveSourceContextOptions(options.sourceContext);
+    this.exceptionCapture = resolveExceptionCaptureOptions(options);
   }
 
   /**

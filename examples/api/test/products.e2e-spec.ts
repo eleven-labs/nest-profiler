@@ -141,6 +141,15 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     // correctly. This is the real 400 the profiler demo exercises.
     expect(profile.exceptions[0]).toMatchObject({ name: 'BadRequestException' });
     expect((profile.tags ?? []).map((t) => t.id)).not.toContain('error');
+
+    // `HttpException#message` for a rejected DTO is the generic class message, so the payload is
+    // the only place the field errors exist — and the stack holds no application frame at all.
+    expect(profile.exceptions[0]?.message).toBe('Bad Request Exception');
+    expect(profile.exceptions[0]?.details).toMatchObject({
+      statusCode: 400,
+      message: expect.arrayContaining([expect.stringContaining('price') as string]) as string[],
+    });
+    expect(profile.exceptions[0]?.frames?.some((frame) => frame.isApplication)).toBe(false);
   });
 
   it('PATCH /products/:id updates one row and records the affected rowCount', async () => {

@@ -104,6 +104,23 @@ const SEV_BG_CLASSES: Record<string, string> = {
   danger: 'bg-danger-bg/30',
 };
 
+/** What {@link HELPERS.exceptionDetails} splits an `ExceptionEntry.details` payload into. */
+export interface ExceptionDetails {
+  /**
+   * The payload's `message`, as the lines to show *instead of* the exception's own. A
+   * `BadRequestException(violations)` reports "Bad Request Exception" as its message and the
+   * violations as its payload, so whichever of the two differs from the message is the informative
+   * one. Empty when the payload adds no message.
+   */
+  lines: string[];
+  /**
+   * Everything else the payload carried. `statusCode` and `error` are dropped — the status is
+   * already the profile's and `error` restates the class name — so this is empty for a plain Nest
+   * error body and non-empty only for a payload an application shaped itself.
+   */
+  rest: Record<string, unknown> | undefined;
+}
+
 /** A structured performance tag as passed to {@link HELPERS.tagBadge}. */
 interface TagLike {
   id: string;
@@ -197,6 +214,24 @@ export const HELPERS = {
   // Defensive: a captured body/log payload may contain circular references or BigInt, both of
   // which make a raw JSON.stringify throw and 500 the detail page. safeStringify never throws.
   toJson: (val: unknown): string => safeStringify(val, 2),
+  // Splits `ExceptionEntry.details` for rendering. Both halves are dropped when they would only
+  // restate the exception itself — see ExceptionDetails.
+  exceptionDetails: (details: unknown, message: string): ExceptionDetails => {
+    if (details === null || typeof details !== 'object') return { lines: [], rest: undefined };
+    const payload = details as Record<string, unknown>;
+    const raw = payload['message'];
+    const lines = Array.isArray(raw)
+      ? raw.filter((line): line is string => typeof line === 'string')
+      : typeof raw === 'string' && raw !== message
+        ? [raw]
+        : [];
+    const rest = Object.fromEntries(
+      Object.entries(payload).filter(
+        ([key]) => key !== 'message' && key !== 'statusCode' && key !== 'error',
+      ),
+    );
+    return { lines, rest: Object.keys(rest).length > 0 ? rest : undefined };
+  },
   highlightSql: (sql: string): string =>
     escapeHtml(sql).replace(SQL_KEYWORDS, '<span class="sql-keyword">$&</span>'),
   // Returns safe HTML — use <%- kvTable(...) %> in templates

@@ -1,4 +1,5 @@
-import { toExceptionEntry } from './to-exception-entry';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { toExceptionEntry, resolveExceptionCaptureOptions } from './to-exception-entry';
 
 describe('toExceptionEntry', () => {
   it('records the name, message and stack of an Error', () => {
@@ -94,19 +95,83 @@ describe('toExceptionEntry', () => {
     expect(JSON.parse(JSON.stringify(entry))).toEqual(entry);
   });
 
-  describe('sourceContext', () => {
-    it('omits frames when sourceContext is not passed', () => {
-      expect(toExceptionEntry(new Error('boom')).frames).toBeUndefined();
+  describe('stack frames', () => {
+    const RELATIVE_SPEC_PATH = 'src/analysis/to-exception-entry.spec.ts';
+
+    it('records the frames of the primary error and of its cause', () => {
+      const entry = toExceptionEntry(new Error('wrapper', { cause: new Error('root cause') }));
+
+      expect(entry.frames?.[0]?.file).toBe(RELATIVE_SPEC_PATH);
+      expect(entry.cause?.frames?.[0]?.file).toBe(RELATIVE_SPEC_PATH);
     });
 
-    it('attaches frames for the primary error and its cause when sourceContext is enabled', () => {
-      const root = new Error('root cause');
-      const wrapper = new Error('wrapper', { cause: root });
+    it('records the frames with no excerpt when sourceContext is off', () => {
+      const entry = toExceptionEntry(new Error('boom'));
 
-      const entry = toExceptionEntry(wrapper, { sourceContext: { maxFrames: 3 } });
+      expect(entry.frames?.[0]?.isApplication).toBe(true);
+      expect(entry.frames?.[0]?.lines).toBeUndefined();
+    });
 
-      expect(entry.frames?.[0]?.file).toBe(__filename);
-      expect(entry.cause?.frames?.[0]?.file).toBe(__filename);
+    it('annotates the frames with a source excerpt when sourceContext is on', () => {
+      const entry = toExceptionEntry(new Error('boom'), { sourceContext: { maxFrames: 1 } });
+
+      expect(entry.frames?.[0]?.lines?.some((line) => line.isFaultLine)).toBe(true);
+    });
+  });
+
+  describe('HttpException payload', () => {
+    const capture = resolveExceptionCaptureOptions({});
+
+    it('records the field errors of a rejected DTO, which live nowhere else', () => {
+      // What `ValidationPipe` throws: the violations are the payload, and `message` is the
+      // generic class message — so without the payload the entry says nothing at all.
+      const violations = ['name should not be empty', 'price must not be less than 0'];
+      const entry = toExceptionEntry(new BadRequestException(violations), capture);
+
+      expect(entry.message).toBe('Bad Request Exception');
+      expect(entry.details).toMatchObject({ statusCode: 400, message: violations });
+    });
+
+    it('records a custom payload as it was answered to the client', () => {
+      const entry = toExceptionEntry(
+        new ConflictException({ statusCode: 409, message: 'Conflict', conflictingId: 42 }),
+        capture,
+      );
+
+      expect(entry.details).toMatchObject({ conflictingId: 42 });
+    });
+
+    it('records nothing for a string payload, which is the message twice over', () => {
+      const entry = toExceptionEntry(new NotFoundException('Product #9 not found'), capture);
+
+      expect(entry.message).toBe('Product #9 not found');
+      expect('details' in entry).toBe(false);
+    });
+
+    it('records nothing for an error that is not an HttpException', () => {
+      expect('details' in toExceptionEntry(new Error('boom'), capture)).toBe(false);
+    });
+
+    it('records nothing when no capture settings were resolved', () => {
+      expect('details' in toExceptionEntry(new BadRequestException(['a']), {})).toBe(false);
+    });
+
+    it('masks the payload on the same redaction settings as a body', () => {
+      const entry = toExceptionEntry(
+        new BadRequestException({ message: 'nope', password: 'hunter2' }),
+        resolveExceptionCaptureOptions({ redaction: { keys: ['password'] } }),
+      );
+
+      expect(entry.details).toMatchObject({ password: '[REDACTED]' });
+    });
+
+    it('records the payload of a cause too', () => {
+      const entry = toExceptionEntry(
+        new Error('wrapper', { cause: new BadRequestException(['inner violation']) }),
+        capture,
+      );
+
+      expect(entry.cause?.details).toMatchObject({ message: ['inner violation'] });
     });
   });
 });

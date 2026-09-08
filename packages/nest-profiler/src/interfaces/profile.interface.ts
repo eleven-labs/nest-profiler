@@ -46,6 +46,17 @@ export interface ExceptionEntry {
    */
   frames?: SourceCodeFrame[];
   /**
+   * The response payload an `HttpException` carries (`getResponse()`) — the error the client
+   * actually received, bounded and masked like a captured body.
+   *
+   * It is the only place a rejected DTO's field errors exist: `HttpException#message` for a
+   * `BadRequestException(violations)` is the generic class message ("Bad Request Exception"), so
+   * without this a validation failure showed a meaningless line and a stack made entirely of
+   * framework frames. Recorded whichever `collectBody` setting is in force, because it is the
+   * error the caller was already told about, not a payload harvested from the request.
+   */
+  details?: unknown;
+  /**
    * `true` when the application caught this error itself and reported it through
    * `TracerService.captureError()` — a degraded call, a retry, a deliberate fallback.
    *

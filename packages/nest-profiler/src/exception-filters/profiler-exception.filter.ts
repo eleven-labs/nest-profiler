@@ -3,9 +3,8 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { PROFILER_REQ_KEY } from '../constants';
 import { readProfile } from '../services/profiler-context';
-import { toExceptionEntry } from '../analysis/to-exception-entry';
-import { resolveSourceContextOptions } from '../utils/source-context.util';
-import type { SourceContextOptions } from '../utils/source-context.util';
+import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to-exception-entry';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { Profile } from '../interfaces/profile.interface';
@@ -34,7 +33,7 @@ import type { Profile } from '../interfaces/profile.interface';
 @Injectable()
 @Catch()
 export class ProfilerExceptionFilter extends BaseExceptionFilter {
-  private readonly sourceContext: SourceContextOptions | undefined;
+  private readonly exceptionCapture: ExceptionCaptureOptions;
 
   constructor(
     @Optional() private readonly cls?: ClsService,
@@ -43,7 +42,7 @@ export class ProfilerExceptionFilter extends BaseExceptionFilter {
     options: ProfilerModuleOptions = {},
   ) {
     super();
-    this.sourceContext = resolveSourceContextOptions(options.sourceContext);
+    this.exceptionCapture = resolveExceptionCaptureOptions(options);
   }
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -63,7 +62,7 @@ export class ProfilerExceptionFilter extends BaseExceptionFilter {
     // thrown by guards or anything running before it.
     if (!profile || profile.response) return;
 
-    profile.exceptions.push(toExceptionEntry(exception, { sourceContext: this.sourceContext }));
+    profile.exceptions.push(toExceptionEntry(exception, this.exceptionCapture));
   }
 
   private resolveProfile(host: ArgumentsHost): Profile | undefined {

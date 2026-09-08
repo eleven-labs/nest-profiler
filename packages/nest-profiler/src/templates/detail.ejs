@@ -390,10 +390,12 @@
                 <% for (const ex of profile.exceptions) { %>
                   <%
                     const isGqlError = ex.name === 'GraphQLError';
-                    const cardClass    = isGqlError ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'   : 'bg-danger-bg border-danger-line';
-                    const nameClass    = isGqlError ? 'text-amber-600 dark:text-amber-400'   : 'text-danger';
-                    const msgClass     = isGqlError ? 'text-amber-600/70 dark:text-amber-400/70' : 'text-danger/70';
-                    const borderClass  = isGqlError ? 'border-amber-200/60 dark:border-amber-800/30' : 'border-danger-line-subtle';
+                    // A handled error is not a failure: softer colour, not the 500's red.
+                    const isSoft = isGqlError || ex.handled === true;
+                    const cardClass    = isSoft ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'   : 'bg-danger-bg border-danger-line';
+                    const nameClass    = isSoft ? 'text-amber-600 dark:text-amber-400'   : 'text-danger';
+                    const msgClass     = isSoft ? 'text-amber-600/70 dark:text-amber-400/70' : 'text-danger/70';
+                    const borderClass  = isSoft ? 'border-amber-200/60 dark:border-amber-800/30' : 'border-danger-line-subtle';
                   %>
                   <div class="<%= cardClass %> border rounded-lg p-4">
                     <div class="flex items-start justify-between gap-4 mb-1">
@@ -408,16 +410,23 @@
                           <% if (ex.code) { %>
                             <span class="ml-1.5 px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= ex.code %></span>
                           <% } %>
-                          <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= ex.message %></p>
+                          <% if (ex.handled) { %>
+                            <span class="ml-1.5 px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-tag-warning" title="Reported by TracerService.captureError() — the request did not fail because of it">Handled</span>
+                          <% } %>
                         </div>
                       </div>
                       <time class="text-foreground-faint text-xs whitespace-nowrap tabular-nums shrink-0"><%= isoDate(ex.timestamp) %></time>
                     </div>
-                    <% if (ex.stack) { %>
-                      <pre class="mt-3 pt-3 text-xs text-foreground-muted overflow-x-auto leading-relaxed border-t <%= borderClass %>"><%= ex.stack %></pre>
+                    <%- include('_exception-body', { message: ex.message, details: ex.details, msgClass }) %>
+                    <%# Which handler was running: the frame below says where it was thrown, this says what failed. %>
+                    <% if (profile.route) { %>
+                      <p class="text-foreground-faint text-2xs mt-1"><%= ex.handled ? 'caught in' : 'thrown in' %> <span class="font-mono text-foreground-muted"><%= profile.route.controller %>.<%= profile.route.handler %></span></p>
                     <% } %>
                     <% if (ex.frames && ex.frames.length > 0) { %>
                       <%- include('_exception-frames', { frames: ex.frames, borderClass }) %>
+                    <% } else if (ex.stack) { %>
+                      <%# Fallback for a stack no frame could be parsed out of (a non-V8 throw, a stripped build). %>
+                      <pre class="mt-3 pt-3 text-xs text-foreground-muted overflow-x-auto leading-relaxed border-t <%= borderClass %>"><%= ex.stack %></pre>
                     <% } %>
                     <%# The cause chain: what an `InternalServerErrorException` was actually
                         wrapping. Rendered flat rather than nested — a chain is read top to
@@ -432,12 +441,11 @@
                             <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-default"><%= cause.code %></span>
                           <% } %>
                         </div>
-                        <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= cause.message %></p>
-                        <% if (cause.stack) { %>
-                          <pre class="mt-2 text-xs text-foreground-muted overflow-x-auto leading-relaxed"><%= cause.stack %></pre>
-                        <% } %>
+                        <%- include('_exception-body', { message: cause.message, details: cause.details, msgClass }) %>
                         <% if (cause.frames && cause.frames.length > 0) { %>
                           <%- include('_exception-frames', { frames: cause.frames, borderClass }) %>
+                        <% } else if (cause.stack) { %>
+                          <pre class="mt-2 text-xs text-foreground-muted overflow-x-auto leading-relaxed"><%= cause.stack %></pre>
                         <% } %>
                       </div>
                       <% cause = cause.cause; %>

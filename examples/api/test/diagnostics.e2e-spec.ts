@@ -107,5 +107,27 @@ describe('Diagnostics endpoints (e2e)', () => {
       });
       expect((profile.tags ?? []).map((t) => t.id)).toContain('error');
     });
+
+    it('records the whole stack as frames, application code first and annotated', async () => {
+      const { profile } = await profileOf(app, 'get', '/api/v1/crash');
+      const frames = profile.exceptions[0]?.frames ?? [];
+
+      // The throw site: application code, named after its class rather than the instrumentation
+      // Proxy it runs behind, and carrying the source around the faulty line.
+      const [thrownAt] = frames;
+      expect(thrownAt).toMatchObject({
+        isApplication: true,
+        function: 'DiagnosticsController.crash',
+      });
+      expect(thrownAt?.file).not.toMatch(/^\/|^file:/);
+      expect(thrownAt?.lines?.some((line) => line.isFaultLine)).toBe(true);
+
+      // Everything below the application is kept too — that is what the UI groups and counts.
+      expect(frames.filter((frame) => !frame.isApplication).length).toBeGreaterThan(0);
+      expect(frames.length).toBeLessThanOrEqual(50);
+
+      // The cause gets the same treatment, since it is what actually says what went wrong.
+      expect(profile.exceptions[0]?.cause?.frames?.[0]).toMatchObject({ isApplication: true });
+    });
   });
 });

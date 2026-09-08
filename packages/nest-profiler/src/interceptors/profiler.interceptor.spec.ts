@@ -415,7 +415,11 @@ describe('ProfilerInterceptor', () => {
         ),
       ).rejects.toThrow('boom');
 
-      expect(profile.exceptions[0]?.frames?.[0]?.file).toBe(__filename);
+      expect(profile.exceptions[0]?.frames?.[0]).toMatchObject({
+        file: 'src/interceptors/profiler.interceptor.spec.ts',
+        isApplication: true,
+      });
+      expect(profile.exceptions[0]?.frames?.[0]?.lines?.length).toBeGreaterThan(0);
     });
 
     it('completes the profile — tags and trace included — before rendering the toolbar', async () => {

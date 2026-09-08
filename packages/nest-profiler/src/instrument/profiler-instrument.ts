@@ -168,7 +168,7 @@ function instrumentInstance(
 
         tracing.add(methodName);
         try {
-          return runInSpan(
+          const result = runInSpan(
             cls,
             label,
             () => {
@@ -177,6 +177,10 @@ function instrumentInstance(
             },
             'method',
           );
+          return relabelOnFailure(result, className, methodName);
+        } catch (error) {
+          relabelProxyFrame(error, className, methodName);
+          throw error;
         } finally {
           tracing.delete(methodName);
         }
@@ -184,8 +188,8 @@ function instrumentInstance(
 
       // Detached from any receiver on purpose: V8 hard-codes a stack frame's type name to "Proxy"
       // whenever the frame's receiver is one, and no trap can override it. The wrapper never reads
-      // `this`, so handing it out unbound makes V8 print `<Class>.<method>` instead — which is
-      // what the code frames on an exception will show.
+      // `this`, so handing it out unbound keeps *its* frame named after the class. The traced
+      // method's own frame runs against the Proxy and is relabelled after the fact instead.
       const bound = traced.bind(undefined);
       Object.defineProperty(bound, 'name', { value: original.name, configurable: true });
       copyMetadata(original, bound);
@@ -194,6 +198,43 @@ function instrumentInstance(
       return bound;
     },
   });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Rewrites the `Proxy.<method>` frame a traced call leaves behind into `<Class>.<method>`.
+ *
+ * V8 types any frame whose receiver is a Proxy as "Proxy", and no trap can override it. Traced
+ * calls run against the Proxy on purpose — so a method calling into itself is recorded as a
+ * nested span — which means the *original* method's frame is the one that pays for it, and that is
+ * precisely the frame the Exceptions tab leads with.
+ *
+ * Only the topmost match is rewritten: every wrapper on the way out relabels its own frame, and
+ * inner calls unwind before outer ones, so two classes sharing a method name each end up right.
+ */
+function relabelProxyFrame(error: unknown, className: string, methodName: string): void {
+  if (!(error instanceof Error) || typeof error.stack !== 'string') return;
+  // `async` prefixes the type name on a frame resumed from an await.
+  const frame = new RegExp(`(\\n\\s*at (?:async )?)Proxy\\.${escapeRegExp(methodName)}\\b`);
+  if (!frame.test(error.stack)) return;
+  try {
+    error.stack = error.stack.replace(frame, `$1${className}.${methodName}`);
+  } catch {
+    // Some errors ship a read-only `stack`; the label is cosmetic, so leaving it beats masking
+    // the original failure.
+  }
+}
+
+/** Relabels a rejected promise's error; a synchronous throw is caught at the call site. */
+function relabelOnFailure<T>(result: T, className: string, methodName: string): T {
+  if (typeof (result as PromiseLike<unknown> | undefined)?.then !== 'function') return result;
+  return Promise.resolve(result).then(undefined, (error: unknown) => {
+    relabelProxyFrame(error, className, methodName);
+    throw error;
+  }) as T;
 }
 
 /**

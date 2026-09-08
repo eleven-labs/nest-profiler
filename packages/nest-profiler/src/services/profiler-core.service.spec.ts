@@ -213,7 +213,7 @@ describe('version stamping', () => {
     expect((await persist({ version: '1.2.3' }, profile))?.version).toBe('from-the-capture-site');
   });
 
-  it('exposes the resolved sourceContext so packages building their own profiles share it', async () => {
+  it('exposes the resolved stack analysis so packages building their own profiles share it', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ProfilerCoreService,
@@ -223,10 +223,17 @@ describe('version stamping', () => {
         },
         { provide: CollectorRegistry, useValue: {} },
         { provide: RouteCollector, useValue: { match: jest.fn() } },
-        { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: { sourceContext: { maxFrames: 2 } } },
+        {
+          provide: NEST_PROFILER_MODULE_OPTIONS,
+          useValue: { sourceContext: { maxFrames: 2 }, projectRoot: '/srv/app' },
+        },
       ],
     }).compile();
-    expect(moduleRef.get(ProfilerCoreService).sourceContext).toEqual({ maxFrames: 2 });
+    expect(moduleRef.get(ProfilerCoreService).exceptionCapture).toMatchObject({
+      projectRoot: '/srv/app',
+      sourceContext: { maxFrames: 2 },
+      capture: { collectBody: false },
+    });
   });
 });
 

@@ -240,6 +240,33 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       }
     });
 
+    it('renders the exception stack grouped, with the throw site and its excerpt', async () => {
+      const res = await request(server(app)).get(`/_profiler/${crashToken}`).query({
+        tab: 'exceptions',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('Thrown at');
+      expect(res.text).toContain('DiagnosticsController.crash');
+      expect(res.text).toContain('language-typescript');
+      expect(res.text).toMatch(/frames? in dependencies and Node internals/);
+      // The raw stack string is replaced by the frames, not shown beside them.
+      expect(res.text).not.toContain('InternalServerErrorException: This is a simulated crash');
+    });
+
+    it('renders a rejected DTO as its field errors, not as a framework stack', async () => {
+      const res = await request(server(app)).get(`/_profiler/${badRequestToken}`).query({
+        tab: 'exceptions',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('price must not be less than 0');
+      // The generic class message gives way to the payload, and no framework frame is promoted.
+      expect(res.text).not.toContain('Bad Request Exception');
+      expect(res.text).not.toContain('Thrown at');
+      expect(res.text).toContain('none of the frames are yours');
+    });
+
     it(`renders the grouped database tab backed by the ${activeSqlOrm()} collector`, async () => {
       const res = await request(server(app))
         .get(`/_profiler/${productsToken}`)

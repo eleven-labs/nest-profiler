@@ -16,9 +16,8 @@ import { PROFILER_BASE_PATH } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { readProfile, setProfileContext } from '../services/profiler-context';
-import { toExceptionEntry } from '../analysis/to-exception-entry';
-import { resolveSourceContextOptions } from '../utils/source-context.util';
-import type { SourceContextOptions } from '../utils/source-context.util';
+import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to-exception-entry';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
 import { finalizeHttpProfile, resolveHttpCaptureConfig } from '../utils/http-capture.util';
 import type { HttpCaptureConfig } from '../utils/http-capture.util';
 import { isCollectionDeferred, readTransportResponseBody } from '../utils/profile-runtime-state';
@@ -54,7 +53,7 @@ function statusOf(err: unknown): number {
 @Injectable()
 export class ProfilerInterceptor implements NestInterceptor {
   private readonly profilerPath = PROFILER_BASE_PATH;
-  private readonly sourceContext: SourceContextOptions | undefined;
+  private readonly exceptionCapture: ExceptionCaptureOptions;
   /**
    * The same resolved capture settings the middleware applies to the request, so a header or key
    * masked on the way in is not readable on the way out and both directions share one body cap.
@@ -68,7 +67,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     @Inject(NEST_PROFILER_MODULE_OPTIONS)
     options: ProfilerModuleOptions = {},
   ) {
-    this.sourceContext = resolveSourceContextOptions(options.sourceContext);
+    this.exceptionCapture = resolveExceptionCaptureOptions(options);
     this.capture = resolveHttpCaptureConfig(options);
   }
 
@@ -158,9 +157,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         return of(body);
       }),
       catchError((err: unknown) => {
-        capturedProfile.exceptions.push(
-          toExceptionEntry(err, { sourceContext: this.sourceContext }),
-        );
+        capturedProfile.exceptions.push(toExceptionEntry(err, this.exceptionCapture));
         // Exception filters run after the observable chain, so `res.statusCode` still reads 200
         // here. The real status comes from the error: an HttpException carries its own, anything
         // else is a 500 (mirrors processNonHttp).
@@ -190,9 +187,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         return body;
       }),
       catchError((err: unknown) => {
-        capturedProfile.exceptions.push(
-          toExceptionEntry(err, { sourceContext: this.sourceContext }),
-        );
+        capturedProfile.exceptions.push(toExceptionEntry(err, this.exceptionCapture));
         // Deferred: leave finalize + persist to the finish hook (the exception is already on the
         // profile, so it is saved with everything else once the response completes).
         if (!deferToFinishHook) {

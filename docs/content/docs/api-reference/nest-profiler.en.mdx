@@ -138,6 +138,24 @@ Populated by the Auth collector when `request.user` is present.
   name="ExceptionEntry"
 />
 
+### SourceCodeFrame
+
+One parsed frame of an exception's stack, on `ExceptionEntry.frames` - the application's own code,
+a dependency and a Node internal alike. `lines` carries the source excerpt around the frame, and is
+present only for application frames while `sourceContext` is on.
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/utils/source-context.util.ts"
+  name="SourceCodeFrame"
+/>
+
+### SourceCodeLine
+
+<AutoTypeTable
+  path="packages/nest-profiler/src/utils/source-context.util.ts"
+  name="SourceCodeLine"
+/>
+
 ### TraceSpan
 
 One node of the unified trace on `Profile.trace` - the single representation of "a piece of work
@@ -395,6 +413,13 @@ import type {
   RouteInfo,
   LogEntry,
   ExceptionEntry,
+  SourceCodeFrame,
+  SourceCodeLine,
+  ExceptionCaptureOptions,
+  SourceContextOptions,
+  StackAnalysisOptions,
+  ProfilerEditorName,
+  EditorLink,
   LogLevel,
   LogMethodMap,
   LogArgsParser,
