@@ -182,6 +182,9 @@ export {
   extractHeaders,
   formatHeaderValue,
 } from './utils/redact-headers.util';
+export type { ExtractHeadersOptions } from './utils/redact-headers.util';
+export { loadOptionalPeer, resolveOptionalPeer } from './utils/optional-peer.util';
+export type { OptionalPeer, OptionalPeerLogger } from './utils/optional-peer.util';
 export {
   DEFAULT_MASK_QUERY_PARAMS,
   buildMaskedQueryParams,

@@ -18,21 +18,63 @@ export const DEFAULT_MASK_HEADERS = [
   'proxy-authorization',
 ];
 
+/** Optional behaviours of {@link extractHeaders}. */
+export interface ExtractHeadersOptions {
+  /**
+   * Written in place of a masked value. Defaults to `[REDACTED]`; the core passes the host's
+   * configured `redaction.replacement` so masking reads the same everywhere.
+   */
+  replacement?: string;
+  /**
+   * Keep a multi-value header as an array instead of joining its values with `', '`. Set by the
+   * core's request/response capture, whose profile fields are typed `string | string[]`: joining
+   * a repeated `set-cookie` would merge two cookies into one unusable line (their `Expires`
+   * dates contain commas). The instrumentation panels, which render a display string, leave it off.
+   */
+  multiValue?: boolean;
+}
+
 /**
- * Normalises a header bag into a flat `Record<string, string>`, masking the values of
- * `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Underscore-prefixed, null
- * and function values are skipped.
+ * Normalises a header bag into a flat record, masking the values of `maskHeaders` (compared
+ * case-insensitively). Underscore-prefixed, null and function values are skipped.
+ *
+ * The single header normaliser in the codebase: the core middleware (incoming request), the core
+ * interceptor (outgoing response) and every HTTP instrumentation go through it, so a header masked
+ * on the way in cannot be readable on the way out, and every transport's bag shape — a Node
+ * `IncomingHttpHeaders`, an axios `AxiosHeaders`, a `fetch` `Headers`, a `Map` — is understood in
+ * one place.
  */
-export function extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string> {
+export function extractHeaders(
+  headers: unknown,
+  maskHeaders: Iterable<string>,
+  options: ExtractHeadersOptions & { multiValue: true },
+): Record<string, string | string[]>;
+export function extractHeaders(
+  headers: unknown,
+  maskHeaders: Iterable<string>,
+  options?: ExtractHeadersOptions,
+): Record<string, string>;
+export function extractHeaders(
+  headers: unknown,
+  maskHeaders: Iterable<string>,
+  options: ExtractHeadersOptions = {},
+): Record<string, string | string[]> {
   if (!headers || typeof headers !== 'object') return {};
 
   const raw = normalizeHeaderBag(headers);
-  const masked = new Set(maskHeaders.map((h) => h.toLowerCase()));
+  const masked = new Set([...maskHeaders].map((h) => h.toLowerCase()));
+  const replacement = options.replacement ?? REDACTED;
 
-  const result: Record<string, string> = {};
+  const result: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (key.startsWith('_') || value == null || typeof value === 'function') continue;
-    result[key] = masked.has(key.toLowerCase()) ? REDACTED : formatHeaderValue(value);
+    if (masked.has(key.toLowerCase())) {
+      result[key] = replacement;
+    } else if (options.multiValue && Array.isArray(value)) {
+      result[key] = value.map((item) => formatHeaderValue(item));
+    } else {
+      result[key] = formatHeaderValue(value);
+    }
   }
   return result;
 }

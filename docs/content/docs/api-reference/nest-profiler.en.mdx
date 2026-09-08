@@ -287,6 +287,28 @@ Builds a runnable, multi-line `curl` command from captured HTTP request data. Re
 
 `interpolateSql(sql, parameters)` inlines bound parameters into a SQL string, returning a runnable query. Supports both `$N` (Postgres/TypeORM) and `?` (MySQL/MikroORM) placeholders.
 
+## Optional peers
+
+Helpers for a collector package that works with a library it does not depend on.
+
+### loadOptionalPeer
+
+```ts
+function loadOptionalPeer<T>(
+  specifier: string,
+  logger?: { warn(message: string): void },
+): T | undefined;
+function resolveOptionalPeer<T>(specifier: string): OptionalPeer<T>;
+```
+
+Loads an optional peer and tells its three outcomes apart: **loaded**, **absent** (not installed — the normal case, and silent), and **broken** (installed but its own code threw or one of its dependencies is missing). A bare `try { require(x) } catch {}` reports the last two identically, which turns a broken install into a panel that is silently missing.
+
+`loadOptionalPeer` returns the exports, or `undefined` when the package is absent, warning through `logger` only on the broken case. `resolveOptionalPeer` returns the tagged `OptionalPeer<T>` union when you need to branch yourself.
+
+Both recover a subpath a package's `exports` map refuses to publish — `@nestjs/core/package.json` from Nest 12 on — by reading it from the package root. For resolving _providers_ rather than modules, see `tryResolve`.
+
+<AutoTypeTable path="packages/nest-profiler/src/utils/optional-peer.util.ts" name="OptionalPeer" />
+
 ## Client assets
 
 ### ClientAssetRegistry
@@ -317,6 +339,8 @@ import {
   DEFAULT_LOG_METHODS,
   buildCurlCommand,
   interpolateSql,
+  loadOptionalPeer,
+  resolveOptionalPeer,
   ClientAssetRegistry,
   CORE_CLIENT_SCRIPT,
 } from '@eleven-labs/nest-profiler';
@@ -347,6 +371,8 @@ import type {
   TimelineSpan,
   SecurityContext,
   CurlInput,
+  OptionalPeer,
+  OptionalPeerLogger,
   ClientAssetRegistration,
 } from '@eleven-labs/nest-profiler';
 ```

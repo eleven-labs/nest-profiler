@@ -1,4 +1,3 @@
-import type { IncomingHttpHeaders } from 'node:http';
 import { Inject, Injectable, Logger, NestMiddleware, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
@@ -6,12 +5,7 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import {
-  PROFILER_REQ_KEY,
-  PROFILER_BASE_PATH,
-  PROFILER_DEFER_COLLECTION,
-  PROFILER_RESPONSE_BODY,
-} from '../constants';
+import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { setProfileContext } from '../services/profiler-context';
 import type {
@@ -19,13 +13,21 @@ import type {
   ProfilerForceProfileFilter,
   ProfilerRequestFilter,
 } from '../filters';
-import { completeProfilePerformance, markProfileStart } from '../utils/profile-metrics.util';
+import { markProfileStart } from '../utils/profile-metrics.util';
+import {
+  captureBody,
+  captureHeaders,
+  finalizeHttpProfile,
+  resolveHttpCaptureConfig,
+} from '../utils/http-capture.util';
+import type { HttpCaptureConfig } from '../utils/http-capture.util';
+import {
+  deferCollectionToFinishHook,
+  setTransportResponseBody,
+} from '../utils/profile-runtime-state';
 import { redactQueryRecord, redactQueryString } from '../utils/redact-query.util';
-import { redact, REDACTED } from '../utils/redact.utils';
-import type { RedactOptions } from '../utils/redact.utils';
-import { resolveRedactionConfig } from '../utils/redaction-config';
-import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
-import type { SafeDataOptions } from '../utils/safe-data.utils';
+import { extractHeaders } from '../utils/redact-headers.util';
+import { redact } from '../utils/redact.utils';
 import type { SummaryPrimitive } from '../storage/profile-summary';
 
 /**
@@ -39,25 +41,6 @@ export const DEFAULT_IGNORE_PATHS: (string | RegExp)[] = [
   '/.well-known/appspecific/com.chrome.devtools.json',
   /^\/apple-touch-icon/,
 ];
-
-/**
- * Flattens incoming headers into a plain record, replacing the value of any header whose
- * (lower-cased) name is in `maskHeaders` with `[REDACTED]`. This masks credential-bearing
- * headers (`authorization`, the raw `cookie` header, `x-api-key`…) before they are ever
- * persisted or shown in the dashboard / "Copy as cURL".
- */
-function normalizeIncomingHeaders(
-  headers: IncomingHttpHeaders,
-  maskHeaders: ReadonlySet<string>,
-  replacement: string = REDACTED,
-): Record<string, string | string[]> {
-  const result: Record<string, string | string[]> = {};
-  for (const [k, v] of Object.entries(headers)) {
-    if (v === undefined) continue;
-    result[k] = maskHeaders.has(k.toLowerCase()) ? replacement : v;
-  }
-  return result;
-}
 
 /** Shape of the raw Node.js / Express response used for lifecycle hooks. */
 type RawResponse = {
@@ -77,23 +60,17 @@ type RawResponse = {
  */
 const MAX_BUFFERED_BODY_BYTES = 1024 * 1024;
 
-/** Shared empty mask set for calls that must not redact (the user's own skip predicate). */
-const EMPTY_MASK: ReadonlySet<string> = new Set();
-
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
   private readonly logger = new Logger(ProfilerMiddleware.name);
   private readonly profilerPath = PROFILER_BASE_PATH;
-  private readonly collectBody: boolean;
-  private readonly maxBodySize: number | undefined;
-  private readonly bodyCaptureLimits: SafeDataOptions | undefined;
+  /**
+   * Body bounds and masking, resolved once through the shared helper the interceptor also uses,
+   * so request and response capture can never bound or mask differently.
+   */
+  private readonly capture: HttpCaptureConfig;
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
-  private readonly maskCookies: ReadonlySet<string>;
-  private readonly maskHeaders: ReadonlySet<string>;
-  private readonly maskQueryParams: ReadonlySet<string>;
-  private readonly redactOptions: RedactOptions;
-  private readonly replacement: string;
   private readonly emitDebugHeaders: boolean;
   private readonly ignoreRequest: ProfilerRequestFilter | undefined;
   private readonly alwaysProfile: ProfilerForceProfileFilter | undefined;
@@ -109,22 +86,12 @@ export class ProfilerMiddleware implements NestMiddleware {
     // @Optional() — only available in the active (enabled) layer; null in the inert layer.
     @Optional() private readonly core: ProfilerCoreService,
   ) {
-    this.collectBody = options.collectBody ?? false;
-    this.maxBodySize = options.maxBodySize;
-    this.bodyCaptureLimits = options.bodyCaptureLimits;
+    this.capture = resolveHttpCaptureConfig(options);
     this.sampleRate = options.sampleRate ?? 1.0;
     this.ignorePaths = [
       ...(options.useDefaultIgnorePaths === false ? [] : DEFAULT_IGNORE_PATHS),
       ...(options.ignorePaths ?? []),
     ];
-    // Additive merge of `redaction` and the deprecated flat options, resolved once in the shared
-    // helper the interceptor also uses so request and response capture never mask differently.
-    const redaction = resolveRedactionConfig(options);
-    this.maskCookies = redaction.maskCookies;
-    this.maskHeaders = redaction.maskHeaders;
-    this.maskQueryParams = redaction.maskQueryParams;
-    this.redactOptions = redaction.redactOptions;
-    this.replacement = redaction.replacement;
     this.emitDebugHeaders = options.emitDebugHeaders ?? true;
     this.ignoreRequest = options.ignoreRequest;
     this.alwaysProfile = options.alwaysProfile;
@@ -161,14 +128,18 @@ export class ProfilerMiddleware implements NestMiddleware {
           // the profile is readable everywhere the profile is.
           url: redactQueryString(
             req.originalUrl ?? req.url,
-            this.maskQueryParams,
-            this.replacement,
+            this.capture.redaction.maskQueryParams,
+            this.capture.redaction.replacement,
           ),
-          headers: normalizeIncomingHeaders(req.headers, this.maskHeaders, this.replacement),
-          query: redactQueryRecord(req.query ?? {}, this.maskQueryParams, this.replacement),
+          headers: captureHeaders(req.headers, this.capture),
+          query: redactQueryRecord(
+            req.query ?? {},
+            this.capture.redaction.maskQueryParams,
+            this.capture.redaction.replacement,
+          ),
           ip: req.ip,
           requestId,
-          body: this.collectBody ? this.normalizeBody(req.body) : undefined,
+          body: this.capture.collectBody ? captureBody(req.body, this.capture) : undefined,
           cookies: this.buildCookieMap(req),
           session: this.buildSessionData(req),
         },
@@ -201,12 +172,14 @@ export class ProfilerMiddleware implements NestMiddleware {
   }
 
   /**
-   * Attaches a response finish listener as a safety net for frameworks (e.g. Apollo
-   * Server) that handle the response directly without calling Express's next() callback.
-   * In those cases NestJS interceptors never run and the profile would otherwise be lost.
+   * Attaches **the** response finish listener — the profiler registers exactly one, here.
    *
-   * The hook also intercepts `res.json()` so it can capture the response body before it
-   * is sent — needed to surface GraphQL-level errors as exceptions.
+   * It plays two roles. As a safety net, it closes a profile the interceptor never got to:
+   * frameworks that handle the response themselves (Apollo Server) bypass Express's `next()`,
+   * so NestJS interceptors never run and the profile would otherwise be lost. And as the last
+   * word on the response body, it intercepts `res.json()` / `res.send()` / `res.write()` so a
+   * payload written after the observable completed — a GraphQL `{ data, errors }` envelope, an
+   * exception filter's output, an async `res.render()` — still reaches the profile.
    */
   private attachFinishHook(
     profile: Profile<HttpRequestData>,
@@ -220,44 +193,57 @@ export class ProfilerMiddleware implements NestMiddleware {
     // A finish listener is guaranteed to run: let the non-HTTP (GraphQL) interceptor path defer
     // collection to it, so queries issued in field resolvers — which execute after the root
     // resolver returns — are still drained into their panels.
-    (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
+    deferCollectionToFinishHook(profile);
 
     const getResponseBody = this.interceptResponseBody(rawRes, profile);
 
-    // Published on the profile so the interceptor can read the body the transport wrote instead
-    // of the value the route handler emitted — they differ under `@Res()` (see the symbol's doc).
-    (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY] = getResponseBody;
+    // Published for the interceptor, which needs the body the transport wrote rather than the
+    // value the route handler emitted — they differ under `@Res()`.
+    setTransportResponseBody(profile, getResponseBody);
 
     rawRes.once('finish', () => {
-      const interceptedResponseBody = getResponseBody();
+      const transportBody = getResponseBody();
       if (profile.response) {
-        // The interceptor already finalized, but two cases still need the body the transport
-        // wrote afterwards: GraphQL (the resolver context never saw the { data, errors }
-        // envelope) and any response whose body was produced after the observable completed —
-        // an exception filter, or a handler that writes asynchronously (`res.render()`).
-        const isGraphql = Boolean(profile.entrypoint.data.graphql);
-        const needsBodyBackfill = this.collectBody && profile.response.body === undefined;
-        if ((isGraphql || needsBodyBackfill) && interceptedResponseBody !== undefined) {
-          profile.response.body = this.normalizeBody(interceptedResponseBody);
-          if (isGraphql) {
-            profile.response.statusCode = rawRes.statusCode ?? profile.response.statusCode;
-          }
-          this.core.scheduleSave(profile);
-        }
+        this.backfillResponseBody(profile, rawRes, transportBody);
         return;
       }
 
-      completeProfilePerformance(profile);
-      profile.response = {
-        statusCode: rawRes.statusCode ?? 200,
-        headers: {},
-        body: this.collectBody ? this.normalizeBody(interceptedResponseBody) : undefined,
-      };
-
-      this.core.enrichHttpResponse(profile, req, interceptedResponseBody);
-
+      // The interceptor never ran: this hook owns the whole finalization. Transport headers are
+      // left out — this path exists precisely because the framework wrote the response itself.
+      finalizeHttpProfile(
+        profile,
+        { statusCode: rawRes.statusCode ?? 200, body: transportBody },
+        this.capture,
+      );
+      this.core.enrichHttpResponse(profile, req, transportBody);
       this.core.schedulePersist(profile);
     });
+  }
+
+  /**
+   * Completes an already-finalized profile with the body the transport wrote afterwards, and
+   * re-saves it when it changed.
+   *
+   * Two cases need it: GraphQL, whose resolver context never saw the `{ data, errors }` envelope
+   * the driver sent (and whose real status is only known now), and any response whose body was
+   * produced after the observable completed — an exception filter, or a handler writing
+   * asynchronously (`res.render()`).
+   */
+  private backfillResponseBody(
+    profile: Profile<HttpRequestData>,
+    rawRes: RawResponse,
+    transportBody: unknown,
+  ): void {
+    const response = profile.response;
+    if (!response || transportBody === undefined) return;
+
+    const isGraphql = Boolean(profile.entrypoint.data.graphql);
+    const needsBody = this.capture.collectBody && response.body === undefined;
+    if (!isGraphql && !needsBody) return;
+
+    response.body = captureBody(transportBody, this.capture);
+    if (isGraphql) response.statusCode = rawRes.statusCode ?? response.statusCode;
+    this.core.scheduleSave(profile);
   }
 
   /**
@@ -307,7 +293,7 @@ export class ProfilerMiddleware implements NestMiddleware {
     let bufferedBytes = 0;
     let overflow = false;
     const shouldBuffer = (): boolean => {
-      if (!this.collectBody && !profile.entrypoint.data.graphql) return false;
+      if (!this.capture.collectBody && !profile.entrypoint.data.graphql) return false;
       const contentType = rawRes.getHeader?.('content-type');
       return typeof contentType === 'string' && contentType.includes('json');
     };
@@ -387,25 +373,12 @@ export class ProfilerMiddleware implements NestMiddleware {
     if (this.debug) this.logger.debug(`Skipping profiling: ${reason()}`);
   }
 
-  /**
-   * JSON-safe, size-bounded, redacted copy of a captured body (see `maxBodySize` /
-   * `bodyCaptureLimits` / `redaction`). Bounded first, then redacted: the caps have already
-   * dropped everything that will not be stored, so masking only walks what reaches the profile.
-   */
-  private normalizeBody(body: unknown): unknown {
-    const safe = normalizeBody(
-      body,
-      this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE,
-      this.bodyCaptureLimits,
-    );
-    return redact(safe, this.redactOptions);
-  }
-
   private buildCookieMap(req: PlatformRequest): Record<string, string> | undefined {
     const raw = req.cookies ?? this.parseCookies(req.headers.cookie);
     if (Object.keys(raw).length === 0) return undefined;
+    const { maskCookies, replacement } = this.capture.redaction;
     return Object.fromEntries(
-      Object.entries(raw).map(([k, v]) => [k, this.maskCookies.has(k) ? this.replacement : v]),
+      Object.entries(raw).map(([k, v]) => [k, maskCookies.has(k) ? replacement : v]),
     );
   }
 
@@ -416,7 +389,9 @@ export class ProfilerMiddleware implements NestMiddleware {
       if (typeof v !== 'function') data[k] = v;
     }
     // Session data commonly holds tokens/passport payloads — redact sensitive keys/values.
-    return Object.keys(data).length > 0 ? redact(data, this.redactOptions) : undefined;
+    return Object.keys(data).length > 0
+      ? redact(data, this.capture.redaction.redactOptions)
+      : undefined;
   }
 
   /** Framework-agnostic request shape passed to `ignoreRequest`/`alwaysProfile`/`attributes`. */
@@ -426,8 +401,8 @@ export class ProfilerMiddleware implements NestMiddleware {
       url: req.url,
       path: req.path,
       // These predicates see raw headers (never persisted) so they can inspect e.g.
-      // `authorization` to decide what to profile / tag.
-      headers: normalizeIncomingHeaders(req.headers, EMPTY_MASK),
+      // `authorization` to decide what to profile / tag — hence no mask list.
+      headers: extractHeaders(req.headers, [], { multiValue: true }),
       body: req.body,
     };
   }
