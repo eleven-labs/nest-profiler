@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@
 import { Span, TracerService } from '@eleven-labs/nest-profiler';
 import { ProductRepository } from '../domain/product.repository.js';
 import type { NewProduct, Product } from '../domain/product.js';
+import { EventPublisher } from '../../notifications/domain/event-publisher.js';
 import { PRODUCT_SEED } from './product.seed.js';
 
 /**
@@ -16,6 +17,7 @@ export class ProductService implements OnApplicationBootstrap {
   constructor(
     private readonly repo: ProductRepository,
     private readonly tracer: TracerService,
+    private readonly events: EventPublisher,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -56,6 +58,12 @@ export class ProductService implements OnApplicationBootstrap {
       this.repo.create({ ...data, inStock: data.inStock ?? true }),
     );
     this.logger.log(`Product #${product.id} created`);
+    // Published in-process (no broker needed), so every POST /products shows the emission in its
+    // Events panel and the listener execution as its own `event` profile.
+    await this.events.publish({
+      name: 'product.created',
+      payload: { id: product.id, name: product.name, price: product.price },
+    });
     return product;
   }
 

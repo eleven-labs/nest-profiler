@@ -2,7 +2,7 @@
 name: setup-nest-profiler
 description: |
   Install and configure @eleven-labs/nest-profiler in a NestJS application.
-  Introspects the project, picks an enable strategy (ConditionalModule vs the enabled flag), configures the core, and wires the optional collectors (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ, routes) that match the stack — asking the user to confirm the choices that matter.
+  Introspects the project, picks an enable strategy (ConditionalModule vs the enabled flag), configures the core, and wires the optional collectors (TypeORM, MikroORM, Mongoose, HTTP, cache, auth, config, GraphQL, validator, commander, RabbitMQ, event emitter, routes) that match the stack — asking the user to confirm the choices that matter.
   Use when a user wants to add the profiler to their NestJS app, or enable request / log / exception / query profiling.
 ---
 
@@ -65,9 +65,9 @@ Cross-reference `package.json` against [references/collectors-matrix.md](referen
 - **[collectors-http.md](references/collectors-http.md)** — ⚠️ nothing is captured unless you list an instrumentation. Ask: axios, fetch, or both? capture bodies? axios needs `HttpModule` imported alongside.
 - **[collectors-validator.md](references/collectors-validator.md)** — ask: class-validator or zod? Validation is app-owned: install the pipe in `main.ts` with `createProfilerValidationPipe(...)` and register the panel with `forRoot()`. One global validation pipe only; value-import DTOs.
 - **[collectors-config-auth.md](references/collectors-config-auth.md)** — ask: extra keys / user fields to mask.
-- **[collectors-simple.md](references/collectors-simple.md)** — cache / graphql / commander / routes / rabbitmq: mostly confirm inclusion. GraphQL `context` must expose the request; commander needs file storage in both processes.
+- **[collectors-simple.md](references/collectors-simple.md)** — cache / graphql / commander / routes / rabbitmq / event-emitter: mostly confirm inclusion. GraphQL `context` must expose the request; commander needs file storage in both processes; event-emitter cannot profile request-scoped subscribers.
 
-Place each per the matrix (`config`/`validator`/`routes`/`commander` at the root, ideally bundled into `ProfilingModule`; database / http / cache / rabbitmq / graphql co-located with their host module), and gate it the same way as the core (`ConditionalModule.registerWhen(..., isProfilerEnabled)` for A). Collectors need no no-op counterpart.
+Place each per the matrix (`config`/`validator`/`routes`/`commander` at the root, ideally bundled into `ProfilingModule`; database / http / cache / rabbitmq / event-emitter / graphql co-located with their host module), and gate it the same way as the core (`ConditionalModule.registerWhen(..., isProfilerEnabled)` for A). Collectors need no no-op counterpart.
 
 **For Approach C**, place **every** collector in the dev-only bundle instead — none in the production feature modules (they resolve across the whole DI container: `AxiosInstrumentation` via `DiscoveryService`, TypeORM via connection token, cache via global `CACHE_MANAGER`, Mongoose via `Query`/`Aggregate` patch, fetch via global patch). The only production-side requirement is app-owned config: GraphQL's `context` must expose the request, and prod `main.ts` keeps a plain `ValidationPipe` mirroring the dev pipe's options.
 

@@ -22,9 +22,9 @@ import { not } from './config/env-condition.js';
  * Composition root. Holds only cross-cutting infrastructure (`forRoot`/global registrations) and
  * imports the feature (bounded-context) modules — no controller and no other module lives at the
  * root. Contexts that need no infrastructure are always loaded (catalog on its in-memory adapter,
- * content, auth, health, diagnostics, notifications with a no-op publisher), so the app boots with
- * zero DB/broker. GraphQL and RabbitMQ are gated inside their own contexts; only Mongoose-backed
- * reviews and the pino logger are gated here.
+ * content, auth, health, diagnostics, notifications over the in-process event emitter), so the app
+ * boots with zero DB/broker. GraphQL and RabbitMQ are gated inside their own contexts; only
+ * Mongoose-backed reviews and the pino logger are gated here.
  *
  * The profiler is toggled the recommended way: `ConditionalModule.registerWhen` loads the active
  * `ProfilerModule` when `PROFILER_ENABLED` is on, and `ProfilerNoopModule` otherwise — so
