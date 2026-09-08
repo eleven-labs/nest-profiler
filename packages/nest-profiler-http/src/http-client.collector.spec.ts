@@ -172,6 +172,27 @@ describe('HttpClientCollector', () => {
       ]);
     });
 
+    it('surfaces the phase breakdown on the bar, labelled and formatted', () => {
+      const profile = makeProfile({
+        collectors: {
+          'http-client': [
+            makeRequest({
+              phases: { wait: 0.5, dns: 0, tcp: 4.213, firstByte: 30.6, download: 1 },
+            }),
+          ],
+        },
+      });
+
+      // `dns: 0` is dropped: it is real (a cached lookup) but a `0ms` chip only adds noise.
+      expect(collector.getTraceSpans(profile)[0]?.meta).toEqual({
+        status: 200,
+        Wait: '0.5ms',
+        TCP: '4.21ms',
+        'Waiting (TTFB)': '31ms',
+        Download: '1ms',
+      });
+    });
+
     it('carries the parent stamped at capture, which nests the call under its caller', () => {
       const profile = makeProfile({
         collectors: { 'http-client': [makeRequest({ parentSpanId: 's7' })] },

@@ -1,0 +1,5 @@
+{
+  "main": "../dist/phases/index.js",
+  "types": "../dist/phases/index.d.ts",
+  "sideEffects": false
+}

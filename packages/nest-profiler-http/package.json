@@ -1,12 +1,13 @@
 {
   "name": "@eleven-labs/nest-profiler-http",
   "version": "1.0.0-alpha.17",
-  "description": "Client-agnostic HTTP-client collector for @eleven-labs/nest-profiler — pluggable axios/fetch instrumentations",
+  "description": "Client-agnostic HTTP-client collector for @eleven-labs/nest-profiler \u2014 pluggable axios/fetch instrumentations",
   "keywords": [
     "nestjs",
     "http-client",
     "axios",
     "fetch",
+    "timings",
     "profiler",
     "debug",
     "monitoring",
@@ -36,12 +37,18 @@
       "require": "./dist/fetch/index.js",
       "default": "./dist/fetch/index.js"
     },
+    "./phases": {
+      "types": "./dist/phases/index.d.ts",
+      "require": "./dist/phases/index.js",
+      "default": "./dist/phases/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "axios",
     "fetch",
+    "phases",
     "CHANGELOG.md"
   ],
   "engines": {

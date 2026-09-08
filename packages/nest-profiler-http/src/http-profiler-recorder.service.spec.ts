@@ -117,6 +117,58 @@ describe('HttpProfilerRecorder', () => {
       expect(e.responseBody).toBeUndefined();
     });
 
+    it('records the phase breakdown an instrumentation measured', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      recorder.capture({
+        method: 'GET',
+        url: 'https://api.example.com/data',
+        startedAt: 1,
+        duration: 40,
+        statusCode: 200,
+        phases: { dns: 2, firstByte: 30 },
+      });
+
+      expect(recordedEntry(profile).phases).toEqual({ dns: 2, firstByte: 30 });
+    });
+
+    it('copies the breakdown, so a provider still refining it cannot rewrite history', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+      const live = { firstByte: 30 };
+
+      recorder.capture({
+        method: 'GET',
+        url: 'https://api.example.com/data',
+        startedAt: 1,
+        duration: 40,
+        phases: live,
+      });
+      // undici keeps publishing after `fetch()` resolved: the entry must not follow along.
+      live.firstByte = 999;
+
+      expect(recordedEntry(profile).phases).toEqual({ firstByte: 30 });
+    });
+
+    it('leaves phases off an entry when nothing measurable was reported', () => {
+      const profile = makeProfile();
+      const cls = { get: jest.fn(() => profile) } as unknown as ClsService;
+      const recorder = new HttpProfilerRecorder(recorderModuleRef(cls), {});
+
+      recorder.capture({
+        method: 'GET',
+        url: 'https://api.example.com/data',
+        startedAt: 1,
+        duration: 40,
+        phases: { dns: 0 },
+      });
+
+      expect(recordedEntry(profile).phases).toBeUndefined();
+    });
+
     it('does not capture the request body by default (captureRequestBody defaults to false)', () => {
       const profile = makeProfile();
       const cls = { get: jest.fn(() => profile) } as unknown as ClsService;

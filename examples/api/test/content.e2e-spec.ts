@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
+import { sumHttpPhases } from '@eleven-labs/nest-profiler-http';
 import type { CacheOperationEntry } from '@eleven-labs/nest-profiler-cache';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
 import { activeHttpClient, createE2EApp, profileOf, server } from './helpers/app.js';
@@ -68,6 +69,29 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
       expect(posts?.url).toContain('api_key=%5BREDACTED%5D');
       expect(posts?.url).toContain('_limit='); // the harmless parameter survives
       expect(JSON.stringify(profile)).not.toContain('demo-upstream-key');
+
+      // Phase breakdown, asserted on the same cold call for the reason above. What the e2e pins is
+      // the plumbing — collector → stored profile → trace bar — not the measurement, which is
+      // covered against real servers and a real `fetch` in the package's own suite. Two reasons a
+      // breakdown is legitimately absent here, and both are the documented degradation rather than
+      // a failure:
+      //  - nock answers from memory with no wire involved, so every phase can round to 0µs and the
+      //    entry then carries no breakdown at all;
+      //  - on the fetch run there is never one: nock intercepts `fetch` through undici's MockAgent,
+      //    which never dispatches through the client publishing the diagnostics channels
+      //    `UndiciPhases` subscribes to.
+      if (activeHttpClient() === 'fetch') {
+        expect(posts?.phases).toBeUndefined();
+      } else if (posts?.phases) {
+        expect(sumHttpPhases(posts.phases)).toBeGreaterThan(0);
+        expect(Object.values(posts.phases).every((ms) => Number.isFinite(ms) && ms >= 0)).toBe(
+          true,
+        );
+
+        // The same breakdown reaches the waterfall as labelled extras on the bar.
+        const bar = (profile.trace ?? []).find((span) => span.label.includes('/posts?'));
+        expect(bar?.meta).toEqual(expect.objectContaining({ status: 200 }));
+      }
 
       const cache = cacheEntries(profile.collectors);
       expect(cache.map((c) => c.operation)).toEqual(expect.arrayContaining(['GET_MISS', 'SET']));

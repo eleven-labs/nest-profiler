@@ -21,6 +21,11 @@ import {
 } from '@eleven-labs/nest-profiler';
 import type { HttpRequestEntry } from './http-request.interface';
 import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
+import {
+  HTTP_PHASE_LABELS,
+  HTTP_PHASE_SEQUENCE,
+  formatPhaseDuration,
+} from './http-phases.interface';
 import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
 import type { HttpCollectorModuleOptions } from './http-collector.constants';
 
@@ -105,7 +110,7 @@ export class HttpClientCollector
       collector: this.name,
       label: (entry) => `${entry.method} ${entry.url}`,
       isError: (entry) => isError(entry),
-      meta: (entry) => (entry.statusCode !== undefined ? { status: entry.statusCode } : undefined),
+      meta: spanMeta,
     });
   }
 
@@ -124,4 +129,25 @@ export class HttpClientCollector
       largePayloadSeverity: this.options.largePayloadSeverity,
     };
   }
+}
+
+/**
+ * The extras shown when an HTTP bar is expanded in the waterfall: the status, then the phase
+ * breakdown when a phases provider measured one — so "which part of this call was slow" is
+ * answered on the timeline, beside the queries it ran next to, and not only in the panel.
+ *
+ * Phases measured at exactly `0` are left out: they are real (a cached DNS lookup costs nothing)
+ * but a row of `0ms` chips buries the one number that matters.
+ */
+function spanMeta(entry: HttpRequestEntry): Record<string, string | number> | undefined {
+  const meta: Record<string, string | number> = {};
+  if (entry.statusCode !== undefined) meta.status = entry.statusCode;
+
+  for (const name of HTTP_PHASE_SEQUENCE) {
+    const value = entry.phases?.[name];
+    if (typeof value === 'number' && value > 0) {
+      meta[HTTP_PHASE_LABELS[name]] = formatPhaseDuration(value);
+    }
+  }
+  return Object.keys(meta).length ? meta : undefined;
 }

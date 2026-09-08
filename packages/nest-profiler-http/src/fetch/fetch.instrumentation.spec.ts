@@ -5,6 +5,11 @@ import type { Profile } from '@eleven-labs/nest-profiler';
 import { HTTP_CLIENT_REQUESTS_KEY } from '../http-request.interface';
 import { HttpProfilerRecorder } from '../http-profiler-recorder.service';
 import { FetchInstrumentation } from './fetch.instrumentation';
+import {
+  activePhaseSlot,
+  registerPhaseSlotProvider,
+  resetPhaseSlotProviders,
+} from '../phases/phase-slot';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -263,5 +268,50 @@ describe('FetchInstrumentation — trace id propagation', () => {
     await fetch('https://api.example.com/x');
 
     expect(header(seen[0], 'x-request-id')).toBeNull();
+  });
+});
+
+describe('FetchInstrumentation — phases', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    resetPhaseSlotProviders();
+  });
+
+  it('records the breakdown a provider deposits in the slot around the call', async () => {
+    registerPhaseSlotProvider();
+    const { profile } = setup(
+      {},
+      {
+        impl: () => {
+          // What UndiciPhases does from its diagnostics-channel subscribers: it finds this call's
+          // slot in the async context the adapter opened, and writes into it.
+          const slot = activePhaseSlot();
+          if (slot) slot.phases = { connect: 2, firstByte: 30 };
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        },
+      },
+    );
+
+    await fetch('https://api.example.com/data');
+    expect(firstEntry(profile).phases).toEqual({ connect: 2, firstByte: 30 });
+  });
+
+  it('enters no async context while no provider is installed', async () => {
+    let slotInsideCall: unknown = 'unset';
+    const { profile } = setup(
+      {},
+      {
+        impl: () => {
+          slotInsideCall = activePhaseSlot();
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        },
+      },
+    );
+
+    await fetch('https://api.example.com/data');
+    expect(slotInsideCall).toBeUndefined();
+    expect(firstEntry(profile).phases).toBeUndefined();
   });
 });
