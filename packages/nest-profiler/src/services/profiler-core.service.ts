@@ -25,6 +25,8 @@ import {
 } from '../entrypoints/builtin-http-entrypoint';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import type { SummaryPrimitive } from '../storage/profile-summary';
+import { resolveSourceContextOptions } from '../utils/source-context.util';
+import type { SourceContextOptions } from '../utils/source-context.util';
 
 /** Default display order for contributed filters with no explicit `order`. */
 const DEFAULT_FILTER_ORDER = 100;
@@ -46,6 +48,16 @@ export class ProfilerCoreService implements OnApplicationShutdown {
   /** Deferred collect/save work still in flight, drained by {@link flushPendingProfiles}. */
   private readonly pending = new Set<Promise<unknown>>();
   private readonly logger = new Logger(ProfilerCoreService.name);
+  /** Custom facets applied to **every** profile — resolved once when `attributes` is a plain object. */
+  private readonly staticAttributes: Record<string, SummaryPrimitive>;
+  /** Build/release identifier stamped on every profile, from `version`. */
+  private readonly version: string | undefined;
+  /**
+   * Resolved {@link ProfilerModuleOptions.sourceContext}, or `undefined` when off. Exposed so a
+   * package building its own profile (`@eleven-labs/nest-profiler-commander`) annotates its
+   * exceptions on the same setting as the HTTP path, instead of silently opting out of it.
+   */
+  readonly sourceContext: SourceContextOptions | undefined;
 
   constructor(
     readonly storage: ProfilerStorageService,
@@ -67,6 +79,22 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     for (const rule of options.performance?.rules ?? []) {
       this.registerPerformanceRule(rule);
     }
+    // The function form is resolved per-request by the middleware (see `Profile.attributes`);
+    // only the static-object form applies here, universally.
+    this.staticAttributes =
+      typeof options.attributes === 'function' ? {} : (options.attributes ?? {});
+    this.version = options.version;
+    this.sourceContext = resolveSourceContextOptions(options.sourceContext);
+  }
+
+  /**
+   * Stamps the profile-wide facts that come from module options rather than from the capture
+   * site. Applied on the way to storage, not at profile creation: every entrypoint — HTTP, CLI
+   * command, consumed message — funnels through here, so a profile cannot be persisted without
+   * them because the package that built it forgot to.
+   */
+  private stamp(profile: Profile): void {
+    profile.version ??= this.version;
   }
 
   /**
@@ -85,8 +113,9 @@ export class ProfilerCoreService implements OnApplicationShutdown {
     const kindAttributes =
       this.getEntrypointType(profile.entrypoint.type).indexAttributes?.(profile) ?? {};
     const primary = profile.exceptions[0];
-    if (!primary) return kindAttributes;
-    return { exception: primary.code ?? primary.name, ...kindAttributes };
+    const customAttributes = { ...this.staticAttributes, ...profile.attributes };
+    if (!primary) return { ...customAttributes, ...kindAttributes };
+    return { ...customAttributes, exception: primary.code ?? primary.name, ...kindAttributes };
   }
 
   /**
@@ -97,6 +126,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
    * @param profile - The finalized profile to collect into and save.
    */
   schedulePersist(profile: Profile): void {
+    this.stamp(profile);
     this.track(
       this.collectorRegistry
         .collectAll(profile)
@@ -119,6 +149,7 @@ export class ProfilerCoreService implements OnApplicationShutdown {
    * @param profile - The profile to save.
    */
   scheduleSave(profile: Profile): void {
+    this.stamp(profile);
     this.track(Promise.resolve(this.storage.save(profile)));
   }
 

@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { ProfilerMiddleware } from './profiler.middleware';
@@ -1146,5 +1148,316 @@ describe('ProfilerMiddleware', () => {
       const saved = (coreMock.storage.save.mock.calls as [Profile][]).at(0)?.[0];
       expect(saved?.response?.body).toBeUndefined();
     });
+  });
+});
+
+/**
+ * Builds a `ProfilerMiddleware` with a real, working `ClsService` (backed by a genuine
+ * `AsyncLocalStorage`, as `nestjs-cls` requires) but without going through
+ * `Test.createTestingModule` — plain construction, like `createMiddlewareWithCore` above uses
+ * for its own stub. Keeps this file's already-heavy compile count (~35 `Test.createTestingModule`
+ * calls) from growing further.
+ */
+function createStandaloneMiddleware(options: ProfilerModuleOptions = {}): {
+  middleware: ProfilerMiddleware;
+  cls: ClsService;
+} {
+  const cls = new ClsService(new AsyncLocalStorage());
+  const middleware = new ProfilerMiddleware(
+    cls,
+    options,
+    undefined as unknown as ProfilerCoreService,
+  );
+  return { middleware, cls };
+}
+
+describe('ProfilerMiddleware — redaction block', () => {
+  it('merges redaction.headers with the deprecated maskHeaders, both additive over the defaults', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      maskHeaders: ['x-legacy'],
+      redaction: { headers: ['x-trace'] },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'GET',
+        url: '/x',
+        headers: { authorization: 'Bearer t', 'x-legacy': 'a', 'x-trace': 'b', 'x-plain': 'c' },
+        query: {},
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.headers).toEqual({
+      authorization: '[REDACTED]',
+      'x-legacy': '[REDACTED]',
+      'x-trace': '[REDACTED]',
+      'x-plain': 'c',
+    });
+  });
+
+  it('merges redaction.cookies with the deprecated maskCookies', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      maskCookies: ['old_token'],
+      redaction: { cookies: ['new_token'] },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'GET',
+        url: '/x',
+        headers: {},
+        query: {},
+        cookies: { old_token: 'a', new_token: 'b', kept: 'c' },
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.cookies).toEqual({
+      old_token: '[REDACTED]',
+      new_token: '[REDACTED]',
+      kept: 'c',
+    });
+  });
+
+  it('drops the built-in defaults when redaction.useDefaults is false, keeping only the explicit lists', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      redaction: { useDefaults: false, headers: ['x-only-this'] },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'GET',
+        url: '/x',
+        headers: { authorization: 'Bearer t', 'x-only-this': 'a' },
+        query: {},
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.headers).toEqual({
+      authorization: 'Bearer t',
+      'x-only-this': '[REDACTED]',
+    });
+  });
+
+  it('applies a custom replacement sentinel to headers, query params and session data', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      redaction: { replacement: '***' },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'GET',
+        url: '/x?token=secret',
+        headers: { authorization: 'Bearer t' },
+        query: { token: 'secret' },
+        session: { password: 'hunter2' },
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.headers?.authorization).toBe('***');
+    expect(reqData(profile)?.query).toEqual({ token: '***' });
+    expect(reqData(profile)?.url).toBe('/x?token=***');
+    expect(reqData(profile)?.session).toEqual({ password: '***' });
+  });
+
+  it('masks object keys via redaction.keys in captured session data', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      redaction: { keys: ['internalToken'] },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'GET',
+        url: '/x',
+        headers: {},
+        query: {},
+        session: { internalToken: 'secret', name: 'bob' },
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.session).toEqual({ internalToken: '[REDACTED]', name: 'bob' });
+  });
+});
+
+describe('ProfilerMiddleware — body redaction', () => {
+  it('redacts sensitive keys inside a captured request body', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({ collectBody: true });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'POST',
+        url: '/login',
+        headers: {},
+        query: {},
+        body: { email: 'a@b.c', password: 'hunter2' },
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.body).toEqual({ email: 'a@b.c', password: '[REDACTED]' });
+  });
+
+  it('extends body key masking through redaction.keys', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      collectBody: true,
+      redaction: { keys: ['tenantRef'] },
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      {
+        method: 'POST',
+        url: '/x',
+        headers: {},
+        query: {},
+        body: { tenantRef: 'acme-42', kept: 'value' },
+      },
+      cls,
+    );
+
+    expect(reqData(profile)?.body).toEqual({ tenantRef: '[REDACTED]', kept: 'value' });
+  });
+});
+
+describe('ProfilerMiddleware — attributes option', () => {
+  it('stamps a function-form attributes option onto profile.attributes', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      attributes: (req) => ({ tenant: req.headers['x-tenant-id'] as string }),
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      { method: 'GET', url: '/x', headers: { 'x-tenant-id': 'acme' }, query: {} },
+      cls,
+    );
+
+    expect(profile?.attributes).toEqual({ tenant: 'acme' });
+  });
+
+  it('leaves profile.attributes undefined when attributes is a static object (handled by the core service instead)', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({ attributes: { env: 'staging' } });
+
+    const profile = await runMiddleware(
+      middleware,
+      { method: 'GET', url: '/x', headers: {}, query: {} },
+      cls,
+    );
+
+    expect(profile?.attributes).toBeUndefined();
+  });
+});
+
+describe('ProfilerMiddleware — alwaysProfile', () => {
+  it('forces capture past a sampleRate that would otherwise skip', async () => {
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    try {
+      const { middleware, cls } = createStandaloneMiddleware({
+        sampleRate: 0.1,
+        alwaysProfile: (req) => req.headers['x-profiler'] === '1',
+      });
+
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/x', headers: { 'x-profiler': '1' }, query: {} },
+        cls,
+      );
+
+      expect(profile).toBeDefined();
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it('does not resurrect a request excluded by ignorePaths', async () => {
+    const { middleware, cls } = createStandaloneMiddleware({
+      ignorePaths: ['/health'],
+      alwaysProfile: () => true,
+    });
+
+    const profile = await runMiddleware(
+      middleware,
+      { method: 'GET', url: '/health/live', path: '/health/live', headers: {}, query: {} },
+      cls,
+    );
+
+    expect(profile).toBeUndefined();
+  });
+
+  it('still applies the sampleRate roll for a request alwaysProfile does not match', async () => {
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    try {
+      const { middleware, cls } = createStandaloneMiddleware({
+        sampleRate: 0.1,
+        alwaysProfile: (req) => req.headers['x-profiler'] === '1',
+      });
+
+      const profile = await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/x', headers: {}, query: {} },
+        cls,
+      );
+
+      expect(profile).toBeUndefined();
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+});
+
+describe('ProfilerMiddleware — debug option', () => {
+  it('logs the skip reason when debug is enabled and ignoreRequest excludes a request', async () => {
+    const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    try {
+      const { middleware, cls } = createStandaloneMiddleware({
+        debug: true,
+        ignoreRequest: () => true,
+      });
+
+      await runMiddleware(middleware, { method: 'GET', url: '/x', headers: {}, query: {} }, cls);
+
+      expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining('ignoreRequest'));
+    } finally {
+      debugSpy.mockRestore();
+    }
+  });
+
+  it("logs the profiler's own route, the one skip a reader is most likely to be looking for", async () => {
+    const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    try {
+      const { middleware, cls } = createStandaloneMiddleware({ debug: true });
+
+      await runMiddleware(
+        middleware,
+        { method: 'GET', url: '/_profiler/abc', path: '/_profiler/abc', headers: {}, query: {} },
+        cls,
+      );
+
+      expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining("profiler's own route"));
+    } finally {
+      debugSpy.mockRestore();
+    }
+  });
+
+  it('stays silent when debug is left off (default)', async () => {
+    const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    try {
+      const { middleware, cls } = createStandaloneMiddleware({ ignoreRequest: () => true });
+
+      await runMiddleware(middleware, { method: 'GET', url: '/x', headers: {}, query: {} }, cls);
+
+      expect(debugSpy).not.toHaveBeenCalled();
+    } finally {
+      debugSpy.mockRestore();
+    }
   });
 });

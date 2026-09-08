@@ -21,17 +21,35 @@ import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { readProfile, setProfileContext } from '../services/profiler-context';
 import { toExceptionEntry } from '../analysis/to-exception-entry';
+import { resolveSourceContextOptions } from '../utils/source-context.util';
+import type { SourceContextOptions } from '../utils/source-context.util';
 import { completeProfilePerformance } from '../utils/profile-metrics.util';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
 import type { SafeDataOptions } from '../utils/safe-data.utils';
+import { redact } from '../utils/redact.utils';
+import { resolveRedactionConfig } from '../utils/redaction-config';
+import type { ResolvedRedactionConfig } from '../utils/redaction-config';
 
+/**
+ * Flattens outgoing response headers, masking the value of any header in `maskHeaders`. A
+ * response carries credentials too — `set-cookie` is a session for as long as the profile
+ * lives — so it is masked on the same list as the request, not left in the clear.
+ */
 function normalizeHeaders(
   raw: Record<string, string | number | string[]>,
+  redaction: ResolvedRedactionConfig,
 ): Record<string, string | string[]> {
   return Object.fromEntries(
-    Object.entries(raw).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v]),
+    Object.entries(raw).map(([k, v]) => [
+      k,
+      redaction.maskHeaders.has(k.toLowerCase())
+        ? redaction.replacement
+        : typeof v === 'number'
+          ? String(v)
+          : v,
+    ]),
   );
 }
 
@@ -59,6 +77,8 @@ export class ProfilerInterceptor implements NestInterceptor {
   private readonly collectBody: boolean;
   private readonly maxBodySize: number | undefined;
   private readonly bodyCaptureLimits: SafeDataOptions | undefined;
+  private readonly sourceContext: SourceContextOptions | undefined;
+  private readonly redaction: ResolvedRedactionConfig;
 
   constructor(
     private readonly cls: ClsService,
@@ -70,11 +90,24 @@ export class ProfilerInterceptor implements NestInterceptor {
     this.collectBody = options.collectBody ?? false;
     this.maxBodySize = options.maxBodySize;
     this.bodyCaptureLimits = options.bodyCaptureLimits;
+    this.sourceContext = resolveSourceContextOptions(options.sourceContext);
+    // Same resolved masking configuration the middleware applies to the request, so a header or
+    // key masked on the way in is not readable on the way out.
+    this.redaction = resolveRedactionConfig(options);
   }
 
-  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize` / `bodyCaptureLimits`). */
+  /**
+   * JSON-safe, size-bounded, redacted copy of a captured body (see `maxBodySize` /
+   * `bodyCaptureLimits` / `redaction`). Bounded first, then redacted: the caps have already
+   * dropped everything that will not be stored, so masking only walks what reaches the profile.
+   */
   private normalizeBody(body: unknown): unknown {
-    return normalizeBody(body, this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE, this.bodyCaptureLimits);
+    const safe = normalizeBody(
+      body,
+      this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE,
+      this.bodyCaptureLimits,
+    );
+    return redact(safe, this.redaction.redactOptions);
   }
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -177,7 +210,9 @@ export class ProfilerInterceptor implements NestInterceptor {
         return of(body);
       }),
       catchError((err: unknown) => {
-        capturedProfile.exceptions.push(toExceptionEntry(err));
+        capturedProfile.exceptions.push(
+          toExceptionEntry(err, { sourceContext: this.sourceContext }),
+        );
         this.finalize(capturedProfile, res, undefined);
         if (capturedProfile.response) {
           // Exception filters run after the observable chain, so res.statusCode is still 200
@@ -211,7 +246,9 @@ export class ProfilerInterceptor implements NestInterceptor {
         return body;
       }),
       catchError((err: unknown) => {
-        capturedProfile.exceptions.push(toExceptionEntry(err));
+        capturedProfile.exceptions.push(
+          toExceptionEntry(err, { sourceContext: this.sourceContext }),
+        );
         // Deferred: leave finalize + persist to the finish hook (the exception is already on the
         // profile, so it is saved with everything else once the response completes).
         if (!deferToFinishHook) {
@@ -248,7 +285,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     if (res) {
       profile.response = {
         statusCode: res.statusCode,
-        headers: normalizeHeaders(res.getHeaders()),
+        headers: normalizeHeaders(res.getHeaders(), this.redaction),
         body: this.collectBody ? this.normalizeBody(body) : undefined,
       };
     } else {

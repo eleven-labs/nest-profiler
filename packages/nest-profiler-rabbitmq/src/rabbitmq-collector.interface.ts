@@ -1,8 +1,13 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { CollectorModuleOptions, ProfilerErrorOptions } from '@eleven-labs/nest-profiler';
+import type {
+  CollectorModuleOptions,
+  ProfilerErrorOptions,
+  RedactionHeaderOptions,
+} from '@eleven-labs/nest-profiler';
 
-export interface RabbitMqCollectorModuleOptions extends CollectorModuleOptions {
+export interface RabbitMqCollectorModuleOptions
+  extends CollectorModuleOptions, RedactionHeaderOptions {
   /**
    * Capture incoming RabbitMQ message headers. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
@@ -14,13 +19,6 @@ export interface RabbitMqCollectorModuleOptions extends CollectorModuleOptions {
    * Enable with caution — payloads can be large.
    */
   captureBody?: boolean;
-
-  /**
-   * Header names (lowercase) whose values are replaced with `[REDACTED]`.
-   * Merged with the built-in list: `authorization`, `cookie`, `x-api-key`,
-   * `x-auth-token`.
-   */
-  maskHeaders?: string[];
 
   /**
    * What counts as a **failed message** — what earns the `error` tag and what the list's

@@ -221,6 +221,104 @@ describe('TemplateRendererService', () => {
     });
   });
 
+  describe('detail — Exceptions tab', () => {
+    it('renders a code frame under the stack when the exception carries one', async () => {
+      const html = await service.render('detail', {
+        ...MINIMAL_DETAIL_DATA,
+        activeTab: 'exceptions',
+        entrypointTabTemplate: undefined,
+        profile: {
+          ...MINIMAL_DETAIL_DATA.profile,
+          exceptions: [
+            {
+              name: 'Error',
+              message: 'boom',
+              stack: 'Error: boom\n    at x (/app/src/foo.ts:10:5)',
+              timestamp: Date.now(),
+              frames: [
+                {
+                  file: '/app/src/foo.ts',
+                  line: 10,
+                  column: 5,
+                  function: 'x',
+                  lines: [
+                    { number: 9, code: 'const a = 1;', isFaultLine: false },
+                    { number: 10, code: 'throw new Error("boom");', isFaultLine: true },
+                    { number: 11, code: 'const b = 2;', isFaultLine: false },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(html).toContain('/app/src/foo.ts');
+      expect(html).toContain('throw new Error(&#34;boom&#34;);');
+    });
+
+    it('renders a code frame for a cause as well as the primary exception', async () => {
+      const html = await service.render('detail', {
+        ...MINIMAL_DETAIL_DATA,
+        activeTab: 'exceptions',
+        entrypointTabTemplate: undefined,
+        profile: {
+          ...MINIMAL_DETAIL_DATA.profile,
+          exceptions: [
+            {
+              name: 'Error',
+              message: 'outer',
+              stack: 'Error: outer',
+              timestamp: Date.now(),
+              cause: {
+                name: 'Error',
+                message: 'inner',
+                stack: 'Error: inner',
+                timestamp: Date.now(),
+                frames: [
+                  {
+                    file: '/app/src/bar.ts',
+                    line: 3,
+                    lines: [{ number: 3, code: 'fail();', isFaultLine: true }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      expect(html).toContain('/app/src/bar.ts');
+    });
+
+    it('omits the code frame block when the exception carries no frames', async () => {
+      const html = await service.render('detail', {
+        ...MINIMAL_DETAIL_DATA,
+        activeTab: 'exceptions',
+        entrypointTabTemplate: undefined,
+        profile: {
+          ...MINIMAL_DETAIL_DATA.profile,
+          exceptions: [{ name: 'Error', message: 'boom', stack: 'Error: boom', timestamp: 0 }],
+        },
+      });
+
+      expect(html).toContain('boom');
+    });
+  });
+
+  it('shows the configured version next to the token badge', async () => {
+    const html = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      profile: { ...MINIMAL_DETAIL_DATA.profile, version: '1.2.3' },
+    });
+    expect(html).toContain('1.2.3');
+  });
+
+  it('shows no version badge when the profile carries none', async () => {
+    const html = await service.render('detail', MINIMAL_DETAIL_DATA);
+    expect(html).not.toContain('Build/release version');
+  });
+
   it('colours a slow query by its tag severity, not a hardcoded red', async () => {
     service.registerDir(path.join(TEMPLATES_DIR, '..', 'collectors', 'sql', 'templates'));
     const query = (severity: 'warning' | 'danger') => ({

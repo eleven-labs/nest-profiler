@@ -93,4 +93,20 @@ describe('toExceptionEntry', () => {
     const entry = toExceptionEntry(new Error('outer', { cause: new Error('inner') }));
     expect(JSON.parse(JSON.stringify(entry))).toEqual(entry);
   });
+
+  describe('sourceContext', () => {
+    it('omits frames when sourceContext is not passed', () => {
+      expect(toExceptionEntry(new Error('boom')).frames).toBeUndefined();
+    });
+
+    it('attaches frames for the primary error and its cause when sourceContext is enabled', () => {
+      const root = new Error('root cause');
+      const wrapper = new Error('wrapper', { cause: root });
+
+      const entry = toExceptionEntry(wrapper, { sourceContext: { maxFrames: 3 } });
+
+      expect(entry.frames?.[0]?.file).toBe(__filename);
+      expect(entry.cause?.frames?.[0]?.file).toBe(__filename);
+    });
+  });
 });

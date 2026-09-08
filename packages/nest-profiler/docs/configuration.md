@@ -220,35 +220,41 @@ If a deployment pipeline installs with `--omit=dev` **before** building, `tsc` w
 
 ## Options
 
-| Option                      | Type                                | Default     | Description                                                                                                                                                                                                                                       |
-| --------------------------- | ----------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                   | `boolean`                           | `true`      | Enable or disable the profiler.                                                                                                                                                                                                                   |
-| `security`                  | `ProfilerSecurityOptions`           | —           | Pluggable access control for the UI/API (`authorize` predicate and/or NestJS `guards`, plus `linkQuery`). When omitted the profiler is open (local dev only). See [Securing the UI](#securing-the-ui).                                            |
-| `maxProfiles`               | `number`                            | `100`       | Maximum profiles kept (LRU eviction). `0` or negative: no cap.                                                                                                                                                                                    |
-| `listPageSize`              | `number`                            | `25`        | Profiles shown per page in each dashboard list section (HTTP, GraphQL, RabbitMQ, Commands…). Each section paginates independently.                                                                                                                |
-| `ttl`                       | `number`                            | `3600`      | Profile time-to-live in seconds. `0` or negative: never expire.                                                                                                                                                                                   |
-| `isGlobal`                  | `boolean`                           | `false`     | Register the module as a global NestJS module.                                                                                                                                                                                                    |
-| `timezone`                  | `string`                            | `TZ`        | IANA timezone the UI renders every timestamp in (`'Europe/Paris'`, `'UTC'`…). Defaults to the timezone the process runs in, i.e. the one `TZ` selects. See [Timezone of displayed timestamps](#timezone-of-displayed-timestamps).                 |
-| `storageType`               | `'memory' \| 'file'`                | `'memory'`  | Built-in storage backend.                                                                                                                                                                                                                         |
-| `storagePath`               | `string`                            | `.profiler` | Directory for file storage (relative or absolute).                                                                                                                                                                                                |
-| `storage`                   | `IProfilerStorageAdapter`           | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                                                             |
-| `collectBody`               | `boolean`                           | `false`     | Capture request/response bodies (use with caution).                                                                                                                                                                                               |
-| `maxBodySize`               | `number`                            | `65536`     | Max serialized size (chars) of a captured body before it is truncated to a placeholder. `0` disables truncation.                                                                                                                                  |
-| `bodyCaptureLimits`         | `SafeDataOptions`                   | see below   | Inner content caps applied to each captured body **before** `maxBodySize`: `maxStringLength` (`2048`), `maxItems` (`64`), `maxDepth` (`4`). Each is disabled with `0` (or negative). See [Capturing full bodies](#capturing-full-bodies).         |
-| `maskCookies`               | `string[]`                          | `[]`        | Cookie names whose value is replaced with `[REDACTED]` in the captured request.                                                                                                                                                                   |
-| `maskHeaders`               | `string[]`                          | `[]`        | **Extra** request header names whose value is replaced with `[REDACTED]` at capture, merged with the built-in list. See [Redacting sensitive data](#redacting-sensitive-data).                                                                    |
-| `useDefaultMaskHeaders`     | `boolean`                           | `true`      | Mask the built-in sensitive headers (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`) on top of `maskHeaders`.                                                                                        |
-| `maskQueryParams`           | `string[]`                          | `[]`        | **Extra** query-parameter names whose value is replaced with `[REDACTED]` at capture, in both the stored URL and the parsed query. Merged with the built-in list.                                                                                 |
-| `useDefaultMaskQueryParams` | `boolean`                           | `true`      | Mask the built-in sensitive query parameters (`token`, `access_token`, `code`, `state`, `signature`, `password`, `secret`, `api_key`…) on top of `maskQueryParams`.                                                                               |
-| `emitDebugHeaders`          | `boolean`                           | `true`      | Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses. Turn off in shared/staging environments.                                                                                                                  |
-| `collectorTimeout`          | `number`                            | `1000`      | Max ms a single collector may run before it is abandoned (`0` disables).                                                                                                                                                                          |
-| `sampleRate`                | `number`                            | `1.0`       | Fraction of requests to profile (0.0–1.0).                                                                                                                                                                                                        |
-| `ignorePaths`               | `(string \| RegExp)[]`              | `[]`        | Paths to skip profiling (prefix string or RegExp), merged after the defaults.                                                                                                                                                                     |
-| `useDefaultIgnorePaths`     | `boolean`                           | `true`      | Skip noisy browser/tooling requests by default (favicon, robots.txt, the Chrome DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe, apple-touch-icon).                                                                            |
-| `ignoreRequest`             | `ProfilerRequestFilter`             | —           | Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose several conditions with `combineFilters`.                                                                 |
-| `error`                     | `ProfilerErrorOptions`              | 5xx         | What counts as a **failed HTTP request** — what earns the `error` tag and what the list's `Errors` filter keeps. Default: a 5xx status, so 4xx like `401`/`404` are answers, not errors. See [What counts as an error](#what-counts-as-an-error). |
-| `performance`               | `ProfilerPerformanceOptions`        | —           | Custom rules for the tagging engine. See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).                                                                                                  |
-| `runtime`                   | `boolean \| ProfilerRuntimeOptions` | `true`      | Process-level runtime metrics and the **Runtime** dashboard view (memory, CPU, event-loop lag, GC), sampled every `interval` ms (default `5000`, history `120` samples). See [CPU and memory](#cpu-and-memory).                                   |
+| Option                      | Type                                                                              | Default     | Description                                                                                                                                                                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                   | `boolean`                                                                         | `true`      | Enable or disable the profiler.                                                                                                                                                                                                                   |
+| `security`                  | `ProfilerSecurityOptions`                                                         | —           | Pluggable access control for the UI/API (`authorize` predicate and/or NestJS `guards`, plus `linkQuery`). When omitted the profiler is open (local dev only). See [Securing the UI](#securing-the-ui).                                            |
+| `maxProfiles`               | `number`                                                                          | `100`       | Maximum profiles kept (LRU eviction). `0` or negative: no cap.                                                                                                                                                                                    |
+| `listPageSize`              | `number`                                                                          | `25`        | Profiles shown per page in each dashboard list section (HTTP, GraphQL, RabbitMQ, Commands…). Each section paginates independently.                                                                                                                |
+| `ttl`                       | `number`                                                                          | `3600`      | Profile time-to-live in seconds. `0` or negative: never expire.                                                                                                                                                                                   |
+| `isGlobal`                  | `boolean`                                                                         | `false`     | Register the module as a global NestJS module.                                                                                                                                                                                                    |
+| `timezone`                  | `string`                                                                          | `TZ`        | IANA timezone the UI renders every timestamp in (`'Europe/Paris'`, `'UTC'`…). Defaults to the timezone the process runs in, i.e. the one `TZ` selects. See [Timezone of displayed timestamps](#timezone-of-displayed-timestamps).                 |
+| `storageType`               | `'memory' \| 'file'`                                                              | `'memory'`  | Built-in storage backend.                                                                                                                                                                                                                         |
+| `storagePath`               | `string`                                                                          | `.profiler` | Directory for file storage (relative or absolute).                                                                                                                                                                                                |
+| `storage`                   | `IProfilerStorageAdapter`                                                         | —           | Custom adapter — takes precedence over `storageType`.                                                                                                                                                                                             |
+| `collectBody`               | `boolean`                                                                         | `false`     | Capture request/response bodies (use with caution).                                                                                                                                                                                               |
+| `maxBodySize`               | `number`                                                                          | `65536`     | Max serialized size (chars) of a captured body before it is truncated to a placeholder. `0` disables truncation.                                                                                                                                  |
+| `bodyCaptureLimits`         | `SafeDataOptions`                                                                 | see below   | Inner content caps applied to each captured body **before** `maxBodySize`: `maxStringLength` (`2048`), `maxItems` (`64`), `maxDepth` (`4`). Each is disabled with `0` (or negative). See [Capturing full bodies](#capturing-full-bodies).         |
+| `redaction`                 | `ProfilerRedactionOptions`                                                        | —           | Unified masking configuration — headers, cookies, query parameters, object keys, extra value patterns and a custom replacement sentinel, in one block. See [Redacting sensitive data](#redacting-sensitive-data).                                 |
+| `maskCookies`               | `string[]`                                                                        | `[]`        | _Deprecated_ — use `redaction.cookies`. Cookie names whose value is replaced in the captured request. Still functional (merged additively with `redaction.cookies`).                                                                              |
+| `maskHeaders`               | `string[]`                                                                        | `[]`        | _Deprecated_ — use `redaction.headers`. **Extra** request header names whose value is replaced at capture, merged with the built-in list. Still functional.                                                                                       |
+| `useDefaultMaskHeaders`     | `boolean`                                                                         | `true`      | _Deprecated_ — use `redaction.useDefaults: false`. Mask the built-in sensitive headers on top of `maskHeaders`.                                                                                                                                   |
+| `maskQueryParams`           | `string[]`                                                                        | `[]`        | _Deprecated_ — use `redaction.queryParams`. **Extra** query-parameter names whose value is replaced at capture, in both the stored URL and the parsed query. Still functional.                                                                    |
+| `useDefaultMaskQueryParams` | `boolean`                                                                         | `true`      | _Deprecated_ — use `redaction.useDefaults: false`. Mask the built-in sensitive query parameters on top of `maskQueryParams`.                                                                                                                      |
+| `emitDebugHeaders`          | `boolean`                                                                         | `true`      | Emit the `X-Debug-Token` / `X-Debug-Token-Link` response headers on profiled responses. Turn off in shared/staging environments.                                                                                                                  |
+| `collectorTimeout`          | `number`                                                                          | `1000`      | Max ms a single collector may run before it is abandoned (`0` disables).                                                                                                                                                                          |
+| `sampleRate`                | `number`                                                                          | `1.0`       | Fraction of requests to profile (0.0–1.0).                                                                                                                                                                                                        |
+| `alwaysProfile`             | `ProfilerForceProfileFilter`                                                      | —           | Force-capture a request past the `sampleRate` roll. See [Forcing capture past sampling](#forcing-capture-past-sampling).                                                                                                                          |
+| `ignorePaths`               | `(string \| RegExp)[]`                                                            | `[]`        | Paths to skip profiling (prefix string or RegExp), merged after the defaults.                                                                                                                                                                     |
+| `useDefaultIgnorePaths`     | `boolean`                                                                         | `true`      | Skip noisy browser/tooling requests by default (favicon, robots.txt, the Chrome DevTools `/.well-known/appspecific/com.chrome.devtools.json` probe, apple-touch-icon).                                                                            |
+| `ignoreRequest`             | `ProfilerRequestFilter`                                                           | —           | Custom predicate; return `true` to skip profiling. Applied together with `ignorePaths` (either one matching skips the request). Compose several conditions with `combineFilters`.                                                                 |
+| `debug`                     | `boolean`                                                                         | `false`     | Trace why a request was or wasn't profiled via `Logger.debug`. See [Debugging why a request wasn't profiled](#debugging-why-a-request-wasnt-profiled).                                                                                            |
+| `error`                     | `ProfilerErrorOptions`                                                            | 5xx         | What counts as a **failed HTTP request** — what earns the `error` tag and what the list's `Errors` filter keeps. Default: a 5xx status, so 4xx like `401`/`404` are answers, not errors. See [What counts as an error](#what-counts-as-an-error). |
+| `performance`               | `ProfilerPerformanceOptions`                                                      | —           | Custom rules for the tagging engine. See [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags).                                                                                                  |
+| `runtime`                   | `boolean \| ProfilerRuntimeOptions`                                               | `true`      | Process-level runtime metrics and the **Runtime** dashboard view (memory, CPU, event-loop lag, GC), sampled every `interval` ms (default `5000`, history `120` samples). See [CPU and memory](#cpu-and-memory).                                   |
+| `sourceContext`             | `boolean \| SourceContextOptions`                                                 | `false`     | Attach a source-code excerpt to every captured exception's stack frames. See [Code frames on exceptions](#code-frames-on-exceptions).                                                                                                             |
+| `attributes`                | `Record<string, SummaryPrimitive> \| ((req) => Record<string, SummaryPrimitive>)` | —           | Custom indexed facets attached to every profile. See [Custom indexed attributes](#custom-indexed-attributes).                                                                                                                                     |
+| `version`                   | `string`                                                                          | —           | Build/release identifier stamped on every profile — HTTP, CLI command or consumed message — and shown in its header.                                                                                                                              |
 
 The storage-related options (`storageType`, `storagePath`, `storage`, `maxProfiles`, `ttl`) are detailed on the [Storage backends](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/storage) page.
 
@@ -321,34 +327,94 @@ Everything it reads comes from `node:os`, `node:v8` and `node:perf_hooks` — th
 
 A profile is a verbatim copy of a request, so anything credential-shaped that reaches one is readable for as long as the profile lives — in the dashboard, in the JSON export at `/_profiler/:token/data`, in the _Copy as cURL_ command, and on disk when `storageType: 'file'` or the SQLite adapter is used. Three capture paths are therefore masked **by default**, before anything is persisted:
 
-- **Headers** — `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`.
+- **Headers** — `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`, on the request **and** the response: a captured `set-cookie` is a replayable session for as long as the profile lives.
 - **Query parameters** — `token`, `access_token`, `refresh_token`, `id_token`, `api_key`, `code`, `state`, `signature`, `sig`, `password`, `secret`, `client_secret`, `session_id`… matched case-insensitively and ignoring `-`/`_`, so `access_token`, `accessToken` and `Access-Token` are one entry.
-- **Bodies, session data and collector payloads** — object keys matching a sensitive-key pattern, plus credentials embedded in string values (JWTs, PEM blocks, `sk-`/`pk-` keys, `scheme://user:pass@host` userinfo).
+- **Bodies (request and response, under `collectBody`), session data and collector payloads** — object keys matching a sensitive-key pattern, plus credentials embedded in string values (JWTs, PEM blocks, `sk-`/`pk-` keys, `scheme://user:pass@host` userinfo, Luhn-valid card numbers). Bodies are masked **after** the `bodyCaptureLimits` / `maxBodySize` caps, so masking only walks what actually reaches the profile.
 
-Every list is **additive**: naming your own entries extends the built-ins rather than replacing them, so adding one header can never silently stop `authorization` from being masked.
+Every list is **additive**: naming your own entries extends the built-ins rather than replacing them, so adding one header can never silently stop `authorization` from being masked. Configure them all through a single `redaction` block:
 
 ```ts
 ProfilerModule.forRoot({
-  maskHeaders: ['x-tenant-token'], // masked in addition to the six built-ins
-  maskQueryParams: ['inviteRef'], // masked in addition to the built-in list
-  maskCookies: ['sid'],
+  redaction: {
+    headers: ['x-tenant-token'], // masked in addition to the six built-ins
+    cookies: ['sid'],
+    queryParams: ['inviteRef'], // masked in addition to the built-in list
+    keys: ['internalToken'], // object keys in bodies, session data and collector payloads
+    patterns: [/acct_[a-z0-9]{16}/gi], // extra value patterns (alongside JWT/PEM/API-key/card detection)
+    replacement: '[REDACTED]', // customize the sentinel written in place of a masked value
+  },
 });
 ```
 
 Parameter and header **names are kept** and only their values replaced, so a captured URL still reads `?token=[REDACTED]`: knowing that a request carried a token is useful when reading a trace, knowing which one is not.
 
-Only names are inspected, never values. A pattern hunting for token-shaped strings anywhere in a URL mangles ordinary ids and path segments, and a redactor that mangles real data is one somebody switches off. Use `maskQueryParams` for the parameters only your application knows are sensitive.
+Only names are inspected for headers/query parameters/keys — never values. A pattern hunting for token-shaped strings anywhere in a URL mangles ordinary ids and path segments, and a redactor that mangles real data is one somebody switches off. `patterns` is the deliberate exception: it scans string _values_ for a shape you name, the same way the built-in JWT/PEM/API-key detectors do. String values are also checked against a Luhn-validated card-number pattern, so a 13-19 digit run is only masked when it passes the checksum — an ordinary numeric id of the same length is left alone.
 
-To take masking over entirely, opt out of a built-in list explicitly:
+To take masking over entirely, opt out of every built-in list at once — the header, query-parameter **and** sensitive-key lists all go together. The built-in value detectors (JWT, PEM, `sk-` keys, userinfo, card numbers) are not a list you can restate name by name, and stay on:
 
 ```ts
 ProfilerModule.forRoot({
-  useDefaultMaskHeaders: false,
-  maskHeaders: ['authorization', 'x-tenant-token'],
+  redaction: {
+    useDefaults: false,
+    headers: ['authorization', 'x-tenant-token'],
+  },
 });
 ```
 
+> **Migrating from the flat options** (`maskHeaders`, `maskCookies`, `maskQueryParams`, `useDefaultMaskHeaders`, `useDefaultMaskQueryParams`): they still work, merged additively with `redaction` when both are set, but are deprecated in favor of the unified block above and will be removed in a future major version. `redaction.useDefaults` replaces the two separate `useDefaultMask*` flags — it turns every built-in list off at once rather than per-list.
+
 Two limits worth stating plainly. Redaction is a safety net for credentials that reach a request by design, not a guarantee that none can be captured: a secret carried in a path segment (`/reset/<token>`), in a parameter name nothing here matches, or inside a body under an unrecognised key still lands in the profile. And `ignoreRequest` deliberately sees the **unredacted** request — it decides what gets profiled at all, so it must see what actually arrived. On any environment that is not a developer's own machine, treat the dashboard itself as the boundary and lock it down with [`security`](#securing-the-ui).
+
+## Code frames on exceptions
+
+Enable `sourceContext` to attach a source-code excerpt to every captured exception's application stack frames — the Symfony exception page, locally. Nothing leaves the machine: the file is read straight off disk and stored on the profile like everything else.
+
+```ts
+ProfilerModule.forRoot({
+  sourceContext: true, // or { linesOfContext: 5, maxFrames: 5 } to tune it
+});
+```
+
+It applies to every captured exception, whichever entrypoint raised it — an HTTP request, a CLI command, a consumed message.
+
+Off by default — it reads files off disk on every captured exception. Only application frames are annotated: `node_modules`, `node:` and `internal/` frames are skipped, and a frame is only read when it resolves **under `process.cwd()`** with a recognised source extension (`.js`, `.ts`, `.mjs`…). `Error#stack` is not a trusted input — a message an attacker influences can inject text that parses like a stack frame — so without this pair of guards, a forged stack could read an arbitrary file off the host. File reads are cached (failures too), bounded to 200 files, and never throw: a missing source excerpt never breaks a request that already failed.
+
+Source maps are not resolved by the profiler — run Node with `--enable-source-maps` and `Error.stack` already carries original-source positions, so there is nothing extra to do.
+
+## Custom indexed attributes
+
+`attributes` attaches custom facets to a profile — the equivalent of a tag/attribute set on an APM span — merged into the same projection that already carries the built-in `exception` facet, and queryable the same way (`attributes.<key>`) through the storage API.
+
+```ts
+ProfilerModule.forRoot({
+  attributes: (req) => ({ tenant: req.headers['x-tenant-id'] as string }),
+});
+```
+
+Pass a **plain object** to attach the same facets to every profile regardless of entrypoint kind (`{ env: process.env.NODE_ENV }`), computed once at startup. Pass a **function** to derive facets per HTTP request — only HTTP profiles get these, since a request is only available at that capture point (the same limitation `requestId` has today).
+
+A custom attribute does not gain a list-page filter row automatically — register your own list filter (contributed via the `PROFILER_LIST_FILTERS` multi-token) pointing at `attributes.<key>` to expose it as one, the same way the built-in `exception` filter targets `attributes.exception`.
+
+## Forcing capture past sampling
+
+`sampleRate` below `1.0` means losing exactly the requests you might want to see. `alwaysProfile` is evaluated **before** the sample-rate roll, so it can force-capture a specific request regardless of it — but it cannot resurrect a request `ignoreRequest`/`ignorePaths` already excluded; those remain a hard "never profile this".
+
+```ts
+ProfilerModule.forRoot({
+  sampleRate: 0.1,
+  alwaysProfile: (req) => req.headers['x-profiler'] === '1',
+});
+```
+
+One corollary worth knowing: sampling cannot "keep every error" — the decision is made before the response status is known. That is a structural limit, not a bug, but it surprises people the first time a 500 goes unprofiled on a sampled environment.
+
+## Debugging why a request wasn't profiled
+
+`debug: true` traces the skip decision via `Logger.debug` — the profiler's own route, `ignoreRequest`, `ignorePaths` (with the matched entry), or the `sampleRate` roll. Off by default so it costs nothing in the common case: the reason is only built once the option is on.
+
+```ts
+ProfilerModule.forRoot({ debug: true });
+```
 
 ## What counts as an error
 

@@ -20,6 +20,50 @@ const JWT_RE = /\beyJ[A-Za-z0-9_-]{5,2048}\.[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]
 const SK_KEY_RE = /\b(?:sk|rk|pk)-[A-Za-z0-9]{16,256}/g;
 const PEM_RE =
   /-----BEGIN (?:[A-Z ]{1,64} )?PRIVATE KEY-----[\s\S]{0,8192}?-----END (?:[A-Z ]{1,64} )?PRIVATE KEY-----/g;
+// Candidate card-shaped digit runs (optionally grouped by spaces/dashes), 13-19 digits — the
+// range every real card network (Visa, Mastercard, Amex, Discover…) falls within. Each match is
+// verified with `isLuhnValid` before being masked, so an ordinary numeric id of the same length
+// (an order number, a phone number) is left alone unless it also happens to pass the checksum.
+const CARD_NUMBER_RE = /\b(?:\d[ -]?){12,18}\d\b/g;
+
+/**
+ * Luhn (mod 10) checksum used by every major card network. Run against a digit-only string
+ * (spaces/dashes already stripped by the caller) to tell a real card number apart from an
+ * arbitrary 13-19 digit id before it gets masked.
+ */
+function isLuhnValid(digits: string): boolean {
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits.charCodeAt(i) - 48; // '0'
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+/**
+ * A caller's pattern, forced global and stateless. Without the `g` flag `String#replace` masks
+ * only the first match — a body carrying two account ids would keep the second — and a sticky
+ * (`y`) pattern carries a `lastIndex` across calls, so the same value redacts differently
+ * depending on what was redacted before it.
+ */
+function toGlobalPattern(pattern: RegExp): RegExp {
+  if (pattern.global && !pattern.sticky) return pattern;
+  return new RegExp(pattern.source, `${pattern.flags.replace(/[gy]/g, '')}g`);
+}
+
+/** Masks card-shaped strings that also pass the Luhn checksum, leaving other digit runs as-is. */
+function redactCardNumbers(value: string, replacement: string): string {
+  return value.replace(CARD_NUMBER_RE, (match) => {
+    const digits = match.replace(/[ -]/g, '');
+    return isLuhnValid(digits) ? replacement : match;
+  });
+}
 
 export interface RedactOptions {
   /** Extra exact key names (case-insensitive) to redact, on top of {@link DEFAULT_SECRET_KEY_RE}. */
@@ -30,6 +74,13 @@ export interface RedactOptions {
   maskValues?: boolean;
   /** Maximum recursion depth before values are returned untouched. Default `8`. */
   maxDepth?: number;
+  /**
+   * Extra value patterns to redact, applied alongside the built-in ones (DSN/JWT/API key/PEM/card).
+   * Each is applied globally — a pattern without the `g` flag is treated as if it had one.
+   */
+  patterns?: RegExp[];
+  /** Sentinel written in place of a redacted value. Default {@link REDACTED}. */
+  replacement?: string;
 }
 
 /** Whether an object key looks sensitive under the given options. */
@@ -42,17 +93,36 @@ export function isSecretKey(key: string, options: RedactOptions = {}): boolean {
   return extra.some((k) => k.toLowerCase() === lower);
 }
 
+/** Options accepted by the standalone {@link redactString}. */
+export interface RedactStringOptions {
+  /**
+   * Extra value patterns to redact, applied alongside the built-in ones. Each is applied
+   * globally — a pattern without the `g` flag is treated as if it had one.
+   */
+  patterns?: RegExp[];
+  /** Sentinel written in place of a redacted match. Default {@link REDACTED}. */
+  replacement?: string;
+}
+
 /**
  * Masks credentials embedded in a string value: URL userinfo (`scheme://user:pass@host` →
- * `scheme://[REDACTED]@host`), JWTs, `sk-/pk-/rk-` API keys and PEM private-key blocks.
- * Returns the string unchanged when nothing sensitive is detected.
+ * `scheme://[REDACTED]@host`), JWTs, `sk-/pk-/rk-` API keys, PEM private-key blocks and
+ * Luhn-valid card numbers. Returns the string unchanged when nothing sensitive is detected.
  */
-export function redactString(value: string): string {
-  return value
-    .replace(URL_USERINFO_RE, `$1${REDACTED}@`)
-    .replace(PEM_RE, REDACTED)
-    .replace(JWT_RE, REDACTED)
-    .replace(SK_KEY_RE, REDACTED);
+export function redactString(value: string, options: RedactStringOptions = {}): string {
+  const replacement = options.replacement ?? REDACTED;
+  // Function replacers throughout: a `replacement` is a literal sentinel, and passing it as a
+  // string would let a `$&` or `$1` inside it be interpolated by `String#replace`.
+  let result = value
+    .replace(URL_USERINFO_RE, (_match, scheme: string) => `${scheme}${replacement}@`)
+    .replace(PEM_RE, () => replacement)
+    .replace(JWT_RE, () => replacement)
+    .replace(SK_KEY_RE, () => replacement);
+  result = redactCardNumbers(result, replacement);
+  for (const pattern of options.patterns ?? []) {
+    result = result.replace(toGlobalPattern(pattern), () => replacement);
+  }
+  return result;
 }
 
 /** Redacts an object's own-enumerable entries: secret keys are masked, others recursed into. */
@@ -65,7 +135,7 @@ function redactEntries(
   const result: Record<string, unknown> = {};
   for (const [key, entry] of entries) {
     result[key] = isSecretKey(key, options)
-      ? REDACTED
+      ? options.replacement
       : redactInner(entry, depth + 1, seen, options);
   }
   return result;
@@ -78,7 +148,9 @@ function redactInner(
   options: Required<RedactOptions>,
 ): unknown {
   if (typeof value === 'string') {
-    return options.maskValues ? redactString(value) : value;
+    return options.maskValues
+      ? redactString(value, { patterns: options.patterns, replacement: options.replacement })
+      : value;
   }
   // BigInt is not JSON-serializable; stringify it so profile serialization never throws later.
   if (typeof value === 'bigint') return value.toString();
@@ -126,10 +198,11 @@ function redactInner(
 
 /**
  * Recursively redacts sensitive data from an arbitrary value: object keys matching
- * {@link DEFAULT_SECRET_KEY_RE} (or `maskKeys`) have their value replaced by {@link REDACTED},
- * and — unless `maskValues: false` — string values are scanned for embedded credentials
- * (DSN userinfo, JWTs, API keys, PEM blocks). Non-string primitives are preserved as-is so
- * numbers/booleans stay useful in the profiler UI. Cyclic graphs are handled.
+ * {@link DEFAULT_SECRET_KEY_RE} (or `maskKeys`) have their value replaced by {@link REDACTED}
+ * (or `replacement`), and — unless `maskValues: false` — string values are scanned for embedded
+ * credentials (DSN userinfo, JWTs, API keys, PEM blocks, Luhn-valid card numbers, plus any extra
+ * `patterns`). Non-string primitives are preserved as-is so numbers/booleans stay useful in the
+ * profiler UI. Cyclic graphs are handled.
  *
  * This is the single shared redaction entry point for the whole profiler ecosystem
  * (HTTP headers, SQL parameters, config values, validator values, Mongo filters, AMQP
@@ -141,6 +214,8 @@ export function redact<T>(value: T, options: RedactOptions = {}): T {
     keyPattern: options.keyPattern ?? DEFAULT_SECRET_KEY_RE,
     maskValues: options.maskValues ?? true,
     maxDepth: options.maxDepth ?? 8,
+    patterns: options.patterns ?? [],
+    replacement: options.replacement ?? REDACTED,
   };
   return redactInner(value, 0, new WeakSet(), resolved) as T;
 }

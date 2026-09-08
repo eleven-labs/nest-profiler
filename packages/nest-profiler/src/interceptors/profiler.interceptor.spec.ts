@@ -389,6 +389,25 @@ describe('ProfilerInterceptor', () => {
       expect(profile.exceptions).toHaveLength(1);
     });
 
+    it('attaches source code frames to a captured exception when sourceContext is enabled', async () => {
+      const profile = makeProfile();
+      const core = makeCore();
+      core.schedulePersist = jest.fn();
+      const res = makeRes();
+      const interceptor = makeInterceptor(profile, core, { sourceContext: true });
+
+      await expect(
+        lastValueFrom(
+          interceptor.intercept(
+            makeCtx({ method: 'GET', url: '/api' }, res),
+            errorHandler(new Error('boom')),
+          ),
+        ),
+      ).rejects.toThrow('boom');
+
+      expect(profile.exceptions[0]?.frames?.[0]?.file).toBe(__filename);
+    });
+
     it('HTML responses still wait for collectors so the toolbar shows their panels', async () => {
       const profile = makeProfile();
       const core = makeCore();
@@ -693,6 +712,55 @@ describe('ProfilerInterceptor', () => {
 
       // Aligned with processNonHttp: a generic error is recorded as 500, not the stale 200.
       expect(profile.response?.statusCode).toBe(500);
+    });
+  });
+});
+
+describe('ProfilerInterceptor — response redaction', () => {
+  it('masks sensitive response headers — a captured set-cookie is a replayable session', async () => {
+    const profile = makeProfile();
+    const core = makeCore();
+    const interceptor = makeInterceptor(profile, core);
+    const res = makeRes({ 'set-cookie': 'sid=abc; HttpOnly', 'content-type': 'application/json' });
+
+    await lastValueFrom(
+      interceptor.intercept(makeCtx({ method: 'GET', url: '/x' }, res), handler({ ok: 1 })),
+    );
+
+    expect(profile.response?.headers).toEqual({
+      'set-cookie': '[REDACTED]',
+      'content-type': 'application/json',
+    });
+  });
+
+  it('extends the masked response headers through the redaction block', async () => {
+    const profile = makeProfile();
+    const core = makeCore();
+    const interceptor = makeInterceptor(profile, core, { redaction: { headers: ['x-internal'] } });
+    const res = makeRes({ 'x-internal': 'secret', 'x-public': 'fine' });
+
+    await lastValueFrom(
+      interceptor.intercept(makeCtx({ method: 'GET', url: '/x' }, res), handler({ ok: 1 })),
+    );
+
+    expect(profile.response?.headers).toEqual({ 'x-internal': '[REDACTED]', 'x-public': 'fine' });
+  });
+
+  it('redacts sensitive keys inside a captured response body', async () => {
+    const profile = makeProfile();
+    const core = makeCore();
+    const interceptor = makeInterceptor(profile, core, { collectBody: true });
+
+    await lastValueFrom(
+      interceptor.intercept(
+        makeCtx({ method: 'POST', url: '/login' }, makeRes()),
+        handler({ accessToken: 'abc', user: { name: 'bob' } }),
+      ),
+    );
+
+    expect(profile.response?.body).toEqual({
+      accessToken: '[REDACTED]',
+      user: { name: 'bob' },
     });
   });
 });

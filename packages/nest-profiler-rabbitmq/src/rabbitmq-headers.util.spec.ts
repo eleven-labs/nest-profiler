@@ -1,4 +1,9 @@
-import { extractHeaders, formatHeaderValue, resolveMaskHeaders } from './rabbitmq-headers.util';
+import {
+  DEFAULT_MASK_HEADERS,
+  extractHeaders,
+  formatHeaderValue,
+  resolveMaskHeaders,
+} from './rabbitmq-headers.util';
 
 describe('extractHeaders', () => {
   it('returns an empty object for non-object input', () => {
@@ -64,12 +69,17 @@ describe('formatHeaderValue', () => {
 });
 
 describe('resolveMaskHeaders', () => {
-  it('returns the built-in list when no extra name is given', () => {
+  it('returns the built-in list when no extra name is given — the core list, not a local copy', () => {
+    expect(resolveMaskHeaders(undefined)).toEqual(DEFAULT_MASK_HEADERS);
+    // Guards against the list drifting back to a hand-maintained duplicate that once had only
+    // 4 of these 6 entries (missing `set-cookie` and `proxy-authorization`).
     expect(resolveMaskHeaders(undefined)).toEqual([
       'authorization',
       'cookie',
+      'set-cookie',
       'x-api-key',
       'x-auth-token',
+      'proxy-authorization',
     ]);
   });
 

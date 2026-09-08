@@ -1,10 +1,8 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
-import type { CollectorModuleOptions } from '@eleven-labs/nest-profiler';
+import type { CollectorModuleOptions, RedactionKeyOptions } from '@eleven-labs/nest-profiler';
 
-export interface ConfigCollectorModuleOptions extends CollectorModuleOptions {
-  maskKeys?: string[];
-}
+export interface ConfigCollectorModuleOptions extends CollectorModuleOptions, RedactionKeyOptions {}
 
 /** Async configuration for {@link ConfigCollectorModule.forRootAsync}. */
 export type ConfigCollectorModuleAsyncOptions =

@@ -4,6 +4,7 @@ import type {
   CollectorModuleOptions,
   EntryErrorOptions,
   ProfilerTag,
+  RedactionHeaderOptions,
   SafeDataOptions,
   TagSeverityOptions,
 } from '@eleven-labs/nest-profiler';
@@ -56,7 +57,7 @@ export interface RabbitMqPublishEntry {
 export const RABBITMQ_PUBLISHES_KEY = '__rabbitmq_publishes';
 
 export interface RabbitMqPublishCollectorModuleOptions
-  extends CollectorModuleOptions, TagSeverityOptions {
+  extends CollectorModuleOptions, TagSeverityOptions, RedactionHeaderOptions {
   /**
    * Capture the RabbitMQ headers passed to `publish()`. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
@@ -68,13 +69,6 @@ export interface RabbitMqPublishCollectorModuleOptions
    * Disable it when messages carry payloads too large or too sensitive to store.
    */
   captureBody?: boolean;
-
-  /**
-   * Header names (lowercase) whose values are replaced with `[REDACTED]`.
-   * Merged with the built-in list: `authorization`, `cookie`, `x-api-key`,
-   * `x-auth-token`.
-   */
-  maskHeaders?: string[];
 
   /**
    * Depth / size caps applied to captured payloads, forwarded to the core's `toSafeData`.

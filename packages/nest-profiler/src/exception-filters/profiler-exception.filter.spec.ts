@@ -63,6 +63,16 @@ describe('ProfilerExceptionFilter', () => {
     expect(superCatch).toHaveBeenCalledTimes(1);
   });
 
+  it('attaches source code frames when sourceContext is enabled', () => {
+    const profile = makeProfile();
+    const filter = new ProfilerExceptionFilter(makeCls(profile), { sourceContext: true });
+    const host = makeHost('http', { [PROFILER_REQ_KEY]: profile });
+
+    filter.catch(new UnauthorizedException('nope'), host);
+
+    expect(profile.exceptions[0]?.frames?.[0]?.file).toBe(__filename);
+  });
+
   it('does not double-record when the interceptor already finalized the profile', () => {
     // A set `response` is the marker that the interceptor handled (and saved) the request.
     const profile = makeProfile({

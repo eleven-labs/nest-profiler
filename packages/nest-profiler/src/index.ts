@@ -161,7 +161,22 @@ export {
   REDACTED,
   DEFAULT_SECRET_KEY_RE,
 } from './utils/redact.utils';
-export type { RedactOptions } from './utils/redact.utils';
+export type { RedactOptions, RedactStringOptions } from './utils/redact.utils';
+export type {
+  ProfilerRedactionOptions,
+  RedactionKeyOptions,
+  RedactionHeaderOptions,
+  RedactionQueryParamOptions,
+} from './utils/redaction-options';
+export { resolveRedactionConfig } from './utils/redaction-config';
+export type { ResolvedRedactionConfig } from './utils/redaction-config';
+export { buildSourceContext, resolveSourceContextOptions } from './utils/source-context.util';
+export type {
+  SourceContextOptions,
+  SourceCodeFrame,
+  SourceCodeLine,
+} from './utils/source-context.util';
+export type { ToExceptionEntryOptions } from './analysis/to-exception-entry';
 export {
   DEFAULT_MASK_HEADERS,
   extractHeaders,
@@ -205,7 +220,11 @@ export {
 export type { IContextAdapter } from './adapters/context-adapter.interface';
 export { PROFILER_REQ_KEY, PROFILER_CLS_KEYS, PROFILER_BASE_PATH } from './constants';
 export { combineFilters } from './filters';
-export type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';
+export type {
+  ProfilerFilterRequest,
+  ProfilerRequestFilter,
+  ProfilerForceProfileFilter,
+} from './filters';
 export { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
 export { PROFILER_LIST_FILTERS } from './list-filters/profiler-list-filter.interface';
 export type {

@@ -1,0 +1,14 @@
+<%#
+  Source-code excerpts around an exception's application stack frames (opt-in via
+  `sourceContext`). Shared between the primary exception and each `cause` in the chain.
+  Locals: frames (SourceCodeFrame[]), borderClass (string).
+%>
+<% for (const frame of frames) { %>
+  <div class="mt-3 pt-3 border-t <%= borderClass %>">
+    <p class="text-foreground-faint text-2xs font-mono mb-1.5 truncate">
+      <%= frame.file %><% if (frame.function) { %> — <span class="text-foreground-muted"><%= frame.function %>()</span><% } %>
+    </p>
+    <pre class="text-xs overflow-x-auto leading-relaxed rounded border border-line bg-surface-muted"><% for (const line of frame.lines) { %><span class="flex <%= line.isFaultLine ? 'bg-danger-bg text-danger' : 'text-code-text' %>"><span class="w-10 shrink-0 text-right pr-2 select-none text-foreground-faint"><%= line.number %></span><span class="flex-1 whitespace-pre"><%= line.code %></span></span>
+<% } %></pre>
+  </div>
+<% } %>

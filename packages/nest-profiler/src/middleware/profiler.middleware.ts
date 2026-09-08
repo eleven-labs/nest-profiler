@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders } from 'node:http';
-import { Inject, Injectable, NestMiddleware, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, NestMiddleware, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
@@ -14,18 +14,19 @@ import {
 } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { setProfileContext } from '../services/profiler-context';
-import type { ProfilerRequestFilter } from '../filters';
+import type {
+  ProfilerFilterRequest,
+  ProfilerForceProfileFilter,
+  ProfilerRequestFilter,
+} from '../filters';
 import { completeProfilePerformance, markProfileStart } from '../utils/profile-metrics.util';
-import { DEFAULT_MASK_HEADERS } from '../utils/redact-headers.util';
-import {
-  buildMaskedQueryParams,
-  DEFAULT_MASK_QUERY_PARAMS,
-  redactQueryRecord,
-  redactQueryString,
-} from '../utils/redact-query.util';
-import { redact } from '../utils/redact.utils';
+import { redactQueryRecord, redactQueryString } from '../utils/redact-query.util';
+import { redact, REDACTED } from '../utils/redact.utils';
+import type { RedactOptions } from '../utils/redact.utils';
+import { resolveRedactionConfig } from '../utils/redaction-config';
 import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
 import type { SafeDataOptions } from '../utils/safe-data.utils';
+import type { SummaryPrimitive } from '../storage/profile-summary';
 
 /**
  * Paths skipped by default so the profiler list is not flooded with browser and
@@ -48,11 +49,12 @@ export const DEFAULT_IGNORE_PATHS: (string | RegExp)[] = [
 function normalizeIncomingHeaders(
   headers: IncomingHttpHeaders,
   maskHeaders: ReadonlySet<string>,
+  replacement: string = REDACTED,
 ): Record<string, string | string[]> {
   const result: Record<string, string | string[]> = {};
   for (const [k, v] of Object.entries(headers)) {
     if (v === undefined) continue;
-    result[k] = maskHeaders.has(k.toLowerCase()) ? '[REDACTED]' : v;
+    result[k] = maskHeaders.has(k.toLowerCase()) ? replacement : v;
   }
   return result;
 }
@@ -80,17 +82,24 @@ const EMPTY_MASK: ReadonlySet<string> = new Set();
 
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(ProfilerMiddleware.name);
   private readonly profilerPath = PROFILER_BASE_PATH;
   private readonly collectBody: boolean;
   private readonly maxBodySize: number | undefined;
   private readonly bodyCaptureLimits: SafeDataOptions | undefined;
   private readonly sampleRate: number;
   private readonly ignorePaths: (string | RegExp)[];
-  private readonly maskCookies: Set<string>;
+  private readonly maskCookies: ReadonlySet<string>;
   private readonly maskHeaders: ReadonlySet<string>;
   private readonly maskQueryParams: ReadonlySet<string>;
+  private readonly redactOptions: RedactOptions;
+  private readonly replacement: string;
   private readonly emitDebugHeaders: boolean;
   private readonly ignoreRequest: ProfilerRequestFilter | undefined;
+  private readonly alwaysProfile: ProfilerForceProfileFilter | undefined;
+  private readonly debug: boolean;
+  private readonly attributesFn:
+    ((req: ProfilerFilterRequest) => Record<string, SummaryPrimitive>) | undefined;
 
   constructor(
     private readonly cls: ClsService,
@@ -108,21 +117,19 @@ export class ProfilerMiddleware implements NestMiddleware {
       ...(options.useDefaultIgnorePaths === false ? [] : DEFAULT_IGNORE_PATHS),
       ...(options.ignorePaths ?? []),
     ];
-    this.maskCookies = new Set(options.maskCookies ?? []);
-    // Additive: naming one extra header or parameter must never silently drop the built-in
-    // protections. Opting out is explicit, via `useDefaultMask*`.
-    this.maskHeaders = new Set(
-      [
-        ...(options.useDefaultMaskHeaders === false ? [] : DEFAULT_MASK_HEADERS),
-        ...(options.maskHeaders ?? []),
-      ].map((h) => h.toLowerCase()),
-    );
-    this.maskQueryParams = buildMaskedQueryParams([
-      ...(options.useDefaultMaskQueryParams === false ? [] : DEFAULT_MASK_QUERY_PARAMS),
-      ...(options.maskQueryParams ?? []),
-    ]);
+    // Additive merge of `redaction` and the deprecated flat options, resolved once in the shared
+    // helper the interceptor also uses so request and response capture never mask differently.
+    const redaction = resolveRedactionConfig(options);
+    this.maskCookies = redaction.maskCookies;
+    this.maskHeaders = redaction.maskHeaders;
+    this.maskQueryParams = redaction.maskQueryParams;
+    this.redactOptions = redaction.redactOptions;
+    this.replacement = redaction.replacement;
     this.emitDebugHeaders = options.emitDebugHeaders ?? true;
     this.ignoreRequest = options.ignoreRequest;
+    this.alwaysProfile = options.alwaysProfile;
+    this.debug = options.debug ?? false;
+    this.attributesFn = typeof options.attributes === 'function' ? options.attributes : undefined;
   }
 
   use(req: PlatformRequest, res: PlatformResponse, next: NextFunction): void {
@@ -152,9 +159,13 @@ export class ProfilerMiddleware implements NestMiddleware {
           // Redacted here, at capture: the URL is persisted, rendered, exported by
           // `/:token/data` and copied into the cURL command, so a credential that reaches
           // the profile is readable everywhere the profile is.
-          url: redactQueryString(req.originalUrl ?? req.url, this.maskQueryParams),
-          headers: normalizeIncomingHeaders(req.headers, this.maskHeaders),
-          query: redactQueryRecord(req.query ?? {}, this.maskQueryParams),
+          url: redactQueryString(
+            req.originalUrl ?? req.url,
+            this.maskQueryParams,
+            this.replacement,
+          ),
+          headers: normalizeIncomingHeaders(req.headers, this.maskHeaders, this.replacement),
+          query: redactQueryRecord(req.query ?? {}, this.maskQueryParams, this.replacement),
           ip: req.ip,
           requestId,
           body: this.collectBody ? this.normalizeBody(req.body) : undefined,
@@ -169,6 +180,7 @@ export class ProfilerMiddleware implements NestMiddleware {
       logs: [],
       exceptions: [],
       collectors: {},
+      attributes: this.attributesFn?.(this.toFilterRequest(req)),
     };
 
     // Durations are measured against this, not against `startTime` — see clock.utils.
@@ -339,36 +351,61 @@ export class ProfilerMiddleware implements NestMiddleware {
 
   private shouldSkip(req: PlatformRequest): boolean {
     const reqPath = req.path ?? req.url;
-    if (reqPath.startsWith(this.profilerPath)) return true;
-    if (this.sampleRate < 1.0 && Math.random() > this.sampleRate) return true;
-    if (
-      this.ignoreRequest?.({
-        method: req.method,
-        url: req.url,
-        path: req.path,
-        // The user's own skip predicate sees raw headers (never persisted) so it can inspect
-        // e.g. `authorization` to decide what to profile.
-        headers: normalizeIncomingHeaders(req.headers, EMPTY_MASK),
-        body: req.body,
-      })
-    )
+    if (reqPath.startsWith(this.profilerPath)) {
+      this.logSkip(() => `the profiler's own route ${reqPath}`);
       return true;
-    if (this.ignorePaths.length === 0) return false;
-    return this.ignorePaths.some((p) =>
-      typeof p === 'string' ? reqPath.startsWith(p) : p.test(reqPath),
-    );
+    }
+
+    if (this.ignoreRequest?.(this.toFilterRequest(req))) {
+      this.logSkip(() => `ignoreRequest matched ${req.method} ${reqPath}`);
+      return true;
+    }
+
+    if (this.ignorePaths.length > 0) {
+      const matched = this.ignorePaths.find((p) =>
+        typeof p === 'string' ? reqPath.startsWith(p) : p.test(reqPath),
+      );
+      if (matched !== undefined) {
+        this.logSkip(() => `ignorePaths matched ${String(matched)} for ${reqPath}`);
+        return true;
+      }
+    }
+
+    // Forces capture past the sample-rate roll below — but never past the hard stops above.
+    if (this.alwaysProfile?.(this.toFilterRequest(req))) return false;
+
+    if (this.sampleRate < 1.0 && Math.random() > this.sampleRate) {
+      this.logSkip(() => `sampleRate (${this.sampleRate}) excluded ${req.method} ${reqPath}`);
+      return true;
+    }
+
+    return false;
   }
 
-  /** JSON-safe, size-bounded copy of a captured body (see `maxBodySize` / `bodyCaptureLimits`). */
+  /** Logs why a request was skipped, only when `debug` is enabled — avoids the cost otherwise. */
+  private logSkip(reason: () => string): void {
+    if (this.debug) this.logger.debug(`Skipping profiling: ${reason()}`);
+  }
+
+  /**
+   * JSON-safe, size-bounded, redacted copy of a captured body (see `maxBodySize` /
+   * `bodyCaptureLimits` / `redaction`). Bounded first, then redacted: the caps have already
+   * dropped everything that will not be stored, so masking only walks what reaches the profile.
+   */
   private normalizeBody(body: unknown): unknown {
-    return normalizeBody(body, this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE, this.bodyCaptureLimits);
+    const safe = normalizeBody(
+      body,
+      this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE,
+      this.bodyCaptureLimits,
+    );
+    return redact(safe, this.redactOptions);
   }
 
   private buildCookieMap(req: PlatformRequest): Record<string, string> | undefined {
     const raw = req.cookies ?? this.parseCookies(req.headers.cookie);
     if (Object.keys(raw).length === 0) return undefined;
     return Object.fromEntries(
-      Object.entries(raw).map(([k, v]) => [k, this.maskCookies.has(k) ? '[REDACTED]' : v]),
+      Object.entries(raw).map(([k, v]) => [k, this.maskCookies.has(k) ? this.replacement : v]),
     );
   }
 
@@ -379,7 +416,20 @@ export class ProfilerMiddleware implements NestMiddleware {
       if (typeof v !== 'function') data[k] = v;
     }
     // Session data commonly holds tokens/passport payloads — redact sensitive keys/values.
-    return Object.keys(data).length > 0 ? redact(data) : undefined;
+    return Object.keys(data).length > 0 ? redact(data, this.redactOptions) : undefined;
+  }
+
+  /** Framework-agnostic request shape passed to `ignoreRequest`/`alwaysProfile`/`attributes`. */
+  private toFilterRequest(req: PlatformRequest): ProfilerFilterRequest {
+    return {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      // These predicates see raw headers (never persisted) so they can inspect e.g.
+      // `authorization` to decide what to profile / tag.
+      headers: normalizeIncomingHeaders(req.headers, EMPTY_MASK),
+      body: req.body,
+    };
   }
 
   private parseCookies(header?: string): Record<string, string> {

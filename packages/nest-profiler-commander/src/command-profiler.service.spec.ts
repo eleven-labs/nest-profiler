@@ -135,6 +135,23 @@ describe('CommandProfiler', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it("annotates the exception with code frames on the core's sourceContext setting", async () => {
+    // A CLI profile is built by this package, not by the HTTP middleware — the `sourceContext`
+    // option is documented for every exception, so it must reach this path too.
+    const { cls } = createCls();
+    const { core, saved } = createCore();
+    (core as unknown as { sourceContext: object }).sourceContext = { maxFrames: 1 };
+    const profiler = new CommandProfiler(moduleRefFor(cls, core));
+
+    await expect(profiler.profile(META, () => Promise.reject(new Error('boom')))).rejects.toThrow(
+      'boom',
+    );
+
+    const frames = saved().exceptions[0]?.frames;
+    expect(frames).toHaveLength(1);
+    expect(frames?.[0]?.lines.length).toBeGreaterThan(0);
+  });
+
   it('wraps non-Error throws', async () => {
     const { cls } = createCls();
     const { core, saved } = createCore();
