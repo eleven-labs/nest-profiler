@@ -124,6 +124,111 @@ describe('getIndexAttributes', () => {
   });
 });
 
+describe('getIndexAttributes — custom attributes', () => {
+  async function buildWithOptions(options: ProfilerModuleOptions): Promise<ProfilerCoreService> {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProfilerCoreService,
+        {
+          provide: ProfilerStorageService,
+          useValue: { setIndexAttributesProvider: jest.fn() },
+        },
+        { provide: CollectorRegistry, useValue: {} },
+        { provide: RouteCollector, useValue: { match: jest.fn() } },
+        { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: options },
+      ],
+    }).compile();
+    return moduleRef.get(ProfilerCoreService);
+  }
+
+  it('merges a static attributes object into every profile', async () => {
+    const core = await buildWithOptions({ attributes: { env: 'staging' } });
+    expect(core.getIndexAttributes(makeProfile())).toEqual({ env: 'staging' });
+  });
+
+  it('does not evaluate a function-form attributes option itself — the middleware does, per-request', async () => {
+    const attributes = jest.fn().mockReturnValue({ tenant: 'acme' });
+    const core = await buildWithOptions({ attributes });
+    expect(core.getIndexAttributes(makeProfile())).toEqual({});
+    expect(attributes).not.toHaveBeenCalled();
+  });
+
+  it('merges the per-request profile.attributes stamped by the middleware', async () => {
+    const core = await buildWithOptions({ attributes: { env: 'staging' } });
+    const profile = { ...makeProfile(), attributes: { tenant: 'acme' } };
+    expect(core.getIndexAttributes(profile)).toEqual({ env: 'staging', tenant: 'acme' });
+  });
+
+  it('lets the exception facet and kind attributes override a custom attribute of the same name', async () => {
+    const core = await buildWithOptions({ attributes: { exception: 'never' } });
+    const profile = makeProfile();
+    profile.exceptions = [{ name: 'NotFoundException', message: 'nope', timestamp: 0 }];
+    expect(core.getIndexAttributes(profile)).toEqual({ exception: 'NotFoundException' });
+  });
+});
+
+describe('version stamping', () => {
+  /** Persists a profile through the core and returns what reached storage. */
+  async function persist(
+    options: ProfilerModuleOptions,
+    profile: Profile,
+  ): Promise<Profile | undefined> {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProfilerCoreService,
+        {
+          provide: ProfilerStorageService,
+          useValue: { save, setIndexAttributesProvider: jest.fn() },
+        },
+        {
+          provide: CollectorRegistry,
+          useValue: { collectAll: jest.fn().mockResolvedValue(undefined), getCollectors: () => [] },
+        },
+        { provide: RouteCollector, useValue: { match: jest.fn() } },
+        { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: options },
+      ],
+    }).compile();
+    const core = moduleRef.get(ProfilerCoreService);
+    core.schedulePersist(profile);
+    await core.flushPendingProfiles();
+    const [firstCall] = save.mock.calls as [Profile][];
+    return firstCall?.[0];
+  }
+
+  it('stamps the configured version on any profile reaching storage, whatever built it', async () => {
+    // Deliberately a non-HTTP profile: `version` is documented as stamped on *every* profile, and
+    // the CLI/AMQP packages build theirs without going anywhere near the HTTP middleware.
+    const profile = { ...makeProfile(), entrypoint: { type: 'command', data: {} } };
+    expect((await persist({ version: '1.2.3' }, profile))?.version).toBe('1.2.3');
+  });
+
+  it('leaves version undefined when not configured', async () => {
+    expect((await persist({}, makeProfile()))?.version).toBeUndefined();
+  });
+
+  it('does not overwrite a version a profile already carries', async () => {
+    const profile = { ...makeProfile(), version: 'from-the-capture-site' };
+    expect((await persist({ version: '1.2.3' }, profile))?.version).toBe('from-the-capture-site');
+  });
+
+  it('exposes the resolved sourceContext so packages building their own profiles share it', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ProfilerCoreService,
+        {
+          provide: ProfilerStorageService,
+          useValue: { setIndexAttributesProvider: jest.fn() },
+        },
+        { provide: CollectorRegistry, useValue: {} },
+        { provide: RouteCollector, useValue: { match: jest.fn() } },
+        { provide: NEST_PROFILER_MODULE_OPTIONS, useValue: { sourceContext: { maxFrames: 2 } } },
+      ],
+    }).compile();
+    expect(moduleRef.get(ProfilerCoreService).sourceContext).toEqual({ maxFrames: 2 });
+  });
+});
+
 describe('ProfilerCoreService', () => {
   it('exposes the injected storage, collector registry and route collector', async () => {
     const storage = {

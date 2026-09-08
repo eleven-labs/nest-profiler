@@ -64,8 +64,13 @@ describe('ProfilerService', () => {
     });
 
     const duration = profile.spans?.[0]?.duration ?? 0;
+    // The point of the test: a loop this short lands under a millisecond, and the old integer
+    // arithmetic recorded it as a flat `0`.
     expect(duration).toBeGreaterThan(0);
-    expect(duration).toBeLessThan(50);
+    // A loose sanity bound, only there to catch a unit mistake (nanoseconds read as ms). Kept
+    // wide on purpose: a tight one measures how contended the CI runner is, not the code — it
+    // flaked at 179ms on a loaded Node 24 job while the same commit passed on 22 and 26.
+    expect(duration).toBeLessThan(10_000);
   });
 
   it('startSpan places the span on the wall clock but measures it on the monotonic one', () => {

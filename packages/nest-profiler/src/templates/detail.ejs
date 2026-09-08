@@ -57,6 +57,10 @@
       <span class="text-foreground-secondary truncate max-w-xs"><%= summary.text %></span>
       <span class="text-foreground-faint">/</span>
       <code class="text-foreground-secondary bg-surface border border-line px-2 py-0.5 rounded"><%= profile.token.slice(0, 8) %></code>
+      <% if (profile.version) { %>
+        <span class="text-foreground-faint">·</span>
+        <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide badge-default" title="Build/release version"><%= profile.version %></span>
+      <% } %>
       <% if (profile.route) { %>
         <span class="text-foreground-faint">·</span>
         <span class="text-foreground-faint"><%= profile.route.controller %>::<%= profile.route.handler %></span>
@@ -409,6 +413,9 @@
                     <% if (ex.stack) { %>
                       <pre class="mt-3 pt-3 text-xs text-foreground-muted overflow-x-auto leading-relaxed border-t <%= borderClass %>"><%= ex.stack %></pre>
                     <% } %>
+                    <% if (ex.frames && ex.frames.length > 0) { %>
+                      <%- include('_exception-frames', { frames: ex.frames, borderClass }) %>
+                    <% } %>
                     <%# The cause chain: what an `InternalServerErrorException` was actually
                         wrapping. Rendered flat rather than nested — a chain is read top to
                         bottom, and nesting three levels of padding buys nothing. %>
@@ -425,6 +432,9 @@
                         <p class="<%= msgClass %> text-xs mt-0.5 break-words"><%= cause.message %></p>
                         <% if (cause.stack) { %>
                           <pre class="mt-2 text-xs text-foreground-muted overflow-x-auto leading-relaxed"><%= cause.stack %></pre>
+                        <% } %>
+                        <% if (cause.frames && cause.frames.length > 0) { %>
+                          <%- include('_exception-frames', { frames: cause.frames, borderClass }) %>
                         <% } %>
                       </div>
                       <% cause = cause.cause; %>

@@ -1,4 +1,6 @@
 import type { ExceptionEntry } from '../interfaces/profile.interface';
+import { buildSourceContext } from '../utils/source-context.util';
+import type { SourceContextOptions } from '../utils/source-context.util';
 
 /**
  * Turns whatever was thrown into the {@link ExceptionEntry} stored on a profile.
@@ -39,15 +41,22 @@ function normalizeError(thrown: unknown): Error {
   return thrown instanceof Error ? thrown : new Error(String(thrown));
 }
 
-function build(thrown: unknown, depth: number, seen: Set<unknown>): ExceptionEntry {
+function build(
+  thrown: unknown,
+  depth: number,
+  seen: Set<unknown>,
+  sourceContext: SourceContextOptions | undefined,
+): ExceptionEntry {
   const error = normalizeError(thrown);
   const code = readCode(thrown);
+  const frames = sourceContext ? buildSourceContext(error.stack, sourceContext) : undefined;
 
   const entry: ExceptionEntry = {
     name: error.name,
     message: error.message,
     ...(code !== undefined ? { code } : {}),
     stack: error.stack,
+    ...(frames !== undefined ? { frames } : {}),
     timestamp: Date.now(),
   };
 
@@ -56,17 +65,27 @@ function build(thrown: unknown, depth: number, seen: Set<unknown>): ExceptionEnt
   // would otherwise recurse until the depth cap and store the same frames several times over.
   if (cause !== undefined && cause !== null && depth < MAX_CAUSE_DEPTH && !seen.has(cause)) {
     seen.add(cause);
-    entry.cause = build(cause, depth + 1, seen);
+    entry.cause = build(cause, depth + 1, seen, sourceContext);
   }
 
   return entry;
+}
+
+/** Options accepted by {@link toExceptionEntry}. */
+export interface ToExceptionEntryOptions {
+  /** Enable and tune {@link ProfilerModuleOptions.sourceContext} annotation. Off when omitted. */
+  sourceContext?: SourceContextOptions;
 }
 
 /**
  * Builds the {@link ExceptionEntry} for a thrown value, following its `cause` chain.
  *
  * @param thrown - Whatever reached the `catch`. Any value, not necessarily an `Error`.
+ * @param options - Pass `{ sourceContext: {...} }` to annotate each frame with a code excerpt.
  */
-export function toExceptionEntry(thrown: unknown): ExceptionEntry {
-  return build(thrown, 0, new Set([thrown]));
+export function toExceptionEntry(
+  thrown: unknown,
+  options: ToExceptionEntryOptions = {},
+): ExceptionEntry {
+  return build(thrown, 0, new Set([thrown]), options.sourceContext);
 }

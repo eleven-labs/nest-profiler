@@ -168,4 +168,65 @@ describe('redact', () => {
     }
     expect(redact(new Point(1, 'secret'))).toEqual({ x: 1, token: REDACTED });
   });
+
+  it('masks a Luhn-valid card number embedded in a string', () => {
+    // A well-known Luhn-valid test number (Visa test PAN).
+    expect(redact({ note: 'card 4242 4242 4242 4242 on file' })).toEqual({
+      note: `card ${REDACTED} on file`,
+    });
+  });
+
+  it('leaves a same-length digit run alone when it fails the Luhn checksum', () => {
+    expect(redact({ note: 'order 4242424242424241' })).toEqual({
+      note: 'order 4242424242424241',
+    });
+  });
+
+  it('applies extra value patterns on top of the built-ins', () => {
+    expect(
+      redact({ note: 'acct_ab12cd34ef56gh78' }, { patterns: [/acct_[a-z0-9]{16}/gi] }),
+    ).toEqual({
+      note: REDACTED,
+    });
+  });
+
+  it('honours a custom replacement sentinel', () => {
+    expect(redact({ password: 'hunter2' }, { replacement: '***' })).toEqual({
+      password: '***',
+    });
+    expect(redact('sk-ABCDEFGHIJKLMNOPQRST', { replacement: '***' })).toBe('***');
+  });
+});
+
+describe('redactString with extra options', () => {
+  it('honours a custom replacement sentinel', () => {
+    expect(redactString('key=sk-ABCDEFGHIJKLMNOPQRST', { replacement: '***' })).toBe('key=***');
+  });
+
+  it('applies extra patterns', () => {
+    expect(redactString('acct_ab12cd34ef56gh78', { patterns: [/acct_[a-z0-9]{16}/gi] })).toBe(
+      REDACTED,
+    );
+  });
+});
+
+describe('redactString — caller-supplied patterns', () => {
+  it('masks every occurrence even when the pattern carries no g flag', () => {
+    expect(
+      redactString('acct_aaaaaaaaaaaaaaaa and acct_bbbbbbbbbbbbbbbb', {
+        patterns: [/acct_[a-z0-9]{16}/],
+      }),
+    ).toBe(`${REDACTED} and ${REDACTED}`);
+  });
+
+  it('does not carry lastIndex across calls for a sticky pattern', () => {
+    const sticky = /acct_[a-z0-9]{16}/gy;
+    const input = 'acct_aaaaaaaaaaaaaaaa';
+    expect(redactString(input, { patterns: [sticky] })).toBe(REDACTED);
+    expect(redactString(input, { patterns: [sticky] })).toBe(REDACTED);
+  });
+
+  it('writes a replacement containing $ literally rather than interpolating it', () => {
+    expect(redactString('token sk-ABCDEFGHIJKLMNOPQRST', { replacement: '$&' })).toBe('token $&');
+  });
 });

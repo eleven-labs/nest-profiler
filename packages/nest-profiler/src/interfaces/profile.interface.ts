@@ -1,4 +1,6 @@
 import type { ProfilerTag } from '../analysis/profiler-tag.interface';
+import type { SourceCodeFrame } from '../utils/source-context.util';
+import type { SummaryPrimitive } from '../storage/profile-summary';
 
 export type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
 
@@ -30,6 +32,12 @@ export interface ExceptionEntry {
    * the `QueryFailedError` underneath it says everything.
    */
   cause?: ExceptionEntry;
+  /**
+   * Source-code excerpts around this exception's application stack frames — the Symfony
+   * exception page, locally. Present only when {@link ProfilerModuleOptions.sourceContext} is
+   * enabled and at least one frame resolved to a readable application file.
+   */
+  frames?: SourceCodeFrame[];
   timestamp: number;
 }
 
@@ -196,6 +204,8 @@ export interface SecurityContext {
 export interface Profile<TData = unknown> {
   token: string;
   createdAt: number;
+  /** Build/release identifier stamped from {@link ProfilerModuleOptions.version}, when set. */
+  version?: string;
   /** What triggered this profile (HTTP request, command, message…). */
   entrypoint: ProfileEntrypoint<TData>;
   response?: ResponseData;
@@ -212,4 +222,11 @@ export interface Profile<TData = unknown> {
    * in the profile header, the list-page pills and the `tags` list filter.
    */
   tags?: ProfilerTag[];
+  /**
+   * Custom facets derived from {@link ProfilerModuleOptions.attributes} when it is a function —
+   * HTTP profiles only (see the option's TSDoc). Merged into
+   * {@link ProfilerCoreService.getIndexAttributes} alongside any static attributes and the
+   * entrypoint kind's own facets.
+   */
+  attributes?: Record<string, SummaryPrimitive>;
 }

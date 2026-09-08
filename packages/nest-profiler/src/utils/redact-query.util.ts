@@ -71,7 +71,11 @@ function isMasked(key: string, masked: ReadonlySet<string>): boolean {
  * Returns the URL untouched when it carries nothing to mask, so a benign URL is stored exactly
  * as it arrived rather than in `URLSearchParams`' normalised spelling.
  */
-export function redactQueryString(url: string, masked: ReadonlySet<string>): string {
+export function redactQueryString(
+  url: string,
+  masked: ReadonlySet<string>,
+  replacement: string = REDACTED,
+): string {
   const separator = url.indexOf('?');
   if (separator === -1 || masked.size === 0) return url;
 
@@ -89,7 +93,7 @@ export function redactQueryString(url: string, masked: ReadonlySet<string>): str
   // The keys are materialised before the loop: `set` mutates the object the iterator walks.
   for (const key of [...new Set(params.keys())]) {
     if (!isMasked(key, masked)) continue;
-    params.set(key, REDACTED);
+    params.set(key, replacement);
     redactedAny = true;
   }
 
@@ -105,6 +109,7 @@ export function redactQueryString(url: string, masked: ReadonlySet<string>): str
 export function redactQueryRecord<T extends Record<string, unknown>>(
   query: T,
   masked: ReadonlySet<string>,
+  replacement: string = REDACTED,
 ): T {
   if (masked.size === 0) return query;
 
@@ -116,8 +121,8 @@ export function redactQueryRecord<T extends Record<string, unknown>>(
     const value = query[key];
     result[key] = isMasked(key, masked)
       ? Array.isArray(value)
-        ? value.map(() => REDACTED)
-        : REDACTED
+        ? value.map(() => replacement)
+        : replacement
       : value;
   }
   return result as T;

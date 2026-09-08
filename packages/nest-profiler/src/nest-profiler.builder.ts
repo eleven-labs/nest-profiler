@@ -1,12 +1,19 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { CanActivate, ConfigurableModuleAsyncOptions, Type } from '@nestjs/common';
 import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
-import type { ProfilerRequestFilter } from './filters';
+import type {
+  ProfilerFilterRequest,
+  ProfilerForceProfileFilter,
+  ProfilerRequestFilter,
+} from './filters';
 import type { PerformanceRule } from './analysis/performance-rule.interface';
 import type { ProfilerErrorOptions } from './analysis/profiler-error';
 import type { PlatformRequest, PlatformResponse } from './types/http';
 import type { SafeDataOptions } from './utils/safe-data.utils';
 import type { ProfilerRuntimeOptions } from './runtime/runtime-metrics.interface';
+import type { ProfilerRedactionOptions } from './utils/redaction-options';
+import type { SourceContextOptions } from './utils/source-context.util';
+import type { SummaryPrimitive } from './storage/profile-summary';
 
 /**
  * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the
@@ -184,7 +191,22 @@ export interface ProfilerModuleOptions {
    */
   useDefaultIgnorePaths?: boolean;
 
-  /** Cookie names whose value should be replaced with '***'. */
+  /**
+   * Unified redaction configuration — headers, cookies, query parameters and object keys in one
+   * block, plus extra value `patterns` and a custom `replacement` sentinel. Applied to every
+   * core capture path: request and response headers, cookies, the query string, captured bodies
+   * and session data. Merged additively with the deprecated flat options below when both are
+   * set. See [Redacting sensitive
+   * data](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#redacting-sensitive-data).
+   */
+  redaction?: ProfilerRedactionOptions;
+
+  /**
+   * Cookie names whose value should be replaced with '***'.
+   *
+   * @deprecated Use {@link redaction}'s `cookies` instead. Kept functional (merged additively
+   * with `redaction.cookies`) for one release cycle.
+   */
   maskCookies?: string[];
 
   /**
@@ -193,6 +215,9 @@ export interface ProfilerModuleOptions {
    * list (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`,
    * `proxy-authorization`) — naming one header here never stops the built-ins from being masked.
    * Drop them deliberately with {@link useDefaultMaskHeaders}.
+   *
+   * @deprecated Use {@link redaction}'s `headers` instead. Kept functional (merged additively
+   * with `redaction.headers`) for one release cycle.
    */
   maskHeaders?: string[];
 
@@ -200,6 +225,8 @@ export interface ProfilerModuleOptions {
    * Mask the built-in sensitive request headers on top of {@link maskHeaders}. Default: `true`.
    * Set to `false` only to take over masking entirely — a captured `authorization` header is a
    * replayable credential for as long as the profile lives.
+   *
+   * @deprecated Use {@link redaction}'s `useDefaults: false` instead.
    */
   useDefaultMaskHeaders?: boolean;
 
@@ -211,6 +238,9 @@ export interface ProfilerModuleOptions {
    *
    * Parameter names are kept and only values masked, so a captured URL still reads
    * `?token=[REDACTED]` and stays diagnosable.
+   *
+   * @deprecated Use {@link redaction}'s `queryParams` instead. Kept functional (merged additively
+   * with `redaction.queryParams`) for one release cycle.
    */
   maskQueryParams?: string[];
 
@@ -218,6 +248,8 @@ export interface ProfilerModuleOptions {
    * Mask the built-in sensitive query parameters on top of {@link maskQueryParams}. Default:
    * `true`. Set to `false` only to take over masking entirely — a password-reset token, an OAuth
    * `code` or a URL signature is directly replayable from a stored profile.
+   *
+   * @deprecated Use {@link redaction}'s `useDefaults: false` instead.
    */
   useDefaultMaskQueryParams?: boolean;
 
@@ -263,6 +295,79 @@ export interface ProfilerModuleOptions {
    * Outgoing HTTP calls are judged separately, via `HttpCollectorModule.forRoot({ error })`.
    */
   error?: ProfilerErrorOptions;
+
+  /**
+   * Custom indexed facets attached to every profile — the equivalent of a tag/attribute set on
+   * an APM span. Merged into {@link ProfilerCoreService.getIndexAttributes}, so each facet is
+   * queryable as `attributes.<key>` through the storage API (`ProfilerQuery`'s `where`) the same
+   * way the built-in `exception` facet already is — register your own {@link ProfilerListFilter}
+   * against that field path to expose it as a list-page filter control; a custom key gets no
+   * filter row automatically.
+   *
+   * Pass a plain object to attach the **same** facets to every profile regardless of entrypoint
+   * kind (e.g. `{ env: process.env.NODE_ENV }`), computed once at startup. Pass a function to
+   * derive facets **per HTTP request** (e.g. `(req) => ({ tenant: req.headers['x-tenant-id'] })`)
+   * — only HTTP profiles get these, since a request is only available at that capture point (the
+   * same limitation `requestId` has today).
+   *
+   * ```ts
+   * ProfilerModule.forRoot({
+   *   attributes: (req) => ({ tenant: req.headers['x-tenant-id'] as string }),
+   * });
+   * ```
+   */
+  attributes?:
+    | Record<string, SummaryPrimitive>
+    | ((req: ProfilerFilterRequest) => Record<string, SummaryPrimitive>);
+
+  /**
+   * A build/release identifier (a semver, a commit hash…) stamped on every profile and shown in
+   * its header. Useful once profiles outlive a deploy — `storageType: 'file'` or a SQLite
+   * adapter survive restarts, so nothing else says which build produced an old profile.
+   *
+   * Stamped on the way to storage rather than at capture, so a profile built by a package of its
+   * own (a CLI command, a consumed message) carries it too.
+   */
+  version?: string;
+
+  /**
+   * Force-capture a request regardless of {@link sampleRate} — the escape hatch a sampled
+   * environment needs to guarantee one specific request is never lost to the dice roll (e.g. a
+   * `X-Profiler: 1` header). Evaluated **before** the sample-rate roll, but **after**
+   * `ignoreRequest`/`ignorePaths` — those remain a hard "never profile this", which `alwaysProfile`
+   * cannot override.
+   *
+   * ```ts
+   * ProfilerModule.forRoot({
+   *   sampleRate: 0.1,
+   *   alwaysProfile: (req) => req.headers['x-profiler'] === '1',
+   * });
+   * ```
+   */
+  alwaysProfile?: ProfilerForceProfileFilter;
+
+  /**
+   * Trace **why** a request was or wasn't profiled — the profiler route itself, `ignoreRequest`,
+   * `ignorePaths`, or the `sampleRate` roll — via `Logger.debug`. Off by default; turn it on when
+   * a request unexpectedly does not show up in the dashboard. Default: `false`.
+   */
+  debug?: boolean;
+
+  /**
+   * Attach a source-code excerpt to every captured exception's stack frames — the Symfony
+   * exception page, locally: no data ever leaves the machine. Off by default (it reads files off
+   * disk on every exception). Pass `true` for the defaults, or tune `linesOfContext`/`maxFrames`.
+   *
+   * Applies to every captured exception, whichever entrypoint raised it — an HTTP request, a
+   * CLI command, a consumed message.
+   *
+   * Only application frames are read (`node_modules`, `node:` and `internal/` frames are
+   * skipped), and only files under `process.cwd()` with a recognised source extension — a
+   * hardened stack parse, since `Error#stack` can carry attacker-influenced text. Source maps are
+   * not resolved here: run Node with `--enable-source-maps` and `Error.stack` already carries
+   * original-source positions.
+   */
+  sourceContext?: boolean | SourceContextOptions;
 }
 
 /** Configuration for the performance-tagging rule engine ({@link analyzeProfile}). */

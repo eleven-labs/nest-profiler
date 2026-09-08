@@ -1,4 +1,8 @@
-import type { ProfilerTag } from '@eleven-labs/nest-profiler';
+import type {
+  ProfilerTag,
+  RedactionHeaderOptions,
+  RedactionQueryParamOptions,
+} from '@eleven-labs/nest-profiler';
 
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the
@@ -58,7 +62,7 @@ export interface HttpCaptureInput {
  * Capture/redaction flags shared by every instrumentation so they expose the
  * same option surface.
  */
-export interface HttpCaptureOptions {
+export interface HttpCaptureOptions extends RedactionHeaderOptions, RedactionQueryParamOptions {
   /**
    * Capture outgoing request headers. Default: `true`.
    * Sensitive headers are masked — see `maskHeaders`.
@@ -83,29 +87,4 @@ export interface HttpCaptureOptions {
    * Enable with caution — response bodies can be large.
    */
   captureResponseBody?: boolean;
-
-  /**
-   * Header names (lowercase) whose values are replaced with `[REDACTED]`.
-   * Merged with the built-in list: `authorization`, `cookie`, `set-cookie`,
-   * `x-api-key`, `x-auth-token`, `proxy-authorization`.
-   */
-  maskHeaders?: string[];
-
-  /**
-   * Extra query-parameter names (case-insensitive, `-`/`_` insensitive) whose value is replaced
-   * with `[REDACTED]` in the recorded URL. **Merged with** the built-in list (`token`,
-   * `access_token`, `api_key`, `code`, `state`, `signature`, `password`, `secret`…) that is
-   * masked by default; drop those with {@link useDefaultMaskQueryParams}.
-   *
-   * Use it for the parameters only your upstreams know are sensitive — a vendor-specific
-   * `subscription-key`, say.
-   */
-  maskQueryParams?: string[];
-
-  /**
-   * Mask the built-in sensitive query parameters on top of {@link maskQueryParams}. Default:
-   * `true`. Set to `false` only to take over masking entirely — a third-party API key or a URL
-   * signature is directly replayable from a stored profile.
-   */
-  useDefaultMaskQueryParams?: boolean;
 }

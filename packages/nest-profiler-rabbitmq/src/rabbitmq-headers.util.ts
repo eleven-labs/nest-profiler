@@ -1,3 +1,5 @@
+import { DEFAULT_MASK_HEADERS } from '@eleven-labs/nest-profiler';
+
 /**
  * RabbitMQ header normalisation, shared by the consumer adapter (headers read off a
  * `ConsumeMessage`) and the publish patch (headers passed to `AmqpConnection.publish`).
@@ -9,8 +11,12 @@
  * Exported for unit testing; not part of the package's public API.
  */
 
-/** Header names (lowercase) masked by default in captured RabbitMQ headers. */
-export const DEFAULT_MASK_HEADERS = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
+/**
+ * Header names (lowercase) masked by default in captured RabbitMQ headers — the core's list,
+ * re-exported rather than duplicated so the two never drift apart (this list previously carried
+ * only 4 of the core's 6 entries, missing `set-cookie` and `proxy-authorization`).
+ */
+export { DEFAULT_MASK_HEADERS };
 
 /** The effective mask list: the built-in names plus the ones a module option adds. */
 export function resolveMaskHeaders(extra: string[] | undefined): string[] {
