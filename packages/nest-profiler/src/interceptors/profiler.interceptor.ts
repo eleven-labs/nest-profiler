@@ -12,46 +12,18 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import {
-  PROFILER_BASE_PATH,
-  PROFILER_DEFER_COLLECTION,
-  PROFILER_RESPONSE_BODY,
-} from '../constants';
+import { PROFILER_BASE_PATH } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import { readProfile, setProfileContext } from '../services/profiler-context';
 import { toExceptionEntry } from '../analysis/to-exception-entry';
 import { resolveSourceContextOptions } from '../utils/source-context.util';
 import type { SourceContextOptions } from '../utils/source-context.util';
-import { completeProfilePerformance } from '../utils/profile-metrics.util';
+import { finalizeHttpProfile, resolveHttpCaptureConfig } from '../utils/http-capture.util';
+import type { HttpCaptureConfig } from '../utils/http-capture.util';
+import { isCollectionDeferred, readTransportResponseBody } from '../utils/profile-runtime-state';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
-import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from '../utils/safe-data.utils';
-import type { SafeDataOptions } from '../utils/safe-data.utils';
-import { redact } from '../utils/redact.utils';
-import { resolveRedactionConfig } from '../utils/redaction-config';
-import type { ResolvedRedactionConfig } from '../utils/redaction-config';
-
-/**
- * Flattens outgoing response headers, masking the value of any header in `maskHeaders`. A
- * response carries credentials too — `set-cookie` is a session for as long as the profile
- * lives — so it is masked on the same list as the request, not left in the clear.
- */
-function normalizeHeaders(
-  raw: Record<string, string | number | string[]>,
-  redaction: ResolvedRedactionConfig,
-): Record<string, string | string[]> {
-  return Object.fromEntries(
-    Object.entries(raw).map(([k, v]) => [
-      k,
-      redaction.maskHeaders.has(k.toLowerCase())
-        ? redaction.replacement
-        : typeof v === 'number'
-          ? String(v)
-          : v,
-    ]),
-  );
-}
 
 /**
  * True when the value a route handler emitted is the transport response object rather than a
@@ -71,14 +43,23 @@ function isPlatformResponse(value: unknown, res: PlatformResponse | null): boole
   );
 }
 
+/** Status reported for a non-HTTP execution, which has no transport status of its own. */
+const NON_HTTP_STATUS = 200;
+
+/** The status a thrown error is served as: an `HttpException` carries its own, anything else 500. */
+function statusOf(err: unknown): number {
+  return err instanceof HttpException ? err.getStatus() : 500;
+}
+
 @Injectable()
 export class ProfilerInterceptor implements NestInterceptor {
   private readonly profilerPath = PROFILER_BASE_PATH;
-  private readonly collectBody: boolean;
-  private readonly maxBodySize: number | undefined;
-  private readonly bodyCaptureLimits: SafeDataOptions | undefined;
   private readonly sourceContext: SourceContextOptions | undefined;
-  private readonly redaction: ResolvedRedactionConfig;
+  /**
+   * The same resolved capture settings the middleware applies to the request, so a header or key
+   * masked on the way in is not readable on the way out and both directions share one body cap.
+   */
+  private readonly capture: HttpCaptureConfig;
 
   constructor(
     private readonly cls: ClsService,
@@ -87,27 +68,8 @@ export class ProfilerInterceptor implements NestInterceptor {
     @Inject(NEST_PROFILER_MODULE_OPTIONS)
     options: ProfilerModuleOptions = {},
   ) {
-    this.collectBody = options.collectBody ?? false;
-    this.maxBodySize = options.maxBodySize;
-    this.bodyCaptureLimits = options.bodyCaptureLimits;
     this.sourceContext = resolveSourceContextOptions(options.sourceContext);
-    // Same resolved masking configuration the middleware applies to the request, so a header or
-    // key masked on the way in is not readable on the way out.
-    this.redaction = resolveRedactionConfig(options);
-  }
-
-  /**
-   * JSON-safe, size-bounded, redacted copy of a captured body (see `maxBodySize` /
-   * `bodyCaptureLimits` / `redaction`). Bounded first, then redacted: the caps have already
-   * dropped everything that will not be stored, so masking only walks what reaches the profile.
-   */
-  private normalizeBody(body: unknown): unknown {
-    const safe = normalizeBody(
-      body,
-      this.maxBodySize ?? DEFAULT_MAX_BODY_SIZE,
-      this.bodyCaptureLimits,
-    );
-    return redact(safe, this.redaction.redactOptions);
+    this.capture = resolveHttpCaptureConfig(options);
   }
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -137,8 +99,7 @@ export class ProfilerInterceptor implements NestInterceptor {
     // When the HTTP middleware registered a finish listener (marked on the profile), defer
     // collection to it: it fires after graphql-js has run every field resolver, so queries issued
     // there — which happen after the root resolver returns — are still drained into their panels.
-    const deferToFinishHook =
-      (activeProfile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] === true;
+    const deferToFinishHook = isCollectionDeferred(activeProfile);
 
     if (profile) {
       // CLS already active — route directly to the non-HTTP pipeline.
@@ -165,30 +126,15 @@ export class ProfilerInterceptor implements NestInterceptor {
     const res = httpCtx.getResponse<PlatformResponse>();
     const req = httpCtx.getRequest<PlatformRequest>();
 
-    // Safety net: Apollo bypasses Express next() so the Observable never fires — rely on finish event.
-    type FinishableResponse = {
-      once?: (event: 'finish', fn: () => void) => void;
-      statusCode?: number;
-    };
-    const rawRes = res as FinishableResponse;
-    rawRes.once?.('finish', () => {
-      if (capturedProfile.response) return; // normal path already ran
-      completeProfilePerformance(capturedProfile);
-      capturedProfile.response = {
-        statusCode: rawRes.statusCode ?? 200,
-        headers: {},
-        body: undefined,
-      };
-      this.core.enrichHttpResponse(capturedProfile, req, undefined);
-      this.core.schedulePersist(capturedProfile);
-    });
-
+    // No `finish` listener here: the middleware registered the one the profiler needs, and it
+    // already covers the case this path cannot see (a framework answering without ever reaching
+    // the interceptor). A second listener only had to guard itself against the first.
     return next.handle().pipe(
       switchMap((body: unknown) => {
         // What the handler emitted is not always what the client receives (`@Res()`), so the
         // profile records the resolved payload while the stream keeps forwarding `body` untouched.
         const responseBody = this.resolveResponseBody(capturedProfile, res, body);
-        this.finalize(capturedProfile, res, responseBody);
+        this.finalize(capturedProfile, res, res.statusCode, responseBody);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         this.core.enrichHttpResponse(capturedProfile, req, responseBody);
@@ -213,14 +159,10 @@ export class ProfilerInterceptor implements NestInterceptor {
         capturedProfile.exceptions.push(
           toExceptionEntry(err, { sourceContext: this.sourceContext }),
         );
-        this.finalize(capturedProfile, res, undefined);
-        if (capturedProfile.response) {
-          // Exception filters run after the observable chain, so res.statusCode is still 200
-          // here. Derive the real status from the error: an HttpException carries its own,
-          // anything else becomes a 500 (mirrors processNonHttp).
-          capturedProfile.response.statusCode =
-            err instanceof HttpException ? err.getStatus() : 500;
-        }
+        // Exception filters run after the observable chain, so `res.statusCode` still reads 200
+        // here. The real status comes from the error: an HttpException carries its own, anything
+        // else is a 500 (mirrors processNonHttp).
+        this.finalize(capturedProfile, res, statusOf(err), undefined);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         // Collectors still run (deferred) so pipes/guards data (e.g. validator) is
@@ -241,7 +183,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         // Deferred: the HTTP finish hook finalizes and collects after every field resolver, so
         // draining here (when the root resolver returns) would miss field-resolver queries.
         if (deferToFinishHook) return body;
-        this.finalize(capturedProfile, null, body);
+        this.finalize(capturedProfile, null, NON_HTTP_STATUS, body);
         this.core.schedulePersist(capturedProfile);
         return body;
       }),
@@ -252,11 +194,7 @@ export class ProfilerInterceptor implements NestInterceptor {
         // Deferred: leave finalize + persist to the finish hook (the exception is already on the
         // profile, so it is saved with everything else once the response completes).
         if (!deferToFinishHook) {
-          this.finalize(capturedProfile, null, undefined);
-          if (capturedProfile.response) {
-            capturedProfile.response.statusCode =
-              err instanceof HttpException ? err.getStatus() : 500;
-          }
+          this.finalize(capturedProfile, null, statusOf(err), undefined);
           this.core.schedulePersist(capturedProfile);
         }
         return throwError(() => err);
@@ -276,26 +214,32 @@ export class ProfilerInterceptor implements NestInterceptor {
     body: unknown,
   ): unknown {
     if (!isPlatformResponse(body, res)) return body;
-    const getCapturedBody = (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY];
-    return typeof getCapturedBody === 'function' ? (getCapturedBody as () => unknown)() : undefined;
+    return readTransportResponseBody(profile);
   }
 
-  private finalize(profile: Profile, res: PlatformResponse | null, body: unknown): void {
-    completeProfilePerformance(profile);
-    if (res) {
-      profile.response = {
-        statusCode: res.statusCode,
-        headers: normalizeHeaders(res.getHeaders(), this.redaction),
-        body: this.collectBody ? this.normalizeBody(body) : undefined,
-      };
-    } else {
-      // Non-HTTP context (GraphQL, microservices): always capture resolver result as body.
-      profile.response = {
-        statusCode: 200,
-        headers: {},
-        body: this.normalizeBody(body),
-      };
-    }
+  /**
+   * Hands what only the interceptor knows — the transport headers, the payload the handler
+   * emitted, the status derived from an exception — to the shared finalizer, which is the one
+   * place `profile.response` is built.
+   */
+  private finalize(
+    profile: Profile,
+    res: PlatformResponse | null,
+    statusCode: number,
+    body: unknown,
+  ): void {
+    finalizeHttpProfile(
+      profile,
+      {
+        statusCode,
+        headers: res?.getHeaders(),
+        body,
+        // A non-HTTP context (GraphQL, microservices) has no transport payload of its own, so the
+        // resolver's result is recorded whether or not `collectBody` is on.
+        alwaysCaptureBody: res === null,
+      },
+      this.capture,
+    );
   }
 
   /** An HTML page the toolbar can be injected into — the only response that waits for collectors. */

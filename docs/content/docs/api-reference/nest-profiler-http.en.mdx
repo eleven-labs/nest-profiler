@@ -119,7 +119,7 @@ Low-level primitive for feeding the HTTP Client panel directly from a `ClsServic
 Client-agnostic header redaction helpers shared by instrumentations.
 
 - `DEFAULT_MASK_HEADERS: string[]` - built-in list of header names masked by default (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`).
-- `extractHeaders(headers: unknown, maskHeaders: string[]): Record<string, string>` - normalises a header bag (a `fetch` `Headers`, an axios `AxiosHeaders` or a plain record) into a flat record, replacing the values of `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Pass `recorder.maskHeaders` to honour the configured mask list.
+- `extractHeaders(headers: unknown, maskHeaders: Iterable<string>, options?: ExtractHeadersOptions): Record<string, string>` - normalises a header bag (a `fetch` `Headers`, an axios `AxiosHeaders` or a plain record) into a flat record, replacing the values of `maskHeaders` (compared case-insensitively) with `[REDACTED]`. Pass `recorder.maskHeaders` to honour the configured mask list. `options.replacement` writes a different sentinel; `options.multiValue` keeps a repeated header as an array instead of joining its values.
 - `formatHeaderValue(value: unknown): string` - renders an arbitrary header value as a display string.
 
 ### Constants

@@ -50,6 +50,36 @@ describe('extractHeaders', () => {
   });
 });
 
+describe('extractHeaders options', () => {
+  it('accepts any iterable of masked names, not just an array', () => {
+    expect(extractHeaders({ Authorization: 'Bearer s' }, new Set(['authorization']))).toEqual({
+      Authorization: '[REDACTED]',
+    });
+  });
+
+  it('writes the replacement given by the caller in place of the default sentinel', () => {
+    expect(
+      extractHeaders({ authorization: 'Bearer s' }, ['authorization'], { replacement: '***' }),
+    ).toEqual({ authorization: '***' });
+  });
+
+  it('joins a multi-value header by default', () => {
+    expect(extractHeaders({ 'x-fwd': ['a', 'b'] }, [])).toEqual({ 'x-fwd': 'a, b' });
+  });
+
+  it('keeps a multi-value header as an array under multiValue', () => {
+    expect(extractHeaders({ 'x-fwd': ['a', 'b'] }, [], { multiValue: true })).toEqual({
+      'x-fwd': ['a', 'b'],
+    });
+  });
+
+  it('still masks a multi-value header with a single replacement under multiValue', () => {
+    expect(
+      extractHeaders({ 'set-cookie': ['a=1', 'b=2'] }, ['set-cookie'], { multiValue: true }),
+    ).toEqual({ 'set-cookie': '[REDACTED]' });
+  });
+});
+
 describe('formatHeaderValue', () => {
   it('joins array values', () => {
     expect(formatHeaderValue(['a', 'b'])).toBe('a, b');

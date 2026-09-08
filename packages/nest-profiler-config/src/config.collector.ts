@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   ProfilerCollector,
   isPlainObject,
+  loadOptionalPeer,
   redactString,
   REDACTED,
 } from '@eleven-labs/nest-profiler';
@@ -61,6 +62,7 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
   readonly priority = 90;
   readonly scope = 'global' as const;
 
+  private readonly logger = new Logger(ConfigCollector.name);
   private groups: ConfigGroup[] = [];
   private keyCount = 0;
   private nestVersion = 'unknown';
@@ -73,14 +75,14 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
   ) {}
 
   onApplicationBootstrap(): void {
-    // Resolve NestJS version from package.json at runtime
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pkg = require('@nestjs/core/package.json') as { version: string };
-      this.nestVersion = pkg.version;
-    } catch {
-      this.nestVersion = 'unknown';
-    }
+    // Read the running NestJS version off its manifest. Through the shared peer loader because
+    // `@nestjs/core` stopped exporting `./package.json` in v12: it recovers the file from the
+    // package root, and reports a genuinely broken install instead of quietly saying 'unknown'.
+    const nestPackage = loadOptionalPeer<{ version?: string }>(
+      '@nestjs/core/package.json',
+      this.logger,
+    );
+    this.nestVersion = nestPackage?.version ?? 'unknown';
 
     if (!this.configService) return;
 
@@ -92,7 +94,7 @@ export class ConfigCollector implements IProfilerCollector, OnApplicationBootstr
       // present but we extracted nothing, the private shape likely changed in a @nestjs/config
       // update — warn so the empty panel is diagnosable instead of silent.
       if (this.keyCount === 0) {
-        new Logger(ConfigCollector.name).warn(
+        this.logger.warn(
           'Config panel is empty despite a ConfigService being present — the internal config ' +
             'shape may have changed in this @nestjs/config version, or no namespaced config is loaded.',
         );

@@ -3,7 +3,10 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerInterceptor } from './profiler.interceptor';
-import { PROFILER_DEFER_COLLECTION, PROFILER_RESPONSE_BODY } from '../constants';
+import {
+  deferCollectionToFinishHook,
+  setTransportResponseBody,
+} from '../utils/profile-runtime-state';
 import { ProfilerCoreService } from '../services/profiler-core.service';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
@@ -30,22 +33,22 @@ function makeRes(headers: Record<string, string> = {}): PlatformResponse {
   } as Partial<PlatformResponse> as PlatformResponse;
 }
 
-function makeResWithFinish(
-  statusCode = 200,
-  headers: Record<string, string> = {},
-): PlatformResponse & { triggerFinish(): void } {
+type ResWithFinish = PlatformResponse & { triggerFinish(): void; registeredEvents: string[] };
+
+function makeResWithFinish(statusCode = 200, headers: Record<string, string> = {}): ResWithFinish {
   let finishCb: (() => void) | undefined;
+  const registeredEvents: string[] = [];
   return {
     statusCode,
+    registeredEvents,
     getHeaders: () => ({ ...headers }),
     getHeader: (k: string) => headers[k.toLowerCase()],
-    once: (_event: string, fn: () => void) => {
+    once: (event: string, fn: () => void) => {
+      registeredEvents.push(event);
       finishCb = fn;
     },
     triggerFinish: () => finishCb?.(),
-  } as Partial<PlatformResponse> & { triggerFinish(): void } as PlatformResponse & {
-    triggerFinish(): void;
-  };
+  } as Partial<ResWithFinish> as ResWithFinish;
 }
 
 function makeCtx(
@@ -246,7 +249,7 @@ describe('ProfilerInterceptor', () => {
       const res = makeRes();
       const payload = { data: { quota: 3 } };
       // The middleware publishes what res.json()/res.send() actually wrote.
-      (profile as unknown as Record<symbol, unknown>)[PROFILER_RESPONSE_BODY] = () => payload;
+      setTransportResponseBody(profile, () => payload);
       const interceptor = makeInterceptor(profile, core, { collectBody: true });
 
       // Express returns the response object from res.json() — that is what the handler emits.
@@ -530,7 +533,7 @@ describe('ProfilerInterceptor', () => {
       const profile = makeProfile();
       // The middleware marks the profile once its finish listener is registered; the finish hook
       // then collects after every field resolver, so the interceptor must not finalize early.
-      (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
+      deferCollectionToFinishHook(profile);
       const adapter = makeAdapter(profile);
       const core = makeCore(adapter);
       const interceptor = makeInterceptor(profile, core);
@@ -546,7 +549,7 @@ describe('ProfilerInterceptor', () => {
 
     it('records the exception but leaves persistence to the finish hook when deferred', async () => {
       const profile = makeProfile();
-      (profile as unknown as Record<symbol, unknown>)[PROFILER_DEFER_COLLECTION] = true;
+      deferCollectionToFinishHook(profile);
       const adapter = makeAdapter(profile);
       const core = makeCore(adapter);
       const interceptor = makeInterceptor(profile, core);
@@ -605,50 +608,21 @@ describe('ProfilerInterceptor', () => {
     });
   });
 
-  describe('HTTP finish hook (safety net for direct-response frameworks)', () => {
-    it('saves profile via finish hook when Observable never completes', async () => {
+  describe('response finish listener', () => {
+    // The profiler registers exactly one `finish` listener, in the middleware — it is the one
+    // that also recovers the transport body, and it already covers what this path cannot see
+    // (a framework answering without ever reaching the interceptor). A second listener here only
+    // had to guard itself against the first, so it is gone; this is the regression guard.
+    it('registers none — the middleware owns the only one', async () => {
       const profile = makeProfile();
-      const core = makeCore();
-      const res = makeResWithFinish(400);
-      const interceptor = makeInterceptor(profile, core);
-
-      // The interceptor sets up the hook but we do NOT wait for the observable;
-      // instead we trigger the finish event directly (simulating Apollo 400).
-      const interceptorObs = interceptor.intercept(
-        makeCtx({ method: 'POST', url: '/graphql' }, res),
-        handler('body'),
-      );
-
-      // Trigger finish BEFORE the observable emits (simulates direct-response framework)
-      res.triggerFinish();
-      await new Promise((r) => setTimeout(r, 10));
-
-      // The finish hook should have saved the profile
-      expect(profile.response).toBeDefined();
-      expect(profile.response?.statusCode).toBe(400);
-
-      // Clean up
-      interceptorObs.subscribe().unsubscribe();
-    });
-
-    it('finish hook skips when profile.response is already set (normal path ran)', async () => {
-      const profile = makeProfile();
-      const core = makeCore();
       const res = makeResWithFinish(200);
-      const interceptor = makeInterceptor(profile, core);
+      const interceptor = makeInterceptor(profile, makeCore());
 
-      // Run the observable fully (normal path)
       await lastValueFrom(
         interceptor.intercept(makeCtx({ method: 'GET', url: '/api' }, res), handler('ok')),
       );
 
-      const saveCount = core.storage.save.mock.calls.length;
-
-      // Trigger finish — should NOT save again since profile.response is already set
-      res.triggerFinish();
-      await new Promise((r) => setTimeout(r, 10));
-
-      expect(core.storage.save.mock.calls.length).toBe(saveCount);
+      expect(res.registeredEvents).toEqual([]);
     });
   });
 

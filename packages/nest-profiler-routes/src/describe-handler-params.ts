@@ -1,4 +1,6 @@
+import { Logger } from '@nestjs/common';
 import type { Type } from '@nestjs/common';
+import { loadOptionalPeer } from '@eleven-labs/nest-profiler';
 import type {
   DiscoverDtoInfo,
   DiscoverDtoProperty,
@@ -49,18 +51,18 @@ interface ClassValidatorStorage {
 
 // Resolve class-validator's metadata storage once, lazily. `undefined` = not yet resolved,
 // `null` = resolved-but-absent (package not installed). Kept optional so the package adds no
-// hard dependency; the panel degrades to DTO class name only when it is missing.
+// hard dependency; the panel degrades to DTO class name only when it is missing. Loaded through
+// the core's peer helper so an install that is present but broken is reported rather than
+// indistinguishable from one that was never made.
 let cvStorage: ClassValidatorStorage | null | undefined;
 
 function getClassValidatorStorage(): ClassValidatorStorage | null {
   if (cvStorage !== undefined) return cvStorage;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('class-validator') as { getMetadataStorage?: () => ClassValidatorStorage };
-    cvStorage = typeof mod.getMetadataStorage === 'function' ? mod.getMetadataStorage() : null;
-  } catch {
-    cvStorage = null;
-  }
+  const mod = loadOptionalPeer<{ getMetadataStorage?: () => ClassValidatorStorage }>(
+    'class-validator',
+    new Logger('ProfilerRoutes'),
+  );
+  cvStorage = typeof mod?.getMetadataStorage === 'function' ? mod.getMetadataStorage() : null;
   return cvStorage;
 }
 
