@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
+import { hasHeader } from '../propagate-trace-id';
 
 type FetchFn = typeof fetch;
 type PatchableFetch = FetchFn & { __profilerPatched?: boolean };
@@ -30,9 +31,10 @@ export class FetchInstrumentation implements HttpInstrumentation {
       const url = resolveUrl(input);
       const requestHeaders = resolveRequestHeaders(input, init);
       const requestBody = serializableRequestBody(init?.body);
+      const outgoing = withTraceIdHeader(recorder, init, requestHeaders);
 
       try {
-        const response = await original(input, init);
+        const response = await original(input, outgoing);
         const responseBody =
           recorder.options.captureResponseBody === true
             ? await safeReadBody(response.clone())
@@ -129,4 +131,26 @@ async function safeReadBody(response: Response): Promise<unknown> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Returns the `init` to pass on, carrying the trace id when the host asked for propagation.
+ *
+ * A fresh object rather than a mutation: `init` belongs to the caller, and a client that reuses one
+ * across calls would otherwise accumulate a header from an unrelated request. A header already set
+ * is left alone — the caller wrote it on purpose.
+ */
+function withTraceIdHeader(
+  recorder: HttpProfilerRecorder,
+  init: RequestInit | undefined,
+  requestHeaders: unknown,
+): RequestInit | undefined {
+  const header = recorder.traceIdHeader;
+  const traceId = recorder.outgoingTraceId();
+  if (!header || !traceId || hasHeader(requestHeaders, header)) return init;
+
+  const headers = new Headers(init?.headers ?? {});
+  if (headers.has(header)) return init;
+  headers.set(header, traceId);
+  return { ...init, headers };
 }

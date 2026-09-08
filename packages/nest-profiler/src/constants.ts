@@ -30,6 +30,13 @@ export const PROFILER_CLS_KEYS = {
    * parenting exists to remove. Covered by a regression test in `tracer.service.spec.ts`.
    */
   activeSpanId: 'profilerActiveSpanId',
+  /**
+   * How many instrumented calls deep the current execution is. Read by the automatic
+   * instrumentation to stop opening spans past `maxDepth` — a waterfall 40 levels deep answers no
+   * question, and every level past the point you stopped reading still costs a span and a row in
+   * the stored profile. Flat, for the same reason as {@link activeSpanId}.
+   */
+  activeSpanDepth: 'profilerActiveSpanDepth',
 } as const;
 
 /** The (fixed) base path where the profiler UI is mounted. */

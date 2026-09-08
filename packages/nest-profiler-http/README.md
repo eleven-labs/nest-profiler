@@ -156,6 +156,7 @@ Use `record(entry)` instead of `capture(input)` if you have already built a fina
 | Option                      | Default   | Description                                                                                                                                                                                                                                                                            |
 | --------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `instrumentations`          | `[]`      | The adapters to install (`AxiosInstrumentation`, `FetchInstrumentation`, …). Nothing is instrumented unless listed.                                                                                                                                                                    |
+| `propagateTraceId`          | `false`   | Forward the profile's trace id on every instrumented call. `true` uses `x-request-id`; pass a header name for another. See [Propagating the trace id](#propagating-the-trace-id).                                                                                                      |
 | `slowThreshold`             | `300`     | Calls at/above this duration (ms) are tagged `slow`.                                                                                                                                                                                                                                   |
 | `nPlusOneThreshold`         | `2`       | Identical calls repeated ≥ N in one request are tagged `n-plus-one`.                                                                                                                                                                                                                   |
 | `chattyThreshold`           | `10`      | A request making ≥ N outgoing calls is tagged `chatty`.                                                                                                                                                                                                                                |
@@ -176,6 +177,28 @@ Use `record(entry)` instead of `capture(input)` if you have already built a fina
 ## What it collects
 
 For each outgoing request: `method`, `url`, `statusCode`, `duration`, `startedAt`, optional `error`, and (per options) request/response headers and bodies.
+
+## Propagating the trace id
+
+Off by default. Turn it on and every instrumented outgoing call carries the profile's trace id:
+
+```ts
+HttpCollectorModule.forRoot({
+  instrumentations: [AxiosInstrumentation],
+  propagateTraceId: true, // or 'x-correlation-id'
+});
+```
+
+This is **not** distributed tracing: no span tree is shared, nothing is negotiated. It is the same id travelling — which is what lets two services that both run the profiler file one request under one id. Paste it into either dashboard's search box and you land on that side of the call.
+
+It is opt-in because adding a header to an application's outgoing traffic is a visible change, and some upstreams sign or validate the exact header set they receive.
+
+Two behaviours worth knowing:
+
+- **A header the caller set explicitly always wins.** They wrote it on purpose, and overwriting it would break the correlation they were setting up.
+- **Nothing is added outside a profiled request.** A call made during bootstrap or from a background task goes out unchanged: propagation is an aid, never a precondition for the call.
+
+The `fetch` adapter builds a fresh `init` rather than mutating the one it was given, so a client that reuses a single `init` across calls cannot accumulate a header from an unrelated request.
 
 ## Redaction
 

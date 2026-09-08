@@ -244,6 +244,88 @@ describe('TemplateRendererService', () => {
     expect(html).not.toContain('data-trace-node="lc1"');
   });
 
+  it('offers the lens only when the trace carries method spans, and tags each row by kind', async () => {
+    const startTime = Date.now();
+    const withMethods = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      activeTab: 'performance',
+      profile: {
+        ...MINIMAL_DETAIL_DATA.profile,
+        performance: { startTime, heapUsed: 1024, duration: 50 },
+        trace: [
+          { id: 'root', kind: 'entrypoint', label: 'GET /x', startedAt: startTime, duration: 50 },
+          {
+            id: 'm1',
+            parentId: 'root',
+            kind: 'method',
+            label: 'ProductService.create',
+            startedAt: startTime + 1,
+            duration: 40,
+          },
+          {
+            id: 'q1',
+            parentId: 'm1',
+            kind: 'db',
+            label: 'INSERT INTO products',
+            startedAt: startTime + 5,
+            duration: 30,
+          },
+        ],
+      },
+    });
+
+    // The table under the bars carries the same id and kind, so the lens and the folds reach it —
+    // otherwise "I/O only" hides the method bars and still lists every one of them below.
+    // The two controls that read the same tree at a different density, and the data they need.
+    expect(withMethods).toContain('data-trace-critical');
+    expect(withMethods).toContain('data-trace-min');
+    expect(withMethods).toContain('data-trace-duration="40"');
+    // The critical path is the chain that finishes last, marked server-side where the tree exists.
+    expect(withMethods).toContain('data-trace-critical-node');
+    expect(withMethods).toContain('data-trace-row="m1"');
+    expect(withMethods).toContain('data-trace-row="q1"');
+    expect(withMethods).toContain('data-trace-lens="io"');
+    expect(withMethods).toContain('data-trace-lens="code"');
+    // The client filters on this, so a row that carries no kind could never be hidden.
+    expect(withMethods).toContain('data-trace-kind="method"');
+    expect(withMethods).toContain('data-trace-kind="db"');
+
+    // Without a single method span the lens would only ever hide nothing, so it is not drawn.
+    const withoutMethods = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      activeTab: 'performance',
+      profile: {
+        ...MINIMAL_DETAIL_DATA.profile,
+        performance: { startTime, heapUsed: 1024, duration: 50 },
+        trace: [
+          { id: 'root', kind: 'entrypoint', label: 'GET /x', startedAt: startTime, duration: 50 },
+        ],
+      },
+    });
+    expect(withoutMethods).not.toContain('data-trace-lens');
+    // The threshold and the critical path apply to any trace, so they are not gated on methods.
+    expect(withoutMethods).toContain('data-trace-min');
+    expect(withoutMethods).toContain('data-trace-critical');
+  });
+
+  it('preselects the host default in the Hide under control', async () => {
+    const startTime = Date.now();
+    const html = await service.render('detail', {
+      ...MINIMAL_DETAIL_DATA,
+      activeTab: 'performance',
+      minDuration: 0.5,
+      profile: {
+        ...MINIMAL_DETAIL_DATA.profile,
+        performance: { startTime, heapUsed: 1024, duration: 50 },
+        trace: [
+          { id: 'root', kind: 'entrypoint', label: 'GET /x', startedAt: startTime, duration: 50 },
+        ],
+      },
+    });
+
+    expect(html).toContain('value="0.5" selected');
+  });
+
   it('renders an empty-trace hint pointing at the API that fills it', async () => {
     const html = await service.render('detail', {
       ...MINIMAL_DETAIL_DATA,

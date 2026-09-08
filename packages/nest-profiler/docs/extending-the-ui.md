@@ -19,7 +19,7 @@ Because behaviour is bound through event **delegation**, it keeps working for ma
 
 ## Adding your own bundle
 
-If you build your own collector package (see [Timeline & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)) and it needs browser behaviour, register a script with the `ClientAssetRegistry`. The profiler serves it same-origin and emits its `<script>` tag after `profiler.js`.
+If you build your own collector package (see [Trace & custom collectors](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/collectors)) and it needs browser behaviour, register a script with the `ClientAssetRegistry`. The profiler serves it same-origin and emits its `<script>` tag after `profiler.js`.
 
 ### 1. Write and build the client script
 

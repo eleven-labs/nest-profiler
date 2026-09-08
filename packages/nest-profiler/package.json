@@ -60,7 +60,7 @@
   "peerDependencies": {
     "@libsql/client": "^0.17.0",
     "@nestjs/common": "^11.0.0",
-    "@nestjs/core": "^11.0.0",
+    "@nestjs/core": "^11.1.4",
     "nestjs-cls": "^6.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"

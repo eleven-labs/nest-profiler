@@ -42,9 +42,26 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
     // The point of the whole chain: the SQL the ORM issued inside that span is drawn *under* it.
     // Nothing links them explicitly — the driver patch never saw the span, and the span never saw
     // the query; the async context is what connected the two at capture time.
+    //
+    // Asserted as descendant rather than direct child on purpose: with the automatic
+    // instrumentation on, the repository's own method spans sit in between. What matters is the
+    // causal chain, and pinning the exact depth would make this test fail on a setting that
+    // changes nothing about the relationship it is checking.
+    const byId = new Map(trace.map((s) => [s.id, s]));
+    const descendsFrom = (from: string | undefined, ancestor: string): boolean => {
+      const seen = new Set<string>();
+      let current = from;
+      while (current && !seen.has(current)) {
+        if (current === ancestor) return true;
+        seen.add(current);
+        current = byId.get(current)?.parentId;
+      }
+      return false;
+    };
+
     const queries = trace.filter((s) => s.kind === 'db');
     expect(queries.length).toBeGreaterThanOrEqual(1);
-    expect(queries.every((q) => q.parentId === span!.id)).toBe(true);
+    expect(queries.every((q) => descendsFrom(q.parentId, span!.id))).toBe(true);
 
     // And each bar links back to the row holding its full statement.
     expect(queries[0]!.source).toMatchObject({ tab: 'database' });

@@ -45,6 +45,81 @@ The name defaults to `ClassName.methodName`, which is right often enough that na
 
 Use `span()` when you need to time a block _within_ a method, or to tag the span from the work itself — the callback is what gives you the handle.
 
+### Recording every method call automatically
+
+Everything above is opt-in per method. `createProfilerInstrument()` records **every** provider
+method call instead, turning the waterfall into the full call tree — which controller called which
+service, which called which repository, and what each cost:
+
+```ts
+// main.ts
+const app = await NestFactory.create(AppModule, {
+  instrument: createProfilerInstrument(),
+});
+```
+
+```
+POST /api/v1/products                                 19.29 ms
+  ProductController.create                            14.29 ms
+    ProductService.create                             14.28 ms
+      TypeOrmProductRepository.create                 14.07 ms
+        Repository.save                               14.05 ms
+          INSERT INTO "products" …                     2.00 ms
+          COMMIT                                       4.00 ms
+```
+
+Requires `@nestjs/core` 11.1.4 or later, which is where the `instrument` option lands.
+
+**It is off by default, and should stay off in production.** It places a Proxy on every provider
+instance, so every property access on every provider goes through a trap — a cost paid on every
+call, whether or not the request is profiled. It is a development and staging tool.
+
+| Option             | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skip(instance)`   | —       | exclude a provider entirely: a hot utility called thousands of times, a third-party client you do not own                                                                                                                                                                                                                                                                                                     |
+| `maxDepth`         | `20`    | stop opening spans past a depth. About legibility, not safety — recursion is already handled by a re-entrancy guard, but a waterfall forty levels deep answers no question and still costs a row per level                                                                                                                                                                                                    |
+| `includeAnonymous` | `false` | also record instances with no class name of their own — the wrappers Nest builds around a guard or an interceptor, which read `Object.canActivate` and `Object.intercept`. Skipped by default: the label is the whole value of a method span, and one that names nothing still costs a level of depth for everything under it. Skipping does not orphan children — they reparent to whatever was active above |
+| `includeInternals` | `false` | also record the profiler's own providers and `ClsService`. For debugging the profiler itself                                                                                                                                                                                                                                                                                                                  |
+
+The profiler's own providers and `ClsService` are excluded automatically. That is not a detail:
+without it a single request produced 75 spans, of which about a dozen were application code — the
+rest being the interceptor, the collector registry, `ClsService.get` and, recursively, the tracer
+opening the spans. Pass `includeInternals: true` only to debug the profiler itself.
+
+![Execution Trace with the automatic instrumentation on: the call tree from the controller down to the SQL statement, the lens, and the table below mirroring the bars](../../../docs/public/screenshots/profiler/trace-instrumented.png)
+
+### Reading the trace at the right density
+
+Method spans answer "who issued this query"; they are noise when the question is "which query is
+slow". The Performance tab therefore offers a lens over the **same** tree — **All**, **I/O only**,
+**Code only** — rather than a second panel. Same spans, same ids, same nesting: hiding a method row
+leaves its children attached to their real parent, so switching lenses never shows you a different
+trace, only a different amount of it. The lens appears only when the trace carries method spans.
+
+Two more controls sit beside it, and they apply to any trace:
+
+**Critical path** dims everything off the chain that decided the total duration — from the root,
+the child that finishes last, all the way down. Shortening a span _off_ that chain moves nothing,
+which is what makes it the place to look first. It dims rather than hides: the value is seeing the
+deciding chain against the rest, and hiding the rest leaves a single column with nothing to compare.
+
+**Hide under** drops spans shorter than a threshold. It is a _display_ choice, applied at render:
+dropping short spans at capture would be wrong, because a 0.04ms parent can still contain 12ms of
+work, and the entrypoint is never hidden — it is the axis the others are drawn against.
+
+Its default comes from the `traceMinDuration` module option, and that default is **`0` — show
+everything**:
+
+```ts
+ProfilerModule.forRoot({ traceMinDuration: 0.1 });
+```
+
+Zero is deliberate. Hiding by default is the wrong bias for a debugging tool: a developer who
+cannot find a span they know they opened has no reason to suspect a threshold, and will conclude
+the profiler missed it. The control is one click away, and a team that always wants the same floor
+sets it here. `0.1` is the value that earns its keep once the automatic instrumentation is on,
+where sub-tenth-of-a-millisecond method calls are noise.
+
 ### Nesting is exact, not guessed
 
 While the callback runs, its span is the **active** one: every query, outgoing call, log line and nested `span()` issued underneath records it as its parent. The waterfall is therefore a real tree, not bars sorted by start time.
@@ -175,7 +250,7 @@ whole trace.
 
 Elapsed time — the request duration and every span — is measured on a **monotonic** clock, and the recorded value is a fractional number of milliseconds with up to three decimals. Two consequences worth knowing:
 
-- **Sub-millisecond work is visible.** A span that takes 420 µs reads `0.42ms`, not `0ms`, so the timeline stays comparable for ordinary application phases and not just for slow I/O.
+- **Sub-millisecond work is visible.** A span that takes 420 µs reads `0.42ms`, not `0ms`, so the trace stays comparable for ordinary application phases and not just for slow I/O.
 - **A duration can never be wrong or negative.** The wall clock is not monotonic: an NTP correction or a manual clock change during a request would otherwise produce a nonsensical duration, and a backward step a negative one — which would then flow into the `slow` tag, the duration list filter and the stored profile.
 
 Absolute timestamps stay on the epoch, because they are what a reader needs: `performance.startTime`, a span's `startedAt`, and every log and exception timestamp are epoch milliseconds, rendered in the [configured timezone](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#timezone-of-displayed-timestamps). Span timestamps carry sub-millisecond precision, which is what lets two short spans be drawn apart rather than on the same pixel.

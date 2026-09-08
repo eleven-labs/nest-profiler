@@ -9,7 +9,7 @@ import {
   trackOpenSpan,
 } from '../utils/profile-runtime-state';
 import { nowMs, sinceMs } from '../utils/clock.utils';
-import type { Profile } from '../interfaces/profile.interface';
+import type { Profile, TraceSpanKind } from '../interfaces/profile.interface';
 
 /**
  * Opens a span against a profile and returns the delegate that closes it.
@@ -21,6 +21,7 @@ export function openSpan(
   cls: ClsService | undefined,
   profile: Profile,
   name: string,
+  kind: TraceSpanKind = 'custom',
 ): TraceSpanDelegate {
   const parentId = readActiveSpanId(cls);
   const startedAt = nowMs();
@@ -32,7 +33,7 @@ export function openSpan(
     appendManualSpan(profile, {
       id,
       parentId,
-      kind: outcome.kind ?? 'custom',
+      kind: outcome.kind ?? kind,
       label: name,
       startedAt,
       duration: sinceMs(startedAt),
@@ -58,18 +59,20 @@ export function openSpan(
  * @param cls - The CLS service, or `undefined` when the profiler is disabled.
  * @param name - Label for the span.
  * @param work - The measured work. Receives the span, for tags.
+ * @param kind - Category of the produced span, which colours it and decides which lens shows it.
  */
 export function runInSpan<T>(
   cls: ClsService | undefined,
   name: string,
   work: (span: TraceSpanDelegate) => T,
+  kind: TraceSpanKind = 'custom',
 ): T {
   const profile = readProfile(cls);
   // Nothing to record into: run the work unchanged, so annotated code behaves the same whether the
   // profiler is plugged in or not.
   if (!profile || !cls) return work(INERT_SPAN);
 
-  const span = openSpan(cls, profile, name);
+  const span = openSpan(cls, profile, name, kind);
   // `ifNested: 'inherit'` is load-bearing: a bare `cls.run()` starts an *empty* store, which would
   // drop the profile, the token and the request for everything below this span — turning every
   // collector underneath into a silent no-op.

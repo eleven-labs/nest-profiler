@@ -38,6 +38,8 @@ interface SetupParams {
   impl?: typeof fetch;
   profile?: Profile | null;
   clsThrows?: boolean;
+  /** Trace id the CLS store reports, for the propagation tests. */
+  traceId?: string;
 }
 
 /** Installs the instrumentation over a stub `globalThis.fetch`, returning the active profile. */
@@ -47,8 +49,9 @@ function setup(
 ): { profile: Profile | null } {
   const profile = params.profile === undefined ? makeProfile() : params.profile;
   const cls = {
-    get: jest.fn(() => {
+    get: jest.fn((key: string) => {
       if (params.clsThrows) throw new Error('outside CLS');
+      if (key === 'profiler.traceId') return params.traceId;
       return profile ?? undefined;
     }),
   } as unknown as ClsService;
@@ -196,5 +199,69 @@ describe('FetchInstrumentation', () => {
     expect(() => new FetchInstrumentation().install(recorder)).not.toThrow();
     expect(globalThis.fetch).toBeUndefined();
     globalThis.fetch = saved;
+  });
+});
+
+describe('FetchInstrumentation — trace id propagation', () => {
+  /** Records the `init` each call was made with, which is what actually leaves the process. */
+  function capturing(): { seen: RequestInit[]; impl: typeof fetch } {
+    const seen: RequestInit[] = [];
+    const impl: typeof fetch = (_input, init) => {
+      seen.push(init ?? {});
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    };
+    return { seen, impl };
+  }
+
+  const header = (init: RequestInit | undefined, name: string): string | null =>
+    new Headers(init?.headers ?? {}).get(name);
+
+  it('adds nothing when propagation is off, which is the default', async () => {
+    const { seen, impl } = capturing();
+    setup({}, { impl, traceId: 'trace-1' });
+
+    await fetch('https://api.example.com/x');
+
+    expect(header(seen[0], 'x-request-id')).toBeNull();
+  });
+
+  it('forwards the trace id when asked', async () => {
+    const { seen, impl } = capturing();
+    setup({ propagateTraceId: true }, { impl, traceId: 'trace-1' });
+
+    await fetch('https://api.example.com/x');
+
+    expect(header(seen[0], 'x-request-id')).toBe('trace-1');
+  });
+
+  it('leaves a header the caller set explicitly alone', async () => {
+    const { seen, impl } = capturing();
+    setup({ propagateTraceId: true }, { impl, traceId: 'trace-1' });
+
+    await fetch('https://api.example.com/x', { headers: { 'x-request-id': 'caller-wins' } });
+
+    expect(header(seen[0], 'x-request-id')).toBe('caller-wins');
+  });
+
+  it('does not mutate the caller init, so a reused one cannot accumulate a stale header', async () => {
+    // A client that keeps one `init` object across calls would otherwise carry the first
+    // request's trace id into every later one.
+    const { seen, impl } = capturing();
+    setup({ propagateTraceId: true }, { impl, traceId: 'trace-1' });
+    const shared: RequestInit = { method: 'POST' };
+
+    await fetch('https://api.example.com/x', shared);
+
+    expect(header(seen[0], 'x-request-id')).toBe('trace-1');
+    expect(shared.headers).toBeUndefined();
+  });
+
+  it('adds nothing outside a profiled request', async () => {
+    const { seen, impl } = capturing();
+    setup({ propagateTraceId: true }, { impl, profile: null, traceId: undefined });
+
+    await fetch('https://api.example.com/x');
+
+    expect(header(seen[0], 'x-request-id')).toBeNull();
   });
 });

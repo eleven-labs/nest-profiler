@@ -19,6 +19,9 @@ export { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './trace/build-tra
 export { DEFAULT_TRACE_ID_HEADER, isAdoptableTraceId, resolveTraceId } from './trace/trace-id';
 export type { RawSpan, TraceContributor } from './trace/build-trace';
 export { Span } from './trace/span.decorator';
+export { createProfilerInstrument } from './instrument/profiler-instrument';
+export { markInternal, isInternal } from './instrument/internal-marker';
+export type { ProfilerInstrumentOptions } from './instrument/profiler-instrument';
 export { runInSpan } from './trace/run-in-span';
 export { entriesToSpans } from './trace/entries-to-spans';
 export type { EntrySpanOptions } from './trace/entries-to-spans';

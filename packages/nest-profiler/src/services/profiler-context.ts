@@ -70,6 +70,27 @@ export function readTraceId(cls: ClsService | undefined): string | undefined {
   return read<string>(cls, PROFILER_CLS_KEYS.traceId);
 }
 
+/** How many instrumented calls deep the current execution is; `0` outside any. */
+export function readActiveSpanDepth(cls: ClsService | undefined): number {
+  return read<number>(cls, PROFILER_CLS_KEYS.activeSpanDepth) ?? 0;
+}
+
+/**
+ * Records the call depth for the remainder of the current CLS scope.
+ *
+ * Swallows the "no active context" throw for the same reason the readers above do: the automatic
+ * instrumentation calls this from inside a method that may run outside any request — during
+ * bootstrap, or simply when nothing is being profiled — and bookkeeping that fails to record must
+ * never be what breaks the call it was measuring.
+ */
+export function setActiveSpanDepth(cls: ClsService, depth: number): void {
+  try {
+    cls.set(PROFILER_CLS_KEYS.activeSpanDepth, depth);
+  } catch {
+    // Outside an active CLS context — there is no span to bound anyway.
+  }
+}
+
 /**
  * Marks a span as the active one for the remainder of the current CLS scope.
  *

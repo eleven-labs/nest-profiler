@@ -203,7 +203,16 @@ export interface RouteInfo {
  * core change (see `TraceContributor`).
  */
 export type TraceSpanKind =
-  'entrypoint' | 'phase' | 'http' | 'db' | 'cache' | 'graphql-field' | 'custom' | (string & {});
+  | 'entrypoint'
+  | 'phase'
+  | 'http'
+  | 'db'
+  | 'cache'
+  | 'graphql-field'
+  /** One provider method call, recorded by the optional automatic instrumentation. */
+  | 'method'
+  | 'custom'
+  | (string & {});
 
 export type TraceSpanStatus = 'ok' | 'error';
 

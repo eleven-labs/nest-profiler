@@ -69,6 +69,22 @@ export interface HttpCaptureInput {
  */
 export interface HttpCaptureOptions extends RedactionHeaderOptions, RedactionQueryParamOptions {
   /**
+   * Forward the profile's trace id on every instrumented outgoing call, as a request header.
+   *
+   * Pass `true` for the default header (`x-request-id`), or a header name to use another. Off by
+   * default: adding a header to an application's outgoing traffic is a visible change, and some
+   * upstreams sign or validate the set of headers they receive.
+   *
+   * This is **not** distributed tracing — no span tree is shared and nothing is negotiated. It is
+   * the same id travelling, which is what lets two services that both run the profiler show the
+   * same request under the same id: paste it into either dashboard's search box and you land on
+   * that side of the call.
+   *
+   * A call that already carries the header keeps its own value, so an explicit one always wins.
+   */
+  propagateTraceId?: boolean | string;
+
+  /**
    * Capture outgoing request headers. Default: `true`.
    * Sensitive headers are masked — see `maskHeaders`.
    */

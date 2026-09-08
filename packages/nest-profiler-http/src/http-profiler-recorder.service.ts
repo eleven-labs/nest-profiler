@@ -16,6 +16,7 @@ import {
   resolveMaskedQueryParams,
 } from './http-redaction.util';
 import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
+import { outgoingTraceId, resolveTraceIdHeader } from './propagate-trace-id';
 
 /**
  * Injectable façade for recording outgoing HTTP requests into the active
@@ -32,6 +33,8 @@ export class HttpProfilerRecorder implements OnModuleInit {
   private readonly maskQueryParams: ReadonlySet<string>;
   /** Resolved lazily so a disabled core (no ClsModule) degrades to a no-op recorder. */
   private cls: ClsService | undefined;
+  /** Header the trace id is forwarded on, or `undefined` when propagation is off. */
+  readonly traceIdHeader: string | undefined;
 
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -39,6 +42,19 @@ export class HttpProfilerRecorder implements OnModuleInit {
   ) {
     this.maskHeaders = [...DEFAULT_MASK_HEADERS, ...(options.maskHeaders ?? [])];
     this.maskQueryParams = resolveMaskedQueryParams(options);
+    this.traceIdHeader = resolveTraceIdHeader(options.propagateTraceId);
+  }
+
+  /**
+   * The trace id to forward on an outgoing call, or `undefined` when propagation is off or the
+   * call happens outside a profiled request.
+   *
+   * Exposed on the recorder rather than read by each instrumentation: axios and fetch — and any
+   * custom client wired through {@link capture} — then forward the same id under the same header,
+   * decided in one place.
+   */
+  outgoingTraceId(): string | undefined {
+    return outgoingTraceId(this.resolveCls(), this.traceIdHeader);
   }
 
   onModuleInit(): void {

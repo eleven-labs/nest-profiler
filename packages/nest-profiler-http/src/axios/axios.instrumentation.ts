@@ -3,6 +3,7 @@ import { DiscoveryService } from '@nestjs/core';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import type { HttpInstrumentation } from '../http-instrumentation.interface';
 import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
+import { hasHeader } from '../propagate-trace-id';
 
 interface ProfilerAxiosConfig extends InternalAxiosRequestConfig {
   _profilerStart?: number;
@@ -51,6 +52,17 @@ export class AxiosInstrumentation implements HttpInstrumentation {
       // Stash the body before axios serialises it (transformRequest runs after request
       // interceptors), so the panel shows the original payload.
       config._profilerRequestBody = config.data;
+
+      // Forward the trace id, when the host asked for it. A header the caller set explicitly is
+      // left alone: they wrote it on purpose, and overwriting it would break the very correlation
+      // they were setting up.
+      const header = recorder.traceIdHeader;
+      const traceId = recorder.outgoingTraceId();
+      if (header && traceId && !hasHeader(config.headers, header)) {
+        const headers = (config.headers ?? {}) as Record<string, unknown>;
+        headers[header] = traceId;
+        config.headers = headers as typeof config.headers;
+      }
       return config;
     });
 

@@ -114,6 +114,8 @@ export class ProfilerController {
   private readonly profilerPath = PROFILER_BASE_PATH;
   /** Profiles shown per page in each list section (see `listPageSize`). */
   private readonly pageSize: number;
+  /** Default for the trace panel's "Hide under" control (ms); `0` shows every span. */
+  private readonly traceMinDuration: number;
   /** Optional hook returning a query string appended to UI links (query-param auth). */
   private readonly linkQueryFn?: (request: PlatformRequest) => string;
 
@@ -126,6 +128,7 @@ export class ProfilerController {
   ) {
     this.pageSize = options.listPageSize ?? DEFAULT_LIST_PAGE_SIZE;
     this.linkQueryFn = options.security?.linkQuery;
+    this.traceMinDuration = options.traceMinDuration ?? 0;
   }
 
   /**
@@ -456,6 +459,8 @@ export class ProfilerController {
       clientScripts: this.clientAssets.list(),
       token: profile.token,
       profile,
+      // Default for the trace panel's "Hide under" control; the reader can change it per profile.
+      minDuration: this.traceMinDuration,
       activeTab,
       entrypointTabs,
       entrypointTabTemplate,
