@@ -27,8 +27,9 @@ function makeDataSource(
   return { dataSource, query, release };
 }
 
-function makeRegistry(): ExplainRunnerRegistry & { register: jest.Mock } {
-  return { register: jest.fn() } as unknown as ExplainRunnerRegistry & { register: jest.Mock };
+function makeRegistry(): { registry: ExplainRunnerRegistry; register: jest.Mock } {
+  const register = jest.fn();
+  return { registry: { register } as unknown as ExplainRunnerRegistry, register };
 }
 
 function makeModuleRef(registry: unknown, dataSource: unknown): ModuleRef {
@@ -48,14 +49,11 @@ function setup(
   } = {},
 ): {
   runner: TypeOrmExplainRunner;
-  registry: ExplainRunnerRegistry & { register: jest.Mock };
+  register: jest.Mock;
   query: jest.Mock;
   release: jest.Mock;
 } {
-  const registry =
-    params.registry === undefined
-      ? makeRegistry()
-      : (params.registry as ExplainRunnerRegistry & { register: jest.Mock });
+  const { registry, register } = makeRegistry();
   const built = makeDataSource({
     type: params.type,
     initialized: params.initialized,
@@ -67,45 +65,45 @@ function setup(
     dataSource,
   );
   const runner = new TypeOrmExplainRunner(moduleRef, params.options ?? {});
-  return { runner, registry, query: built.query, release: built.release };
+  return { runner, register, query: built.query, release: built.release };
 }
 
 describe('TypeOrmExplainRunner', () => {
   describe('onModuleInit registration', () => {
     it('registers with the registry for a postgres DataSource', () => {
-      const { runner, registry } = setup({ type: 'postgres' });
+      const { runner, register } = setup({ type: 'postgres' });
       runner.onModuleInit();
-      expect(registry.register).toHaveBeenCalledWith(runner);
+      expect(register).toHaveBeenCalledWith(runner);
     });
 
     it('does not register when explain.enabled is false', () => {
-      const { runner, registry } = setup({
+      const { runner, register } = setup({
         type: 'postgres',
         options: { explain: { enabled: false } },
       });
       runner.onModuleInit();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('does not register for an unsupported dialect', () => {
-      const { runner, registry } = setup({ type: 'oracle' });
+      const { runner, register } = setup({ type: 'oracle' });
       runner.onModuleInit();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('does not register when the DataSource is not initialized', () => {
-      const { runner, registry } = setup({ type: 'postgres', initialized: false });
+      const { runner, register } = setup({ type: 'postgres', initialized: false });
       runner.onModuleInit();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('no-ops when the registry cannot be resolved', () => {
-      const registry = makeRegistry();
+      const { register } = makeRegistry();
       // moduleRef returns no registry (only a valid DataSource).
       const moduleRef = makeModuleRef(undefined, makeDataSource({ type: 'postgres' }).dataSource);
       const runner = new TypeOrmExplainRunner(moduleRef, {});
       expect(() => runner.onModuleInit()).not.toThrow();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
   });
 
