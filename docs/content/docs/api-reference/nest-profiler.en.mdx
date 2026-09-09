@@ -269,7 +269,10 @@ automatically](/docs/packages/nest-profiler/collectors#recording-every-method-ca
 import { createProfilerInstrument } from '@eleven-labs/nest-profiler';
 
 const app = await NestFactory.create(AppModule, {
-  instrument: createProfilerInstrument(),
+  instrument: createProfilerInstrument({
+    // Classes and methods to keep off the trace: the class, one of its methods, a wildcard, a RegExp.
+    exclude: ['ConfigService', 'ClockService.now', '*.getRequestId', /Repository$/],
+  }),
 });
 ```
 

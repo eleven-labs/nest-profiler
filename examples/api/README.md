@@ -45,18 +45,19 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 The app uses flags to conditionally load infrastructure-dependent contexts. All infra-backed features are **off by default**, so a bare run needs no database or broker. Set them in `.env`:
 
-| Variable                | Default     | Description                                                                                                                                                                                        |
-| ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SQL_ORM`               | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                                                                                                                               |
-| `HTTP_CLIENT`           | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
-| `FEATURE_MONGOOSE`      | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
-| `FEATURE_GRAPHQL`       | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                                                                                        |
-| `FEATURE_RABBITMQ`      | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
-| `FEATURE_PINO_LOGGER`   | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                                                                                                |
-| `PROFILER_ENABLED`      | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
-| `PROFILER_STORAGE_TYPE` | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
-| `PROFILER_AUTH`         | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                          |
-| `PROFILER_INSTRUMENT`   | `true`      | Automatic instrumentation: one span per provider method call, so the Execution Trace shows the full call tree. On here because this app is a demo; **opt-in and development-only** in your own app |
+| Variable                      | Default     | Description                                                                                                                                                                                        |
+| ----------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SQL_ORM`                     | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                                                                                                                               |
+| `HTTP_CLIENT`                 | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
+| `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
+| `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                                                                                        |
+| `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
+| `FEATURE_PINO_LOGGER`         | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                                                                                                |
+| `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
+| `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
+| `PROFILER_AUTH`               | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                          |
+| `PROFILER_INSTRUMENT`         | `true`      | Automatic instrumentation: one span per provider method call, so the Execution Trace shows the full call tree. On here because this app is a demo; **opt-in and development-only** in your own app |
+| `PROFILER_INSTRUMENT_EXCLUDE` | —           | Classes and methods to keep off the instrumented trace, comma-separated: `ConfigService` (the class), `ClockService.now` (one method), `*.getRequestId` (a wildcard within a name)                 |
 
 `PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
@@ -424,11 +425,13 @@ Two things, both visible in `examples/api/src/main.ts`.
 ```ts title="main.ts"
 const app = await NestFactory.create(AppModule, {
   bufferLogs: true,
-  ...(instrumentEnabled ? { instrument: createProfilerInstrument() } : {}),
+  ...(instrumentEnabled ? { instrument: createProfilerInstrument({ exclude }) } : {}),
 });
 ```
 
 It is **on by default here and off by default in the library**, and the difference is deliberate: this app exists to show what the profiler can do, and the call tree is invisible without it. In your own application it proxies every provider, so every property access goes through a trap whether or not the request is profiled — a demo's cost to pay, not a production application's. Set `PROFILER_INSTRUMENT=false` to see a trace as an application that has not opted in sees it.
+
+Recording every call also records the boring ones. `PROFILER_INSTRUMENT_EXCLUDE` feeds the `exclude` option, which takes classes and methods off the trace by name — `PROFILER_INSTRUMENT_EXCLUDE='ConfigService,*.getRequestId'` drops the whole class in the first case and that one method, on every class, in the second. Empty here, because this app has no such noise; a real one usually does.
 
 ### Log capture
 

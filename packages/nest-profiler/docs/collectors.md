@@ -76,7 +76,8 @@ call, whether or not the request is profiled. It is a development and staging to
 
 | Option             | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skip(instance)`   | —       | exclude a provider entirely: a hot utility called thousands of times, a third-party client you do not own                                                                                                                                                                                                                                                                                                     |
+| `exclude`          | —       | names to keep off the trace, matched against `ClassName` and `ClassName.methodName` — see [Silencing the noise a call tree makes](#silencing-the-noise-a-call-tree-makes)                                                                                                                                                                                                                                     |
+| `skip(instance)`   | —       | exclude a provider entirely, by predicate rather than by name: a third-party client you do not own, anything the class name alone cannot single out                                                                                                                                                                                                                                                           |
 | `maxDepth`         | `20`    | stop opening spans past a depth. About legibility, not safety — recursion is already handled by a re-entrancy guard, but a waterfall forty levels deep answers no question and still costs a row per level                                                                                                                                                                                                    |
 | `includeAnonymous` | `false` | also record instances with no class name of their own — the wrappers Nest builds around a guard or an interceptor, which read `Object.canActivate` and `Object.intercept`. Skipped by default: the label is the whole value of a method span, and one that names nothing still costs a level of depth for everything under it. Skipping does not orphan children — they reparent to whatever was active above |
 | `includeInternals` | `false` | also record the profiler's own providers and `ClsService`. For debugging the profiler itself                                                                                                                                                                                                                                                                                                                  |
@@ -87,6 +88,46 @@ rest being the interceptor, the collector registry, `ClsService.get` and, recurs
 opening the spans. Pass `includeInternals: true` only to debug the profiler itself.
 
 ![Execution Trace with the automatic instrumentation on: the call tree from the controller down to the SQL statement, the lens, and the table below mirroring the bars](../../../docs/public/screenshots/profiler/trace-instrumented.png)
+
+### Silencing the noise a call tree makes
+
+Recording every method call means recording the boring ones too. A `ConfigService.get` read two
+hundred times a request, a `getRequestId` called from every layer: each one is
+a row, and together they bury the dozen spans the trace was opened for. `exclude` takes them off
+it, by name:
+
+```ts
+const app = await NestFactory.create(AppModule, {
+  instrument: createProfilerInstrument({
+    exclude: [
+      'ConfigService', // the whole class
+      'ClockService.now', // one method, the rest of the class kept
+      '*.getRequestId', // that method, on every class
+      /Repository$/, // every class whose name ends in Repository
+    ],
+  }),
+});
+```
+
+The dot is what tells the two levels apart. A pattern matching a **class name** takes the provider
+off the trace entirely — it is handed back unproxied, so it costs nothing at all, not even a trap.
+One matching a **`Class.method`** label drops that single method and leaves the rest of the class
+recorded.
+
+Strings match in full, so `'Product'` never takes `ProductRepository` with it, and `*` stands for a
+run of characters within a name — it never crosses the dot, which is what keeps `'*.get'` a method
+pattern rather than a way of matching everything. A RegExp is tried at both levels, so its own
+anchoring says which it meant: `/Repository/` drops every repository, `/^AppService\.tick$/` one
+method.
+
+Excluding a method never orphans what it called: those spans reparent to whatever was active above
+it, exactly as with an anonymous wrapper. So the tree keeps its shape and only loses the row you
+asked it to lose — a `ProductService.create` you dropped still shows its `Repository.save`, one
+level up.
+
+`skip` remains for what a name cannot express — an instance identified by its type, its
+configuration, whatever your predicate can see — and both apply together: either one matching keeps
+the provider off the trace.
 
 ### Reading the trace at the right density
 

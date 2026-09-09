@@ -26,9 +26,16 @@ async function bootstrap() {
     (process.env.PROFILER_INSTRUMENT ?? '').trim().toLowerCase(),
   );
 
+  // PROFILER_INSTRUMENT_EXCLUDE='ConfigService,*.getRequestId' keeps the named classes and methods
+  // off the trace — the noise a real application's call tree is buried under.
+  const exclude = (process.env.PROFILER_INSTRUMENT_EXCLUDE ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name !== '');
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    ...(instrumentEnabled ? { instrument: createProfilerInstrument() } : {}),
+    ...(instrumentEnabled ? { instrument: createProfilerInstrument({ exclude }) } : {}),
   });
 
   const configService = app.get(ConfigService);

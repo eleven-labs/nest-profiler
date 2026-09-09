@@ -1,8 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import { loadOptionalPeer } from '../utils/optional-peer.util';
+import { escapeRegExp } from '../utils/regexp.utils';
 import { runInSpan } from '../trace/run-in-span';
 import { readActiveSpanDepth, setActiveSpanDepth } from '../services/profiler-context';
+import { compileExcludeMatcher } from './exclude-matcher';
+import type { ExcludeMatcher } from './exclude-matcher';
 import { isInternal } from './internal-marker';
 import {
   isCallableObject,
@@ -37,11 +40,35 @@ export interface ProfilerInstrumentOptions {
    */
   includeAnonymous?: boolean;
   /**
+   * Names to keep off the trace, matched against `ClassName` and `ClassName.methodName`.
+   * Default: none.
+   *
+   * ```ts
+   * exclude: ['ConfigService', 'ClockService.now', '*.getRequestId', /Repository$/]
+   * ```
+   *
+   * A pattern matching the **class name** takes the provider off the trace entirely — handed back
+   * unproxied, exactly like {@link skip}, so it costs nothing at all. One matching a
+   * **`Class.method`** label drops that single method and leaves the rest of the class recorded.
+   * The dot is what tells the two apart.
+   *
+   * Strings match in full — `'Product'` never takes `ProductRepository` with it — and accept `*`
+   * as a wildcard within a name (`'*.get'`, `'Cache*'`), which never crosses the dot. A RegExp is
+   * tried at both levels, so its own anchoring says which it meant: `/Repository/` drops every
+   * repository, `/^AppService\.tick$/` one method.
+   *
+   * This is about legibility, like {@link maxDepth}: one `ConfigService.get` called two hundred
+   * times buries the dozen spans the trace was opened for. Dropping a method never orphans its
+   * children — they reparent to whatever span was active above it.
+   */
+  exclude?: readonly (string | RegExp)[];
+  /**
    * Skip instrumenting an instance entirely. Return `true` for a provider whose calls you do not
    * want on the trace — a hot utility called thousands of times, a third-party client you do not
    * own.
    *
-   * The instance is handed back untouched, so it keeps its exact identity and behaviour.
+   * The instance is handed back untouched, so it keeps its exact identity and behaviour. Reach for
+   * {@link exclude} first when the name is enough to say which provider you mean.
    */
   skip?: (instance: object) => boolean;
   /**
@@ -88,24 +115,30 @@ export function createProfilerInstrument(options: ProfilerInstrumentOptions = {}
   const includeInternals = options.includeInternals ?? false;
 
   const includeAnonymous = options.includeAnonymous ?? false;
+  const excluded = compileExcludeMatcher(options.exclude);
 
   const skip = (instance: object): boolean => {
     if (!includeInternals && (isInternal(instance) || isClsService(instance))) return true;
     if (!includeAnonymous && isAnonymous(instance)) return true;
+    if (excluded?.matchesClass(classNameOf(instance)) === true) return true;
     return userSkip?.(instance) === true;
   };
 
   return {
     instanceDecorator: (instance: unknown): unknown => {
       if (typeof instance !== 'object' || instance === null) return instance;
-      return instrumentInstance(instance, { skip, maxDepth });
+      return instrumentInstance(instance, { skip, maxDepth, excluded });
     },
   };
 }
 
 function instrumentInstance(
   instance: object,
-  options: { skip?: (instance: object) => boolean; maxDepth: number },
+  options: {
+    skip?: (instance: object) => boolean;
+    maxDepth: number;
+    excluded?: ExcludeMatcher;
+  },
 ): object {
   if (options.skip?.(instance)) return instance;
 
@@ -143,7 +176,7 @@ function instrumentInstance(
       const cached = cache.get(value);
       if (cached) return cached;
 
-      const className = target.constructor?.name ?? 'Anonymous';
+      const className = classNameOf(target);
       const methodName = String(prop);
       const label = `${className}.${methodName}`;
 
@@ -155,6 +188,16 @@ function instrumentInstance(
       // Traced calls run against the Proxy so a method calling into itself (`this.other()`) is
       // recorded as a nested span — except where only the raw instance satisfies a brand check.
       const receiverForCall: unknown = requiresRawReceiver ? target : receiver;
+
+      // Excluded by name: the method is handed back unwrapped, so it runs as it would undecorated
+      // and whatever it calls reparents to the span active above it. Where only the raw instance
+      // satisfies a brand check it is bound to it, since the call site's receiver is the Proxy;
+      // cached either way so repeated reads keep handing out the same function.
+      if (options.excluded?.matchesMethod(label) === true) {
+        const unwrapped = requiresRawReceiver ? (original.bind(target) as Function) : original;
+        cache.set(value, unwrapped);
+        return unwrapped;
+      }
 
       const traced = function (this: unknown, ...args: unknown[]): unknown {
         // Re-entrancy guard: while a call to this method is being traced, a nested call to the
@@ -198,10 +241,6 @@ function instrumentInstance(
       return bound;
     },
   });
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -323,4 +362,9 @@ function isOlderThanMinimum(version: string): boolean {
 function isAnonymous(instance: object): boolean {
   const name = instance.constructor?.name;
   return !name || name === 'Object';
+}
+
+/** The instance's class name, or `Anonymous` when it carries none — the label's left-hand side. */
+function classNameOf(instance: object): string {
+  return instance.constructor?.name ?? 'Anonymous';
 }
