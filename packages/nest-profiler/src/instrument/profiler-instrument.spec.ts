@@ -350,6 +350,146 @@ describe('createProfilerInstrument', () => {
     });
   });
 
+  describe('excluding by name', () => {
+    class ConfigService {
+      get(key: string): string {
+        return `value:${key}`;
+      }
+      getOrThrow(key: string): string {
+        return this.get(key);
+      }
+    }
+
+    class ClockService {
+      constructor(private readonly config: ConfigService) {}
+      now(): number {
+        return 1700000000;
+      }
+      resolve(): string {
+        return `${this.config.get('app.name')}@${this.now()}`;
+      }
+    }
+
+    it('takes a whole class off the trace, unproxied', () => {
+      // The noise the option exists for: a `ConfigService.get` called two hundred times a request
+      // buries the dozen spans the trace was opened for. Naming the class hands the instance back
+      // untouched, so it costs nothing at all — not even a trap.
+      const config = new ConfigService();
+      const result = instrument(config, { exclude: ['ConfigService'] });
+
+      expect(result).toBe(config);
+      expect(profiled(() => result.getOrThrow('app.name'))).toBe('value:app.name');
+      expect(spans()).toHaveLength(0);
+    });
+
+    it('takes a single method off the trace, keeping the rest of the class', () => {
+      const service = instrument(new ClockService(new ConfigService()), {
+        exclude: ['ClockService.now'],
+      });
+
+      expect(profiled(() => service.resolve())).toBe('value:app.name@1700000000');
+      expect(labels()).toEqual(['ClockService.resolve']);
+    });
+
+    it('reparents the children of an excluded method rather than orphaning them', () => {
+      const repo = instrument(new Repository());
+      const service = instrument(new ProductService(repo), { exclude: ['ProductService.create'] });
+
+      profiled(() => service.createTwice('lamp'));
+
+      const outer = spans().find((s) => s.label === 'ProductService.createTwice');
+      const save = spans().find((s) => s.label === 'Repository.save');
+      expect(labels()).not.toContain('ProductService.create');
+      expect(save?.parentId).toBe(outer?.id);
+    });
+
+    it('reads * as a wildcard within a name', () => {
+      const config = instrument(new ConfigService(), { exclude: ['*.get'] });
+
+      expect(profiled(() => config.getOrThrow('port'))).toBe('value:port');
+      expect(labels()).toEqual(['ConfigService.getOrThrow']);
+    });
+
+    it('matches a string in full, so a prefix takes nothing with it', () => {
+      const service = instrument(new ProductService(new Repository()), { exclude: ['Product'] });
+
+      profiled(() => service.create('chair'));
+      expect(labels()).toEqual(['ProductService.create']);
+    });
+
+    it('tries a RegExp at both levels, letting its anchoring say which it meant', () => {
+      const config = new ConfigService();
+      expect(instrument(config, { exclude: [/Config/] })).toBe(config);
+      profiled(() => config.get('a'));
+      expect(spans()).toHaveLength(0);
+
+      const narrow = instrument(new ConfigService(), { exclude: [/^ConfigService\.get$/] });
+      profiled(() => narrow.getOrThrow('b'));
+      expect(labels()).toEqual(['ConfigService.getOrThrow']);
+    });
+
+    it('matches a global RegExp consistently, whatever the order of the reads', () => {
+      // `test` on a /g/ pattern advances lastIndex, so the same name would match on one call and
+      // miss on the next — a provider recorded or not depending on how many methods ran before it.
+      const config = instrument(new ConfigService(), { exclude: [/get/g] });
+
+      profiled(() => {
+        config.get('a');
+        config.getOrThrow('b');
+        config.get('c');
+      });
+      expect(spans()).toHaveLength(0);
+    });
+
+    it('ignores an empty pattern list and blank entries', () => {
+      const service = instrument(new ProductService(new Repository()), { exclude: ['', '  '] });
+
+      profiled(() => service.create('desk'));
+      expect(labels()).toEqual(['ProductService.create']);
+    });
+
+    it('keeps an excluded method of a private-member class working', () => {
+      // The method is handed back unwrapped, so `this` is the Proxy at the call site — and a brand
+      // check (`this.#count`) cannot be satisfied through one. It has to come back bound.
+      class Counter {
+        #count = 0;
+        increment(): number {
+          return ++this.#count;
+        }
+        reset(): number {
+          this.#count = 0;
+          return this.#count;
+        }
+      }
+      const counter = instrument(new Counter(), { exclude: ['Counter.increment'] });
+
+      expect(profiled(() => counter.increment())).toBe(1);
+      expect(profiled(() => counter.increment())).toBe(2);
+      expect(profiled(() => counter.reset())).toBe(0);
+      expect(labels()).toEqual(['Counter.reset']);
+    });
+
+    it('hands out the same function on every read of an excluded method', () => {
+      // Typed as a property rather than a method: the point is the identity of what is read, not a
+      // call through it.
+      const service: { get: unknown } = instrument(new ConfigService(), {
+        exclude: ['ConfigService.get'],
+      });
+
+      expect(service.get).toBe(service.get);
+    });
+
+    it('keeps the excluded method callable through the instance it was read from', () => {
+      const service = instrument(new ClockService(new ConfigService()), {
+        exclude: ['*.now'],
+      });
+      const detached = service.now.bind(service);
+
+      expect(profiled(() => detached())).toBe(1700000000);
+      expect(spans()).toHaveLength(0);
+    });
+  });
+
   describe('an older Nest, where the instrument option does not exist', () => {
     it('warns once rather than staying silently inert', () => {
       // A peer range only warns at install, so a consumer can well be on 11.0.x — and there the
