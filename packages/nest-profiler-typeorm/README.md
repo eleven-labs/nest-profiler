@@ -29,10 +29,8 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-typeorm@alpha
+pnpm add @eleven-labs/nest-profiler-typeorm
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0`
 

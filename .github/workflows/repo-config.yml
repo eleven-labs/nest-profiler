@@ -1,7 +1,7 @@
 name: Repository config
 
-# Syncs the *recurring* repository config (labels, milestones) from declarative
-# files. The one-time config (branch ruleset, repo settings, Actions variables,
+# Syncs the *recurring* repository config (labels) from a declarative file.
+# The one-time config (branch ruleset, repo settings, Actions variables,
 # CODEOWNERS, npm trusted publisher) is applied manually — see MAINTAINERS.md.
 
 on:
@@ -9,7 +9,6 @@ on:
     branches: ['main']
     paths:
       - '.github/labels.yml'
-      - '.github/milestones.yml'
   workflow_dispatch:
     inputs:
       prune-labels:
@@ -41,30 +40,3 @@ jobs:
           # Pruning (deleting undeclared labels) only on an explicit manual run.
           skip-delete: ${{ !(github.event_name == 'workflow_dispatch' && inputs.prune-labels) }}
           dry-run: false
-
-  sync-milestones:
-    name: Sync milestones
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Create missing milestones from .github/milestones.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          existing="$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/milestones?state=all" --jq '.[].title')"
-          count="$(yq '. | length' .github/milestones.yml)"
-          for i in $(seq 0 $((count - 1))); do
-            title="$(yq ".[$i].title" .github/milestones.yml)"
-            description="$(yq ".[$i].description // \"\"" .github/milestones.yml)"
-            if grep -Fxq "$title" <<<"$existing"; then
-              echo "exists: $title"
-            else
-              gh api --method POST "/repos/${GITHUB_REPOSITORY}/milestones" \
-                -f "title=$title" -f "description=$description" >/dev/null
-              echo "created: $title"
-            fi
-          done

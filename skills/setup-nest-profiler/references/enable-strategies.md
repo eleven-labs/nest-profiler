@@ -136,7 +136,7 @@ Offer this **only** when the user wants the profiler in `devDependencies` only, 
 **Install as dev dependencies** — use the package manager's dev flag (`pnpm add -D` / `npm install -D` / `yarn add -D`):
 
 ```bash
-pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
 Collector packages install the same way (`-D`).

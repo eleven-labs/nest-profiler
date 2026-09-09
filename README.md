@@ -94,10 +94,10 @@ pnpm example:dev
 
 ## Installation
 
-Packages are published to the public **npm** registry — install them like any other dependency, no authentication required. There is no stable release yet, so every `@eleven-labs/nest-profiler*` package must be installed with the `@alpha` dist-tag (`@latest` resolves to nothing):
+Packages are published to the public **npm** registry — install them like any other dependency, no authentication required:
 
 ```bash
-pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
+pnpm add @eleven-labs/nest-profiler nestjs-cls
 ```
 
 > Prefer the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of a runtime gate.
@@ -119,7 +119,7 @@ export class AppModule {}
 Add optional collectors in their respective feature modules:
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-typeorm@alpha
+pnpm add @eleven-labs/nest-profiler-typeorm
 ```
 
 ```ts title="products/products.module.ts"

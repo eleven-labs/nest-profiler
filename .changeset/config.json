@@ -2,7 +2,8 @@
   "$schema": "https://unpkg.com/@changesets/config@4.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [
+  "fixed": [],
+  "linked": [
     [
       "@eleven-labs/nest-profiler",
       "@eleven-labs/nest-profiler-auth",
@@ -20,7 +21,6 @@
       "@eleven-labs/nest-profiler-routes"
     ]
   ],
-  "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

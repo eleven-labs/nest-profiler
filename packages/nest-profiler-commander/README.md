@@ -31,10 +31,8 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-commander@alpha nest-commander
+pnpm add @eleven-labs/nest-profiler-commander nest-commander
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `nest-commander ^3.20.0`
 

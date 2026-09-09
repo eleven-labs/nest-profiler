@@ -139,7 +139,7 @@ The idea: the _entrypoint_ is the switch. Production runs a profiler-free `main.
 **Install as a dev dependency** — every `@eleven-labs/nest-profiler*` package plus `nestjs-cls`:
 
 ```bash
-pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
 **Production entry** — no profiler anywhere on the always-executed path:

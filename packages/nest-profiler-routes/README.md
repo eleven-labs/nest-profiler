@@ -31,10 +31,8 @@ A transport that discovered nothing gets no view at all, so the sidebar only eve
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-routes@alpha
+pnpm add @eleven-labs/nest-profiler-routes
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@eleven-labs/nest-profiler`. `class-validator` is an **optional** peer — install it to surface DTO properties and validation rules; without it, a body DTO shows only its class name.
 

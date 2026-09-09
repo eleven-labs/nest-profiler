@@ -30,7 +30,7 @@ pnpm pack:dry-run   # what actually ends up in the tarball
 pnpm attw           # Are the Types Wrong? — type resolution across module systems
 ```
 
-CI maps these to workflows: **CI** (`ci.yml`: check + a Node 22/24 test matrix, with an aggregate `CI` gate), **Quality** (`quality.yml`: changeset policy + publint + pack + attw), **CodeQL** (`codeql.yml`, informational), plus **Validate commit messages** and **Semantic PR title** gates. The branch ruleset requires `CI`, `Package and docs quality checks`, `Validate commit messages`, and `Semantic PR title`.
+CI maps these to workflows: **CI** (`ci.yml`: check + a Node 22/24 test matrix, with an aggregate `CI` gate), **Quality** (`quality.yml`: publint + pack + attw + documented public exports, plus a skill-references sync job), **CodeQL** (`codeql.yml`, informational), plus **Validate commit messages** and **Semantic PR title** gates. The branch ruleset requires `CI`, `Package and docs quality checks`, `Validate commit messages`, and `Semantic PR title`.
 
 ## Releasing
 
@@ -39,10 +39,12 @@ Releases run in **CI** from `main` via `changesets/action` (`release.yml`).
 ### Stable
 
 1. Merge PRs, each carrying a `pnpm changeset`.
-2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`: `changeset version` → fill lockstep changelogs).
+2. The release workflow opens/updates a version PR titled `chore(release): version packages` (runs `pnpm version-packages`, i.e. `changeset version`).
 3. Merging that PR publishes every bumped package with the `latest` dist-tag.
 
-The whole suite is a Changesets `fixed` group, so all 14 packages move to the same version.
+The suite is a Changesets `linked` group: **only the packages that actually changed are released**, and those released in the same run share one version. A package with no changeset keeps the version it had — no empty `No changes in this release` entry, no pointless publish.
+
+The group still guarantees alignment where it matters. Every collector peer-depends on the core with a caret range, so a core `major` takes the whole suite out of range: the 13 collectors are released alongside it, land on the same new major, and get their peer rewritten. A core `patch` or `minor` stays in range and releases the core alone.
 
 ### Alpha / beta prereleases
 
@@ -59,21 +61,9 @@ git push                     # CI opens the version PR; merging publishes `alpha
 
 Each prerelease version moves the changesets it consumed into `.changeset/pre/`, where they wait for the stable release — they are not lost, and the version PR is expected to carry them.
 
-### Pointing `latest` at the newest prerelease
+Now that `1.0.0` is out, `latest` always points at the newest stable version: npm only moves `alpha`/`beta` for a prerelease publish and leaves `latest` alone, so a bare `npm install @eleven-labs/nest-profiler` keeps resolving to the stable line.
 
-**Manual step, to run after every prerelease publish** — until the first stable version ships.
-
-A `npm publish` sets a single dist-tag, so in prerelease mode CI only moves `alpha`/`beta`; `latest` stays wherever npm left it on each package's first-ever publish. A bare `npm install @eleven-labs/nest-profiler` therefore resolves to a stale alpha. Moving `latest` is a separate registry write, and npm trusted publishing (OIDC) authenticates `npm publish` only — automating it in CI would mean storing a long-lived, publish-capable npm token, which is exactly the credential OIDC removes. So it stays a local, manually authenticated step:
-
-```bash
-git pull                                  # get the versions published by CI
-pnpm release:promote-latest --dry-run     # review the planned dist-tag moves
-pnpm release:promote-latest               # asks for one OTP, then moves them all
-```
-
-All registry reads happen before the prompt and the writes are fired concurrently with the same `--otp`, so a single one-time password covers the whole lockstep group. Pass `--otp=<code>` (or set `NPM_CONFIG_OTP`) to skip the prompt; leave it empty if your npm account requires 2FA for authorization only. The command is idempotent — re-run it after a partial failure and it only retries what is still pending.
-
-It skips any package whose `latest` already points at a stable version, so it turns into a no-op on its own once the stable release ships and nothing needs to be removed then.
+### Leaving prerelease mode
 
 Leave prerelease mode before resuming stable releases. This is a rare, one-off step done manually from `main` by a maintainer:
 
@@ -89,12 +79,15 @@ git push                                  # CI's Release workflow then cuts the 
 
 Breaking changes ship as a **major** with a `BREAKING:` note in the changeset body. In alpha/beta (prerelease) mode a major never moves the base version — every run only bumps the `-alpha.N` / `-beta.N` counter — so breaking changes flow freely; the major only materializes when you leave prerelease mode and cut the stable version. Review the `chore(release): version packages` PR before merging it: that diff is the deliberate gate on what actually ships.
 
+**A core major needs a changeset per collector.** Write them in the same PR, one `major` changeset each, saying what the collector now requires. Left to itself Changesets still lands every collector on the new major — the `linked` group and the out-of-range peer see to that — but it titles the section from the _reason_ it bumped them, a dependency update, so the entry reads `### Patch Changes` / `Updated dependencies` under a `## 2.0.0` heading. The version is right, the note says nothing, and the heading contradicts it. A peer requirement moving to a new major is a breaking change for consumers and deserves to be written as one.
+
 ## Repository automation
 
-### Labels & milestones (declarative, auto-synced)
+### Labels (declarative, auto-synced)
 
-- Edit `.github/labels.yml` / `.github/milestones.yml`, open a PR. On merge to `main`, `repo-config.yml` syncs them (labels via `ghaction-github-labeler`; milestones create-if-missing).
+- Edit `.github/labels.yml`, open a PR. On merge to `main`, `repo-config.yml` syncs them via `ghaction-github-labeler`.
 - Manual run: **Actions → Repository config → Run workflow**. Tick **prune-labels** to delete labels not declared in `labels.yml` (off by default).
+- Milestones are created and closed by hand in the GitHub UI — a declarative sync could only ever re-create the ones a maintainer had just deleted.
 
 ### PR auto-labelling
 

@@ -38,10 +38,8 @@ The two are independent: register the one that matches what your application doe
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-rabbitmq@alpha
+pnpm add @eleven-labs/nest-profiler-rabbitmq
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to talk to the broker). They are optional — when no RabbitMQ traffic runs, the modules simply never produce a profile or a panel entry.
 
