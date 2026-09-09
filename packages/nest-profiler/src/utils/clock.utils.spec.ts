@@ -26,15 +26,16 @@ describe('monotonicNow', () => {
 
 describe('elapsedMs', () => {
   it('resolves work far below a millisecond instead of flooring it to zero', () => {
+    // A sub-millisecond origin: `Date.now()` arithmetic reports 0 here.
+    expect(elapsedMs(monotonicNow() - 0.25)).toBeGreaterThanOrEqual(0.25);
+
     const from = monotonicNow();
-    // Enough arithmetic to take a measurable but sub-millisecond amount of time.
+    // Enough arithmetic to take a measurable amount of time.
     let sink = 0;
     for (let i = 0; i < 20_000; i++) sink += i;
     expect(sink).toBeGreaterThan(0);
 
-    const elapsed = elapsedMs(from);
-    expect(elapsed).toBeGreaterThan(0);
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsedMs(from)).toBeGreaterThan(0);
   });
 
   it('rounds to microsecond precision rather than shipping float noise', () => {

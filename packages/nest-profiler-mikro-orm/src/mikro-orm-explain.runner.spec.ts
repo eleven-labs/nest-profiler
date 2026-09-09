@@ -36,8 +36,9 @@ function makeOrm(params: { platform?: new () => object; rows?: unknown } = {}): 
   return { orm, execute };
 }
 
-function makeRegistry(): ExplainRunnerRegistry & { register: jest.Mock } {
-  return { register: jest.fn() } as unknown as ExplainRunnerRegistry & { register: jest.Mock };
+function makeRegistry(): { registry: ExplainRunnerRegistry; register: jest.Mock } {
+  const register = jest.fn();
+  return { registry: { register } as unknown as ExplainRunnerRegistry, register };
 }
 
 function makeModuleRef(registry: unknown, orm: unknown): ModuleRef {
@@ -57,56 +58,53 @@ function setup(
   } = {},
 ): {
   runner: MikroOrmExplainRunner;
-  registry: ExplainRunnerRegistry & { register: jest.Mock };
+  register: jest.Mock;
   execute: jest.Mock;
 } {
-  const registry =
-    params.registry === undefined
-      ? makeRegistry()
-      : (params.registry as ExplainRunnerRegistry & { register: jest.Mock });
+  const { registry, register } = makeRegistry();
   const built = makeOrm({ platform: params.platform, rows: params.rows });
   const orm = params.hasOrm === false ? undefined : (params.orm ?? built.orm);
   const moduleRef = makeModuleRef(params.registry === undefined ? registry : params.registry, orm);
   const runner = new MikroOrmExplainRunner(moduleRef, params.options ?? {});
-  return { runner, registry, execute: built.execute };
+  return { runner, register, execute: built.execute };
 }
 
 describe('MikroOrmExplainRunner', () => {
   describe('onModuleInit registration', () => {
     it('registers with the registry for a postgres platform', () => {
-      const { runner, registry } = setup({ platform: PostgreSqlPlatform });
+      const { runner, register } = setup({ platform: PostgreSqlPlatform });
       runner.onModuleInit();
-      expect(registry.register).toHaveBeenCalledWith(runner);
+      expect(register).toHaveBeenCalledWith(runner);
     });
 
     it('does not register when explain.enabled is false', () => {
-      const { runner, registry } = setup({
+      const { runner, register } = setup({
         platform: PostgreSqlPlatform,
         options: { explain: { enabled: false } },
       });
       runner.onModuleInit();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('does not register for an unsupported platform', () => {
-      const { runner, registry } = setup({ platform: OraclePlatform });
+      const { runner, register } = setup({ platform: OraclePlatform });
       runner.onModuleInit();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('no-ops when the ORM cannot be resolved', () => {
-      const { runner, registry } = setup({ hasOrm: false });
+      const { runner, register } = setup({ hasOrm: false });
       expect(() => runner.onModuleInit()).not.toThrow();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
 
     it('no-ops when the registry cannot be resolved', () => {
-      const registry = makeRegistry();
+      const { register } = makeRegistry();
       const { orm } = makeOrm({ platform: PostgreSqlPlatform });
       const moduleRef = makeModuleRef(undefined, orm);
       const runner = new MikroOrmExplainRunner(moduleRef, {});
       expect(() => runner.onModuleInit()).not.toThrow();
-      expect(registry.register).not.toHaveBeenCalled();
+      expect(register).not.toHaveBeenCalled();
     });
   });
 
