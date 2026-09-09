@@ -1,5 +1,182 @@
 # @eleven-labs/nest-profiler
 
+## 1.0.0-alpha.18
+
+### Major Changes
+
+- 211a2b7: BREAKING: remove the deprecated surface so the first stable release ships one way to do each thing.
+
+  `ProfilerModuleOptions` no longer carries the flat masking options `maskCookies`, `maskHeaders`, `useDefaultMaskHeaders`, `maskQueryParams` and `useDefaultMaskQueryParams`. The unified `redaction` block replaces all five: `redaction.cookies`, `redaction.headers`, `redaction.queryParams`, and `redaction.useDefaults: false` for the total opt-out that the two `useDefaultMask*` flags used to express per list. `resolveRedactionConfig()` now resolves that block alone, so there is a single merge to reason about instead of two surfaces that had to agree.
+
+  `StorageFindOptions` is removed and `IProfilerStorageAdapter.findAll()` takes no argument. The dashboard has driven its lists through `ProfilerQuery` / `query()` for a while and nothing passed those HTTP-centric filters any more; the in-memory filter helper behind them goes with the type. A custom adapter that declared `findAll(options?)` keeps compiling — the parameter is simply never supplied — and one that filtered on it should implement `query()` instead.
+
+  These options are per-collector, not core, and are untouched: `maskHeaders` on `nest-profiler-http` and `nest-profiler-rabbitmq`, `maskKeys` on `nest-profiler-config`, `maskUserFields` on `nest-profiler-auth`.
+
+- 65cc02c: Read an exception the way a stack is actually read (breaking).
+
+  The Exceptions tab used to dump `Error#stack` into a `<pre>` and, when `sourceContext` was on, repeat the same information as five code excerpts below it. Both halves are now one structured view: the throw site first, with its source; the remaining application frames behind one disclosure; and everything below the application — dependencies and Node internals — collapsed into a single count. The `cause` chain gets the same treatment at every level.
+
+  **BREAKING — `sourceContext` now defaults to `true`.** Code excerpts were the most Symfony-like thing the profiler had and they were invisible unless you knew to ask. Nothing leaves the machine: the file is read off disk and stored on the profile like everything else. Pass `sourceContext: false` to keep the grouped frames without reading any source.
+
+  **BREAKING — `ExceptionEntry.frames` holds the whole stack, not only the annotated part.** Frames are now parsed unconditionally (no I/O), each carrying `isApplication`, and `lines` is present only on the application frames that got an excerpt. Previously non-application frames were dropped, which is why the raw stack string had to stay on screen. `stack` is still recorded, and is what the tab falls back to when no frame parses out of it.
+
+  - **New `editor` option** — turns every source location into a link that opens the file at the right line, Symfony's `framework.ide`. A known name (`vscode`, `vscode-insiders`, `cursor`, `windsurf`, `zed`, `webstorm`, `idea`, `phpstorm`, `sublime`, `textmate`) or a URL template with `%f` and `%l`. Only frames that resolved under `projectRoot` are linked; an unknown name warns at startup and renders plain text.
+  - **New `projectRoot` option** (default `process.cwd()`) — what tells an application frame from a dependency, the only directory `sourceContext` may read inside, and the root display paths are relative to. Set it when the process does not start from the application root.
+  - **Frames read better.** Paths are relative (`src/catalog/product.service.ts:49:21` rather than an absolute path with no position), a dependency path is shortened to its own package root (a pnpm store path included), `async` becomes a badge instead of part of the function name, V8's `new` prefix and `[as alias]` suffix are stripped, and the faulty line carries a caret under its column. Excerpts are syntax-highlighted.
+  - **A rejected DTO finally says what was wrong.** `ExceptionEntry.details` records the response payload an `HttpException` answered with, which is the only place a validation failure's field errors exist — `HttpException#message` for a `BadRequestException(violations)` is the generic `"Bad Request Exception"`. The tab shows the payload's message lines instead of the exception's own whenever they differ, and renders anything else the payload held under **Response payload**. Bounded and masked like a captured body, but not gated by `collectBody`: it is the error the caller already received. Nothing is stored when the payload merely restates the exception.
+  - **A framework-only stack is no longer given a fake throw site.** A validation error throws inside `@nestjs/common`, so promoting one of its frames to `Thrown at` emphasised the one line the reader cannot act on. Such a stack now names its throw site on a single line and keeps every frame collapsed.
+  - **A handled error no longer looks like a 500.** `ExceptionEntry.handled` was recorded and never displayed: an error reported through `TracerService.captureError()` now wears a `Handled` badge and the softer colour, and says `caught in` rather than `thrown in`.
+  - **The failing handler is named** — `thrown in ProductController.create`, above the frame that says where it was thrown.
+  - Frames are capped at 50 per exception, so a runaway recursion cannot flood storage.
+  - An application frame is now one **resolving under `projectRoot`**, rather than one that merely does not look like a dependency — a stricter definition that drops the `internal/` substring heuristic, which flagged an application path such as `src/internal/foo.ts` as a Node internal.
+  - **API changes:** `buildSourceContext` is replaced by `analyzeStack`, `ToExceptionEntryOptions` by `ExceptionCaptureOptions`, and `ProfilerCoreService.sourceContext` by `ProfilerCoreService.exceptionCapture` (carrying every setting, so a package building its own profile shares them all). `resolveSourceContextOptions(undefined)` now returns the defaults rather than `undefined`. New exports: `analyzeStack`, `resolveStackAnalysisOptions`, `resolveExceptionCaptureOptions`, `createEditorLink`, `resolveEditorTemplate`, `EDITOR_NAMES`, and the `ExceptionCaptureOptions`/`StackAnalysisOptions`/`ProfilerEditorName`/`EditorLink` types.
+
+- 5ea9463: BREAKING: replace `ProfilerService` with `TracerService`, and reduce spans to a single model.
+
+  - `TracerService` replaces `ProfilerService` and `NoopProfilerService`, which are removed with no alias. It injects only optional dependencies, so the same class is the documented no-op when the profiler is disabled — there is no second implementation to keep in sync.
+  - `@Span(name?)` records a whole method as one span without touching its body — same nesting and error marking as `span()`, but one line, no re-indentation, and `return` keeps meaning "return from the method". It needs no injection: like `createProfilerLogger`, it resolves the active profile from the CLS store. The name defaults to `ClassName.methodName`.
+  - `span(name, work)` runs the work inside a span, closes it however it ends, and marks it failed when it throws. Work issued underneath reports it as its parent through the CLS store, so nesting is exact rather than inferred from overlapping time windows.
+  - `startSpan(name)` now returns a `TraceSpanDelegate` carrying `end()`, `setTag()` and `addTags()` instead of a close function.
+  - `captureError(error, tags?)` records an error the application caught itself, marked `handled` so a request that recovered is not counted as a failure.
+  - `setAttribute()` / `getAttribute()` write to `Profile.attributes`, so a value set from application code is indexed and filterable from the profile list.
+  - `Profile.trace` replaces `Profile.spans`: one flat, `parentId`-linked `TraceSpan` list assembled by `buildTrace()` after collection. `TimelineSpan`, `LifecyclePhase` and `Profile.lifecycle` are removed; lifecycle phases are spans with `lane: 'lifecycle'`.
+  - `Profile.traceId` replaces `HttpRequestData.requestId` and applies to every entrypoint kind. It adopts the `traceIdHeader` (default `x-request-id`) when the caller sent a usable value, and is length- and charset-validated before adoption, since it reaches log lines, the dashboard and outgoing headers.
+  - New options `traceIdHeader` and `attachTraceIdToLogs` (default `true`); `createProfilerLogger` prefixes forwarded messages with the trace id and stamps `LogEntry.spanId`.
+  - The RabbitMQ adapter adopts the message's `correlationId` as the trace id, linking a consumed message to the request that published it.
+
+### Minor Changes
+
+- a512259: Add optional automatic instrumentation: one span per provider method call, so the Performance tab shows the full call tree — which controller called which service, which called which repository, and what each cost.
+
+  `createProfilerInstrument()` builds the `instanceDecorator` that `NestFactory` accepts through its `instrument` option (requires `@nestjs/core` 11.1.4+). It is **off by default and belongs in development**: it proxies every provider instance, so every property access goes through a trap whether or not the request is profiled.
+
+  - Spans carry `kind: 'method'` and go into the same `Profile.trace` as everything else, so a query is nested under the repository method that issued it.
+  - The Performance tab gains a lens over that one tree — **All / I/O only / Code only** — rather than a second panel, so hiding method rows leaves their children attached to their real parent.
+  - The profiler's own providers and `ClsService` are excluded automatically. Without that, one request produced 75 spans of which about a dozen were application code; `includeInternals: true` opts back in, for debugging the profiler itself.
+  - `skip(instance)` excludes a provider, `maxDepth` (default 20) bounds the tree's depth. Recursion is handled separately by a re-entrancy guard.
+  - Instances a Proxy would break are handed back untouched: bare built-ins (`useValue: new Map()`), callable objects (a Mongoose model, an Axios instance), classes, and anything whose prototype cannot be read. Classes with native private members and built-in subclasses run against the raw receiver so their brand checks and internal slots keep working.
+  - New exports: `createProfilerInstrument`, `ProfilerInstrumentOptions`, `markInternal`, `isInternal`.
+
+- ec8aad8: Consolidate three sets of internals that had been copied across the workspace, and record exception causes.
+
+  **Reading the active profile.** `readProfile`, `readToken`, `readRequest` and `setProfileContext` are the way to reach the profiling context. The CLS store was previously addressed by string literal in 24 places across ten packages, each with its own `try`/`catch` — and `PROFILER_CLS_KEYS`, which existed precisely to prevent that, was used almost nowhere. A mistyped key reads as `undefined` rather than failing, silently turning a collector into a no-op; the accessors remove the opportunity. `PROFILER_CLS_KEYS` also gains the `token` key it was missing while three packages wrote the literal.
+
+  **Exception causes and codes.** `toExceptionEntry` replaces the four hand-rolled constructions of an `ExceptionEntry` (the interceptor's HTTP and non-HTTP paths, the catch-all exception filter, the command profiler), which had all drifted into recording only `name`, `message` and `stack`. Two things are now captured:
+
+  - **`ExceptionEntry.cause`** — the `cause` chain of a wrapped error, recorded recursively to a bounded depth and cycle-safe. An `InternalServerErrorException` says nothing; the `QueryFailedError` underneath says everything. The Exceptions tab renders the chain as one `Caused by` block per level.
+  - **`ExceptionEntry.code`** — a machine-readable code carried by the error (`ENOENT`, `ECONNREFUSED`, a driver's own), which the `exception` list filter groups by in preference to the class name.
+
+  Coercion of a non-`Error` throw is deliberately unchanged, so existing profiles keep grouping under `Error`.
+
+  **Shared collector options.** `CollectorModuleOptions` (the `enabled` flag, previously redeclared in twelve interfaces) and `TagSeverityOptions` (the tag severities, redeclared in five) are declared once in the core and extended by each collector's options interface. Only options whose meaning _and_ default are identical everywhere moved: the numeric thresholds stay per package, because a slow SQL query is 100 ms, a slow outgoing HTTP call 300 ms and a slow publish 50 ms — that default is the useful half of the documentation.
+
+  No behaviour change and no configuration change: every option keeps its name, type and default, and the accessors return exactly what the code they replace returned.
+
+- 017e485: Measure CPU, memory, event-loop and garbage collection — per request, and for the process.
+
+  Until now a profile carried one resource number: `heapUsed`, the process heap at the moment the request started, documented as not being per-request. So the profiler could say a request took 300 ms but not whether it spent them computing or waiting — which is the first thing you need to know, because the two are fixed very differently.
+
+  **Per request**, alongside the duration and at a cost of two syscalls:
+
+  - `performance.cpu` — `user`, `system` and `total` CPU milliseconds. The Performance tab shows the share of the duration and names it: _CPU-bound_, _waiting on I/O_, or mixed.
+  - `performance.memory` — `heapUsedAfter`, `rss`, and the `heapDelta` / `rssDelta` over the request. The deltas are what a leak looks like; they can be negative when a collection freed more than the request allocated.
+  - `performance.eventLoop` — `utilization`, `active` and `idle` over the request's window. High utilization on a slow request means the thread was blocked.
+  - `performance.gc` — collections during the request and their total pause. Reported while `runtime` is enabled, since observing GC means keeping a `PerformanceObserver` alive.
+
+  **For the process**, a new **Runtime** view in the dashboard sidebar: memory and CPU trends, event-loop lag percentiles (p50/p99/max from `monitorEventLoopDelay`), garbage collection split by kind, the V8 heap spaces, and the process facts. Sampled on an interval, because a leak is a shape over time rather than a value on one request — which is exactly what a per-request figure cannot show.
+
+  - New option `runtime?: boolean | { enabled?, interval?, historySize? }`, enabled by default, sampling every 5 s and keeping 120 samples. `runtime: false` stops the interval, releases the histogram and the GC observer, and removes the view.
+  - New exports: `RuntimeMetricsService`, `RuntimeCollector`, `completeProfilePerformance`, `registerGcCounter`, and the `ProfilerRuntimeOptions` / `RuntimeSample` / `RuntimeCollectorData` types.
+  - `GlobalPanelDescriptor` gains an optional `note`, so a panel can say what kind of data it holds. Every global panel was labelled "captured at startup", which is true of Config and Discover and not of one that samples over time.
+  - The Runtime view is documented in the [Profiler UI](https://nest-profiler.eleven-labs.com/docs/profiler-ui) tour with its own screenshot, and the screenshot generator captures it — warmed up under traffic first, since an idle process yields flat lines and an empty GC table.
+  - **The process-heap strip above the list pages is removed.** The Runtime view supersedes it on every axis: it sampled `heapUsed` once per profiled request — an axis made of traffic rather than time, so idle periods vanished and bursts compressed — and its leak heuristic could flip on a single collection. It also occupied the top of every list for data belonging to none of them, and cost a dedicated storage query per page load.
+
+  Everything read comes from `node:os`, `node:v8` and `node:perf_hooks` — no dependency to install, and nothing leaves the process.
+
+  **Read the per-request figures knowing what they are:** process-wide deltas over the profile's window, not an isolated measurement of one execution. Node runs a single thread, so under concurrent traffic a request is charged with what its neighbours spent too. That is the right trade for a tool used while driving requests one at a time, and the UI states it where the numbers are shown rather than leaving it to be discovered.
+
+- a512259: Raise the `@nestjs/core` peer to `^11.1.4`, forward the trace id on outgoing calls, and make the trace lens reach the table under the waterfall.
+
+  - **`@nestjs/core` peer is now `^11.1.4`**, the first release carrying the `instrument` option on `NestFactory`. A peer range only warns at install, so `createProfilerInstrument()` also checks the resolved version and says so once — on an older Nest the option is ignored and the feature is _silently_ inert, which is the worst failure mode for a debugging tool.
+  - **`propagateTraceId`** on `HttpCollectorModule` forwards the profile's trace id on every instrumented outgoing call (`true` for `x-request-id`, or a header name). Off by default: adding a header to an application's outgoing traffic is a visible change. A header the caller set explicitly always wins, and nothing is added outside a profiled request.
+  - **The Execution Trace lens now filters the table below the bars**, not only the bars. "I/O only" used to hide the method bars and still list every one of them underneath. Rows carry the same span id, so folds reach them too, and a count appears when you are looking at a subset.
+
+- e374e09: Drop the Token column from every profile list, lead with Time and Duration, and make the whole row the link.
+
+  - The **Token** column is gone from the HTTP, GraphQL, Commands and RabbitMQ lists: the token identifies the profile in the URL, in the `X-Debug-Token` header and on the detail page, so repeating a truncated copy on every row only pushed the columns that discriminate one execution from another out of the way.
+  - Every list now opens on **Time** then **Duration** — when an execution happened and what it cost — before the columns specific to its kind.
+  - The detail tables follow the same order: SQL queries, Mongoose queries, HTTP client calls, cache operations and the execution timeline all lead with Time then Duration, so a table reads the same wherever it sits.
+  - The row is the link: no cell owns it any more. A new `row-link` client behaviour navigates on a click anywhere in a `[data-row-href]` row, opens a new tab on ctrl/meta or middle click, and follows a focused row on `Enter`. Nested interactive elements and clicks that end a text selection are left alone.
+  - Custom list sections: put the profile URL in `data-row-href` on the `<tr>` and add `tabindex="0"` (a `<tr>` is not focusable on its own) to get the same behaviour.
+  - The attribute is validated before it is followed: only a same-origin path navigates, never a `javascript:`, protocol-relative or cross-origin value.
+
+- ce21258: Measure every duration on a monotonic clock, with sub-millisecond resolution.
+
+  Elapsed time — the request duration and every timeline span — was computed from `Date.now()`, which is both millisecond-granular and non-monotonic. Two consequences: any span shorter than a millisecond reported `0ms`, which is most application work and made the execution timeline unusable for comparing phases; and a wall-clock adjustment mid-request (an NTP step) produced a wrong duration, a backward step a **negative** one, which then flowed into the `slow` performance rule, the duration list filter and the stored profile summary.
+
+  - `PerformanceData.duration` and `TimelineSpan.duration` are now measured with `performance.now()` and carry up to three decimals (`0.42`, `1.618`). They are clamped at `0`, so a duration can never be negative.
+  - Absolute timestamps are unchanged and stay on the wall clock, because they are what a reader needs: `performance.startTime`, `TimelineSpan.startedAt`, `createdAt` and every log/exception timestamp remain epoch milliseconds.
+  - The HTTP middleware now reads the clock **once**: `createdAt` and `performance.startTime` named the same instant through two separate `Date.now()` calls and could disagree by a millisecond.
+  - New `formatDuration` view helper, applied to every duration the UI renders (profile header and Performance tab, the execution timeline, and the HTTP / GraphQL / Command / RabbitMQ list and detail views). It trades precision against magnitude — two decimals below 10 ms, one below 100 ms, whole milliseconds above — trims trailing zeros, and renders `<0.01` for a value too small to show rather than a misleading `0`.
+  - New exports: `monotonicNow`, `elapsedMs`, `markProfileStart`, `profileElapsedMs`, `formatDuration`. A package contributing its own entrypoint kind calls `markProfileStart(profile)` when it builds the profile to opt into monotonic measurement; a kind that does not falls back to the wall-clock difference, clamped at zero.
+
+  No migration and no storage change: SQLite's numeric affinity preserves a fractional value in the existing `duration INTEGER` summary column, on existing databases as well as new ones (covered by a test).
+
+  Anything reading `performance.duration` or `span.duration` programmatically — a custom performance rule, a custom collector panel, an assertion in a test — now receives a fractional number where it used to receive an integer.
+
+- 6593feb: Stop persisting credentials carried in a request, and make every masking list additive.
+
+  - **Query parameters are now masked at capture.** Both the stored URL and the parsed `query` had their values recorded verbatim, so a password-reset `token`, an OAuth `code`, a `state` or a URL `signature` was readable in the dashboard, in the `/_profiler/:token/data` export and in the _Copy as cURL_ command — and on disk for the whole `ttl` with file or SQLite storage. A built-in list (`token`, `access_token`, `refresh_token`, `id_token`, `api_key`, `code`, `state`, `signature`, `sig`, `password`, `secret`, `client_secret`, `session_id`…) is masked by default, matched case-insensitively and ignoring `-`/`_`. Parameter names are kept and only values replaced, so a captured URL still reads `?token=[REDACTED]`.
+  - **`maskHeaders` extends the built-in list instead of replacing it.** `maskHeaders: ['x-tenant-token']` used to make that header the _only_ masked one, silently un-masking `authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token` and `proxy-authorization` — the opposite of what the configuration expresses. Adding a header now never drops a built-in protection.
+  - **New options:** `maskQueryParams` (extra parameter names) and `useDefaultMaskQueryParams` / `useDefaultMaskHeaders` (`true` by default) to opt out of a built-in list deliberately.
+  - **New exports:** `DEFAULT_MASK_QUERY_PARAMS`, `buildMaskedQueryParams`, `redactQueryString`, `redactQueryRecord`.
+
+  Behaviour change: an application already passing `maskHeaders` now masks more headers than before, and captured URLs and query records may contain `[REDACTED]` where a value used to be. `ignoreRequest` still receives the unredacted request — it decides what gets profiled, so it must see what actually arrived.
+
+- e1ab2bf: Unify redaction configuration, annotate exceptions with source code frames, add custom indexed attributes, and round out the sampling/tracing options with `alwaysProfile`, `debug` and `version`.
+
+  - New `redaction` block on `ProfilerModule.forRoot()` — `{ useDefaults, headers, cookies, queryParams, keys, patterns, replacement }` — replacing the scattered `maskHeaders`/`maskCookies`/`maskQueryParams`/`useDefaultMask*` options with a single, additive configuration surface. The old flat options still work (merged additively with `redaction` when both are set) but are deprecated and will be removed in a future major version.
+  - `redact()`/`redactString()` (`@eleven-labs/nest-profiler`) gain `patterns` (extra value regexes) and a configurable `replacement` sentinel, plus a Luhn-validated card-number detector so a 13-19 digit run is only masked when it passes the checksum — an ordinary numeric id of the same length is left alone.
+  - New shared `RedactionKeyOptions`/`RedactionHeaderOptions`/`RedactionQueryParamOptions` interfaces exported from the core, adopted by `nest-profiler-config`, `nest-profiler-http` and `nest-profiler-rabbitmq` instead of redeclaring the same fields.
+  - Fixed a real drift in `nest-profiler-rabbitmq`: its default masked-header list had only 4 of the core's 6 entries (missing `set-cookie` and `proxy-authorization`). It now reuses the core's list directly.
+  - New `sourceContext` option (`boolean | { linesOfContext, maxFrames }`): attaches a source-code excerpt to every captured exception's application stack frames, rendered in the Exceptions tab for the primary exception and each `cause`. Hardened against a forged `Error#stack`: only files under `process.cwd()` with a recognised extension are read, reads are cached (failures too, bounded), and it never throws.
+  - New `attributes` option (a plain object, or a per-HTTP-request function) attaching custom indexed facets to a profile, merged into `ProfilerCoreService.getIndexAttributes()` and queryable as `attributes.<key>` the same way the built-in `exception` facet already is.
+  - New `version` option stamped on every profile and shown in its header — useful once profiles outlive a deploy (`storageType: 'file'`, SQLite).
+  - New `alwaysProfile` option: force-captures a request past the `sampleRate` roll (still subject to `ignoreRequest`/`ignorePaths`, which remain a hard "never profile this").
+  - New `debug` option: traces via `Logger.debug` why a request was or wasn't profiled (the profiler's own route, `ignoreRequest`, `ignorePaths`, or the `sampleRate` roll).
+  - Fixed: **response headers were never masked**, so a `set-cookie` — a replayable session for as long as the profile lives — was stored and rendered in the clear. Responses now mask on the same list as requests.
+  - Fixed: **captured bodies were never redacted**. With `collectBody: true`, a login request body kept its `password` in the clear. Request and response bodies now go through `redact()` with the configured options, applied after the `bodyCaptureLimits` / `maxBodySize` caps.
+  - `version` and `sourceContext` now reach every entrypoint, not just HTTP: `version` is stamped on the way to storage, and `@eleven-labs/nest-profiler-commander` annotates a failed command's stack frames on the core's setting.
+  - A caller-supplied `redaction.patterns` entry is applied globally even without the `g` flag (it previously masked only the first match), sticky patterns no longer carry `lastIndex` across calls, and a `replacement` containing `$&`/`$1` is written literally instead of being interpolated.
+
+- 5ea9463: Fill the trace waterfall with the work the collectors already capture.
+
+  - `appendCollectorEntry()` — the single funnel every instrumentation in every package goes through — now stamps each entry with the trace span that was open when it was captured. The parent is therefore exact rather than inferred from overlapping time windows, which is what makes it right under concurrency: two calls fired together no longer nest under one another.
+  - New `TraceContributor` implementations project already-collected entries onto the trace: every query collector (TypeORM, MikroORM, Mongoose) through `AbstractQueryCollector`, plus the HTTP-client and cache collectors. Nothing is re-timed — the shared `entriesToSpans()` helper reads the `startedAt`, `duration`, tags and parent each entry already carries.
+  - Each bar links back to the row holding its detail, and a grouped collector links to its group panel (`database`) rather than to itself.
+  - The HTTP collector classifies a failed bar with its own `error` option, so a 404 reddens only where the application says it should.
+  - New exports: `entriesToSpans`, `EntrySpanOptions`. Entry interfaces gain `parentSpanId`.
+
+### Patch Changes
+
+- 211a2b7: Documentation-only pass aligning every guide, README and agent skill with the current API.
+
+  Corrected what no longer matches the code: the `slowQueryThreshold` option (renamed `slowThreshold`) in the root README and the example app, the `HttpCollectorModule.forRootAsync({ axiosRef })` snippet in Getting started (adapters are now selected through `instrumentations`, and the axios one auto-discovers every `HttpService`), the non-existent `ProfilerViewsSetup` export, the removed **Timeline** tab (the breakdown is drawn in the Performance tab's **Execution Trace**), and the claim that the inert layer binds a separate no-op service — `TracerService` is registered with none of its optional dependencies, which is what makes it a no-op. Dropped the migration and deprecated-option notes: nothing has shipped stable, so there is no older way worth documenting.
+
+  Filled the gaps left by recent features: `createProfilerInstrument` / `ProfilerInstrumentOptions` and the trace helpers now appear in the core API reference, the `event` kind is listed in the error-classification table, the event-emitter and RabbitMQ-publish domains in the performance-tag thresholds, the `zero-rows` tag in the tag filter and the skill, and the `routes`, `rabbitmq` and `event-emitter` packages in the package tables, tutorial index and Profiler UI tour.
+
+- f6f00cd: Record the payload actually sent to the client when a route handler returns the response object. Controllers using `@Res()` with `return res.json(payload)` emit the Express response itself (`res.json()` returns `res`), which the interceptor stored as the response body — the profiler's Response tab showed the serialized `ServerResponse` (its `req`, sockets and raw headers) instead of the payload. The interceptor now detects that value and falls back to the body the middleware captured off `res.json()` / `res.send()`; the response-finish hook also backfills any body written after the observable completed (e.g. `res.render()`).
+- 429397b: Consolidate the HTTP capture plumbing: one response finalizer, one finish hook, one header normaliser, one optional-peer loader.
+
+  packages:
+
+  - The core registers a single `finish` listener (the middleware's). The interceptor registered a second one that duplicated the first's safety net and could only ever guard itself against it with `if (profile.response) return`.
+  - `profile.response` is built in one place, `finalizeHttpProfile()`, instead of three. The error paths now hand it the status derived from the exception rather than building a response with the transport's stale `200` and patching it afterwards.
+  - Body bounds and masking are resolved once into a shared `HttpCaptureConfig`, so the request (middleware) and response (interceptor) capture cannot bound or mask differently.
+  - Every header bag — incoming request, outgoing response, HTTP instrumentations — now goes through `extractHeaders()`, which gained an optional third argument: `replacement` for a custom sentinel and `multiValue` to keep a repeated header as an array. Response headers therefore gain the fuller value handling (`Headers`, `Map`, `toJSON()`, `Date`, `bigint`) the instrumentations already had.
+  - The per-request transport state (`deferCollection`, the transport response-body getter) moved from `Symbol` properties on the `Profile` to a private `WeakMap`, removing the `as unknown as Record<symbol, unknown>` casts and keeping request plumbing off the profile document.
+  - New public helpers `loadOptionalPeer()` / `resolveOptionalPeer()` tell **absent** (not installed, silent) from **broken** (installed but failed to load, warned) when loading an optional peer, and recover a subpath a package's `exports` map refuses — `@nestjs/core/package.json`, which Nest 12 no longer exports. `@eleven-labs/nest-profiler-config` (NestJS version) and `@eleven-labs/nest-profiler-routes` (`class-validator` metadata) now load their peers through it instead of a `try`/`catch` that swallowed everything.
+
 ## 1.0.0-alpha.17
 
 ### Major Changes
