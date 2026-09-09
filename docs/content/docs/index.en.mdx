@@ -70,7 +70,12 @@ The ecosystem is built around an **extensible collector architecture**: the core
 
 ## Versioning and stability
 
-Every package follows [Semantic Versioning](https://semver.org). The public API is what each package exports from its entry point (plus documented subpaths such as `@eleven-labs/nest-profiler/sqlite`) — breaking changes to it only ship in a major version. The rendered UI, EJS templates and internal services are implementation details and can change in a minor release. Packages are versioned and published together with [Changesets](https://github.com/changesets/changesets).
+Every package follows [Semantic Versioning](https://semver.org). The public API is what each package exports from its entry point (plus documented subpaths such as `@eleven-labs/nest-profiler/sqlite`) — breaking changes to it only ship in a major version. Packages are versioned and published together with [Changesets](https://github.com/changesets/changesets).
+
+Two things that are **not** obvious follow from that:
+
+- **The template contract is public.** A custom collector renders its panel from an EJS template, so the design tokens, utility classes and EJS helpers in the [Template reference](/docs/api-reference/template-reference) are part of the API and stay stable within a major. The rendered markup of the **built-in** panels is not — it changes whenever the UI does.
+- **Internal plumbing is not exported.** The entry point deliberately exposes only what a host application or a collector package needs. Helpers the profiler uses on itself — the list-page pagination, the in-memory query engine, option resolvers — are kept out of it precisely so they can be reworked in a minor release.
 
 <Callout type="warn" title="Development only">
   The profiler is designed for development environments. Disable it in production to avoid exposing

@@ -161,7 +161,7 @@ function isLogMethodMap(value: LogMethodMap | ProfilerLoggerOptions): value is L
 /**
  * Appends a log entry to the active profile, resolved statically from the
  * process-wide CLS singleton — the same store the profiler writes on each
- * request. No DI, so the wrapped logger needs no `ProfilerService`. Outside a
+ * request. No DI, so the wrapped logger needs no `TracerService`. Outside a
  * profiled context (bootstrap, background job, or profiler disabled) there is no
  * active profile, so the call records nothing and the log still flows through.
  */

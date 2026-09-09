@@ -603,6 +603,18 @@ describe('ProfilerController (e2e)', () => {
         const res = await request(secServer()).get('/_profiler/__assets/styles/secret.css');
         expect(res.status).toBe(404);
       });
+
+      // The asset exemption is matched on the request path. Testing the raw URL instead made the
+      // exemption caller-controlled: appending `?x=/__assets/` to any profiler route — the list,
+      // a profile page, the JSON export — passed the guard with no credential at all.
+      it.each([
+        ['the list page', '/_profiler?x=/__assets/'],
+        ['a profile page', '/_profiler/whatever?tab=/__assets/'],
+        ['the JSON export', '/_profiler/whatever/data?x=/__assets/'],
+      ])('rejects %s when /__assets/ only appears in the query string', async (_label, url) => {
+        const res = await request(secServer()).get(url);
+        expect(res.status).toBe(401);
+      });
     });
 
     it('applies a provided NestJS guard instance (denies then allows)', async () => {

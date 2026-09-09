@@ -101,7 +101,20 @@ import {
   ignoreGraphQLIntrospection,
 } from '@eleven-labs/nest-profiler-graphql';
 
-import type { GraphQLCollectorModuleOptions } from '@eleven-labs/nest-profiler-graphql';
+import { GraphqlDiscoverSource } from '@eleven-labs/nest-profiler-graphql';
+import { createIgnoreGraphQLPlayground } from '@eleven-labs/nest-profiler-graphql';
+import {
+  GRAPHQL_COLLECTOR_OPTIONS,
+  GRAPHQL_ENTRYPOINT_TYPE,
+  GRAPHQL_ENTRYPOINT_TYPE_DEF,
+  buildGraphqlEntrypointType,
+} from '@eleven-labs/nest-profiler-graphql';
+
+import type {
+  GraphQLCollectorModuleOptions,
+  GraphQLCollectorModuleAsyncOptions,
+  GraphQLEntrypointData,
+} from '@eleven-labs/nest-profiler-graphql';
 ```
 
 Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).

@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { Logger } from '@nestjs/common';
+import { createClient } from '@libsql/client';
 import { SqliteStorageAdapter } from './sqlite-storage.adapter';
 import type { Profile } from '../../interfaces/profile.interface';
 
@@ -332,6 +334,58 @@ describe('SqliteStorageAdapter', () => {
       const b = new SqliteStorageAdapter({ path: file, maxProfiles: 3, ttl: 3600 });
       await b.save(makeProfile('a-3', { createdAt: base + 3 }));
       expect((await b.findAll()).map((p) => p.token)).toEqual(['a-3', 'a-2', 'a-1']);
+      await b.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  describe('schema version', () => {
+    it('reuses a database written by the current schema version', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-schema-'));
+      const file = path.join(dir, 'p.db');
+
+      const a = new SqliteStorageAdapter({ path: file });
+      await a.save(makeProfile('keep'));
+      await a.close();
+
+      const b = new SqliteStorageAdapter({ path: file });
+      expect((await b.findAll()).map((p) => p.token)).toEqual(['keep']);
+      await b.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    // `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a database left behind by
+    // another schema version has to be recreated — otherwise a column added in a later release is
+    // simply missing and every query against it fails.
+    it('recreates a database written by a different schema version', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-stale-'));
+      const file = path.join(dir, 'p.db');
+
+      const a = new SqliteStorageAdapter({ path: file });
+      await a.save(makeProfile('stale'));
+      await a.close();
+
+      // Simulate a store written by an older layout: a table missing a column the code now reads.
+      const legacy = createClient({ url: `file:${file}` });
+      await legacy.executeMultiple(`
+        DROP TABLE profiles;
+        CREATE TABLE profiles (token TEXT PRIMARY KEY, created_at INTEGER NOT NULL);
+        PRAGMA user_version = 0;
+      `);
+      await legacy.execute("INSERT INTO profiles (token, created_at) VALUES ('stale', 1)");
+      await legacy.execute('PRAGMA user_version = 99');
+      legacy.close();
+
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const b = new SqliteStorageAdapter({ path: file });
+      await expect(b.findAll()).resolves.toEqual([]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('schema v99'));
+
+      // The recreated store is fully usable.
+      await b.save(makeProfile('fresh'));
+      expect((await b.findAll()).map((p) => p.token)).toEqual(['fresh']);
+
+      warn.mockRestore();
       await b.close();
       fs.rmSync(dir, { recursive: true, force: true });
     });

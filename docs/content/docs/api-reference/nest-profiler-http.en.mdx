@@ -201,6 +201,9 @@ import {
   sumHttpPhases,
   hasHttpPhases,
   formatPhaseDuration,
+  redactQueryString,
+  resolveMaskedQueryParams,
+  DEFAULT_MASK_QUERY_PARAMS,
   HTTP_PHASE_SEQUENCE,
   HTTP_PHASE_LABELS,
   HTTP_PHASE_HINTS,
@@ -208,8 +211,10 @@ import {
 
 import type {
   HttpCollectorModuleOptions,
+  HttpCollectorModuleAsyncOptions,
   HttpInstrumentation,
   HttpRequestEntry,
+  HttpCaptureInput,
   HttpCaptureOptions,
   HttpPhases,
   HttpPhaseName,

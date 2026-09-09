@@ -21,6 +21,7 @@ export {
   HTTP_PHASE_HINTS,
   sumHttpPhases,
   hasHttpPhases,
+  formatPhaseDuration,
 } from './http-phases.interface';
 export { readHttpPhases } from './phases/read-http-phases';
 export { instrumentClientRequest, phasesOfClientRequest } from './phases/client-request-timer';

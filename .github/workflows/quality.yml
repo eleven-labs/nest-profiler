@@ -49,6 +49,12 @@ jobs:
       - name: Validate type resolution (attw)
         run: pnpm attw
 
+      # Every symbol a collector package exports is public API under semver, so it must be
+      # listed in its "Public exports" section — an unlisted export is either accidental or
+      # undocumented, and removing it after a release costs a major.
+      - name: Verify documented public exports
+        run: pnpm check:api-exports
+
   skill-references:
     name: Skill references in sync
     runs-on: ubuntu-latest

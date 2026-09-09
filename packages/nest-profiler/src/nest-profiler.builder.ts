@@ -80,7 +80,7 @@ export interface ProfilerModuleOptions {
    * Enable the profiler. Default: `true`. Set to `false` to disable.
    *
    * This is a synchronous bootstrap decision: when `false`, only the inert
-   * {@link ProfilerService} is registered (no middleware, interceptor,
+   * {@link TracerService} is registered (no middleware, interceptor,
    * controller, storage or collectors). The host application decides per
    * environment. (One small, documented exception reads `process.env`
    * directly: the config collector reads `NODE_ENV` for display.)
@@ -413,4 +413,4 @@ export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: NEST_PROFILER_MODU
  * Injected into {@link ProfilerModule} so `configure()` can decide whether to
  * mount the middleware without relying on mutable static state.
  */
-export const PROFILER_ENABLED = Symbol('PROFILER_ENABLED');
+export const PROFILER_ENABLED = Symbol.for('nest_profiler_enabled');

@@ -105,7 +105,7 @@ export class ProfilerInterceptor implements NestInterceptor {
       return this.processNonHttp(activeProfile, next, deferToFinishHook);
     }
 
-    // Re-establish CLS context so the profiler logger and ProfilerService work inside resolvers.
+    // Re-establish CLS context so the profiler logger and TracerService work inside resolvers.
     return new Observable((subscriber) => {
       this.cls.run(() => {
         // Repose the transport request so request-scoped collectors (auth) can read
