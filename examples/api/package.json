@@ -87,7 +87,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.3",
     "@types/supertest": "^7.2.1",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "nest-commander-testing": "^3.5.1",
     "nock": "^14.0.16",
     "pino-pretty": "^13.1.3",

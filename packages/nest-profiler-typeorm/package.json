@@ -72,7 +72,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.3",
     "better-sqlite3": "^12.11.1",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "nestjs-cls": "^6.2.1",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
