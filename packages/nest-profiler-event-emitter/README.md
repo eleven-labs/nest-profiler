@@ -27,10 +27,8 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-event-emitter@alpha @nestjs/event-emitter
+pnpm add @eleven-labs/nest-profiler-event-emitter @nestjs/event-emitter
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@nestjs/event-emitter ^3.0.0`, `nestjs-cls ^6.0.0`
 

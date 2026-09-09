@@ -37,7 +37,6 @@
     "docker:reset": "docker compose down -v",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage",
     "changeset": "changeset",
-    "changeset:sync-changelog": "tsx scripts/changesets/fill-synced-changelog.ts",
     "changeset:pre:alpha": "changeset pre enter alpha",
     "changeset:pre:beta": "changeset pre enter beta",
     "changeset:pre:exit": "changeset pre exit",
@@ -51,12 +50,11 @@
     "release:alpha": "tsx scripts/changesets/publish.ts alpha",
     "release:beta": "tsx scripts/changesets/publish.ts beta",
     "release:stable": "tsx scripts/changesets/publish.ts stable",
-    "release:promote-latest": "tsx scripts/changesets/promote-prerelease-to-latest.ts",
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
     "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
-    "version-packages": "changeset version && pnpm changeset:sync-changelog",
+    "version-packages": "changeset version",
     "prepare": "husky"
   },
   "devDependencies": {

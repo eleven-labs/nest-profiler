@@ -11,17 +11,12 @@ This tutorial shows how to add `@eleven-labs/nest-profiler` to a NestJS applicat
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
+pnpm add @eleven-labs/nest-profiler nestjs-cls
 ```
-
-<Callout type="warn" title="Alpha release">
-  There is no stable release yet — every `@eleven-labs/nest-profiler*` package must be installed
-  with the `@alpha` dist-tag. `@latest` resolves to nothing.
-</Callout>
 
 `nestjs-cls` is required for per-request context propagation.
 
-> Want the profiler in `devDependencies` only, with no production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls` and follow the [dev-entry split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate used below.
+> Want the profiler in `devDependencies` only, with no production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler nestjs-cls` and follow the [dev-entry split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate used below.
 
 ## Step 2 - Register the module
 

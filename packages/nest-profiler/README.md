@@ -29,14 +29,12 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler@alpha nestjs-cls
+pnpm add @eleven-labs/nest-profiler nestjs-cls
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 `nestjs-cls` is a required peer dependency used for per-execution context propagation.
 
-> Want the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler@alpha nestjs-cls` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate below.
+> Want the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler nestjs-cls` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate below.
 
 ## Quick start
 

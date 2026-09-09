@@ -74,6 +74,4 @@ Breaking changes must include:
 
 ## Releasing
 
-Releases and the alpha/beta prerelease flow run in CI from `main`. The full runbook, the
-versioning policy, label/milestone automation, and the one-time repository setup
-live in [MAINTAINERS.md](MAINTAINERS.md).
+Releases and the alpha/beta prerelease flow run in CI from `main`. The full runbook, the versioning policy, label automation, and the one-time repository setup live in [MAINTAINERS.md](MAINTAINERS.md).

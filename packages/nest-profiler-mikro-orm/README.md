@@ -29,10 +29,8 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-mikro-orm@alpha
+pnpm add @eleven-labs/nest-profiler-mikro-orm
 ```
-
-> There is no stable release yet — install every `@eleven-labs/nest-profiler*` package with the `@alpha` dist-tag (`@latest` resolves to nothing).
 
 **Peer dependencies:** `@mikro-orm/core ^7.0.0`, `@mikro-orm/nestjs ^7.0.0`
 

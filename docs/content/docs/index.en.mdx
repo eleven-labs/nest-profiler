@@ -70,7 +70,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 
 ## Versioning and stability
 
-Every package follows [Semantic Versioning](https://semver.org). The public API is what each package exports from its entry point (plus documented subpaths such as `@eleven-labs/nest-profiler/sqlite`) — breaking changes to it only ship in a major version. Packages are versioned and published together with [Changesets](https://github.com/changesets/changesets).
+Every package follows [Semantic Versioning](https://semver.org). The public API is what each package exports from its entry point (plus documented subpaths such as `@eleven-labs/nest-profiler/sqlite`) — breaking changes to it only ship in a major version. Packages are versioned with [Changesets](https://github.com/changesets/changesets) and released independently: a package is published only when it actually changed, so its version number stands still while the rest of the suite moves. What ties them together is the peer range each collector declares on the core — a new core major releases the whole suite on that major, so `@eleven-labs/nest-profiler-typeorm@2.x` always expects `@eleven-labs/nest-profiler@2.x`. Within a major, mix whatever patch and minor versions npm resolves.
 
 Two things that are **not** obvious follow from that:
 

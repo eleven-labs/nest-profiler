@@ -29,7 +29,7 @@ The agent should introspect the workspace before editing; only the non-obvious r
 - `packages/configs/*` are private `@repo/*` presets, never published.
 - `examples/api` is the consumer-side demonstration. It is in `.changeset/config.json#ignore` and never enters the release flow.
 - `docs/` is a Fumadocs site deployed to Vercel via Vercel's Git integration (no workflow in this repo), independently of package release.
-- `scripts/` holds release helpers (`changesets/*`, `absolutize-readme-images.ts`), not runtime code. Repository labels and milestones are declarative (`.github/labels.yml`, `.github/milestones.yml`) and synced by the `repo-config.yml` workflow; one-time GitHub setup is documented in `MAINTAINERS.md`.
+- `scripts/` holds release helpers (`changesets/*`, `absolutize-readme-images.ts`), not runtime code. Repository labels are declarative (`.github/labels.yml`) and synced by the `repo-config.yml` workflow, while milestones are managed by hand in the GitHub UI; one-time GitHub setup is documented in `MAINTAINERS.md`.
 
 ---
 
