@@ -73,7 +73,7 @@
     "@types/node": "^24.13.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "nestjs-cls": "^6.2.1",
     "nestjs-zod": "^5.5.0",
     "reflect-metadata": "^0.2.2",
