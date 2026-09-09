@@ -1,5 +1,87 @@
 # @eleven-labs/nest-profiler-http
 
+## 1.0.0-alpha.18
+
+### Minor Changes
+
+- 0bd3dc9: Break each outgoing HTTP call into its phases — DNS, handshake, time-to-first-byte, download — behind two opt-in providers, and make the breakdown something any client can feed.
+
+  `HttpRequestEntry` gains an optional `phases` field (`HttpPhases`: `wait`, `dns`, `tcp`, `tls`, `connect`, `request`, `firstByte`, `download`, all optional durations in ms). The names are the de-facto vocabulary — `got`/`@szmarczak/http-timer` use them and they map onto the browser's `PerformanceResourceTiming` — so nothing new has to be learned to read a profile.
+
+  - **`NodeHttpPhases`** (`/phases`) wraps `request`/`get` on `node:http` and `node:https`, covering every client built on them: axios, superagent, `got`, `node-fetch`, a hand-rolled `https.request`. It is the timings-only counterpart of the `node:http` _recording_ adapter this package deliberately does not ship — the objection to that adapter was that capturing a response body means reading the stream and stealing chunks from a caller consuming it in paused mode, and a timer reads nothing.
+  - **`UndiciPhases`** (`/phases`) subscribes to undici's `diagnostics_channel` events, the only way to time `fetch`, which runs on undici and never goes through `node:http`. Correlation with the recorded call is exact, not heuristic: the subscribers run in the async context of the `fetch()` that triggered them, so they find that call's phase slot.
+  - Both providers **record nothing** — no entry, no header, no body — so neither can double-record with an adapter, and both are selected like any adapter, in `instrumentations`. Nothing is patched or subscribed unless listed.
+  - `readHttpPhases(source)` finds the breakdown behind whatever a custom instrumentation holds: an `AxiosResponse`, an axios error, a `ClientRequest`, an `IncomingMessage`, a `follow-redirects` wrapper (the final hop wins — its phases describe the response the caller got), or a `got` response, whose native `timings` are read without depending on `@szmarczak/http-timer`.
+  - `instrumentClientRequest(request)` times one request with no global patch, for a client that hands its request over (`got.stream(url).on('request', …)`). `openPhaseSlot` / `activePhaseSlot` / `phaseSlotsEnabled` expose the async-context channel for a client that exposes no transport at all. A client that measured nothing but its own time-to-first-byte can still pass `phases: { firstByte: 42 }`.
+  - The panel gains a **Phases** column with a stacked bar (hover a segment, or expand the row for the numbers), and the Timeline waterfall carries the same breakdown as labelled extras on the call's bar.
+  - A partial breakdown is the normal case and stays visible as such: a reused keep-alive connection reports no handshake, an IP literal no DNS, undici one coarse `connect` instead of dns/tcp/tls, and a `fetch` whose body is still streaming no `download` — whatever the phases do not account for is drawn as an explicit **Other** segment rather than folded into a neighbour.
+  - The fetch adapter enters no async context while no provider is installed, so the default hot path is unchanged.
+
+- a512259: Raise the `@nestjs/core` peer to `^11.1.4`, forward the trace id on outgoing calls, and make the trace lens reach the table under the waterfall.
+
+  - **`@nestjs/core` peer is now `^11.1.4`**, the first release carrying the `instrument` option on `NestFactory`. A peer range only warns at install, so `createProfilerInstrument()` also checks the resolved version and says so once — on an older Nest the option is ignored and the feature is _silently_ inert, which is the worst failure mode for a debugging tool.
+  - **`propagateTraceId`** on `HttpCollectorModule` forwards the profile's trace id on every instrumented outgoing call (`true` for `x-request-id`, or a header name). Off by default: adding a header to an application's outgoing traffic is a visible change. A header the caller set explicitly always wins, and nothing is added outside a profiled request.
+  - **The Execution Trace lens now filters the table below the bars**, not only the bars. "I/O only" used to hide the method bars and still list every one of them underneath. Rows carry the same span id, so folds reach them too, and a count appears when you are looking at a subset.
+
+- 6593feb: Mask credentials carried in the query string of an outgoing request.
+
+  The URL of every captured outgoing call was recorded verbatim, so an upstream API key, an access token or a signed-URL signature passed as a query parameter was readable in the HTTP Client panel, in the `/_profiler/:token/data` export and on disk for the whole `ttl` — while the _headers_ of the same call were already masked.
+
+  - Query-parameter values are now masked in the recorded URL, from the core's built-in list (`token`, `access_token`, `refresh_token`, `api_key`, `code`, `state`, `signature`, `password`, `secret`, `client_secret`…), matched case-insensitively and ignoring `-`/`_`. Parameter names are kept and only values replaced, so a recorded URL still reads `?api_key=[REDACTED]`.
+  - **New options:** `maskQueryParams` (extra parameter names, merged with the built-ins) and `useDefaultMaskQueryParams` (`true` by default) to opt out of the built-in list deliberately — the same additive shape as `maskHeaders`.
+  - **New exports:** `DEFAULT_MASK_QUERY_PARAMS`, `redactQueryString`, `resolveMaskedQueryParams`.
+
+  Masking is applied by `HttpProfilerRecorder.capture()`, which both bundled instrumentations (axios, fetch) and the recommended custom-client path go through. `record()` and `appendHttpRequestEntry()` keep bypassing every capture flag and all masking by design — they append the entry you built as-is — so redact the URL yourself with the exported `redactQueryString` when you use them.
+
+  The N+1 fingerprint is unaffected: it is built from method, host and path, and never included the query string.
+
+- e1ab2bf: Unify redaction configuration, annotate exceptions with source code frames, add custom indexed attributes, and round out the sampling/tracing options with `alwaysProfile`, `debug` and `version`.
+
+  - New `redaction` block on `ProfilerModule.forRoot()` — `{ useDefaults, headers, cookies, queryParams, keys, patterns, replacement }` — replacing the scattered `maskHeaders`/`maskCookies`/`maskQueryParams`/`useDefaultMask*` options with a single, additive configuration surface. The old flat options still work (merged additively with `redaction` when both are set) but are deprecated and will be removed in a future major version.
+  - `redact()`/`redactString()` (`@eleven-labs/nest-profiler`) gain `patterns` (extra value regexes) and a configurable `replacement` sentinel, plus a Luhn-validated card-number detector so a 13-19 digit run is only masked when it passes the checksum — an ordinary numeric id of the same length is left alone.
+  - New shared `RedactionKeyOptions`/`RedactionHeaderOptions`/`RedactionQueryParamOptions` interfaces exported from the core, adopted by `nest-profiler-config`, `nest-profiler-http` and `nest-profiler-rabbitmq` instead of redeclaring the same fields.
+  - Fixed a real drift in `nest-profiler-rabbitmq`: its default masked-header list had only 4 of the core's 6 entries (missing `set-cookie` and `proxy-authorization`). It now reuses the core's list directly.
+  - New `sourceContext` option (`boolean | { linesOfContext, maxFrames }`): attaches a source-code excerpt to every captured exception's application stack frames, rendered in the Exceptions tab for the primary exception and each `cause`. Hardened against a forged `Error#stack`: only files under `process.cwd()` with a recognised extension are read, reads are cached (failures too, bounded), and it never throws.
+  - New `attributes` option (a plain object, or a per-HTTP-request function) attaching custom indexed facets to a profile, merged into `ProfilerCoreService.getIndexAttributes()` and queryable as `attributes.<key>` the same way the built-in `exception` facet already is.
+  - New `version` option stamped on every profile and shown in its header — useful once profiles outlive a deploy (`storageType: 'file'`, SQLite).
+  - New `alwaysProfile` option: force-captures a request past the `sampleRate` roll (still subject to `ignoreRequest`/`ignorePaths`, which remain a hard "never profile this").
+  - New `debug` option: traces via `Logger.debug` why a request was or wasn't profiled (the profiler's own route, `ignoreRequest`, `ignorePaths`, or the `sampleRate` roll).
+  - Fixed: **response headers were never masked**, so a `set-cookie` — a replayable session for as long as the profile lives — was stored and rendered in the clear. Responses now mask on the same list as requests.
+  - Fixed: **captured bodies were never redacted**. With `collectBody: true`, a login request body kept its `password` in the clear. Request and response bodies now go through `redact()` with the configured options, applied after the `bodyCaptureLimits` / `maxBodySize` caps.
+  - `version` and `sourceContext` now reach every entrypoint, not just HTTP: `version` is stamped on the way to storage, and `@eleven-labs/nest-profiler-commander` annotates a failed command's stack frames on the core's setting.
+  - A caller-supplied `redaction.patterns` entry is applied globally even without the `g` flag (it previously masked only the first match), sticky patterns no longer carry `lastIndex` across calls, and a `replacement` containing `$&`/`$1` is written literally instead of being interpolated.
+
+- 5ea9463: Fill the trace waterfall with the work the collectors already capture.
+
+  - `appendCollectorEntry()` — the single funnel every instrumentation in every package goes through — now stamps each entry with the trace span that was open when it was captured. The parent is therefore exact rather than inferred from overlapping time windows, which is what makes it right under concurrency: two calls fired together no longer nest under one another.
+  - New `TraceContributor` implementations project already-collected entries onto the trace: every query collector (TypeORM, MikroORM, Mongoose) through `AbstractQueryCollector`, plus the HTTP-client and cache collectors. Nothing is re-timed — the shared `entriesToSpans()` helper reads the `startedAt`, `duration`, tags and parent each entry already carries.
+  - Each bar links back to the row holding its detail, and a grouped collector links to its group panel (`database`) rather than to itself.
+  - The HTTP collector classifies a failed bar with its own `error` option, so a 404 reddens only where the application says it should.
+  - New exports: `entriesToSpans`, `EntrySpanOptions`. Entry interfaces gain `parentSpanId`.
+
+### Patch Changes
+
+- 211a2b7: Documentation-only pass aligning every guide, README and agent skill with the current API.
+
+  Corrected what no longer matches the code: the `slowQueryThreshold` option (renamed `slowThreshold`) in the root README and the example app, the `HttpCollectorModule.forRootAsync({ axiosRef })` snippet in Getting started (adapters are now selected through `instrumentations`, and the axios one auto-discovers every `HttpService`), the non-existent `ProfilerViewsSetup` export, the removed **Timeline** tab (the breakdown is drawn in the Performance tab's **Execution Trace**), and the claim that the inert layer binds a separate no-op service — `TracerService` is registered with none of its optional dependencies, which is what makes it a no-op. Dropped the migration and deprecated-option notes: nothing has shipped stable, so there is no older way worth documenting.
+
+  Filled the gaps left by recent features: `createProfilerInstrument` / `ProfilerInstrumentOptions` and the trace helpers now appear in the core API reference, the `event` kind is listed in the error-classification table, the event-emitter and RabbitMQ-publish domains in the performance-tag thresholds, the `zero-rows` tag in the tag filter and the skill, and the `routes`, `rabbitmq` and `event-emitter` packages in the package tables, tutorial index and Profiler UI tour.
+
+- ec8aad8: Consolidate three sets of internals that had been copied across the workspace, and record exception causes.
+
+  **Reading the active profile.** `readProfile`, `readToken`, `readRequest` and `setProfileContext` are the way to reach the profiling context. The CLS store was previously addressed by string literal in 24 places across ten packages, each with its own `try`/`catch` — and `PROFILER_CLS_KEYS`, which existed precisely to prevent that, was used almost nowhere. A mistyped key reads as `undefined` rather than failing, silently turning a collector into a no-op; the accessors remove the opportunity. `PROFILER_CLS_KEYS` also gains the `token` key it was missing while three packages wrote the literal.
+
+  **Exception causes and codes.** `toExceptionEntry` replaces the four hand-rolled constructions of an `ExceptionEntry` (the interceptor's HTTP and non-HTTP paths, the catch-all exception filter, the command profiler), which had all drifted into recording only `name`, `message` and `stack`. Two things are now captured:
+
+  - **`ExceptionEntry.cause`** — the `cause` chain of a wrapped error, recorded recursively to a bounded depth and cycle-safe. An `InternalServerErrorException` says nothing; the `QueryFailedError` underneath says everything. The Exceptions tab renders the chain as one `Caused by` block per level.
+  - **`ExceptionEntry.code`** — a machine-readable code carried by the error (`ENOENT`, `ECONNREFUSED`, a driver's own), which the `exception` list filter groups by in preference to the class name.
+
+  Coercion of a non-`Error` throw is deliberately unchanged, so existing profiles keep grouping under `Error`.
+
+  **Shared collector options.** `CollectorModuleOptions` (the `enabled` flag, previously redeclared in twelve interfaces) and `TagSeverityOptions` (the tag severities, redeclared in five) are declared once in the core and extended by each collector's options interface. Only options whose meaning _and_ default are identical everywhere moved: the numeric thresholds stay per package, because a slow SQL query is 100 ms, a slow outgoing HTTP call 300 ms and a slow publish 50 ms — that default is the useful half of the documentation.
+
+  No behaviour change and no configuration change: every option keeps its name, type and default, and the accessors return exactly what the code they replace returned.
+
 ## 1.0.0-alpha.17
 
 ### Patch Changes

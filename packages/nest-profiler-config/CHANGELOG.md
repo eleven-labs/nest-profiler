@@ -1,5 +1,53 @@
 # @eleven-labs/nest-profiler-config
 
+## 1.0.0-alpha.18
+
+### Minor Changes
+
+- e1ab2bf: Unify redaction configuration, annotate exceptions with source code frames, add custom indexed attributes, and round out the sampling/tracing options with `alwaysProfile`, `debug` and `version`.
+
+  - New `redaction` block on `ProfilerModule.forRoot()` — `{ useDefaults, headers, cookies, queryParams, keys, patterns, replacement }` — replacing the scattered `maskHeaders`/`maskCookies`/`maskQueryParams`/`useDefaultMask*` options with a single, additive configuration surface. The old flat options still work (merged additively with `redaction` when both are set) but are deprecated and will be removed in a future major version.
+  - `redact()`/`redactString()` (`@eleven-labs/nest-profiler`) gain `patterns` (extra value regexes) and a configurable `replacement` sentinel, plus a Luhn-validated card-number detector so a 13-19 digit run is only masked when it passes the checksum — an ordinary numeric id of the same length is left alone.
+  - New shared `RedactionKeyOptions`/`RedactionHeaderOptions`/`RedactionQueryParamOptions` interfaces exported from the core, adopted by `nest-profiler-config`, `nest-profiler-http` and `nest-profiler-rabbitmq` instead of redeclaring the same fields.
+  - Fixed a real drift in `nest-profiler-rabbitmq`: its default masked-header list had only 4 of the core's 6 entries (missing `set-cookie` and `proxy-authorization`). It now reuses the core's list directly.
+  - New `sourceContext` option (`boolean | { linesOfContext, maxFrames }`): attaches a source-code excerpt to every captured exception's application stack frames, rendered in the Exceptions tab for the primary exception and each `cause`. Hardened against a forged `Error#stack`: only files under `process.cwd()` with a recognised extension are read, reads are cached (failures too, bounded), and it never throws.
+  - New `attributes` option (a plain object, or a per-HTTP-request function) attaching custom indexed facets to a profile, merged into `ProfilerCoreService.getIndexAttributes()` and queryable as `attributes.<key>` the same way the built-in `exception` facet already is.
+  - New `version` option stamped on every profile and shown in its header — useful once profiles outlive a deploy (`storageType: 'file'`, SQLite).
+  - New `alwaysProfile` option: force-captures a request past the `sampleRate` roll (still subject to `ignoreRequest`/`ignorePaths`, which remain a hard "never profile this").
+  - New `debug` option: traces via `Logger.debug` why a request was or wasn't profiled (the profiler's own route, `ignoreRequest`, `ignorePaths`, or the `sampleRate` roll).
+  - Fixed: **response headers were never masked**, so a `set-cookie` — a replayable session for as long as the profile lives — was stored and rendered in the clear. Responses now mask on the same list as requests.
+  - Fixed: **captured bodies were never redacted**. With `collectBody: true`, a login request body kept its `password` in the clear. Request and response bodies now go through `redact()` with the configured options, applied after the `bodyCaptureLimits` / `maxBodySize` caps.
+  - `version` and `sourceContext` now reach every entrypoint, not just HTTP: `version` is stamped on the way to storage, and `@eleven-labs/nest-profiler-commander` annotates a failed command's stack frames on the core's setting.
+  - A caller-supplied `redaction.patterns` entry is applied globally even without the `g` flag (it previously masked only the first match), sticky patterns no longer carry `lastIndex` across calls, and a `replacement` containing `$&`/`$1` is written literally instead of being interpolated.
+
+### Patch Changes
+
+- ec8aad8: Consolidate three sets of internals that had been copied across the workspace, and record exception causes.
+
+  **Reading the active profile.** `readProfile`, `readToken`, `readRequest` and `setProfileContext` are the way to reach the profiling context. The CLS store was previously addressed by string literal in 24 places across ten packages, each with its own `try`/`catch` — and `PROFILER_CLS_KEYS`, which existed precisely to prevent that, was used almost nowhere. A mistyped key reads as `undefined` rather than failing, silently turning a collector into a no-op; the accessors remove the opportunity. `PROFILER_CLS_KEYS` also gains the `token` key it was missing while three packages wrote the literal.
+
+  **Exception causes and codes.** `toExceptionEntry` replaces the four hand-rolled constructions of an `ExceptionEntry` (the interceptor's HTTP and non-HTTP paths, the catch-all exception filter, the command profiler), which had all drifted into recording only `name`, `message` and `stack`. Two things are now captured:
+
+  - **`ExceptionEntry.cause`** — the `cause` chain of a wrapped error, recorded recursively to a bounded depth and cycle-safe. An `InternalServerErrorException` says nothing; the `QueryFailedError` underneath says everything. The Exceptions tab renders the chain as one `Caused by` block per level.
+  - **`ExceptionEntry.code`** — a machine-readable code carried by the error (`ENOENT`, `ECONNREFUSED`, a driver's own), which the `exception` list filter groups by in preference to the class name.
+
+  Coercion of a non-`Error` throw is deliberately unchanged, so existing profiles keep grouping under `Error`.
+
+  **Shared collector options.** `CollectorModuleOptions` (the `enabled` flag, previously redeclared in twelve interfaces) and `TagSeverityOptions` (the tag severities, redeclared in five) are declared once in the core and extended by each collector's options interface. Only options whose meaning _and_ default are identical everywhere moved: the numeric thresholds stay per package, because a slow SQL query is 100 ms, a slow outgoing HTTP call 300 ms and a slow publish 50 ms — that default is the useful half of the documentation.
+
+  No behaviour change and no configuration change: every option keeps its name, type and default, and the accessors return exactly what the code they replace returned.
+
+- 429397b: Consolidate the HTTP capture plumbing: one response finalizer, one finish hook, one header normaliser, one optional-peer loader.
+
+  packages:
+
+  - The core registers a single `finish` listener (the middleware's). The interceptor registered a second one that duplicated the first's safety net and could only ever guard itself against it with `if (profile.response) return`.
+  - `profile.response` is built in one place, `finalizeHttpProfile()`, instead of three. The error paths now hand it the status derived from the exception rather than building a response with the transport's stale `200` and patching it afterwards.
+  - Body bounds and masking are resolved once into a shared `HttpCaptureConfig`, so the request (middleware) and response (interceptor) capture cannot bound or mask differently.
+  - Every header bag — incoming request, outgoing response, HTTP instrumentations — now goes through `extractHeaders()`, which gained an optional third argument: `replacement` for a custom sentinel and `multiValue` to keep a repeated header as an array. Response headers therefore gain the fuller value handling (`Headers`, `Map`, `toJSON()`, `Date`, `bigint`) the instrumentations already had.
+  - The per-request transport state (`deferCollection`, the transport response-body getter) moved from `Symbol` properties on the `Profile` to a private `WeakMap`, removing the `as unknown as Record<symbol, unknown>` casts and keeping request plumbing off the profile document.
+  - New public helpers `loadOptionalPeer()` / `resolveOptionalPeer()` tell **absent** (not installed, silent) from **broken** (installed but failed to load, warned) when loading an optional peer, and recover a subpath a package's `exports` map refuses — `@nestjs/core/package.json`, which Nest 12 no longer exports. `@eleven-labs/nest-profiler-config` (NestJS version) and `@eleven-labs/nest-profiler-routes` (`class-validator` metadata) now load their peers through it instead of a `try`/`catch` that swallowed everything.
+
 ## 1.0.0-alpha.17
 
 ### Patch Changes

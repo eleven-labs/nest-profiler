@@ -1,5 +1,35 @@
 # @eleven-labs/nest-profiler-validator
 
+## 1.0.0-alpha.18
+
+### Patch Changes
+
+- a512259: Add optional automatic instrumentation: one span per provider method call, so the Performance tab shows the full call tree — which controller called which service, which called which repository, and what each cost.
+
+  `createProfilerInstrument()` builds the `instanceDecorator` that `NestFactory` accepts through its `instrument` option (requires `@nestjs/core` 11.1.4+). It is **off by default and belongs in development**: it proxies every provider instance, so every property access goes through a trap whether or not the request is profiled.
+
+  - Spans carry `kind: 'method'` and go into the same `Profile.trace` as everything else, so a query is nested under the repository method that issued it.
+  - The Performance tab gains a lens over that one tree — **All / I/O only / Code only** — rather than a second panel, so hiding method rows leaves their children attached to their real parent.
+  - The profiler's own providers and `ClsService` are excluded automatically. Without that, one request produced 75 spans of which about a dozen were application code; `includeInternals: true` opts back in, for debugging the profiler itself.
+  - `skip(instance)` excludes a provider, `maxDepth` (default 20) bounds the tree's depth. Recursion is handled separately by a re-entrancy guard.
+  - Instances a Proxy would break are handed back untouched: bare built-ins (`useValue: new Map()`), callable objects (a Mongoose model, an Axios instance), classes, and anything whose prototype cannot be read. Classes with native private members and built-in subclasses run against the raw receiver so their brand checks and internal slots keep working.
+  - New exports: `createProfilerInstrument`, `ProfilerInstrumentOptions`, `markInternal`, `isInternal`.
+
+- ec8aad8: Consolidate three sets of internals that had been copied across the workspace, and record exception causes.
+
+  **Reading the active profile.** `readProfile`, `readToken`, `readRequest` and `setProfileContext` are the way to reach the profiling context. The CLS store was previously addressed by string literal in 24 places across ten packages, each with its own `try`/`catch` — and `PROFILER_CLS_KEYS`, which existed precisely to prevent that, was used almost nowhere. A mistyped key reads as `undefined` rather than failing, silently turning a collector into a no-op; the accessors remove the opportunity. `PROFILER_CLS_KEYS` also gains the `token` key it was missing while three packages wrote the literal.
+
+  **Exception causes and codes.** `toExceptionEntry` replaces the four hand-rolled constructions of an `ExceptionEntry` (the interceptor's HTTP and non-HTTP paths, the catch-all exception filter, the command profiler), which had all drifted into recording only `name`, `message` and `stack`. Two things are now captured:
+
+  - **`ExceptionEntry.cause`** — the `cause` chain of a wrapped error, recorded recursively to a bounded depth and cycle-safe. An `InternalServerErrorException` says nothing; the `QueryFailedError` underneath says everything. The Exceptions tab renders the chain as one `Caused by` block per level.
+  - **`ExceptionEntry.code`** — a machine-readable code carried by the error (`ENOENT`, `ECONNREFUSED`, a driver's own), which the `exception` list filter groups by in preference to the class name.
+
+  Coercion of a non-`Error` throw is deliberately unchanged, so existing profiles keep grouping under `Error`.
+
+  **Shared collector options.** `CollectorModuleOptions` (the `enabled` flag, previously redeclared in twelve interfaces) and `TagSeverityOptions` (the tag severities, redeclared in five) are declared once in the core and extended by each collector's options interface. Only options whose meaning _and_ default are identical everywhere moved: the numeric thresholds stay per package, because a slow SQL query is 100 ms, a slow outgoing HTTP call 300 ms and a slow publish 50 ms — that default is the useful half of the documentation.
+
+  No behaviour change and no configuration change: every option keeps its name, type and default, and the accessors return exactly what the code they replace returned.
+
 ## 1.0.0-alpha.17
 
 ### Patch Changes
