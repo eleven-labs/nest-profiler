@@ -37,10 +37,14 @@ Detected from the first keyword of the SQL string.
 ```ts
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 import { TypeOrmCollector } from '@eleven-labs/nest-profiler-typeorm';
+import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
+import { TypeOrmSchemaCollector } from '@eleven-labs/nest-profiler-typeorm';
 
 import type {
   TypeOrmCollectorModuleOptions,
   TypeOrmCollectorModuleAsyncOptions,
+  TypeOrmSchemaCollectorModuleOptions,
+  TypeOrmSchemaCollectorModuleAsyncOptions,
   QueryEntry,
   QueryType,
 } from '@eleven-labs/nest-profiler-typeorm';

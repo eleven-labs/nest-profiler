@@ -62,8 +62,12 @@ let subscriptions: Array<[string, (message: unknown) => void]> = [];
 @Injectable()
 export class UndiciPhases implements HttpInstrumentation {
   install(): void {
-    registerPhaseSlotProvider();
+    // After the guard, not before: the counter must track installations that actually subscribed.
+    // Counting every call inflated it on a second `install()` — a second application lifecycle in
+    // one process — while the subscriptions below stayed at one, so the two could never be
+    // balanced by an unregister.
     if (subscriptions.length) return;
+    registerPhaseSlotProvider();
 
     subscriptions = [
       ['undici:request:create', onCreate],

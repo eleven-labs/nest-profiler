@@ -36,7 +36,10 @@
           <% const e = events[i]; %>
           <%
             const hasPayload = e.payload !== undefined && e.payload !== null;
-            const hasDetails = hasPayload || Boolean(e.error);
+            // The error is already printed under the event name, so it is not what the row
+            // expands to show — only a payload is. Counting it made an error-only row offer a
+            // chevron that unfolded to "No payload captured for this event."
+            const hasDetails = hasPayload;
             const detailsRowId = `event-row-details-${i}`;
           %>
           <tr

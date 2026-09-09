@@ -40,7 +40,11 @@ One row of the **RabbitMQ** panel — a message the profiled request published t
 ```ts
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqContextAdapter } from '@eleven-labs/nest-profiler-rabbitmq';
-import { RABBITMQ_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-rabbitmq';
+import {
+  RABBITMQ_ENTRYPOINT_TYPE,
+  RABBITMQ_ENTRYPOINT_TYPE_DEF,
+  buildRabbitMqEntrypointType,
+} from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqPublishCollector } from '@eleven-labs/nest-profiler-rabbitmq';
 import { RabbitMqDiscoverSource } from '@eleven-labs/nest-profiler-rabbitmq';

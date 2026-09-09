@@ -104,7 +104,7 @@ export function setActiveSpanId(cls: ClsService, spanId: string): void {
 
 /**
  * Publishes a profile and its token into the current CLS store, so anything running downstream —
- * the profiler logger, `ProfilerService`, every collector — resolves them.
+ * the profiler logger, `TracerService`, every collector — resolves them.
  *
  * Called from inside a `cls.run()` callback by whoever owns the execution: the HTTP middleware,
  * the interceptor recovering a non-HTTP context, or a package driving its own entrypoint kind.

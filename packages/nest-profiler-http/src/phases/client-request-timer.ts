@@ -50,11 +50,37 @@ export function instrumentClientRequest(request: ClientRequest): void {
   const taken: RequestMarks = { start: monotonicNow() };
   marks.set(request, taken);
 
+  /**
+   * Removes this request's connection listeners from the socket. Set by {@link onSocket}, called
+   * once the request can no longer produce a connection phase.
+   *
+   * Detaching is not housekeeping, it is required for correctness on a pooled connection. The
+   * three listeners below are `once` listeners, so they remove *themselves* when their event
+   * fires — but on a keep-alive socket handed to a second request, `lookup`/`connect`/
+   * `secureConnect` never fire again, so nothing consumes them. Node >= 19 defaults
+   * `http.globalAgent` to `keepAlive: true`, so this is the ordinary path, not an edge case:
+   * without detaching, every request through a pooled socket leaves three listeners behind,
+   * `MaxListenersExceededWarning` lands on the 11th, and each retained closure keeps that
+   * request's marks alive for as long as the socket lives.
+   */
+  let detach = (): void => {};
+
   const onSocket = (socket: Socket): void => {
     taken.socket ??= monotonicNow();
-    socket.prependOnceListener('lookup', () => void (taken.lookup = monotonicNow()));
-    socket.prependOnceListener('connect', () => void (taken.connect = monotonicNow()));
-    socket.prependOnceListener('secureConnect', () => void (taken.secureConnect = monotonicNow()));
+
+    const onLookup = (): void => void (taken.lookup = monotonicNow());
+    const onConnect = (): void => void (taken.connect = monotonicNow());
+    const onSecureConnect = (): void => void (taken.secureConnect = monotonicNow());
+
+    socket.prependOnceListener('lookup', onLookup);
+    socket.prependOnceListener('connect', onConnect);
+    socket.prependOnceListener('secureConnect', onSecureConnect);
+
+    detach = (): void => {
+      socket.removeListener('lookup', onLookup);
+      socket.removeListener('connect', onConnect);
+      socket.removeListener('secureConnect', onSecureConnect);
+    };
   };
 
   // Defensive: a pooled socket assigned synchronously would have fired before we subscribed.
@@ -65,12 +91,21 @@ export function instrumentClientRequest(request: ClientRequest): void {
 
   request.prependOnceListener('response', (response: IncomingMessage) => {
     taken.response = monotonicNow();
+    // A connection phase cannot follow the response, so the socket listeners are spent whether
+    // or not they fired. Removing a `once` listener that already ran is a no-op.
+    detach();
     response.prependOnceListener('end', () => void (taken.end ??= monotonicNow()));
     response.prependOnceListener('aborted', () => void (taken.end ??= monotonicNow()));
     response.prependOnceListener('error', () => void (taken.end ??= monotonicNow()));
   });
 
-  request.prependOnceListener('error', () => void (taken.end ??= monotonicNow()));
+  request.prependOnceListener('error', () => {
+    taken.end ??= monotonicNow();
+    detach();
+  });
+
+  // The catch-all: a request that is aborted before either a response or an error still ends here.
+  request.prependOnceListener('close', () => void detach());
 }
 
 /** The phases measured for an instrumented request, or `undefined` if it was never timed. */

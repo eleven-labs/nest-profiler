@@ -15,8 +15,7 @@ export type { CollectorModuleShape } from './collector-module.builder';
 export { TracerService } from './services/tracer.service';
 export { TraceSpanDelegate } from './trace/trace-span.delegate';
 export type { SpanOutcome } from './trace/trace-span.delegate';
-export { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './trace/build-trace';
-export { DEFAULT_TRACE_ID_HEADER, isAdoptableTraceId, resolveTraceId } from './trace/trace-id';
+export { DEFAULT_TRACE_ID_HEADER, isAdoptableTraceId } from './trace/trace-id';
 export type { RawSpan, TraceContributor } from './trace/build-trace';
 export { Span } from './trace/span.decorator';
 export { createProfilerInstrument } from './instrument/profiler-instrument';
@@ -97,7 +96,6 @@ export {
   upsertTag,
 } from './analysis/profiler-tag.interface';
 export type { ProfilerTag, TagSeverity, BuiltinTagId } from './analysis/profiler-tag.interface';
-export { isTaggableCollector } from './analysis/taggable-collector.interface';
 export type {
   TaggableCollector,
   TaggableEntry,
@@ -126,7 +124,7 @@ export type { IProfilerStorageAdapter } from './storage/storage-adapter.interfac
 export { MemoryStorageAdapter } from './storage/memory-storage.adapter';
 export { getCollectorEntries, appendCollectorEntry } from './utils/collector.utils';
 export { isPlainObject } from './utils/type.utils';
-export { toExceptionEntry, resolveExceptionCaptureOptions } from './analysis/to-exception-entry';
+export { toExceptionEntry } from './analysis/to-exception-entry';
 export type { ExceptionCaptureOptions } from './analysis/to-exception-entry';
 export type {
   CollectorModuleOptions,
@@ -141,14 +139,8 @@ export {
   readActiveSpanId,
   setProfileContext,
 } from './services/profiler-context';
-export { monotonicNow, elapsedMs } from './utils/clock.utils';
-export {
-  markProfileStart,
-  profileElapsedMs,
-  completeProfilePerformance,
-  registerGcCounter,
-} from './utils/profile-metrics.util';
-export type { GcCounter } from './utils/profile-metrics.util';
+export { monotonicNow } from './utils/clock.utils';
+export { markProfileStart, completeProfilePerformance } from './utils/profile-metrics.util';
 export { RuntimeMetricsService } from './runtime/runtime-metrics.service';
 export { RuntimeCollector } from './runtime/runtime.collector';
 export type {
@@ -158,20 +150,9 @@ export type {
   RuntimeHeapStatistics,
   RuntimeProcessInfo,
 } from './runtime/runtime-metrics.interface';
-export {
-  toSafeData,
-  safeStringify,
-  normalizeBody,
-  DEFAULT_MAX_BODY_SIZE,
-} from './utils/safe-data.utils';
+export { toSafeData, safeStringify, normalizeBody } from './utils/safe-data.utils';
 export type { SafeDataOptions } from './utils/safe-data.utils';
-export {
-  redact,
-  redactString,
-  isSecretKey,
-  REDACTED,
-  DEFAULT_SECRET_KEY_RE,
-} from './utils/redact.utils';
+export { redact, redactString, isSecretKey, REDACTED } from './utils/redact.utils';
 export type { RedactOptions, RedactStringOptions } from './utils/redact.utils';
 export type {
   ProfilerRedactionOptions,
@@ -179,20 +160,13 @@ export type {
   RedactionHeaderOptions,
   RedactionQueryParamOptions,
 } from './utils/redaction-options';
-export { resolveRedactionConfig } from './utils/redaction-config';
-export type { ResolvedRedactionConfig } from './utils/redaction-config';
-export {
-  analyzeStack,
-  resolveSourceContextOptions,
-  resolveStackAnalysisOptions,
-} from './utils/source-context.util';
 export type {
   SourceContextOptions,
   SourceCodeFrame,
   SourceCodeLine,
   StackAnalysisOptions,
 } from './utils/source-context.util';
-export { createEditorLink, resolveEditorTemplate, EDITOR_NAMES } from './views/editor-link';
+export { createEditorLink } from './views/editor-link';
 export type { EditorLink, ProfilerEditorName } from './views/editor-link';
 export {
   DEFAULT_MASK_HEADERS,
@@ -257,19 +231,12 @@ export type {
 } from './list-filters/profiler-list-filter.interface';
 export { PROFILER_LIST_SECTIONS } from './list-sections/profiler-list-section.interface';
 export type { ProfilerListSection } from './list-sections/profiler-list-section.interface';
-export {
-  DEFAULT_SECTION_ORDER,
-  sectionTypeConstraint,
-  sortSections,
-} from './list-sections/list-section.utils';
+export { sectionTypeConstraint } from './list-sections/list-section.utils';
 export type { SectionTypeConstraint } from './list-sections/list-section.utils';
 export {
-  applyQueryInMemory,
   distinctFromSummaries,
   distinctInMemory,
   matchesCriterion,
-  matchesQuery,
-  resolveField,
   selectPage,
 } from './storage/profiler-query';
 export type {
@@ -284,8 +251,3 @@ export type {
   ProfileSummary,
   SummaryPrimitive,
 } from './storage/profile-summary';
-export { buildPageHref, paginateProfiles } from './list-pagination/list-pagination.utils';
-export type {
-  PaginatedProfiles,
-  ProfilerListPagination,
-} from './list-pagination/list-pagination.utils';

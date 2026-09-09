@@ -9,6 +9,7 @@ import {
 import type { Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
+import { PROFILER_BASE_PATH } from '../constants';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { PlatformRequest, PlatformResponse } from '../types/http';
 
@@ -40,8 +41,14 @@ export class ProfilerGuard implements CanActivate {
     // Static assets (CSS/JS) carry no sensitive data and cannot send credentials when loaded
     // via <link>/<script>. Exempt them so the UI (and the injected toolbar on host pages) can
     // always load its stylesheet and scripts even when a security strategy is configured.
-    const url = req.originalUrl ?? req.url ?? '';
-    if (url.includes('/__assets/')) return true;
+    //
+    // Matched on the **path only**, and on the profiler's own asset prefix: the raw URL carries
+    // the query string, so a substring test against it let any profiler route be reached
+    // unauthenticated with `?anything=/__assets/` appended. `includes` rather than `startsWith`
+    // because the profiler mounts outside a global prefix but the host may still rewrite ahead
+    // of it.
+    const [path = ''] = (req.originalUrl ?? req.url ?? '').split('?');
+    if (path.includes(`${PROFILER_BASE_PATH}/__assets/`)) return true;
 
     const security = this.options.security;
     if (!security) return true;

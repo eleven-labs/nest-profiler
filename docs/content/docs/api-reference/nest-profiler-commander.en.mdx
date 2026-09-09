@@ -22,10 +22,15 @@ registers a `command` entrypoint type, so the profiler renders a dedicated Comma
 ```ts
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { CommandProfiler } from '@eleven-labs/nest-profiler-commander';
-import { COMMAND_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler-commander';
+import { CommandProfilerExplorer } from '@eleven-labs/nest-profiler-commander';
+import { CommanderDiscoverSource } from '@eleven-labs/nest-profiler-commander';
+import {
+  COMMAND_ENTRYPOINT_TYPE,
+  COMMAND_ENTRYPOINT_TYPE_DEF,
+} from '@eleven-labs/nest-profiler-commander';
 
 import type { CommanderCollectorModuleOptions } from '@eleven-labs/nest-profiler-commander';
-import type { CommandInfo } from '@eleven-labs/nest-profiler-commander';
+import type { CommandInfo, CommandProfileMeta } from '@eleven-labs/nest-profiler-commander';
 ```
 
 ## Enabling and disabling

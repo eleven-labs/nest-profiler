@@ -176,5 +176,36 @@ describe('ProfilerGuard', () => {
       ).resolves.toBe(true);
       expect(authorize).not.toHaveBeenCalled();
     });
+
+    it('exempts an asset URL that carries a query string', async () => {
+      const authorize = jest.fn().mockReturnValue(false);
+      const guard = guardWith({ authorize });
+      await expect(
+        guard.canActivate(makeCtx({ url: '/_profiler/__assets/scripts/core.js?v=2' }).ctx),
+      ).resolves.toBe(true);
+      expect(authorize).not.toHaveBeenCalled();
+    });
+
+    // The exemption is matched on the path, never on the raw URL: a query string is
+    // caller-controlled, so testing the whole URL turned `?x=/__assets/` into an
+    // unauthenticated read of the dashboard and of `/:token/data`.
+    it.each([
+      ['the list page', '/_profiler?x=/__assets/'],
+      ['a profile page', '/_profiler/abc123?tab=/__assets/'],
+      ['the JSON export', '/_profiler/abc123/data?x=/__assets/'],
+    ])('still denies %s when /__assets/ only appears in the query string', async (_label, url) => {
+      const authorize = jest.fn().mockReturnValue(false);
+      const guard = guardWith({ authorize });
+      await expect(guard.canActivate(makeCtx({ url }).ctx)).rejects.toThrow(UnauthorizedException);
+      expect(authorize).toHaveBeenCalled();
+    });
+
+    it('does not exempt an /__assets/ segment outside the profiler base path', async () => {
+      const authorize = jest.fn().mockReturnValue(false);
+      const guard = guardWith({ authorize });
+      await expect(
+        guard.canActivate(makeCtx({ url: '/_profiler/abc/__assets/styles/x.css' }).ctx),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 });

@@ -38,10 +38,14 @@ Detected from the first keyword of the SQL string.
 ```ts
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 import { MikroOrmCollector } from '@eleven-labs/nest-profiler-mikro-orm';
+import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
+import { MikroOrmSchemaCollector } from '@eleven-labs/nest-profiler-mikro-orm';
 
 import type {
   MikroOrmCollectorModuleOptions,
   MikroOrmCollectorModuleAsyncOptions,
+  MikroOrmSchemaCollectorModuleOptions,
+  MikroOrmSchemaCollectorModuleAsyncOptions,
   QueryEntry,
   QueryType,
 } from '@eleven-labs/nest-profiler-mikro-orm';

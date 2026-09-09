@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef, Reflector } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import {
   ProfilerCoreService,
-  analyzeProfile,
   completeProfilePerformance,
   markProfileStart,
   readTraceId,
@@ -18,11 +18,20 @@ import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.inter
 import type { EventEmitterCollectorModuleOptions } from './event-emitter-collector.interface';
 import { EVENT_ENTRYPOINT_TYPE, buildEventEntrypointType } from './event-entrypoint';
 import type { EventEntrypointData } from './event-entrypoint';
-import { scanEventListeners } from './event-listener-scan';
+import { emitterDelimiter, scanEventListeners } from './event-listener-scan';
 import type { DiscoveredListener } from './event-listener-scan';
 
 /** Metadata identifying which subscription a wrapped handler serves, captured at wrap time. */
 interface ListenerMeta {
+  /**
+   * What the profile is filed under. One `@OnEvent` means the event name; a method carrying
+   * several means all of them, joined.
+   *
+   * A method subscribed to more than one event cannot report which one fired: the loader in
+   * `@nestjs/event-emitter` registers `(...args) => instance[method](...args)`, so the handler
+   * receives the payload and nothing else. Naming all of them is the only honest answer —
+   * naming the first would silently mislabel every profile produced by the others.
+   */
   event: string;
   provider: string;
   method: string;
@@ -31,6 +40,46 @@ interface ListenerMeta {
 type Handler = (...args: unknown[]) => unknown;
 /** A handler wrapped by the profiler, tagged so it is never wrapped twice. */
 type WrappedHandler = Handler & { __profilerWrapped?: boolean };
+
+/** Narrows a handler's return value to something that must be awaited. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as PromiseLike<unknown>).then === 'function'
+  );
+}
+
+/** A thrown value as an `Error`, so the exception entry always has a name and a message. */
+function asError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/**
+ * Groups discovered subscriptions by the handler they point at, keyed by the owning instance and
+ * the method name — the unit the profiler actually wraps.
+ */
+function groupByHandler(listeners: DiscoveredListener[]): Map<string, DiscoveredListener[]> {
+  const byHandler = new Map<object, Map<string, DiscoveredListener[]>>();
+  const grouped = new Map<string, DiscoveredListener[]>();
+
+  for (const listener of listeners) {
+    const perInstance = byHandler.get(listener.instance) ?? new Map<string, DiscoveredListener[]>();
+    byHandler.set(listener.instance, perInstance);
+
+    const existing = perInstance.get(listener.method);
+    if (existing) {
+      existing.push(listener);
+      continue;
+    }
+    const subscriptions = [listener];
+    perInstance.set(listener.method, subscriptions);
+    // Instances are distinct objects, so the provider/method pair is unique per group here.
+    grouped.set(`${listener.provider}.${listener.method}#${grouped.size}`, subscriptions);
+  }
+
+  return grouped;
+}
 
 /**
  * Turns every `@OnEvent` handler execution into its own `event` profile, carrying the logs, SQL
@@ -68,12 +117,19 @@ export class EventProfilerService implements OnApplicationBootstrap, OnModuleDes
 
     this.core.registerEntrypointType(buildEventEntrypointType(this.options.error));
 
-    for (const listener of scanEventListeners(
-      this.discovery,
-      this.metadataScanner,
-      this.reflector,
+    // Grouped by handler method, because a method may carry several `@OnEvent` decorators and is
+    // wrapped exactly once — the wrapper has to know every event it serves, not just the first
+    // one discovery happened to yield.
+    for (const [, subscriptions] of groupByHandler(
+      scanEventListeners(
+        this.discovery,
+        this.metadataScanner,
+        this.reflector,
+        // The host may configure another delimiter; an array-form `@OnEvent` is joined with it.
+        emitterDelimiter(tryResolve(this.moduleRef, EventEmitter2)),
+      ),
     )) {
-      this.wrapListener(listener);
+      this.wrapListener(subscriptions);
     }
   }
 
@@ -127,14 +183,17 @@ export class EventProfilerService implements OnApplicationBootstrap, OnModuleDes
     }
   }
 
-  private wrapListener(listener: DiscoveredListener): void {
+  private wrapListener(subscriptions: DiscoveredListener[]): void {
+    const [listener] = subscriptions;
+    if (!listener) return;
     const { instance, method } = listener;
     const current = instance[method] as WrappedHandler | undefined;
     if (typeof current !== 'function' || current.__profilerWrapped) return;
 
     const original = current.bind(instance) as Handler;
+    const events = subscriptions.map((subscription) => subscription.event);
     const meta: ListenerMeta = {
-      event: listener.event,
+      event: events.length === 1 ? (events[0] as string) : events.join(', '),
       provider: listener.provider,
       method: listener.method,
     };
@@ -178,50 +237,72 @@ export class EventProfilerService implements OnApplicationBootstrap, OnModuleDes
     };
   }
 
-  private async profile(
-    meta: ListenerMeta,
-    args: unknown[],
-    exec: () => unknown,
-  ): Promise<unknown> {
+  /**
+   * Runs one handler inside its own profile, **preserving the handler's own synchronicity**.
+   *
+   * A synchronous handler must stay synchronous. `@nestjs/event-emitter` registers the method
+   * directly, and `emit()` is fire-and-forget: it discards whatever a listener returns. So a
+   * wrapper that always returned a promise turned a synchronous `throw` into a rejected promise
+   * nobody consumes — the emitter's own `try`/`catch` never saw it (a handler failure went
+   * missing from the emitting profile's Events panel, contradicting what `suppressErrors: false`
+   * promises), and Node terminated the process on the unhandled rejection.
+   *
+   * The asynchronous path is unchanged: the profile is persisted before the returned promise
+   * settles, so `emitAsync` callers still observe a stored profile once they have awaited.
+   */
+  private profile(meta: ListenerMeta, args: unknown[], exec: () => unknown): unknown {
     const cls = this.cls;
     const core = this.core;
     if (!cls || !core) return exec();
 
     const profile = this.buildProfile(meta, args);
-    let result: unknown;
-    let error: Error | undefined;
 
-    await cls.runWith(this.buildClsStore(cls, profile), async () => {
+    return cls.runWith(this.buildClsStore(cls, profile), () => {
+      let result: unknown;
       try {
-        result = await exec();
+        result = exec();
       } catch (err) {
-        error = err instanceof Error ? err : new Error(String(err));
+        this.finalize(profile, asError(err));
+        // Deferred but tracked, so `flushPendingProfiles()` still drains it in tests.
+        core.schedulePersist(profile);
+        throw err;
       }
-      this.finalize(profile, error);
-      // Persistence must never fail the handler or replace its own error: swallow + log
-      // collect/storage failures so `if (error) throw error` below always wins.
-      try {
-        await core.collectorRegistry.collectAll(profile);
-        // Mirrors the core's own persist pipeline so an event profile carries its tags too.
-        const entrypointType = core.getEntrypointType(profile.entrypoint.type);
-        analyzeProfile(
-          profile,
-          core.collectorRegistry.getCollectors(),
-          core.getPerformanceRules(),
-          {
-            isError: entrypointType.isError?.bind(entrypointType),
-            severity: entrypointType.errorSeverity,
-          },
-        );
-        await core.storage.save(profile);
-      } catch (persistErr) {
-        const message = persistErr instanceof Error ? persistErr.message : String(persistErr);
-        this.logger.warn(`Failed to persist event profile: ${message}`);
-      }
-    });
 
-    // Re-throw so @nestjs/event-emitter's own try/catch (and emitAsync callers) see the error.
-    if (error) throw error;
-    return result;
+      if (!isThenable(result)) {
+        this.finalize(profile, undefined);
+        core.schedulePersist(profile);
+        return result;
+      }
+
+      return Promise.resolve(result).then(
+        async (value) => {
+          this.finalize(profile, undefined);
+          await this.persist(core, profile);
+          return value;
+        },
+        async (err: unknown) => {
+          this.finalize(profile, asError(err));
+          await this.persist(core, profile);
+          throw err;
+        },
+      );
+    });
+  }
+
+  /**
+   * Runs the core's own collect/analyze/trace/save pipeline. Going through {@link
+   * ProfilerCoreService.persist} rather than calling `collectAll` and `storage.save` by hand is
+   * what keeps an event profile equal to every other kind: the hand-rolled version skipped the
+   * version stamp and the trace assembly, so an event profile reached storage with an empty
+   * waterfall.
+   *
+   * Persistence must never fail the handler nor replace its error, so failures are logged here.
+   */
+  private async persist(core: ProfilerCoreService, profile: Profile): Promise<void> {
+    try {
+      await core.persist(profile);
+    } catch (err) {
+      this.logger.warn(`Failed to persist event profile: ${asError(err).message}`);
+    }
   }
 }

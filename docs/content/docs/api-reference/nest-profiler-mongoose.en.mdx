@@ -29,10 +29,14 @@ One entry per Mongoose query or aggregation executed during a request.
 ```ts
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 import { MongooseCollector } from '@eleven-labs/nest-profiler-mongoose';
+import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+import { MongooseSchemaCollector } from '@eleven-labs/nest-profiler-mongoose';
 
 import type {
   MongooseCollectorModuleOptions,
   MongooseCollectorModuleAsyncOptions,
+  MongooseSchemaCollectorModuleOptions,
+  MongooseSchemaCollectorModuleAsyncOptions,
   MongooseQueryEntry,
 } from '@eleven-labs/nest-profiler-mongoose';
 ```

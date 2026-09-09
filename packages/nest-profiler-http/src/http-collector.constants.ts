@@ -73,4 +73,4 @@ export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: HTTP_COLLECTOR_OPT
   new ConfigurableModuleBuilder<HttpCollectorModuleOptions>().setClassMethodName('forRoot').build();
 
 /** DI token holding the array of registered {@link HttpInstrumentation} instances. */
-export const HTTP_INSTRUMENTATIONS = Symbol('HTTP_INSTRUMENTATIONS');
+export const HTTP_INSTRUMENTATIONS = Symbol.for('nest_profiler_http_instrumentations');

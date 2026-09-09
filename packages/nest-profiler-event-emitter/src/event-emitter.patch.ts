@@ -10,6 +10,7 @@ import {
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
+import { emitterDelimiter, toEventName } from './event-listener-scan';
 import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface';
 import type {
   EventEmitterCollectorModuleOptions,
@@ -42,12 +43,6 @@ function isPatchableEmitter(value: unknown): value is PatchableEmitter {
     typeof candidate.emitAsync === 'function' &&
     typeof candidate.listeners === 'function'
   );
-}
-
-function eventName(event: unknown): string {
-  if (typeof event === 'string') return event;
-  if (Array.isArray(event)) return event.join('.');
-  return String(event);
 }
 
 function toErrorMessage(error: unknown): string {
@@ -172,7 +167,7 @@ export class EventEmitterPatch implements OnModuleInit, OnModuleDestroy {
     const original = emitter.emit.bind(emitter) as EmitFn;
 
     const patched = ((event: unknown, ...values: unknown[]): unknown => {
-      const name = eventName(event);
+      const name = toEventName(event, emitterDelimiter(emitter));
       const profile = this.cls?.get<Profile | undefined>(PROFILER_CLS_KEYS.profile);
       if (!profile || this.shouldIgnore(name)) {
         return original(event, ...values);
@@ -225,7 +220,7 @@ export class EventEmitterPatch implements OnModuleInit, OnModuleDestroy {
     const original = emitter.emitAsync.bind(emitter) as EmitFn;
 
     const patched = ((event: unknown, ...values: unknown[]): unknown => {
-      const name = eventName(event);
+      const name = toEventName(event, emitterDelimiter(emitter));
       const profile = this.cls?.get<Profile | undefined>(PROFILER_CLS_KEYS.profile);
       if (!profile || this.shouldIgnore(name)) {
         return original(event, ...values);

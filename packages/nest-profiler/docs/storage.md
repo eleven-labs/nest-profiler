@@ -97,4 +97,13 @@ ProfilerModule.forRoot({
 
 The four methods above are all an adapter must implement — the profiler filters and paginates in memory by fetching everything through `findAll`. For a large backing store you can **push that work down** by additionally implementing the optional `query(query: ProfilerQuery): ProfilerPage` (filters + sort + pagination, returning a page plus the total count) and `distinct(field, typeIn?)` (values for a dynamic filter's `select`). Implement `setIndexAttributesProvider(provider)` too if you index kind-specific attributes (a GraphQL `operationType`, a RabbitMQ `exchange`…) so those filters push down as well. The helpers `selectPage`, `distinctFromSummaries` and `summarizeProfile` are exported to build a `ProfileSummary`-backed index; when these methods are absent the profiler transparently falls back to the in-memory path.
 
+### What stays stable
+
+An adapter lives outside this repository, so two promises hold for the life of a major version:
+
+- **`IProfilerStorageAdapter` only grows through optional members.** `crossProcess`, `query`, `distinct`, `setIndexAttributesProvider` and `close` are all optional, and any capability added later will be too — an adapter written today keeps compiling and keeps working, falling back to the in-memory path for anything it does not implement.
+- **New `ProfileSummary` fields are optional.** An adapter with a native `query` builds summaries back from its own rows, so a new required field would break every one of them at once. The existing fields do not change type or meaning either: a persisted index stays readable.
+
+Nothing else about the store is prescribed — the profile document is stored as you see fit, and its own shape only ever gains optional fields.
+
 > **Step-by-step tutorial** — [File-based profile storage](https://nest-profiler.eleven-labs.com/docs/tutorials/file-storage) shows persistent profiles in action, including CLI command profiles that survive the process that created them.

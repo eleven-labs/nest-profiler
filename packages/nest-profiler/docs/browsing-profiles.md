@@ -56,16 +56,16 @@ GET /_profiler?http_method=GET&http_minDuration=100&http_q=/api&http_statusClass
 
 The **universal** filters (available on every list) are:
 
-| Parameter     | Description                                                                                                                                                                          |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `q`           | Search across URL, GraphQL operation name and command name                                                                                                                           |
-| `status`      | Exact response status code                                                                                                                                                           |
-| `statusClass` | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)                                                                                                                                 |
-| `minDuration` | Minimum duration in ms                                                                                                                                                               |
-| `maxDuration` | Maximum duration in ms                                                                                                                                                               |
-| `tag`         | Keep only profiles carrying a performance tag (`slow`, `n-plus-one`, `chatty`, `large-payload`, `zero-rows`) — see [Performance tags](/docs/packages/nest-profiler/performance-tags) |
-| `exception`   | Keep only profiles whose captured failure is of this type — an exception class (`NotFoundException`) or, for GraphQL, an error code (`BAD_USER_INPUT`)                               |
-| `error`       | Checkbox — keep only profiles that **failed**, per each kind's [error classification](/docs/packages/nest-profiler/error-classification)                                             |
+| Parameter     | Description                                                                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`           | Search across URL, GraphQL operation name and command name                                                                                                                                                                |
+| `status`      | Exact response status code                                                                                                                                                                                                |
+| `statusClass` | Status class: `2`, `3`, `4` or `5` (matches 2xx…5xx)                                                                                                                                                                      |
+| `minDuration` | Minimum duration in ms                                                                                                                                                                                                    |
+| `maxDuration` | Maximum duration in ms                                                                                                                                                                                                    |
+| `tag`         | Keep only profiles carrying a performance tag (`slow`, `n-plus-one`, `chatty`, `large-payload`, `zero-rows`) — see [Performance tags](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/performance-tags) |
+| `exception`   | Keep only profiles whose captured failure is of this type — an exception class (`NotFoundException`) or, for GraphQL, an error code (`BAD_USER_INPUT`)                                                                    |
+| `error`       | Checkbox — keep only profiles that **failed**, per each kind's [error classification](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification)                                             |
 
 `exception` and `error` answer different questions and are meant to be used
 together. `error` asks _"what failed?"_ — a verdict you configure, which by

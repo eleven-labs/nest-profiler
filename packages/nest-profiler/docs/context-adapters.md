@@ -108,7 +108,7 @@ core.registerEntrypointType({
 
 `templatePath` is an absolute path to an EJS partial that ships with your package (bundle the `templates/` folder into `dist`). List-section partials receive `{ profiles, profilerPath }`; detail-tab partials receive `{ profile }` — both also get the shared template helpers (`methodClass`, `statusClass`, `kvTable`, `isoDate`, `toJson`, …).
 
-For a complete, runnable walkthrough — data shape, adapter, list table, detail tab and EJS templates — see the [Build a custom entrypoint type](/docs/tutorials/build-entrypoint-type) tutorial, which profiles WebSocket messages.
+For a complete, runnable walkthrough — data shape, adapter, list table, detail tab and EJS templates — see the [Build a custom entrypoint type](https://nest-profiler.eleven-labs.com/docs/tutorials/build-entrypoint-type) tutorial, which profiles WebSocket messages.
 
 ## Reference implementations
 

@@ -1,7 +1,12 @@
 import 'reflect-metadata';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { OnEvent } from '@nestjs/event-emitter';
-import { findHandlerFn, scanEventListeners, toEventName } from './event-listener-scan';
+import {
+  emitterDelimiter,
+  findHandlerFn,
+  scanEventListeners,
+  toEventName,
+} from './event-listener-scan';
 
 class ReviewListener {
   @OnEvent('review.created')
@@ -179,5 +184,31 @@ describe('scanEventListeners', () => {
   it('exposes the owning instance so the profiler can wrap the handler', () => {
     const instance = new ReviewController();
     expect(scan([{ instance }])[0]?.instance).toBe(instance);
+  });
+
+  it("joins an array-form @OnEvent with the emitter's configured delimiter", () => {
+    class Slashed {
+      @OnEvent(['order', 'created'])
+      onCreated(): void {}
+    }
+    const [listener] = scanEventListeners(
+      {
+        getProviders: () => [{ instance: new Slashed() }],
+        getControllers: () => [],
+      } as unknown as DiscoveryService,
+      new MetadataScanner(),
+      new Reflector(),
+      '/',
+    );
+
+    // `EventEmitterModule.forRoot({ delimiter: '/' })` dispatches `order/created`; naming the
+    // subscription `order.created` would file it under an event that is never emitted.
+    expect(listener?.event).toBe('order/created');
+  });
+
+  it('falls back to a dot, the EventEmitter2 default', () => {
+    expect(toEventName(['order', 'created'])).toBe('order.created');
+    expect(emitterDelimiter(undefined)).toBe('.');
+    expect(emitterDelimiter({ delimiter: '/' })).toBe('/');
   });
 });

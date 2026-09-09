@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { Logger } from '@nestjs/common';
 import { createClient, type Client, type InValue, type Row } from '@libsql/client';
 import type { Profile } from '../../interfaces/profile.interface';
 import type { IProfilerStorageAdapter } from '../storage-adapter.interface';
@@ -74,6 +75,7 @@ const COLUMN_BY_FIELD: Record<string, string> = {
  */
 export class SqliteStorageAdapter implements IProfilerStorageAdapter {
   readonly crossProcess: boolean;
+  private readonly logger = new Logger(SqliteStorageAdapter.name);
   private readonly client: Client;
   private readonly maxProfiles: number;
   private readonly ttlMs: number;
@@ -228,8 +230,35 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     // WAL lets separate processes read while one writes — matches the cross-process contract for a
     // local file. It is meaningless for `:memory:` and managed by the server for remote libSQL.
     if (this.localFile) await this.client.execute('PRAGMA journal_mode = WAL');
+    await this.resetIfStaleSchema();
     await this.client.executeMultiple(SCHEMA);
+    await this.client.execute(`PRAGMA user_version = ${SCHEMA_VERSION}`);
     this.rowCount = await this.countRows();
+  }
+
+  /**
+   * Drops a database written by a different schema version before the schema is (re)applied.
+   *
+   * `CREATE TABLE IF NOT EXISTS` is a no-op on an existing file, so without this a release that
+   * adds an indexed column would leave an old database one column short and every query against
+   * it would fail — turning an additive change into a breaking one for anyone whose `.db` file
+   * outlived the upgrade. Profiles are disposable debugging data with a TTL, so the cheap and
+   * predictable migration is to start over rather than to carry `ALTER TABLE` steps forever.
+   *
+   * `user_version` defaults to `0`, which is also the value an empty file reports — a fresh
+   * database is simply recreated from nothing.
+   */
+  private async resetIfStaleSchema(): Promise<void> {
+    const result = await this.client.execute('PRAGMA user_version');
+    const version = numberColumn(result.rows[0], 'user_version');
+    if (version === SCHEMA_VERSION) return;
+    if (version !== 0) {
+      this.logger.warn(
+        `SQLite profile store was written by schema v${version} (expected v${SCHEMA_VERSION}); ` +
+          'recreating it — previously stored profiles are discarded.',
+      );
+    }
+    await this.client.execute('DROP TABLE IF EXISTS profiles');
   }
 
   private async countRows(): Promise<number> {
@@ -344,6 +373,14 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     return { clause: `WHERE ${conditions.join(' AND ')}`, params };
   }
 }
+
+/**
+ * Layout version of {@link SCHEMA}, stored in the database's `user_version` pragma. **Bump it in
+ * the same change that alters a column or an index**: a store whose version does not match is
+ * dropped and recreated on open (see {@link SqliteStorageAdapter.resetIfStaleSchema}), so the
+ * schema can evolve in a minor release without an existing `.db` file breaking the queries.
+ */
+const SCHEMA_VERSION = 1;
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS profiles (

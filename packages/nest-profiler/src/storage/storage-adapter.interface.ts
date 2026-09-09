@@ -2,7 +2,16 @@ import type { Profile } from '../interfaces/profile.interface';
 import type { ProfilerPage, ProfilerQuery } from './profiler-query';
 import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary';
 
-export const PROFILER_STORAGE_ADAPTER = Symbol('PROFILER_STORAGE_ADAPTER');
+/**
+ * DI token the resolved {@link IProfilerStorageAdapter} is provided under.
+ *
+ * Registered in the global symbol registry rather than created with a bare `Symbol()`: a token
+ * has to keep one identity across every copy of this package that ends up in a dependency tree.
+ * A bare symbol is unique per module instance, so two copies — a pnpm tree resolving a collector
+ * against a different version of the core, or one day a dual CJS/ESM build — would provide under
+ * one token and inject under another, and Nest would report the provider as simply missing.
+ */
+export const PROFILER_STORAGE_ADAPTER = Symbol.for('nest_profiler_storage_adapter');
 
 export interface IProfilerStorageAdapter {
   /**
