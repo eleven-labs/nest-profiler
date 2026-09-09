@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef, Reflector } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ProfilerCoreService, tryResolve } from '@eleven-labs/nest-profiler';
 import type {
   DiscoverEntry,
@@ -10,7 +11,7 @@ import type {
   ProfilerDiscoverSource,
 } from '@eleven-labs/nest-profiler';
 import { EVENT_ICON } from './event-emitter-collector.interface';
-import { scanEventListeners } from './event-listener-scan';
+import { emitterDelimiter, scanEventListeners } from './event-listener-scan';
 import type { DiscoveredListener } from './event-listener-scan';
 
 /** Discriminator of this source, and the `?view=discover-event` key its view is filed under. */
@@ -76,6 +77,7 @@ export class EventDiscoverSource implements ProfilerDiscoverSource, OnApplicatio
       this.discovery,
       this.metadataScanner,
       this.reflector,
+      emitterDelimiter(tryResolve(this.moduleRef, EventEmitter2)),
     ).map((listener) => {
       const groups = listenerOptions(listener);
       return {

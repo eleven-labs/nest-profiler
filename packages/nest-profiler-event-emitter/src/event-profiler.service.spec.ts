@@ -26,6 +26,12 @@ class ReviewListener {
   onFailed(): never {
     throw new Error('handler exploded');
   }
+
+  @OnEvent('review.synced')
+  async onSynced(): Promise<string> {
+    await Promise.resolve();
+    return 'synced';
+  }
 }
 
 /** Minimal CLS stub: `runWith` swaps the active store, `get()` returns it. */
@@ -44,32 +50,74 @@ function makeCls(): ClsService {
               (node, part) => (node as Record<string, unknown> | undefined)?.[part],
               store,
             ),
+    // Transparent, like the real `runWith<T>(store, cb: () => T): T` — it must not turn a
+    // synchronous handler's return value into a promise, which is the very thing under test.
     runWith: (next: Record<string, unknown>, fn: () => unknown) => {
       const previous = store;
       store = next;
-      return Promise.resolve(fn()).finally(() => {
+      try {
+        const result = fn();
+        if (result instanceof Promise) {
+          return result.finally(() => {
+            store = previous;
+          });
+        }
         store = previous;
-      });
+        return result;
+      } catch (err) {
+        store = previous;
+        throw err;
+      }
     },
   } as unknown as ClsService;
 }
 
-/** A profiler-wrapped handler returns a promise even though its declared signature is sync. */
+/**
+ * Awaits a handler call whatever its shape. The wrapper preserves the handler's own
+ * synchronicity, so a sync handler throws synchronously here and an async one rejects.
+ */
 function call(fn: () => unknown): Promise<unknown> {
-  return Promise.resolve(fn());
+  return Promise.resolve().then(() => fn());
 }
 
 function setup(options?: EventEmitterCollectorModuleOptions, { withCore = true } = {}) {
-  const listener = new ReviewListener();
+  return setupWith(new ReviewListener(), options, { withCore });
+}
+
+/** The same harness against an arbitrary listener instance. */
+function setupWith<T extends object>(
+  listener: T,
+  options?: EventEmitterCollectorModuleOptions,
+  { withCore = true } = {},
+) {
   const saved: Profile<EventEntrypointData>[] = [];
   const cls = makeCls();
 
   const registerEntrypointType = jest.fn();
-  const collectAll = jest.fn(() => Promise.resolve());
+  const collectAll = jest.fn((_profile: Profile<EventEntrypointData>) => Promise.resolve());
   const save = jest.fn((p: Profile<EventEntrypointData>) => {
     saved.push(p);
     return Promise.resolve();
   });
+
+  /**
+   * Stands in for `ProfilerCoreService.persist`: the profiler goes through the core's own
+   * pipeline rather than calling `collectAll`/`save` itself, so that is what the stub models.
+   */
+  const persist = jest.fn(async (profile: Profile<EventEntrypointData>) => {
+    await collectAll(profile);
+    await save(profile);
+  });
+  /** Deferred counterpart, tracked here so a test can await it like `flushPendingProfiles` does. */
+  const pending = new Set<Promise<unknown>>();
+  const schedulePersist = jest.fn((profile: Profile<EventEntrypointData>) => {
+    const work = persist(profile).catch(() => undefined);
+    pending.add(work);
+    void work.finally(() => pending.delete(work));
+  });
+  const flush = async (): Promise<void> => {
+    while (pending.size > 0) await Promise.all([...pending]);
+  };
 
   const core = {
     registerEntrypointType,
@@ -77,6 +125,8 @@ function setup(options?: EventEmitterCollectorModuleOptions, { withCore = true }
     getPerformanceRules: jest.fn(() => []),
     collectorRegistry: { collectAll, getCollectors: jest.fn(() => []) },
     storage: { save },
+    persist,
+    schedulePersist,
   } as unknown as ProfilerCoreService;
 
   const moduleRef = {
@@ -103,7 +153,17 @@ function setup(options?: EventEmitterCollectorModuleOptions, { withCore = true }
     options,
   );
 
-  return { service, listener, cls, saved, registerEntrypointType, collectAll, save };
+  return {
+    service,
+    listener,
+    cls,
+    saved,
+    registerEntrypointType,
+    collectAll,
+    save,
+    persist,
+    flush,
+  };
 }
 
 describe('EventProfilerService', () => {
@@ -192,10 +252,13 @@ describe('EventProfilerService', () => {
   });
 
   it('records the failure, then rethrows so the emitter sees it', async () => {
-    const { service, listener, saved } = setup();
+    const { service, listener, saved, flush } = setup();
     service.onApplicationBootstrap();
 
-    await expect(call(() => listener.onFailed())).rejects.toThrow('handler exploded');
+    // Synchronously, exactly as the unwrapped handler did: `emit()` discards a listener's return
+    // value, so a promise here would strand the rejection and lose the failure.
+    expect(() => listener.onFailed()).toThrow('handler exploded');
+    await flush();
 
     expect(saved[0]).toMatchObject({
       entrypoint: { data: { success: false } },
@@ -289,25 +352,77 @@ describe('EventProfilerService', () => {
     expect(saved).toHaveLength(1);
   });
 
-  it('logs but swallows a persistence failure so the handler result stands', async () => {
+  it('keeps a sync handler result when persistence fails', async () => {
+    const { service, listener, save, flush } = setup();
+    service.onApplicationBootstrap();
+    save.mockRejectedValueOnce(new Error('disk full'));
+
+    // The sync path defers through `core.schedulePersist`, which never rejects and reports the
+    // failure itself — the handler must be unaffected either way.
+    expect(listener.onCreated()).toBe('done');
+    await expect(flush()).resolves.toBeUndefined();
+  });
+
+  it('logs but swallows a persistence failure on the awaited path', async () => {
     const { service, listener, save } = setup();
     service.onApplicationBootstrap();
     save.mockRejectedValueOnce(new Error('disk full'));
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
 
-    await expect(call(() => listener.onCreated())).resolves.toBe('done');
+    await expect(listener.onSynced()).resolves.toBe('synced');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('disk full'));
     warn.mockRestore();
   });
 
+  it('keeps an async handler asynchronous and persists before it settles', async () => {
+    const { service, listener, saved } = setup();
+    service.onApplicationBootstrap();
+
+    const pending = listener.onSynced();
+    expect(pending).toBeInstanceOf(Promise);
+    await expect(pending).resolves.toBe('synced');
+    expect(saved.map((p) => p.entrypoint.data.event)).toContain('review.synced');
+  });
+
+  it('keeps a sync handler synchronous', () => {
+    const { service, listener } = setup();
+    service.onApplicationBootstrap();
+
+    // Not a promise: `emit()` discards a listener's return value, so an async wrapper would
+    // strand a thrown error as an unhandled rejection.
+    expect(listener.onCreated()).toBe('done');
+  });
+
   it('lets the handler error win over a persistence failure', async () => {
-    const { service, listener, save } = setup();
+    const { service, listener, save, flush } = setup();
     service.onApplicationBootstrap();
     save.mockRejectedValueOnce(new Error('disk full'));
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
 
-    await expect(call(() => listener.onFailed())).rejects.toThrow('handler exploded');
+    expect(() => listener.onFailed()).toThrow('handler exploded');
+    await flush();
     warn.mockRestore();
+  });
+
+  it('names every event a multi-@OnEvent handler serves, not just the first', async () => {
+    class MultiListener {
+      @OnEvent('review.archived')
+      @OnEvent('review.deleted')
+      onGone(): string {
+        return 'gone';
+      }
+    }
+    const listener = new MultiListener();
+    const { service, saved, flush } = setupWith(listener);
+    service.onApplicationBootstrap();
+
+    listener.onGone();
+    await flush();
+
+    // The loader registers `(...args) => instance[method](...args)`, so the handler is never told
+    // which subscription fired. Reporting only the alphabetically-first one mislabelled every
+    // profile produced by the others.
+    expect(saved[0]?.entrypoint.data.event).toBe('review.archived, review.deleted');
   });
 
   it('carries the @OnEvent metadata onto the wrapper so the loader still sees it', () => {

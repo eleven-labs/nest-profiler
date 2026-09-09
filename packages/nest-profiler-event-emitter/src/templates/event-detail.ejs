@@ -34,7 +34,7 @@
   </code>
 </section>
 
-<section <%= evError ? 'class="mb-6"' : '' %>>
+<section class="<%= evError ? 'mb-6' : '' %>">
   <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Payload</h2>
   <% if (!hasPayload) { %>
     <p class="text-foreground-faint text-xs italic py-1">No payload captured.</p>

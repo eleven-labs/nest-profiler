@@ -117,6 +117,8 @@ Everything degrades to a no-op when the profiler core is absent or disabled, and
 
 - **Request-scoped subscribers are not profiled.** `@nestjs/event-emitter` resolves a fresh instance per event through `Injector.loadPerContext`, so there is no stable handler to wrap. They still appear in the **Discover / Events** view.
 - **`EventEntry.error` is rarely populated.** `@OnEvent` defaults to `suppressErrors: true`, so a throwing handler is logged by `@nestjs/event-emitter` and never surfaces to the emitter. Subscribe with `{ suppressErrors: false }` to see handler failures on the emitting profile — the handler's own `event` profile records the failure either way.
+- **An `emitAsync` the caller never awaits may miss the panel.** The entry is recorded when the returned promise settles, which for a fire-and-forget `emitAsync` can be after the request finished and its profile was already collected and stored. The emission is then written to a profile nobody reads again. Await the promise — or use `emit` — if the call must appear in the Events panel. The handlers themselves are unaffected: each still produces its own `event` profile.
+- **A method carrying several `@OnEvent` decorators is filed under all of them.** `@nestjs/event-emitter` registers the handler as `(...args) => instance[method](...args)`, so the handler is never told which subscription fired. Its profiles are named `review.archived, review.deleted` rather than picking one and being wrong half the time. Split the method in two if you need them apart.
 
 ---
 

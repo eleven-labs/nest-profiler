@@ -26,10 +26,29 @@ export interface DiscoveredListener {
   instance: Record<string, unknown>;
 }
 
-export function toEventName(event: unknown): string {
+/** The delimiter `EventEmitter2` uses unless the host configures another one. */
+export const DEFAULT_EVENT_DELIMITER = '.';
+
+/**
+ * The event name a subscription is filed under.
+ *
+ * `@OnEvent(['order', 'created'])` is one namespaced event, not two, so the segments are joined
+ * with the emitter's delimiter — which the host can change via
+ * `EventEmitterModule.forRoot({ delimiter })`. Hardcoding a dot named such a subscription
+ * `order.created` under an emitter that actually dispatches `order/created`.
+ */
+export function toEventName(event: unknown, delimiter: string = DEFAULT_EVENT_DELIMITER): string {
   if (typeof event === 'string') return event;
-  if (Array.isArray(event)) return event.join('.');
+  if (Array.isArray(event)) return event.join(delimiter);
   return String(event);
+}
+
+/** Reads the delimiter off a resolved `EventEmitter2`, falling back to its own default. */
+export function emitterDelimiter(emitter: unknown): string {
+  const configured = (emitter as { delimiter?: unknown } | null | undefined)?.delimiter;
+  return typeof configured === 'string' && configured.length > 0
+    ? configured
+    : DEFAULT_EVENT_DELIMITER;
 }
 
 /**
@@ -65,6 +84,7 @@ export function scanEventListeners(
   discovery: DiscoveryService,
   metadataScanner: MetadataScanner,
   reflector: Reflector,
+  delimiter: string = DEFAULT_EVENT_DELIMITER,
 ): DiscoveredListener[] {
   const listeners: DiscoveredListener[] = [];
   const seen = new Set<string>();
@@ -88,7 +108,7 @@ export function scanEventListeners(
       if (!meta) continue;
 
       for (const { event, options } of meta) {
-        const name = toEventName(event);
+        const name = toEventName(event, delimiter);
         const key = `${provider}.${methodName}::${name}`;
         if (seen.has(key)) continue;
         seen.add(key);
