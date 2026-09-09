@@ -1,5 +1,9 @@
 # @eleven-labs/nest-profiler-event-emitter
 
+## 1.0.0-alpha.20
+
+No changes in this release.
+
 ## 1.0.0-alpha.19
 
 ### Major Changes

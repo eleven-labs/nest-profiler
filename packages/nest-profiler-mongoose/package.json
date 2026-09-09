@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-mongoose",
-  "version": "1.0.0-alpha.19",
+  "version": "1.0.0-alpha.20",
   "description": "Mongoose query collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
