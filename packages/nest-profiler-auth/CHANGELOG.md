@@ -1,5 +1,9 @@
 # @eleven-labs/nest-profiler-auth
 
+## 1.0.0-alpha.19
+
+No changes in this release.
+
 ## 1.0.0-alpha.18
 
 ### Patch Changes

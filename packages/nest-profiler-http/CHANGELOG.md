@@ -1,5 +1,29 @@
 # @eleven-labs/nest-profiler-http
 
+## 1.0.0-alpha.19
+
+### Minor Changes
+
+- e3b057e: Security fix and public-API hardening ahead of the stable release (breaking).
+
+  - **Security: the profiler UI could be reached without credentials.** `ProfilerGuard` exempted static assets by testing the raw URL for `/__assets/`, and the raw URL carries the query string — so appending `?x=/__assets/` to any profiler route passed the guard with no credential at all, including `/_profiler` and the `/_profiler/:token/data` JSON export (request headers, cookies, session and captured bodies). The exemption is now matched on the request **path**, and only against the profiler's own asset prefix. Applications running the profiler behind a `security` strategy should upgrade.
+  - **BREAKING: internal plumbing removed from the core entry point.** Everything the entry point exports is public API under semver, so helpers the profiler only uses on itself were freezing internals for the life of `1.x`. None of them is documented or used outside the core; if you import one, it has no replacement by design — open an issue describing the use case. Removed: `applyQueryInMemory`, `matchesQuery`, `resolveField`, `sortSections`, `DEFAULT_SECTION_ORDER`, `paginateProfiles`, `buildPageHref`, `PaginatedProfiles`, `ProfilerListPagination`, `elapsedMs`, `profileElapsedMs`, `registerGcCounter`, `GcCounter`, `analyzeStack`, `resolveStackAnalysisOptions`, `resolveSourceContextOptions`, `resolveExceptionCaptureOptions`, `resolveRedactionConfig`, `ResolvedRedactionConfig`, `buildTrace`, `resolveTraceId`, `TRACE_ROOT_ID`, `isTraceContributor`, `isTaggableCollector`, `DEFAULT_MAX_BODY_SIZE`, `DEFAULT_SECRET_KEY_RE`, `resolveEditorTemplate`, `EDITOR_NAMES`. Every extension contract, DI token and type they support stays exported.
+  - **The SQLite store now carries a schema version.** `CREATE TABLE IF NOT EXISTS` never alters an existing database, so a release adding an indexed column would have left an old `.db` file one column short and every query against it failing. The store stamps `PRAGMA user_version` and recreates itself when it does not match, which is what lets the schema evolve in a minor release.
+  - **DI tokens moved to the global symbol registry.** `PROFILER_STORAGE_ADAPTER`, `PROFILER_ENABLED` and `HTTP_INSTRUMENTATIONS` were bare `Symbol()`s, which are unique per module instance: two copies of a package in one dependency tree would provide under one token and inject under another, and Nest would report the provider as simply missing. They now use `Symbol.for`, like `PROFILER_REQ_KEY` always has. Import the constant as before — the change is invisible to callers.
+  - **`formatPhaseDuration` is exported** from `@eleven-labs/nest-profiler-http`. It was documented in the API reference but missing from the barrel.
+
+### Patch Changes
+
+- e3b057e: Fixes to the HTTP phase timer and the event-emitter collector found in review.
+
+  - **Socket listener leak on keep-alive connections.** `instrumentClientRequest` attached `lookup`/`connect`/`secureConnect` listeners to the socket and relied on them removing themselves when they fired. On a pooled socket those events never fire again, so nothing consumed them: `MaxListenersExceededWarning` landed on the 11th request through one connection, and every retained closure kept that request's marks alive for the life of the socket. Node >= 19 keeps `http.globalAgent` alive by default, so this was the ordinary path. The listeners are now detached when the request can no longer produce a connection phase.
+  - **BREAKING: a handler carrying several `@OnEvent` decorators is named after all of them.** The method is wrapped once, so the wrapper cannot know which subscription fired — `@nestjs/event-emitter` registers it as `(...args) => instance[method](...args)`. It previously reported the alphabetically first event, mislabelling every profile produced by the others (including the `attributes.event` facet the Events filter queries). Such profiles are now filed under `"a, b"`. Split the method in two to keep them apart.
+  - **A synchronous `@OnEvent` handler stays synchronous.** The wrapper always returned a promise, so a sync handler that threw produced a rejected promise instead: `emit()` discards a listener's return value, so the emitter's `try`/`catch` never saw the failure (it went missing from the emitting profile's Events panel, contradicting what `suppressErrors: false` promises) and Node terminated the process on the unhandled rejection. The awaited path is unchanged.
+  - **Event profiles now carry a trace and a version.** The collector ran `collectAll` and `storage.save` by hand instead of `ProfilerCoreService.persist`, skipping the version stamp and the trace assembly — so an event profile reached storage with an empty waterfall.
+  - **The emitter's configured `delimiter` is honoured.** An array-form `@OnEvent(['order', 'created'])` was always joined with a dot, naming the subscription `order.created` under an emitter that dispatches `order/created`.
+  - The Payload section of the event detail page emitted its `class` attribute HTML-escaped, so its spacing never applied; and an entry carrying only an error offered an expand chevron that unfolded to "No payload captured for this event" — the error is already shown on the row.
+  - `UndiciPhases.install()` counted a phase-slot provider before its own idempotency guard, so a second application lifecycle in one process inflated the counter while the subscriptions stayed at one.
+
 ## 1.0.0-alpha.18
 
 ### Minor Changes
