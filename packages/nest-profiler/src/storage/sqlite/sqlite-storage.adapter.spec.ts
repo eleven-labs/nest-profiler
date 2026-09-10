@@ -2,9 +2,42 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
-import { createClient } from '@libsql/client';
+import { createClient, type Client, type InStatement } from '@libsql/client';
 import { SqliteStorageAdapter } from './sqlite-storage.adapter';
 import type { Profile } from '../../interfaces/profile.interface';
+
+/** Every SQL statement sent through a client, so a test can assert what an open does and does not run. */
+const executedSql: string[] = [];
+
+jest.mock('@libsql/client', () => {
+  const actual = jest.requireActual<typeof import('@libsql/client')>('@libsql/client');
+  return {
+    ...actual,
+    createClient: (config: Parameters<typeof actual.createClient>[0]): Client => {
+      const client = actual.createClient(config);
+      return new Proxy(client, {
+        get(target, property, receiver) {
+          if (property === 'execute') {
+            return (statement: InStatement) => {
+              executedSql.push(typeof statement === 'string' ? statement : statement.sql);
+              return target.execute(statement);
+            };
+          }
+          if (property === 'executeMultiple') {
+            return (sql: string) => {
+              executedSql.push(sql);
+              return target.executeMultiple(sql);
+            };
+          }
+          const value: unknown = Reflect.get(target, property, receiver);
+          return typeof value === 'function'
+            ? (value as (...args: unknown[]) => unknown).bind(target)
+            : value;
+        },
+      });
+    },
+  };
+});
 
 // The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered for every adapter
 // in `storage-adapter.contract.spec.ts`. This spec keeps only what is specific to the
@@ -354,6 +387,19 @@ describe('SqliteStorageAdapter', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     });
 
+    // Hosted libSQL servers (Turso) reject `PRAGMA <name> = <value>` over the remote protocol with
+    // SQL_PARSE_ERROR, so an init that writes a pragma fails every open against a remote database —
+    // something no local test can reproduce, since a file database accepts pragmas happily.
+    it('records the schema version without writing a pragma on a remote database', async () => {
+      executedSql.length = 0;
+      const remote = new SqliteStorageAdapter({ url: ':memory:' });
+      await remote.save(makeProfile('remote'));
+
+      expect(executedSql.some((sql) => /PRAGMA\s+\w+\s*=/i.test(sql))).toBe(false);
+      expect((await remote.findOne('remote'))?.token).toBe('remote');
+      await remote.close();
+    });
+
     // `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a database left behind by
     // another schema version has to be recreated — otherwise a column added in a later release is
     // simply missing and every query against it fails.
@@ -370,10 +416,9 @@ describe('SqliteStorageAdapter', () => {
       await legacy.executeMultiple(`
         DROP TABLE profiles;
         CREATE TABLE profiles (token TEXT PRIMARY KEY, created_at INTEGER NOT NULL);
-        PRAGMA user_version = 0;
       `);
       await legacy.execute("INSERT INTO profiles (token, created_at) VALUES ('stale', 1)");
-      await legacy.execute('PRAGMA user_version = 99');
+      await legacy.execute("UPDATE profiler_meta SET value = 99 WHERE key = 'schema_version'");
       legacy.close();
 
       const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);

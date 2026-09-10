@@ -230,9 +230,14 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
     // WAL lets separate processes read while one writes — matches the cross-process contract for a
     // local file. It is meaningless for `:memory:` and managed by the server for remote libSQL.
     if (this.localFile) await this.client.execute('PRAGMA journal_mode = WAL');
+    await this.client.executeMultiple(META_SCHEMA);
     await this.resetIfStaleSchema();
     await this.client.executeMultiple(SCHEMA);
-    await this.client.execute(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+    await this.client.execute({
+      sql: `INSERT INTO ${META_TABLE} (key, value) VALUES ('schema_version', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      args: [SCHEMA_VERSION],
+    });
     this.rowCount = await this.countRows();
   }
 
@@ -245,12 +250,14 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
    * outlived the upgrade. Profiles are disposable debugging data with a TTL, so the cheap and
    * predictable migration is to start over rather than to carry `ALTER TABLE` steps forever.
    *
-   * `user_version` defaults to `0`, which is also the value an empty file reports — a fresh
-   * database is simply recreated from nothing.
+   * A store with no recorded version reads as `0` — a fresh database is simply created from
+   * nothing, and one written before the version was tracked is recreated.
    */
   private async resetIfStaleSchema(): Promise<void> {
-    const result = await this.client.execute('PRAGMA user_version');
-    const version = numberColumn(result.rows[0], 'user_version');
+    const result = await this.client.execute(
+      `SELECT value FROM ${META_TABLE} WHERE key = 'schema_version'`,
+    );
+    const version = numberColumn(result.rows[0], 'value');
     if (version === SCHEMA_VERSION) return;
     if (version !== 0) {
       this.logger.warn(
@@ -375,12 +382,26 @@ export class SqliteStorageAdapter implements IProfilerStorageAdapter {
 }
 
 /**
- * Layout version of {@link SCHEMA}, stored in the database's `user_version` pragma. **Bump it in
- * the same change that alters a column or an index**: a store whose version does not match is
- * dropped and recreated on open (see {@link SqliteStorageAdapter.resetIfStaleSchema}), so the
- * schema can evolve in a minor release without an existing `.db` file breaking the queries.
+ * Layout version of {@link SCHEMA}, stored as a row in {@link META_TABLE}. **Bump it in the same
+ * change that alters a column or an index**: a store whose version does not match is dropped and
+ * recreated on open (see {@link SqliteStorageAdapter.resetIfStaleSchema}), so the schema can
+ * evolve in a minor release without an existing database breaking the queries.
  */
 const SCHEMA_VERSION = 1;
+
+/**
+ * Schema version lives in a table rather than the `user_version` pragma: hosted libSQL servers
+ * (Turso) reject `PRAGMA user_version = …` over the remote protocol with `SQL_PARSE_ERROR`, which
+ * would fail every open against a remote database.
+ */
+const META_TABLE = 'profiler_meta';
+
+const META_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS ${META_TABLE} (
+    key TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+  );
+`;
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS profiles (
