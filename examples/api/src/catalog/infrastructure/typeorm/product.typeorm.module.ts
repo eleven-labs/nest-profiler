@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import pg from 'pg';
 import {
   TypeOrmCollectorModule,
   TypeOrmSchemaCollectorModule,
@@ -23,6 +24,9 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
+        // Serverless bundlers keep only statically imported files, so TypeORM's own `require('pg')`
+        // finds nothing once deployed — hand it the driver rather than letting it look one up.
+        driver: pg,
         host: config.get<string>('database.host'),
         port: config.get<number>('database.port'),
         username: config.get<string>('database.username'),

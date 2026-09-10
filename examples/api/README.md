@@ -18,6 +18,8 @@ PROFILER_STORAGE_TYPE=memory
 
 Active collectors on the live demo: **Catalog** (in-memory, REST + **GraphQL**), **Content** (HTTP + Cache), **Auth**, **Config**, **Validator**.
 
+On a serverless host the app does not own the port: when `VERCEL` is set, `main.ts` initialises Nest and exports the Express request handler instead of calling `listen()`. The platform imports the entrypoint and only watches for a `listen()` call for about a second before giving up, which a bootstrap of this size never meets.
+
 | Endpoint                 | URL                                                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | Swagger UI               | [nest-profiler-example.eleven-labs.com/api](https://nest-profiler-example.eleven-labs.com/api)              |

@@ -2,8 +2,10 @@ import 'reflect-metadata';
 
 import { ConsoleLogger } from '@nestjs/common';
 import type { LoggerService } from '@nestjs/common';
+import type { Express } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { createProfilerInstrument, createProfilerLogger } from '@eleven-labs/nest-profiler';
@@ -14,7 +16,11 @@ import {
 import { AppModule } from './app.module.js';
 import { applyGlobalPrefix } from './config/global-prefix.js';
 
-async function bootstrap() {
+// Vercel imports this file and watches for `listen()` for about a second before giving up; a
+// bootstrap this size never makes it in time, so there it exports the request handler instead.
+const isServerless = Boolean(process.env['VERCEL']);
+
+async function bootstrap(): Promise<Express | undefined> {
   // On by default *here*, unlike the library: this app exists to show what the profiler can do,
   // and the call tree — who called whom, and what each cost — is invisible without it. Set
   // PROFILER_INSTRUMENT=false to see the trace as an application that has not opted in sees it.
@@ -33,7 +39,7 @@ async function bootstrap() {
     .map((name) => name.trim())
     .filter((name) => name !== '');
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     ...(instrumentEnabled ? { instrument: createProfilerInstrument({ exclude }) } : {}),
   });
@@ -80,7 +86,16 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
+  if (isServerless) {
+    await app.init();
+    app.flushLogs();
+    return app.getHttpAdapter().getInstance();
+  }
+
   await app.listen(port);
+  return undefined;
 }
 
-void bootstrap();
+// Top-level await: the module stays unresolved until the app is ready, so the handler is
+// exported before anything reads it. Locally the app listens and this export is unused.
+export default await bootstrap();
