@@ -30,6 +30,12 @@ export type HttpClient = 'axios' | 'fetch';
 export const activeHttpClient = (): HttpClient =>
   process.env['HTTP_CLIENT'] === 'fetch' ? 'fetch' : 'axios';
 
+/**
+ * Whether this run batches the GraphQL author lookups — the `test:e2e:dataloader` script sets
+ * `FEATURE_DATALOADER`; default off, so the demo query keeps its N+1.
+ */
+export const isDataLoaderRun = (): boolean => process.env['FEATURE_DATALOADER'] === 'true';
+
 /** Boots the real AppModule and mirrors the logger wiring from `src/main.ts`. */
 export async function createE2EApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();

@@ -9,9 +9,11 @@ The profiler runs a single **analysis pass** once per profile — after every co
 
 Detection spans every collector that opts into the engine: the query collectors (`typeorm`, `mikro-orm`, `mongoose`), the outgoing-HTTP collector (`http`), the event emitter (`event`) and published RabbitMQ messages (`rabbitmq`). Grouping is done once in the core on a per-entry **fingerprint** each collector supplies (normalized SQL, `collection + operation + filter shape`, or `method + normalized URL`), so the same query executed with different bind values is recognised as a repeat.
 
-The detail page leads with a **Performance** banner summarising the issues, and colour-codes the affected collector tab (and its sub-tabs) by severity so a problematic panel stands out at a glance. Below, a GraphQL query that lists products and resolves each product's reviews from MongoDB (a classic N+1) is flagged `N+1 ×4`:
+The detail page leads with a **Performance** banner summarising the issues, and colour-codes the affected collector tab (and its sub-tabs) by severity so a problematic panel stands out at a glance. Below, a GraphQL query that lists products, resolves each product's reviews from MongoDB and then each review's author over HTTP — a classic field-resolver N+1, repeated on both sides — is flagged `N+1 ×5`:
 
-![Profile detail — a Performance banner reading "1 issue detected" with an N+1 ×4 tag, above a Database panel whose MongoDB sub-tab is marked with a red severity dot](/screenshots/profiler/performance-tags-detail.png)
+![Profile detail — a Performance banner reading "1 issue detected" with an N+1 ×5 tag, above a Database panel whose MongoDB sub-tab is marked with a red severity dot, the HTTP Client collector carrying one too](/screenshots/profiler/performance-tags-detail.png)
+
+Tags describe a profile, so the fix is verified the same way it was found: batching the same query through request-scoped DataLoaders folds it into one `$in` query and one bulk HTTP call, and the tag is gone. The [example application](/docs/example-api) ships both paths behind a flag for exactly that comparison.
 
 ## Built-in tags
 
@@ -65,7 +67,7 @@ The `error` tag is `danger` by default and is configurable like the others, but 
 
 The list page shows a **Performance tag** select (Slow / N+1 / Chatty / Large payload / No rows) that keeps only the profiles carrying that tag, with the tag pills rendered inline on each row. Failures are not performance issues, so the `error` tag has its own **Errors** checkbox, alongside an **Exception** select that narrows to one failure type — see [What counts as an error](/docs/packages/nest-profiler/error-classification).
 
-![Profiles list filtered by the N+1 performance tag, showing a single GraphQL products query row tagged N+1 ×4](/screenshots/profiler/performance-tags-filter.png)
+![Profiles list filtered by the N+1 performance tag, showing a single GraphQL products query row tagged N+1 ×5](/screenshots/profiler/performance-tags-filter.png)
 
 ## Custom rules
 

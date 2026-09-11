@@ -40,7 +40,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('text/csv');
     const lines = res.text.trim().split('\n');
-    expect(lines[0]).toBe('id,productId,rating,author');
+    expect(lines[0]).toBe('id,productId,rating,authorId');
     expect(lines).toHaveLength(expected + 1); // header + one line per document
 
     const streamed = mongooseEntries(profile.collectors).find((e) => e.streaming);
@@ -79,7 +79,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
       productId: '9',
       rating: 5,
       comment: 'E2E review',
-      author: 'e2e-bot',
+      authorId: 7,
       status: 'approved',
     });
 
@@ -98,7 +98,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
       productId: '9',
       rating: 42, // above Max(5)
       comment: 'bad rating',
-      author: 'e2e-bot',
+      authorId: 7,
     });
 
     expect(res.status).toBe(400);
@@ -113,7 +113,7 @@ describe('Reviews endpoints (e2e) — mongoose collector', () => {
       productId: '9',
       rating: 1,
       comment: 'to be deleted',
-      author: 'e2e-bot',
+      authorId: 7,
     });
     const id = (created.res.body as { id: string }).id;
 

@@ -497,6 +497,9 @@ async function main(): Promise<void> {
         SQL_ORM: process.env.SQL_ORM ?? 'typeorm',
         FEATURE_MONGOOSE: 'true',
         FEATURE_GRAPHQL: 'true',
+        // Explicit: the RabbitMQ pass below owns that flag, and a local `.env` enabling it would
+        // hang this boot on a broker no screenshot needs.
+        FEATURE_RABBITMQ: 'false',
         FEATURE_PINO_LOGGER: 'true',
       });
     }
@@ -695,7 +698,7 @@ async function main(): Promise<void> {
             productId: '64a1b2c3d4e5f6789abcdef0',
             rating: 5,
             comment: 'Great product, highly recommended!',
-            author: 'Jane Doe',
+            authorId: 1,
             status: 'approved',
           }),
         });

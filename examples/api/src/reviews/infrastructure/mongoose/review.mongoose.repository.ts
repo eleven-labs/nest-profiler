@@ -14,7 +14,7 @@ function toDomain(doc: ReviewDocument): Review {
     productId: doc.productId,
     rating: doc.rating,
     comment: doc.comment,
-    author: doc.author,
+    authorId: doc.authorId,
     status: doc.status,
     createdAt: timestamps.createdAt,
     updatedAt: timestamps.updatedAt,
@@ -34,9 +34,9 @@ export class MongooseReviewRepository implements ReviewRepository {
   // profiler's streaming-read collector instruments. Streams the collection into CSV row by row.
   async streamCsv(): Promise<string> {
     const cursor = this.model.find().sort({ createdAt: -1 }).cursor();
-    const lines: string[] = ['id,productId,rating,author'];
+    const lines: string[] = ['id,productId,rating,authorId'];
     for await (const doc of cursor) {
-      lines.push(toCsvRow([doc._id.toString(), doc.productId, doc.rating, doc.author]));
+      lines.push(toCsvRow([doc._id.toString(), doc.productId, doc.rating, doc.authorId]));
     }
     return lines.join('\n');
   }
@@ -48,6 +48,14 @@ export class MongooseReviewRepository implements ReviewRepository {
 
   async findByProduct(productId: string): Promise<Review[]> {
     const reviews = await this.model.find({ productId }).sort({ rating: -1 }).exec();
+    return reviews.map(toDomain);
+  }
+
+  async findByProducts(productIds: readonly string[]): Promise<Review[]> {
+    const reviews = await this.model
+      .find({ productId: { $in: productIds } })
+      .sort({ rating: -1 })
+      .exec();
     return reviews.map(toDomain);
   }
 

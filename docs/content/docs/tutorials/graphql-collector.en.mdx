@@ -119,6 +119,31 @@ Open an operation to land on its dedicated **GraphQL** detail tab, which display
 
 GraphQL errors returned with an HTTP 200 are still surfaced in the **Exceptions** tab.
 
+## Field resolvers - one operation, several collectors
+
+A GraphQL operation is a single profile, whatever the resolvers do underneath. Field resolvers run **after** the root resolver has returned, and collection is deferred until the response is sent - so one query that lists products (SQL), resolves each product's reviews (MongoDB) and then each review's author (outgoing HTTP) fills three collector panels in the same profile, with the **Execution Trace** interleaving their spans.
+
+```graphql
+query Products {
+  products {
+    # 1. SQL catalog - root resolver
+    id
+    name
+    reviews {
+      # 2. MongoDB - field resolver
+      rating
+      author {
+        # 3. HTTP - nested field resolver
+        name
+        company
+      }
+    }
+  }
+}
+```
+
+That shape is also where GraphQL's classic N+1 lives: one query per product, then one HTTP call per review. The rule engine tags the repeats in both the MongoDB and HTTP Client panels - see [Performance tags](/docs/packages/nest-profiler/performance-tags). Batching them behind request-scoped DataLoaders collapses each side into a single call; the [example application](/docs/example-api) runs the very same query either way behind a flag, so the two waterfalls can be compared profile to profile.
+
 ## Filtering playground and introspection requests
 
 By default, Apollo Sandbox (`GET /graphql`) and introspection queries are profiled. Use the pre-built filters to exclude them:

@@ -20,6 +20,7 @@
     "test:e2e:sqlite": "PROFILER_STORAGE_TYPE=sqlite pnpm test:e2e",
     "test:e2e:storages": "pnpm test:e2e:file && pnpm test:e2e:sqlite",
     "test:e2e:http-clients": "HTTP_CLIENT=axios pnpm test:e2e \"content|cli\" && HTTP_CLIENT=fetch pnpm test:e2e \"content|cli\"",
+    "test:e2e:dataloader": "FEATURE_DATALOADER=true pnpm test:e2e graphql",
     "test:e2e:no-stress": "PROFILER_STRESS=false pnpm test:e2e",
     "typecheck": "tsc --noEmit --incremental false"
   },
@@ -62,6 +63,7 @@
     "cache-manager": "^7.2.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "dataloader": "^2.2.3",
     "graphql": "^16.14.2",
     "mongoose": "^9.9.3",
     "nest-commander": "^3.20.1",

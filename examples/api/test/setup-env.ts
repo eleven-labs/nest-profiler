@@ -16,6 +16,12 @@ process.env['SQL_ORM'] ??= 'typeorm'; // CI matrix overrides with mikro-orm
 process.env['HTTP_CLIENT'] ??= 'axios';
 process.env['FEATURE_MONGOOSE'] = 'true';
 process.env['FEATURE_GRAPHQL'] = 'true';
+// Author lookups in GraphQL: unbatched by default (the N+1 the suite asserts on); the
+// `test:e2e:dataloader` script re-runs the GraphQL spec with the DataLoader adapter instead.
+process.env['FEATURE_DATALOADER'] ??= 'false';
+// No spec exercises RabbitMQ, and a local `.env` enabling it would hang every bootstrap on a
+// broker the suite never starts.
+process.env['FEATURE_RABBITMQ'] = 'false';
 process.env['FEATURE_PINO_LOGGER'] = 'true';
 // Mute pino's stdout in tests; the profiler's logger adapter records entries before
 // pino applies its level filter, so `profile.logs` assertions still work.
