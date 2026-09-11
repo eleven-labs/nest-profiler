@@ -351,84 +351,74 @@ await this.events.publish({ name: 'review.created', payload: { reviewId: review.
 
 `ReviewApplicationModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
 
-The `NotificationsNoopModule` under `notifications/infrastructure/noop/` is kept as the minimal reference implementation of the port, but it is no longer wired: the in-process adapter needs just as little infrastructure and actually delivers the events.
-
 ## Available endpoints
 
-All business routes are served under the global prefix **`/api/v1`**. Only `GET /health`, the GraphQL endpoint (`/graphql`) and the profiler UI (`/_profiler`) stay at the root.
-
-### Health (`HealthModule`) & Diagnostics (`DiagnosticsModule`)
-
-| Endpoint            | Collector demo  | Description                                              |
-| ------------------- | --------------- | -------------------------------------------------------- |
-| `GET /health`       | Logs            | Health check with timestamp                              |
-| `GET /api/v1/slow`  | Execution Trace | 3 nested spans: fetch → process → serialize              |
-| `GET /api/v1/crash` | Exceptions      | Throws a 500 — tagged `error`, kept by the Errors filter |
-
-There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification).
+All business routes are served under the global prefix **`/api/v1`**. Only `GET /health`, the GraphQL endpoint (`/graphql`) and the profiler UI (`/_profiler`) stay at the root. Each row names the panel the call fills in `/_profiler`; the `curl` blocks below each table carry the payloads that are not obvious.
 
 ### Catalog (`CatalogModule` → active SQL ORM + GraphQL)
 
 Seeded automatically at startup (4 products). REST and GraphQL share the same `ProductService`.
 
-| Endpoint                      | Description                                  |
-| ----------------------------- | -------------------------------------------- |
-| `GET /api/v1/products`        | List all products                            |
-| `GET /api/v1/products/:id`    | Get by ID                                    |
-| `POST /api/v1/products`       | Create product (Validator collector)         |
-| `DELETE /api/v1/products/:id` | Delete product                               |
-| `POST /graphql`               | `products` / `product(id)` / `createProduct` |
-
-### Content (`ContentModule` → HTTP (axios or fetch) + Cache + Validator)
-
-| Endpoint                           | Description                                                          |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| `GET /api/v1/articles`             | First call: GET_MISS + HTTP (N+1 authors) → SET. Subsequent: GET_HIT |
-| `POST /api/v1/articles`            | Create with `CreateArticleDto` — valid/invalid via Validator panel   |
-| `POST /api/v1/articles/forward`    | Forward via a POST — request/response body + headers in HTTP Client  |
-| `GET /api/v1/articles/cache/clear` | Clear the articles cache (force next MISS)                           |
-| `GET /api/v1/articles/todos/:id`   | Per-item cached todo (two concurrent HTTP calls)                     |
-
-### Reviews (`ReviewsModule` → Mongoose, `FEATURE_MONGOOSE=true`)
-
-| Endpoint                                 | Description                                       |
-| ---------------------------------------- | ------------------------------------------------- |
-| `GET /api/v1/reviews`                    | List all reviews (Mongoose `find`)                |
-| `GET /api/v1/reviews/stats`              | Average rating per product (Mongoose `aggregate`) |
-| `GET /api/v1/reviews/product/:productId` | Reviews for a product                             |
-| `GET /api/v1/reviews/:id`                | Get by ID                                         |
-| `POST /api/v1/reviews`                   | Create a review — publishes `review.created`      |
-| `DELETE /api/v1/reviews/:id`             | Delete a review                                   |
-
-### Auth (`AuthModule` → JWT)
-
-| Endpoint                            | Description                         |
-| ----------------------------------- | ----------------------------------- |
-| `GET /api/v1/auth/token?role=admin` | Generate demo JWT (unsigned)        |
-| `GET /api/v1/auth/me`               | Decodes Bearer JWT → `request.user` |
-
-## Testing each collector
-
-### SQL ORM — Database tab
+| Endpoint                      | What it demonstrates                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/v1/products`        | **Database** — SELECT with type badge, duration bar, slow-query highlight    |
+| `GET /api/v1/products/export` | **Database** — streaming read (`QueryBuilder.stream()`), flagged `streaming` |
+| `GET /api/v1/products/:id`    | **Database** — SELECT by id, 404 when missing                                |
+| `POST /api/v1/products`       | **Validator** + INSERT + `product.created` in the **Events** panel           |
+| `PATCH /api/v1/products/:id`  | **Database** — an unknown id updates 0 rows, tagged `zero-rows`              |
+| `DELETE /api/v1/products/:id` | **Database** — DELETE                                                        |
+| `POST /graphql`               | **GraphQL** (GQL badge) — `products` / `product(id)` / `createProduct`       |
 
 ```bash
-# default is in-memory (no DB). For SQL: SQL_ORM=typeorm (or mikro-orm) pnpm example:dev
+# SQL_ORM=in-memory (default) needs no database and has no Database tab; SQL_ORM=typeorm|mikro-orm does.
 curl http://localhost:3000/api/v1/products
 curl -X POST http://localhost:3000/api/v1/products -H "Content-Type: application/json" \
   -d '{"name":"Widget","price":9.99}'
+curl -X PATCH http://localhost:3000/api/v1/products/9999 -H "Content-Type: application/json" \
+  -d '{"price":1}'   # 0 rows → zero-rows tag
+
+curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
+  -d '{"operationName":"GetProducts","query":"query GetProducts { products { id name price } }"}'
+curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
+  -d '{"operationName":"CreateProduct","query":"mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name } }","variables":{"input":{"name":"NestJS in Action","price":29.99}}}'
+
+# Three sources in one operation (needs FEATURE_MONGOOSE=true): SQL + MongoDB + HTTP
+curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
+  -d '{"operationName":"Products","query":"query Products { products { id name reviews { rating comment author { name company } } } }"}'
 ```
 
-→ **Database** tab: SQL queries with type badge, duration bar, slow-query highlighting — rendered identically for both ORMs (shared `AbstractSqlQueryCollector`). With `SQL_ORM=in-memory` there is no Database tab; the catalog still works.
+### Content (`ContentModule` → HTTP (axios or fetch) + Cache + Validator)
 
-### Axios + Cache — HTTP Client and Cache tabs
+| Endpoint                           | What it demonstrates                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/articles`             | **HTTP Client** + **Cache** — first call GET_MISS + N parallel calls → SET, then GET_HIT                |
+| `GET /api/v1/articles/cache/clear` | **Cache** — DEL, forcing the next call back to a MISS                                                   |
+| `POST /api/v1/articles/forward`    | **HTTP Client** — the only outgoing POST: request/response bodies captured. **Validator** on the way in |
 
 ```bash
 curl http://localhost:3000/api/v1/articles          # MISS + HTTP calls + SET
 curl http://localhost:3000/api/v1/articles          # HIT — no outgoing call
 curl http://localhost:3000/api/v1/articles/cache/clear
+
+# Valid DTO → 201 + the forwarded POST in the HTTP Client panel
+curl -X POST http://localhost:3000/api/v1/articles/forward -H "Content-Type: application/json" \
+  -d '{"title":"My article","body":"Body long enough to pass the MinLength(20) constraint."}'
+# Invalid DTO → 400, violations in the Validator panel, no outgoing call
+curl -X POST http://localhost:3000/api/v1/articles/forward -H "Content-Type: application/json" \
+  -d '{"title":"Hi","body":"Too short"}'
 ```
 
-### Mongoose — MongoDB tab
+### Reviews (`ReviewsModule` → Mongoose, `FEATURE_MONGOOSE=true`)
+
+| Endpoint                                 | What it demonstrates                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /api/v1/reviews`                    | **MongoDB** — `find`                                                   |
+| `GET /api/v1/reviews/stats`              | **MongoDB** — `aggregate` (average rating per product)                 |
+| `GET /api/v1/reviews/export`             | **MongoDB** — streaming read through a `cursor()`, flagged `streaming` |
+| `GET /api/v1/reviews/product/:productId` | **MongoDB** — `find` by product                                        |
+| `GET /api/v1/reviews/:id`                | **MongoDB** — `findById`, 404 when missing                             |
+| `POST /api/v1/reviews`                   | **Validator** + insert + `review.created` (RabbitMQ or in-process)     |
+| `DELETE /api/v1/reviews/:id`             | **MongoDB** — `deleteOne`                                              |
 
 ```bash
 # requires FEATURE_MONGOOSE=true + docker compose up -d mongodb
@@ -438,45 +428,34 @@ curl -X POST http://localhost:3000/api/v1/reviews -H "Content-Type: application/
 curl http://localhost:3000/api/v1/reviews/stats
 ```
 
-### Auth — Security tab
+### Auth (`AuthModule` → JWT)
+
+| Endpoint                            | What it demonstrates                                  |
+| ----------------------------------- | ----------------------------------------------------- |
+| `GET /api/v1/auth/token?role=admin` | Issues a demo JWT (unsigned) and drops it in a cookie |
+| `GET /api/v1/auth/me`               | **Security** — `JwtAuthGuard` decodes the Bearer JWT  |
 
 ```bash
 TOKEN=$(curl -s "http://localhost:3000/api/v1/auth/token?role=admin" | jq -r .token)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/v1/auth/me
 ```
 
-### Validator — Validator tab
+### Health (`HealthModule`) & Diagnostics (`DiagnosticsModule`)
+
+| Endpoint            | What it demonstrates                                              |
+| ------------------- | ----------------------------------------------------------------- |
+| `GET /health`       | **Logs** — a profile whose only content is its log lines          |
+| `GET /api/v1/slow`  | **Execution Trace** — 3 nested spans: fetch → process → serialize |
+| `GET /api/v1/crash` | **Exceptions** — throws a 500 with a `cause`, tagged `error`      |
 
 ```bash
-# Valid DTO
-curl -X POST http://localhost:3000/api/v1/articles -H "Content-Type: application/json" \
-  -d '{"title":"My article","body":"Body long enough to pass the MinLength(20) constraint."}'
-# Invalid DTO — shows violations
-curl -X POST http://localhost:3000/api/v1/articles -H "Content-Type: application/json" \
-  -d '{"title":"Hi","body":"Too short"}'
+curl http://localhost:3000/api/v1/slow    # Trace: slow.step.* nested under slow.total
+curl -i http://localhost:3000/api/v1/crash
 ```
 
-### GraphQL — Request tab (GQL badge)
+There is deliberately no endpoint throwing a `BadRequestException`: rejecting an invalid `POST /api/v1/products` already produces a real 400 with a captured exception. It is a good way to see that a captured exception is not necessarily an error — the 400 shows up under the **Exception** filter, but not under the **Errors** checkbox, since the API answered correctly. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification).
 
-```bash
-curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
-  -d '{"operationName":"GetProducts","query":"query GetProducts { products { id name price } }"}'
-
-curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
-  -d '{"operationName":"CreateProduct","query":"mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name } }","variables":{"input":{"name":"NestJS in Action","price":29.99}}}'
-
-# Three sources in one operation (needs FEATURE_MONGOOSE=true): SQL + MongoDB + HTTP
-curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
-  -d '{"operationName":"Products","query":"query Products { products { id name reviews { rating comment author { name company } } } }"}'
-```
-
-### Execution Trace & Config tabs
-
-```bash
-curl http://localhost:3000/api/v1/slow   # Trace: slow.step.* nested under slow.total
-```
-
-Any request → **Config** tab shows `app.*` and `database.*` keys from `registerAs` factories (`database.password` is masked).
+Any request also fills the **Config** tab with the `app.*` and `database.*` keys from the `registerAs` factories (`database.password` is masked).
 
 ## What `main.ts` wires
 

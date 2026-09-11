@@ -3,7 +3,6 @@ import { ArticleGateway } from '../../domain/article-gateway.js';
 import type {
   ExternalArticle,
   ExternalAuthor,
-  ExternalTodo,
   ForwardedArticle,
   NewArticle,
 } from '../../domain/article.js';
@@ -37,11 +36,6 @@ export class FetchArticleGateway implements ArticleGateway {
   async fetchAuthor(id: number): Promise<ExternalAuthor> {
     const response = await fetch(`${API_BASE}/users/${id}`);
     return readJson<ExternalAuthor>(response);
-  }
-
-  async fetchTodo(id: number): Promise<ExternalTodo> {
-    const response = await fetch(`${API_BASE}/todos/${id}`);
-    return readJson<ExternalTodo>(response);
   }
 
   async forwardArticle(article: NewArticle): Promise<ForwardedArticle> {

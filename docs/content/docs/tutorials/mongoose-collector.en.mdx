@@ -132,6 +132,6 @@ import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoo
 ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
 ```
 
-Open `/_profiler` and select the **Schemas / Mongoose** view — it has the same shape as every ORM's, one disclosure per model over a columns table (see the [TypeORM walkthrough](/docs/tutorials/typeorm-collector) for a shot of it).
+Open `/_profiler` and select the **Schemas / Mongoose** view — it has the same shape as every ORM's, one disclosure per model over a columns table (see the [SQL walkthrough](/docs/tutorials/sql-collectors) for a shot of it).
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named connections, redacts secrets embedded in field defaults, and simply does not appear when no Mongoose connection is wired.

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ArticleService } from '../application/article.service.js';
 import { CreateArticleDto } from './dto/create-article.dto.js';
-import type { Article, ForwardedArticle, TodoWithAssignee } from '../domain/article.js';
+import type { Article, ForwardedArticle } from '../domain/article.js';
 
 @ApiTags('content')
 @Controller('articles')
@@ -25,19 +25,6 @@ export class ArticleController {
     return this.articles.getEnrichedArticles();
   }
 
-  @Post()
-  @ApiOperation({
-    summary: 'Create an article — demonstrates validator collector (valid & invalid DTOs)',
-  })
-  @ApiResponse({ status: 201, description: 'Article created' })
-  @ApiResponse({
-    status: 400,
-    description: 'Validation failed — check the Validator panel in /_profiler',
-  })
-  createArticle(@Body() dto: CreateArticleDto): Record<string, unknown> {
-    return this.articles.createArticle(dto);
-  }
-
   @Post('forward')
   @ApiOperation({
     summary:
@@ -46,6 +33,10 @@ export class ArticleController {
   @ApiResponse({
     status: 201,
     description: 'Article forwarded — check the HTTP Client panel in /_profiler',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed — check the Validator panel in /_profiler',
   })
   forwardArticle(@Body() dto: CreateArticleDto): Promise<ForwardedArticle> {
     return this.articles.forwardArticle(dto);
@@ -56,15 +47,5 @@ export class ArticleController {
   @ApiResponse({ status: 200, description: 'Cache cleared' })
   clearCache(): Promise<{ cleared: boolean }> {
     return this.articles.clearCache();
-  }
-
-  @Get('todos/:id')
-  @ApiOperation({
-    summary: 'Fetch a todo with its assignee — demonstrates two concurrent HTTP calls',
-  })
-  @ApiParam({ name: 'id', example: 1 })
-  @ApiResponse({ status: 200, description: 'Todo enriched with assignee info' })
-  getTodo(@Param('id', ParseIntPipe) id: number): Promise<TodoWithAssignee> {
-    return this.articles.getTodo(id);
   }
 }
