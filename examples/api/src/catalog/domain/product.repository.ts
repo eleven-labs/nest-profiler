@@ -1,4 +1,4 @@
-import type { NewProduct, Product } from './product.js';
+import type { NewProduct, Product, SeededProduct } from './product.js';
 
 /**
  * Persistence port for the products bounded context. The abstract class doubles as the DI token,
@@ -22,5 +22,11 @@ export abstract class ProductRepository {
    */
   abstract update(id: number, data: Partial<NewProduct>): Promise<number>;
   abstract delete(id: number): Promise<void>;
+  /**
+   * Inserts the demo catalog under its fixed ids and realigns the generated-id sequence so
+   * {@link create} carries on after them. Rows that already exist are left alone — several
+   * instances can boot against the same database at once — which makes the call idempotent.
+   */
+  abstract seed(products: readonly SeededProduct[]): Promise<void>;
   abstract clear(): Promise<void>;
 }

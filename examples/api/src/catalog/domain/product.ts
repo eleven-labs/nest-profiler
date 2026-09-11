@@ -19,3 +19,12 @@ export interface NewProduct {
   description?: string;
   inStock?: boolean;
 }
+
+/**
+ * A demo product inserted at bootstrap under a **fixed id**. Unlike {@link NewProduct}, the id is
+ * part of the data: `REVIEW_SEED` and the documented demo URLs reference products 1-4 by number, so
+ * they must not depend on where the database's id sequence happens to be.
+ */
+export interface SeededProduct extends NewProduct {
+  id: number;
+}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ProductRepository } from '../../domain/product.repository.js';
-import type { NewProduct, Product } from '../../domain/product.js';
+import type { NewProduct, Product, SeededProduct } from '../../domain/product.js';
 import { toCsvRow } from '../../../shared/csv.util.js';
 
 /**
@@ -58,6 +58,22 @@ export class InMemoryProductRepository implements ProductRepository {
 
   delete(id: number): Promise<void> {
     this.products = this.products.filter((product) => product.id !== id);
+    return Promise.resolve();
+  }
+
+  seed(products: readonly SeededProduct[]): Promise<void> {
+    for (const product of products) {
+      // Skipped rather than overwritten, mirroring the SQL adapters' ON CONFLICT DO NOTHING.
+      if (this.products.some((existing) => existing.id === product.id)) continue;
+      const now = new Date();
+      this.products.push({
+        ...product,
+        inStock: product.inStock ?? true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    this.sequence = Math.max(this.sequence, ...this.products.map((product) => product.id)) + 1;
     return Promise.resolve();
   }
 

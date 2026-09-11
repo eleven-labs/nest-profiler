@@ -22,9 +22,7 @@ export class ProductService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap(): Promise<void> {
     await this.repo.clear();
-    for (const seed of PRODUCT_SEED) {
-      await this.repo.create(seed);
-    }
+    await this.repo.seed(PRODUCT_SEED);
     this.logger.log(`Database seeded with ${PRODUCT_SEED.length} products`);
   }
 
