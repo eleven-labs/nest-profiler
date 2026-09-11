@@ -4,10 +4,9 @@ import type { Cache } from 'cache-manager';
 import { TracerService, createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ArticleGateway } from '../domain/article-gateway.js';
-import type { Article, ForwardedArticle, NewArticle, TodoWithAssignee } from '../domain/article.js';
+import type { Article, ForwardedArticle, NewArticle } from '../domain/article.js';
 
 const ARTICLES_CACHE_KEY = 'external:articles';
-const TODOS_CACHE_KEY = 'external:todos';
 
 /**
  * Content use cases. Depends only on the {@link ArticleGateway} port — the concrete HTTP client
@@ -79,51 +78,10 @@ export class ArticleService {
     return enriched;
   }
 
-  /** Build a synthetic article (no outgoing call) — exercises the validator panel. */
-  createArticle(dto: NewArticle): Record<string, unknown> {
-    this.logger?.info(`Creating article: ${dto.title}`);
-    return {
-      id: Math.floor(Math.random() * 1000) + 100,
-      title: dto.title,
-      body: dto.body,
-      tags: dto.tags ?? [],
-      coverImageUrl: dto.coverImageUrl ?? null,
-      createdAt: new Date().toISOString(),
-    };
-  }
-
   /** Forward an article to the external API via the selected HTTP client. */
   async forwardArticle(dto: NewArticle): Promise<ForwardedArticle> {
     this.logger?.info(`Forwarding article to external API: ${dto.title}`);
     return this.tracer.span('http.articles.forward', () => this.gateway.forwardArticle(dto));
-  }
-
-  /** Fetch a todo with its assignee — two concurrent calls, cached. */
-  async getTodo(id: number): Promise<TodoWithAssignee> {
-    const key = `${TODOS_CACHE_KEY}:${id}`;
-    const cached = await this.cache.get<TodoWithAssignee>(key);
-    if (cached) {
-      this.logger?.info(`Todo #${id} served from cache (HIT)`);
-      return cached;
-    }
-
-    this.logger?.info(`Fetching todo #${id} and assignee in parallel (MISS)`);
-    const [todo, assignee] = await this.tracer.span('http.todo', () =>
-      Promise.all([this.gateway.fetchTodo(id), this.gateway.fetchAuthor(id)]),
-    );
-
-    const enriched: TodoWithAssignee = {
-      ...todo,
-      assignee: {
-        id: assignee.id,
-        name: assignee.name,
-        username: assignee.username,
-        email: assignee.email,
-      },
-    };
-
-    await this.cache.set(key, enriched, 60000);
-    return enriched;
   }
 
   /** Fetch articles and cache them under a given key — used by the `content:sync` CLI command. */

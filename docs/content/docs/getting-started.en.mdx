@@ -319,44 +319,24 @@ See [Storage backends](/docs/packages/nest-profiler/storage) for the full compar
 pnpm example:dev
 ```
 
-Make requests to exercise each collector:
+A handful of requests is enough to light up most panels:
 
 ```bash
-curl http://localhost:3000/api/v1/products       # Catalog (in-memory by default, or SQL SELECT with SQL_ORM=typeorm)
-curl http://localhost:3000/api/v1/articles       # Axios GET + cache SET
+curl http://localhost:3000/api/v1/products       # Catalog (in-memory by default, or SQL with SQL_ORM=typeorm)
+curl http://localhost:3000/api/v1/articles       # Outgoing HTTP + cache SET
 curl http://localhost:3000/api/v1/articles       # cache HIT
-curl http://localhost:3000/api/v1/auth/token     # get demo JWT
-curl -H "Authorization: Bearer <token>" http://localhost:3000/api/v1/auth/me  # Auth
-curl -X POST http://localhost:3000/api/v1/articles \
+curl http://localhost:3000/api/v1/slow           # Nested trace spans
+curl -X POST http://localhost:3000/api/v1/products \
   -H "Content-Type: application/json" \
-  -d '{"title":"Hi","body":"too short"}'  # Validator violations
-curl http://localhost:3000/api/v1/slow            # Nested trace spans
+  -d '{"name":"Hi","price":-1}'                  # Validator violations
 
 # GraphQL - requires FEATURE_GRAPHQL=true (default), served over the catalog
-# Query with operation name
-curl -X POST http://localhost:3000/graphql \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operationName": "GetProducts",
-    "query": "query GetProducts { products { id name price inStock } }"
-  }'
-
-# Query with variable
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
     "operationName": "GetProduct",
     "query": "query GetProduct($id: Int!) { product(id: $id) { id name price } }",
     "variables": { "id": 1 }
-  }'
-
-# Mutation with operation name and variables
-curl -X POST http://localhost:3000/graphql \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operationName": "CreateProduct",
-    "query": "mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name price } }",
-    "variables": { "input": { "name": "NestJS in Action", "price": 29.99 } }
   }'
 
 # Field resolvers - one operation, three collectors (needs FEATURE_MONGOOSE=true):
@@ -368,6 +348,8 @@ curl -X POST http://localhost:3000/graphql \
     "query": "query Products { products { id name reviews { rating author { name company } } } }"
   }'
 ```
+
+The full endpoint catalogue — one table per bounded context, with the panel each call fills — lives on the [Example application](/docs/example-api) page.
 
 Open `http://localhost:3000/_profiler` to browse all collected profiles.
 

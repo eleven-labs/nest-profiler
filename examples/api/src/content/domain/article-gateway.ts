@@ -1,10 +1,4 @@
-import type {
-  ExternalArticle,
-  ExternalAuthor,
-  ExternalTodo,
-  ForwardedArticle,
-  NewArticle,
-} from './article.js';
+import type { ExternalArticle, ExternalAuthor, ForwardedArticle, NewArticle } from './article.js';
 
 /**
  * Outbound port to the external content source. The abstract class doubles as the DI token; the
@@ -15,6 +9,5 @@ import type {
 export abstract class ArticleGateway {
   abstract fetchArticles(limit: number): Promise<ExternalArticle[]>;
   abstract fetchAuthor(id: number): Promise<ExternalAuthor>;
-  abstract fetchTodo(id: number): Promise<ExternalTodo>;
   abstract forwardArticle(article: NewArticle): Promise<ForwardedArticle>;
 }

@@ -25,7 +25,7 @@ Both `forRoot(options)` and `forRootAsync({ inject, useFactory })` are available
 - **Modules:** `TypeOrmCollectorModule` (query) + `TypeOrmSchemaCollectorModule` (schema panel).
 - **Placement:** the feature module that imports `TypeOrmModule`, **after** it.
 - **Gotcha:** the collector resolves the `DataSource` itself via `getDataSourceToken(connectionName)` — **no `inject: [DataSource]` needed**. For a named DataSource, pass `connectionName`.
-- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-typeorm> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/typeorm-collector>
+- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-typeorm> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/sql-collectors>
 
 ```ts
 import { TypeOrmCollectorModule, TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
@@ -41,7 +41,7 @@ ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfile
 - **Modules:** `MikroOrmCollectorModule` + `MikroOrmSchemaCollectorModule`.
 - **Placement:** the feature module that imports `MikroOrmModule`, **after** it.
 - **Gotcha:** the **only ESM-only collector** — the app must be `"type": "module"` and use `.js` import specifiers. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.
-- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-mikro-orm> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/mikro-orm-collector>
+- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-mikro-orm> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/sql-collectors>
 
 ```ts
 import { MikroOrmCollectorModule, MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';

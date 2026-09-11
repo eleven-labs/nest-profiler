@@ -223,10 +223,12 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
     it('renders an empty-state row when a section has no profiles', async () => {
       // Emptied with a search term nothing can match, rather than by assuming the Commands view is
       // empty: storage is shared across this run, so whether a CLI command has already been
-      // profiled depends on the order jest happens to pick for the spec files.
+      // profiled depends on the order jest happens to pick for the spec files. The parameter is
+      // `command_q`, not `q`: list filters are namespaced per view, and an unknown one is ignored —
+      // which is what made this assertion pass on luck alone.
       const res = await request(server(app))
         .get('/_profiler')
-        .query({ view: 'command', search: 'zzz-no-such-command-zzz' });
+        .query({ view: 'command', command_q: 'zzz-no-such-command-zzz' });
       expect(res.status).toBe(200);
       expect(res.text).toContain('No commands found');
     });

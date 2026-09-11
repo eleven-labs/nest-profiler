@@ -5,7 +5,6 @@ import { ArticleGateway } from '../../domain/article-gateway.js';
 import type {
   ExternalArticle,
   ExternalAuthor,
-  ExternalTodo,
   ForwardedArticle,
   NewArticle,
 } from '../../domain/article.js';
@@ -38,11 +37,6 @@ export class AxiosArticleGateway implements ArticleGateway {
 
   async fetchAuthor(id: number): Promise<ExternalAuthor> {
     const { data } = await firstValueFrom(this.http.get<ExternalAuthor>(`${API_BASE}/users/${id}`));
-    return data;
-  }
-
-  async fetchTodo(id: number): Promise<ExternalTodo> {
-    const { data } = await firstValueFrom(this.http.get<ExternalTodo>(`${API_BASE}/todos/${id}`));
     return data;
   }
 

@@ -124,16 +124,23 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
     });
   });
 
-  describe('POST /articles', () => {
-    it('valid body: 201 and a valid validation entry', async () => {
-      const { res, profile } = await profileOf(app, 'post', '/api/v1/articles', {
-        title: 'A valid article title',
-        body: 'A body that is definitely longer than twenty characters.',
+  describe('POST /articles/forward', () => {
+    it('valid body: captures the outgoing POST with its request and response bodies', async () => {
+      const { res, profile } = await profileOf(app, 'post', '/api/v1/articles/forward', {
+        title: 'Forwarded article',
+        body: 'This body satisfies the MinLength(20) constraint easily.',
         tags: ['nestjs', 'profiler'],
       });
 
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({ title: 'A valid article title' });
+
+      const post = httpEntries(profile.collectors).find((e) => e.method === 'POST');
+      expect(post).toMatchObject({
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        statusCode: 201,
+      });
+      expect(post?.requestBody).toMatchObject({ title: 'Forwarded article', userId: 1 });
+      expect(post?.responseBody).toBeDefined(); // captureResponseBody: true in the active adapter module
 
       const entries = validatorEntries(profile.collectors);
       expect(entries).toEqual(
@@ -147,13 +154,15 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
       );
     });
 
-    it('invalid body: 400 and the violations are captured', async () => {
-      const { res, profile } = await profileOf(app, 'post', '/api/v1/articles', {
+    it('invalid body: 400, violations captured and no outgoing call', async () => {
+      const { res, profile } = await profileOf(app, 'post', '/api/v1/articles/forward', {
         title: 'abc', // shorter than MinLength(5)
         body: 'too short', // shorter than MinLength(20)
       });
 
       expect(res.status).toBe(400);
+      // The pipe rejects before the handler runs, so the article never reaches the external API.
+      expect(httpEntries(profile.collectors)).toHaveLength(0);
 
       const invalid = validatorEntries(profile.collectors).find((e) => e.status === 'invalid');
       expect(invalid).toBeDefined();
@@ -161,44 +170,6 @@ describe(`Content endpoints (e2e) — ${activeHttpClient()} + cache + validator 
       expect(invalid!.violationCount).toBeGreaterThanOrEqual(2);
       const properties = invalid!.violations.map((v) => v.property);
       expect(properties).toEqual(expect.arrayContaining(['title', 'body']));
-    });
-  });
-
-  describe('POST /articles/forward', () => {
-    it('captures the outgoing POST with its request and response bodies', async () => {
-      const { res, profile } = await profileOf(app, 'post', '/api/v1/articles/forward', {
-        title: 'Forwarded article',
-        body: 'This body satisfies the MinLength(20) constraint easily.',
-      });
-
-      expect(res.status).toBe(201);
-
-      const post = httpEntries(profile.collectors).find((e) => e.method === 'POST');
-      expect(post).toMatchObject({
-        url: 'https://jsonplaceholder.typicode.com/posts',
-        statusCode: 201,
-      });
-      expect(post?.requestBody).toMatchObject({ title: 'Forwarded article', userId: 1 });
-      expect(post?.responseBody).toBeDefined(); // captureResponseBody: true in the active adapter module
-    });
-  });
-
-  describe('GET /articles/todos/:id', () => {
-    it('records the two concurrent HTTP calls, then a HIT on the second request', async () => {
-      const { res, profile } = await profileOf(app, 'get', '/api/v1/articles/todos/7');
-
-      expect(res.status).toBe(200);
-      const urls = httpEntries(profile.collectors).map((e) => e.url);
-      expect(urls).toEqual(
-        expect.arrayContaining([
-          'https://jsonplaceholder.typicode.com/todos/7',
-          'https://jsonplaceholder.typicode.com/users/7',
-        ]),
-      );
-
-      const { profile: warm } = await profileOf(app, 'get', '/api/v1/articles/todos/7');
-      expect(httpEntries(warm.collectors)).toHaveLength(0);
-      expect(cacheEntries(warm.collectors).map((c) => c.operation)).toContain('GET_HIT');
     });
   });
 

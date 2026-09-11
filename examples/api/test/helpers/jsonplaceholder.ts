@@ -18,8 +18,6 @@ export const MOCK_USER = {
 /** The directory's user #id — the shape both the content authors and the review authors map from. */
 export const mockUser = (id: number): typeof MOCK_USER => ({ ...MOCK_USER, id });
 
-export const MOCK_TODO = { userId: 1, id: 1, title: 'mock todo', completed: false };
-
 /** Reads the repeated `?id=` filter the batched reviewer gateway sends. */
 const idsOf = (uri: string): number[] =>
   new URL(uri, JPH).searchParams.getAll('id').map((value) => Number(value));
@@ -42,8 +40,6 @@ export function mockJsonPlaceholder(): nock.Scope {
       .reply(200, (uri) => idsOf(uri).map(mockUser))
       .get(/^\/users\/\d+$/)
       .reply(200, (uri) => mockUser(Number(uri.split('/').pop())))
-      .get(/^\/todos\/\d+$/)
-      .reply(200, (uri) => ({ ...MOCK_TODO, id: Number(uri.split('/').pop()) }))
       .post('/posts')
       .reply(201, (_uri, body) => ({ id: 101, ...(typeof body === 'object' ? body : {}) }))
   );
