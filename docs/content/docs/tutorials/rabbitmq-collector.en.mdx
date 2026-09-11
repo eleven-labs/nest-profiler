@@ -90,7 +90,7 @@ Then create a review and open `/_profiler` to see the consumed message profiled:
 ```bash
 curl -X POST http://localhost:3000/api/v1/reviews \
   -H 'content-type: application/json' \
-  -d '{ "productId": "1", "rating": 5, "comment": "Great product!", "author": "Alice" }'
+  -d '{ "productId": "1", "rating": 5, "comment": "Great product!", "authorId": 1 }'
 ```
 
 ## Configuration

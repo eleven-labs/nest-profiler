@@ -7,7 +7,8 @@ export interface Review {
   productId: string;
   rating: number;
   comment: string;
-  author: string;
+  /** Id of the author in the external user directory — resolved over HTTP, never stored here. */
+  authorId: number;
   status: ReviewStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -20,7 +21,7 @@ export interface NewReview {
   productId: string;
   rating: number;
   comment: string;
-  author: string;
+  authorId: number;
   status?: ReviewStatus;
 }
 

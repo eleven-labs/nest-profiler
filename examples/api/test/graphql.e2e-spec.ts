@@ -2,13 +2,24 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { HttpRequestData } from '@eleven-labs/nest-profiler';
 import type { MongooseQueryEntry } from '@eleven-labs/nest-profiler-mongoose';
+import type { HttpRequestEntry } from '@eleven-labs/nest-profiler-http';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
-import { activeSqlOrm, createE2EApp, getProfile, server, tokenOf } from './helpers/app.js';
+import {
+  activeSqlOrm,
+  createE2EApp,
+  getProfile,
+  isDataLoaderRun,
+  server,
+  tokenOf,
+} from './helpers/app.js';
+import { lockNetwork, mockJsonPlaceholder, unlockNetwork } from './helpers/jsonplaceholder.js';
 
 const validatorEntries = (collectors: Record<string, unknown>): ValidationEntry[] =>
   (collectors['validator'] as ValidationEntry[] | undefined) ?? [];
 const mongooseEntries = (collectors: Record<string, unknown>): MongooseQueryEntry[] =>
   (collectors['mongoose'] as MongooseQueryEntry[] | undefined) ?? [];
+const httpEntries = (collectors: Record<string, unknown>): HttpRequestEntry[] =>
+  (collectors['http-client'] as HttpRequestEntry[] | undefined) ?? [];
 
 interface GqlBody {
   data?: Record<string, unknown> | null;
@@ -25,9 +36,13 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
 
   beforeAll(async () => {
     app = await createE2EApp();
+    // Review authors are resolved from the external user directory; mock it like the content suite.
+    mockJsonPlaceholder();
+    lockNetwork();
   });
 
   afterAll(async () => {
+    unlockNetwork();
     await app.close();
   });
 
@@ -46,18 +61,30 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
     expect((profile.trace ?? []).map((s) => s.label)).toContain('db.products.findAll');
   });
 
-  it('resolving Product.reviews (field resolver) captures SQL and MongoDB in one profile', async () => {
-    // A single GraphQL query lists products (SQL ORM, root resolver) and resolves each product's
-    // reviews from MongoDB (field resolver). Field resolvers run after the root resolver returns, so
-    // this exercises the deferred-collection fix: both database collectors must appear in one profile.
-    const res = await gql(app, { query: '{ products { id reviews { rating author } } }' });
+  it('resolving Product.reviews.author captures SQL, MongoDB and HTTP in one profile', async () => {
+    // A single GraphQL query walks three sources: products from the SQL ORM (root resolver), their
+    // reviews from MongoDB (field resolver), then each review's author from the external user
+    // directory over HTTP (nested field resolver). Field resolvers run after the root resolver
+    // returns, so this also exercises the deferred-collection fix: all three collectors must appear
+    // in one profile.
+    const res = await gql(app, {
+      query: '{ products { id reviews { rating authorId author { id name company } } } }',
+    });
 
     expect(res.status).toBe(200);
     const { data } = res.body as {
-      data: { products: Array<{ id: string; reviews: Array<{ rating: number }> }> };
+      data: {
+        products: Array<{
+          id: string;
+          reviews: Array<{ rating: number; authorId: number; author: { id: number } | null }>;
+        }>;
+      };
     };
     // Products 1-3 are seeded with reviews; at least one product resolves a non-empty list.
-    expect(data.products.some((p) => p.reviews.length > 0)).toBe(true);
+    const reviews = data.products.flatMap((p) => p.reviews);
+    expect(reviews.length).toBeGreaterThan(0);
+    // Every author was resolved, and each one against its own review's id.
+    expect(reviews.every((review) => review.author?.id === review.authorId)).toBe(true);
 
     const profile = await getProfile<HttpRequestData>(app, tokenOf(res));
 
@@ -67,12 +94,42 @@ describe('GraphQL endpoint (e2e) — graphql + validator collectors', () => {
       (profile.collectors[activeSqlOrm()] as unknown[] | undefined)?.length ?? 0,
     ).toBeGreaterThan(0);
 
-    // Mongo side: one `find({ productId })` per resolved product, captured by the mongoose collector
-    // even though it runs in a field resolver.
+    // Mongo side: the reviews were read from MongoDB by a field resolver, captured by the mongoose
+    // collector even though it runs after the root resolver returned.
     const finds = mongooseEntries(profile.collectors).filter((e) => e.operation === 'find');
     expect(finds.length).toBeGreaterThan(0);
     expect(finds[0]).toMatchObject({ collection: 'reviews' });
-    expect(finds.some((e) => e.filter && 'productId' in e.filter)).toBe(true);
+
+    // HTTP side: the author lookups, captured by whichever instrumentation HTTP_CLIENT selected.
+    const authorCalls = httpEntries(profile.collectors).filter((e) => e.url.includes('/users'));
+    expect(authorCalls.length).toBeGreaterThan(0);
+    expect(authorCalls[0]).toMatchObject({ method: 'GET', statusCode: 200 });
+
+    const labels = (profile.trace ?? []).map((span) => span.label);
+    if (isDataLoaderRun()) {
+      // Batched: one `$in` query for every product's reviews, which in turn lets every author be
+      // resolved in the same tick — so the whole operation needs exactly one call per source.
+      expect(finds).toHaveLength(1);
+      expect(finds[0]?.filter?.['productId']).toMatchObject({
+        $in: expect.arrayContaining(['1']) as string[],
+      });
+      expect(authorCalls).toHaveLength(1);
+      expect(authorCalls[0]?.url).toContain('/users?id=');
+      expect(labels).toEqual(
+        expect.arrayContaining(['db.reviews.findByProducts', 'http.reviews.authors.batch']),
+      );
+    } else {
+      // Unbatched: one `find({ productId })` per product and one `GET /users/:id` per review —
+      // including a repeat for the author who reviewed two products. That is the N+1 the DataLoader
+      // adapters exist to collapse.
+      expect(finds.length).toBeGreaterThan(1);
+      expect(finds.some((e) => typeof e.filter?.['productId'] === 'string')).toBe(true);
+      expect(authorCalls).toHaveLength(reviews.length);
+      expect(authorCalls.every((call) => /\/users\/\d+$/.test(call.url))).toBe(true);
+      expect(labels).toEqual(
+        expect.arrayContaining(['db.reviews.findByProduct', 'http.reviews.author']),
+      );
+    }
   });
 
   it('named query with variables: captures operationName and variables', async () => {

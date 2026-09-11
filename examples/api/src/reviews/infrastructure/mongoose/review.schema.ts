@@ -14,8 +14,8 @@ export class Review {
   @Prop({ required: true })
   comment!: string;
 
-  @Prop({ required: true })
-  author!: string;
+  @Prop({ required: true, min: 1, max: 10 })
+  authorId!: number;
 
   @Prop({ default: 'pending' })
   status!: 'pending' | 'approved';

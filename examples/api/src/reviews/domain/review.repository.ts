@@ -14,6 +14,11 @@ export abstract class ReviewRepository {
   abstract streamCsv(): Promise<string>;
   abstract findApproved(): Promise<Review[]>;
   abstract findByProduct(productId: string): Promise<Review[]>;
+  /**
+   * Every review of every given product in one query (`productId: { $in: [...] }`) — what the
+   * batched {@link ProductReviewsLoader} needs to resolve a whole GraphQL page at once.
+   */
+  abstract findByProducts(productIds: readonly string[]): Promise<Review[]>;
   abstract findById(id: string): Promise<Review | null>;
   abstract create(data: NewReview): Promise<Review>;
   abstract delete(id: string): Promise<void>;

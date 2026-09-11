@@ -54,6 +54,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 | `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
 | `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                                                                                        |
 | `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
+| `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                    |
 | `FEATURE_PINO_LOGGER`         | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                                                                                                |
 | `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
 | `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
@@ -69,7 +70,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 
 PostgreSQL can be configured with the app-specific `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_NAME` variables. Hosted Vercel Neon integrations also work without aliases: the app falls back to `POSTGRES_*` and `PG*` variables, and enables SSL when `DATABASE_SSL=true` or `PGSSLMODE=require`. The demo ships no migrations, so the ORM creates the `products` table automatically on boot; the destructive drop-and-recreate only runs outside production, so a deployed database keeps its structure across cold starts.
 
-`HTTP_CLIENT` selects which adapter backs the **content** context's `ArticleGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
+`HTTP_CLIENT` selects which adapter backs the outgoing HTTP ports — the **content** context's `ArticleGateway` and the **reviews** context's `ReviewerGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
 
 ```bash
 # Everything on (needs docker compose up -d)
@@ -174,6 +175,57 @@ mutation CreateProduct($input: CreateProductInput!) {
 
 Each operation generates a profile with a **GQL** badge. The **Execution Trace** shows the `db.products.*` spans — declared once in `ProductService` and shared by the REST and GraphQL entrypoints.
 
+#### One query, three sources
+
+With `FEATURE_MONGOOSE=true`, the catalog query reaches beyond SQL. Each field resolver belongs to a different context and talks to a different backend:
+
+```graphql
+query Products {
+  products {
+    # 1. SQL catalog (root resolver, active SQL_ORM adapter)
+    id
+    name
+    description
+    inStock
+    price
+    createdAt
+    reviews {
+      # 2. MongoDB (ProductReviewsResolver, reviews context)
+      id
+      rating
+      comment
+      createdAt
+      author {
+        # 3. HTTP — external user directory (ReviewAuthorResolver)
+        id
+        name
+        username
+        company
+      }
+    }
+  }
+}
+```
+
+A review stores only its `authorId` (1-10, an id in the [jsonplaceholder](https://jsonplaceholder.typicode.com) user directory); the profile behind it is fetched over HTTP while the query resolves. One profile therefore shows the **Database**, **MongoDB** and **HTTP Client** panels filled by a single operation, and the waterfall interleaves their bars.
+
+#### N+1 vs DataLoader (`FEATURE_DATALOADER`)
+
+By default every field resolver reads on its own, and the query above is a textbook double N+1: one `find({ productId })` per product, then one `GET /users/:id` per review — with author #1 (who reviewed two products) fetched twice. The profiler tags the profile `N+1 ×5` and flags the repeated rows in the MongoDB and HTTP Client panels.
+
+```bash
+FEATURE_MONGOOSE=true FEATURE_DATALOADER=true pnpm example:dev
+```
+
+The same query then resolves through request-scoped DataLoaders, and the two batches chain: the reviews of every product in the result are read by a single `find({ productId: { $in: ["1", "2", "3", "4"] } })`, so all the reviews land in the same tick and every author lookup folds into a single `GET /users?id=1&id=2&id=3&id=4` — an id requested twice is fetched once. Four MongoDB queries and five HTTP calls become **one of each**, and the `n-plus-one` tag is gone. Run the query with the flag off, then on, and compare the two profiles side by side in `/_profiler` — same response, different waterfall.
+
+|                                      | MongoDB                               | HTTP                  | Tag      |
+| ------------------------------------ | ------------------------------------- | --------------------- | -------- |
+| `FEATURE_DATALOADER=false` (default) | 4 × `find({ productId })`             | 5 × `GET /users/:id`  | `N+1 ×5` |
+| `FEATURE_DATALOADER=true`            | 1 × `find({ productId: { $in: … } })` | 1 × `GET /users?id=…` | —        |
+
+Both paths sit behind ports — `ProductReviewsLoader` and `ReviewerLoader`, each with a direct and a DataLoader adapter — selected by `ConditionalModule` exactly like every other adapter in this app; the resolvers themselves never change.
+
 ## Module architecture
 
 Every context is layered (domain / application / http / infrastructure); the composition root only wires them:
@@ -193,10 +245,16 @@ AppModule (no controller — only global forRoot + feature modules)
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
 ├── CatalogModule → … also publishes product.created via the EventPublisher port:
 │     └── NotificationsEventEmitterModule [always]           → EventEmitterCollectorModule + @OnEvent listener
-└── ReviewsModule [FEATURE_MONGOOSE]  → MongooseCollectorModule (nest-profiler-mongoose)
-      └── publishes review.created via the EventPublisher port:
-          ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
-          └── NotificationsEventEmitterModule  [default]          → in-process, no broker
+└── ReviewsModule [FEATURE_MONGOOSE]
+      ├── ReviewApplicationModule → ReviewService, shared by the REST and GraphQL entrypoints
+      │     ├── ReviewMongooseModule → MongooseCollectorModule (nest-profiler-mongoose)
+      │     └── publishes review.created via the EventPublisher port:
+      │         ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
+      │         └── NotificationsEventEmitterModule  [default]          → in-process, no broker
+      └── reads the GraphQL fields through the ProductReviewsLoader + ReviewerLoader ports:
+            ├── ReviewLoadersDataLoaderModule [FEATURE_DATALOADER] → one $in query + one GET /users?id=… (request-scoped DataLoaders)
+            └── ReviewLoadersDirectModule     [default]            → one query per product + one GET /users/:id per review (N+1)
+                  └── both bind the ReviewerGateway port: ReviewerAxiosModule [HTTP_CLIENT=axios] | ReviewerFetchModule [HTTP_CLIENT=fetch]
 
 Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
         / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, opt-in)
@@ -291,7 +349,7 @@ const review = await this.repo.create({ ...data, status: data.status ?? 'pending
 await this.events.publish({ name: 'review.created', payload: { reviewId: review.id /* … */ } });
 ```
 
-`ReviewsModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
+`ReviewApplicationModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
 
 The `NotificationsNoopModule` under `notifications/infrastructure/noop/` is kept as the minimal reference implementation of the port, but it is no longer wired: the in-process adapter needs just as little infrastructure and actually delivers the events.
 
@@ -376,7 +434,7 @@ curl http://localhost:3000/api/v1/articles/cache/clear
 # requires FEATURE_MONGOOSE=true + docker compose up -d mongodb
 curl http://localhost:3000/api/v1/reviews
 curl -X POST http://localhost:3000/api/v1/reviews -H "Content-Type: application/json" \
-  -d '{"productId":"1","rating":4,"comment":"Great product!","author":"Alice"}'
+  -d '{"productId":"1","rating":4,"comment":"Great product!","authorId":1}'
 curl http://localhost:3000/api/v1/reviews/stats
 ```
 
@@ -406,6 +464,10 @@ curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
 
 curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
   -d '{"operationName":"CreateProduct","query":"mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name } }","variables":{"input":{"name":"NestJS in Action","price":29.99}}}'
+
+# Three sources in one operation (needs FEATURE_MONGOOSE=true): SQL + MongoDB + HTTP
+curl -X POST http://localhost:3000/graphql -H "Content-Type: application/json" \
+  -d '{"operationName":"Products","query":"query Products { products { id name reviews { rating comment author { name company } } } }"}'
 ```
 
 ### Execution Trace & Config tabs

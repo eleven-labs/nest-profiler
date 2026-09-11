@@ -358,6 +358,15 @@ curl -X POST http://localhost:3000/graphql \
     "query": "mutation CreateProduct($input: CreateProductInput!) { createProduct(input: $input) { id name price } }",
     "variables": { "input": { "name": "NestJS in Action", "price": 29.99 } }
   }'
+
+# Field resolvers - one operation, three collectors (needs FEATURE_MONGOOSE=true):
+# SQL products, then their MongoDB reviews, then each review's author over HTTP
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationName": "Products",
+    "query": "query Products { products { id name reviews { rating author { name company } } } }"
+  }'
 ```
 
 Open `http://localhost:3000/_profiler` to browse all collected profiles.

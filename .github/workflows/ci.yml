@@ -166,6 +166,11 @@ jobs:
         if: matrix.sql-orm == 'typeorm'
         run: pnpm --filter example-api test:e2e:http-clients
 
+      # The GraphQL author lookups have two adapters; the run above covers the default (N+1) one.
+      - name: E2E GraphQL with DataLoader batching
+        if: matrix.sql-orm == 'typeorm'
+        run: pnpm --filter example-api test:e2e:dataloader
+
   commitlint:
     name: Validate commit messages
     runs-on: ubuntu-latest

@@ -51,9 +51,20 @@ export class ReviewService implements OnApplicationBootstrap {
 
   async findByProduct(productId: string): Promise<Review[]> {
     this.logger.log(`Fetching reviews for product ${productId}`);
-    const reviews = await this.tracer.span('db.reviews.findByProduct', () =>
-      this.repo.findByProduct(productId),
-    );
+    const reviews = await this.tracer.span('db.reviews.findByProduct', (span) => {
+      span.setTag('productId', productId);
+      return this.repo.findByProduct(productId);
+    });
+    return reviews;
+  }
+
+  /** Every review of several products in one query — what the batched GraphQL loader resolves with. */
+  async findByProducts(productIds: readonly string[]): Promise<Review[]> {
+    this.logger.log(`Fetching reviews for ${productIds.length} products`);
+    const reviews = await this.tracer.span('db.reviews.findByProducts', (span) => {
+      span.setTag('products', productIds.length);
+      return this.repo.findByProducts(productIds);
+    });
     return reviews;
   }
 

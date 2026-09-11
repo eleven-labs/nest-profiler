@@ -21,10 +21,16 @@ export class CreateReviewDto {
   @IsNotEmpty()
   comment!: string;
 
-  @ApiProperty({ example: 'Jane Doe' })
-  @IsString()
-  @IsNotEmpty()
-  author!: string;
+  @ApiProperty({
+    example: 1,
+    minimum: 1,
+    maximum: 10,
+    description: 'Id of the author in the external user directory',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  authorId!: number;
 
   @ApiPropertyOptional({ example: 'approved', enum: ['pending', 'approved'], default: 'pending' })
   @IsIn(['pending', 'approved'])

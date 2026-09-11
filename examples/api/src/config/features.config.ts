@@ -64,6 +64,9 @@ export const isGraphQLEnabled = enabled('FEATURE_GRAPHQL', true);
 export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER');
 // Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
 export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
+// Batches the GraphQL author lookups (`Review.author`) into a single HTTP call. Off by default so
+// the demo query keeps its observable N+1; turn it on to compare the two waterfalls.
+export const isDataloaderEnabled = enabled('FEATURE_DATALOADER');
 
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),
@@ -73,4 +76,5 @@ export default registerAs('features', () => ({
   graphql: isGraphQLEnabled(process.env),
   pinoLogger: isPinoLoggerEnabled(process.env),
   rabbitmq: isRabbitMqEnabled(process.env),
+  dataloader: isDataloaderEnabled(process.env),
 }));
