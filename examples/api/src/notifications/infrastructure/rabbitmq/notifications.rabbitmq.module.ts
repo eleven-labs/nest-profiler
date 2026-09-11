@@ -58,9 +58,13 @@ import {
             options: { durable: true, messageTtl: 86_400_000 },
           },
         ],
-        // Don't block bootstrap when the broker is unreachable — the demo app
-        // still starts and the consumer connects once RabbitMQ is up.
-        connectionInitOptions: { wait: false },
+        // Fail fast, and say why. `wait: false` looks like the obvious choice here, but in
+        // @golevelup/nestjs-rabbitmq the returned promise still awaits the managed channels, so an
+        // unreachable broker hangs the Nest bootstrap forever — no port, no log (they are buffered
+        // until `useLogger`). Waiting with an explicit timeout turns that silent hang into
+        // "Failed to connect to a RabbitMQ broker within a timeout of 5000ms" after five seconds.
+        // FEATURE_RABBITMQ=true therefore requires the broker: `docker compose up -d rabbitmq`.
+        connectionInitOptions: { wait: true, timeout: 5_000 },
       }),
     }),
     // Profiles each consumed message as a `rabbitmq` entrypoint.

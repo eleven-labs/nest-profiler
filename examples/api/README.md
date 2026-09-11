@@ -30,7 +30,7 @@ On a serverless host the app does not own the port: when `VERCEL` is set, `main.
 ### Prerequisites
 
 - Node.js 22+, pnpm 10+
-- Docker — PostgreSQL backs the catalog, so it is required; MongoDB and RabbitMQ are only needed when `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ` are on
+- Docker — PostgreSQL backs the catalog, so it is required; MongoDB and RabbitMQ are only needed when `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ` are on. `FEATURE_RABBITMQ=true` without a reachable broker aborts the boot after five seconds with `Failed to connect to a RabbitMQ broker within a timeout of 5000ms` — start the broker, or turn the flag off
 
 ### Start the infrastructure
 
@@ -52,7 +52,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. Ever
 | `HTTP_CLIENT`                 | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
 | `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
 | `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over either catalog adapter)                                                                                                                               |
-| `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
+| `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`). Requires a reachable broker: the boot fails fast without one                                    |
 | `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                    |
 | `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                    |
 | `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |

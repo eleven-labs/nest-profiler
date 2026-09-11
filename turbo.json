@@ -35,6 +35,21 @@
     },
     "start:dev": {
       "dependsOn": ["^build"],
+      "passThroughEnv": [
+        "PORT",
+        "NODE_ENV",
+        "LOG_LEVEL",
+        "SQL_ORM",
+        "HTTP_CLIENT",
+        "FEATURE_*",
+        "PROFILER_*",
+        "DATABASE_*",
+        "PG*",
+        "POSTGRES_*",
+        "MONGODB_URI",
+        "RABBITMQ_URI",
+        "TURSO_*"
+      ],
       "cache": false,
       "persistent": true
     },
@@ -49,6 +64,21 @@
     },
     "test:e2e": {
       "dependsOn": ["^build"],
+      "passThroughEnv": [
+        "PORT",
+        "NODE_ENV",
+        "LOG_LEVEL",
+        "SQL_ORM",
+        "HTTP_CLIENT",
+        "FEATURE_*",
+        "PROFILER_*",
+        "DATABASE_*",
+        "PG*",
+        "POSTGRES_*",
+        "MONGODB_URI",
+        "RABBITMQ_URI",
+        "TURSO_*"
+      ],
       "cache": false
     },
     "typecheck": {
