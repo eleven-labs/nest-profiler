@@ -2,17 +2,17 @@ import { registerAs } from '@nestjs/config';
 import { enabled, labeledCondition, type EnvCondition } from './env-condition.js';
 
 /**
- * Persistence backing the catalog context. `typeorm`/`mikro-orm` share the same Postgres table;
- * `in-memory` needs no infrastructure and is the default so the app runs out of the box (and on
- * serverless deploys like Vercel, where there is no database).
+ * Persistence backing the catalog context. Both adapters map the same Postgres `products` table and
+ * are mutually exclusive, so the catalog always needs a database — run `docker compose up -d postgres`
+ * (or point `DATABASE_*` at a hosted one) before starting the app.
  */
-export type SqlOrm = 'typeorm' | 'mikro-orm' | 'in-memory';
+export type SqlOrm = 'typeorm' | 'mikro-orm';
 
-const SQL_ORMS: SqlOrm[] = ['typeorm', 'mikro-orm', 'in-memory'];
+const SQL_ORMS: SqlOrm[] = ['typeorm', 'mikro-orm'];
 
 export const getSqlOrm = (env: NodeJS.ProcessEnv): SqlOrm => {
-  const value = (env['SQL_ORM'] ?? 'in-memory') as SqlOrm;
-  return SQL_ORMS.includes(value) ? value : 'in-memory';
+  const value = (env['SQL_ORM'] ?? 'mikro-orm') as SqlOrm;
+  return SQL_ORMS.includes(value) ? value : 'mikro-orm';
 };
 
 /** Condition factory for `ConditionalModule.registerWhen` — evaluated after `.env` is loaded. */
@@ -55,13 +55,14 @@ export const getProfilerAuth = (env: NodeJS.ProcessEnv): ProfilerAuth => {
   return PROFILER_AUTHS.includes(value) ? value : 'none';
 };
 
-// All infrastructure-dependent features are opt-in (=== 'true') so a bare deploy with no
-// database/broker (Vercel) still boots on the minimal set: catalog (in-memory), content (HTTP),
-// auth, health, diagnostics and GraphQL. Local dev / e2e turn the flags on explicitly.
+// The remaining infrastructure-dependent features are opt-in (=== 'true'), so only the catalog's
+// database is required to boot. Local dev / e2e turn the flags on explicitly.
 export const isMongooseEnabled = enabled('FEATURE_MONGOOSE');
-// GraphQL needs no infrastructure (served over the in-memory catalog), so it is on by default.
+// GraphQL rides on the catalog the app already loads, so it is on by default.
 export const isGraphQLEnabled = enabled('FEATURE_GRAPHQL', true);
-export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER');
+// JSON logs by default, the shape a deployed app actually ships; set it to `false` for the
+// Nest ConsoleLogger.
+export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER', true);
 // Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
 export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
 // Batches the GraphQL author lookups (`Review.author`) into a single HTTP call. Off by default so

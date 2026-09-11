@@ -322,7 +322,7 @@ pnpm example:dev
 A handful of requests is enough to light up most panels:
 
 ```bash
-curl http://localhost:3000/api/v1/products       # Catalog (in-memory by default, or SQL with SQL_ORM=typeorm)
+curl http://localhost:3000/api/v1/products       # Catalog (SQL — mikro-orm by default, or SQL_ORM=typeorm)
 curl http://localhost:3000/api/v1/articles       # Outgoing HTTP + cache SET
 curl http://localhost:3000/api/v1/articles       # cache HIT
 curl http://localhost:3000/api/v1/slow           # Nested trace spans

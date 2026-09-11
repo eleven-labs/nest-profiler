@@ -7,22 +7,19 @@ import { ProductResolver } from './graphql/product.resolver.js';
 import { CatalogGraphQLModule } from './graphql/catalog-graphql.module.js';
 import { ProductTypeOrmModule } from './infrastructure/typeorm/product.typeorm.module.js';
 import { ProductMikroOrmModule } from './infrastructure/mikro-orm/product.mikro-orm.module.js';
-import { ProductInMemoryModule } from './infrastructure/in-memory/product.in-memory.module.js';
 import { NotificationsEventEmitterModule } from '../notifications/infrastructure/event-emitter/notifications.event-emitter.module.js';
 
 /**
  * Catalog bounded context (products). Owns the application layer + the REST and GraphQL entrypoints,
  * which depend only on the {@link ProductRepository} port. Exactly one infrastructure adapter is
- * selected by `SQL_ORM` and is the sole provider/exporter of the port:
- * `in-memory` (default, no database), `typeorm` or `mikro-orm`.
+ * selected by `SQL_ORM` and is the sole provider/exporter of the port: `mikro-orm` (the default) or
+ * `typeorm`. Both map the same Postgres table, so the module always needs a database.
  *
- * The module is **always** loaded — with no SQL ORM it falls back to the in-memory adapter, so the
- * catalog (and its GraphQL API) runs even with zero infrastructure. The GraphQL transport is only
- * wired when `FEATURE_GRAPHQL` is on; `ProductResolver` stays a harmless unused provider otherwise.
+ * The GraphQL transport is only wired when `FEATURE_GRAPHQL` is on; `ProductResolver` stays a
+ * harmless unused provider otherwise.
  */
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProductInMemoryModule, isSqlOrm('in-memory')),
     ConditionalModule.registerWhen(ProductTypeOrmModule, isSqlOrm('typeorm')),
     ConditionalModule.registerWhen(ProductMikroOrmModule, isSqlOrm('mikro-orm')),
     ConditionalModule.registerWhen(CatalogGraphQLModule, isGraphQLEnabled),
