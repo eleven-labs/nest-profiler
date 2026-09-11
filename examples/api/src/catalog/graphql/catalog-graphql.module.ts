@@ -12,7 +12,7 @@ import { isProfilerEnabled } from '../../config/profiler.config.js';
  * GraphQL transport for the catalog context. Sets up the Apollo driver and the profiler GraphQL
  * adapter; the `ProductResolver` (declared in `CatalogModule`) is discovered by the auto-schema
  * scan. Imported by `CatalogModule` only when `FEATURE_GRAPHQL` is on — and works over any catalog
- * persistence adapter, including the zero-infrastructure in-memory one.
+ * persistence adapter.
  */
 @Module({
   imports: [

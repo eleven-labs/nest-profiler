@@ -685,7 +685,7 @@ async function main(): Promise<void> {
       const rmqDir = mkdtempSync(join(tmpdir(), 'profiler-rmq-'));
       try {
         app = await bootApp(logFile, rmqDir, {
-          SQL_ORM: 'in-memory',
+          SQL_ORM: 'typeorm',
           FEATURE_MONGOOSE: 'true',
           FEATURE_RABBITMQ: 'true',
           FEATURE_GRAPHQL: 'false',

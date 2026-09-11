@@ -6,17 +6,16 @@ The composition root (`app.module.ts`) holds **no controller and no feature logi
 
 ## Live demo
 
-A live instance is deployed **without any database or broker** — this is the minimal set that runs with zero infrastructure (e.g. on Vercel):
+A live instance is deployed on Vercel with a hosted Postgres for the catalog and none of the opt-in infrastructure:
 
 ```
-SQL_ORM=in-memory       # catalog runs on an in-memory adapter (no PostgreSQL)
+SQL_ORM=mikro-orm       # catalog on the hosted Postgres (DATABASE_* / POSTGRES_* / PG*)
 FEATURE_MONGOOSE=false  # reviews / MongoDB disabled
 FEATURE_RABBITMQ=false  # no broker
-FEATURE_GRAPHQL=true    # GraphQL served over the in-memory catalog
-PROFILER_STORAGE_TYPE=memory
+FEATURE_GRAPHQL=true    # GraphQL served over the catalog
 ```
 
-Active collectors on the live demo: **Catalog** (in-memory, REST + **GraphQL**), **Content** (HTTP + Cache), **Auth**, **Config**, **Validator**.
+Active collectors on the live demo: **Catalog** (SQL, REST + **GraphQL**), **Content** (HTTP + Cache), **Auth**, **Config**, **Validator**.
 
 On a serverless host the app does not own the port: when `VERCEL` is set, `main.ts` initialises Nest and exports the Express request handler instead of calling `listen()`. The platform imports the entrypoint and only watches for a `listen()` call for about a second before giving up, which a bootstrap of this size never meets.
 
@@ -31,7 +30,7 @@ On a serverless host the app does not own the port: when `VERCEL` is set, `main.
 ### Prerequisites
 
 - Node.js 22+, pnpm 10+
-- Docker (optional — only needed when `SQL_ORM` is a database ORM, or `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ` are enabled)
+- Docker — PostgreSQL backs the catalog, so it is required; MongoDB and RabbitMQ are only needed when `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ` are on
 
 ### Start the infrastructure
 
@@ -45,17 +44,17 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 ### Feature flags
 
-The app uses flags to conditionally load infrastructure-dependent contexts. All infra-backed features are **off by default**, so a bare run needs no database or broker. Set them in `.env`:
+The app uses flags to conditionally load infrastructure-dependent contexts. Everything beyond the catalog's PostgreSQL is **off by default**, so a bare run needs no MongoDB and no broker. Set them in `.env`:
 
 | Variable                      | Default     | Description                                                                                                                                                                                        |
 | ----------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SQL_ORM`                     | `in-memory` | Catalog persistence adapter: `in-memory` \| `typeorm` \| `mikro-orm`                                                                                                                               |
+| `SQL_ORM`                     | `mikro-orm` | Catalog persistence adapter: `mikro-orm` \| `typeorm` (both need PostgreSQL)                                                                                                                       |
 | `HTTP_CLIENT`                 | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
 | `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
-| `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over any catalog adapter, no infra)                                                                                                                        |
+| `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over either catalog adapter)                                                                                                                               |
 | `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`)                                                                                                  |
 | `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                    |
-| `FEATURE_PINO_LOGGER`         | `false`     | Use the third-party `nestjs-pino` logger instead of `ConsoleLogger`                                                                                                                                |
+| `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                    |
 | `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
 | `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
 | `PROFILER_AUTH`               | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                          |
@@ -66,7 +65,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. All 
 
 `PROFILER_STORAGE_TYPE=sqlite` uses the built-in libSQL-backed `SqliteStorageAdapter`. It targets a local file by default (`PROFILER_STORAGE_PATH`); set `PROFILER_STORAGE_URL` (+ `PROFILER_STORAGE_AUTH_TOKEN`) to point the same adapter at a remote SQLite database such as Turso Cloud — required on serverless hosts like Vercel, where the filesystem is read-only. On Vercel these fall back to the Turso integration's `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`.
 
-`SQL_ORM` selects which adapter backs the **catalog** context. `typeorm`/`mikro-orm` are mutually exclusive (they map the same Postgres `products` table); `in-memory` needs no database and is the default, so the catalog — and its GraphQL API — always runs. Contexts that depend on disabled infrastructure are simply not registered: no connection is attempted, no crash.
+`SQL_ORM` selects which adapter backs the **catalog** context: `mikro-orm` (the default) or `typeorm`. They are mutually exclusive — both map the same Postgres `products` table — so the catalog always needs a database. The other contexts stay behind their own flags: the ones whose infrastructure is off are simply not registered, so no connection is attempted and nothing crashes.
 
 PostgreSQL can be configured with the app-specific `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_NAME` variables. Hosted Vercel Neon integrations also work without aliases: the app falls back to `POSTGRES_*` and `PG*` variables, and enables SSL when `DATABASE_SSL=true` or `PGSSLMODE=require`. The demo ships no migrations, so the ORM creates the `products` table automatically on boot; the destructive drop-and-recreate only runs outside production, so a deployed database keeps its structure across cold starts.
 
@@ -82,7 +81,7 @@ SQL_ORM=mikro-orm FEATURE_MONGOOSE=true pnpm example:dev
 # Profile outgoing HTTP through native fetch instead of axios
 HTTP_CLIENT=fetch pnpm example:dev
 
-# Minimal, no infrastructure (Catalog in-memory + GraphQL, Content, Auth, Config, Validator)
+# Default set: Catalog (mikro-orm) + GraphQL, Content, Auth, Config, Validator — needs Postgres only
 pnpm example:dev
 
 # Without GraphQL
@@ -144,7 +143,7 @@ Every request generates a full profile. After a call, copy the `X-Debug-Token` r
 
 ### Apollo Sandbox
 
-Open **[http://localhost:3000/graphql](http://localhost:3000/graphql)**. The schema is auto-generated from the catalog resolver, backed by whichever `SQL_ORM` adapter is active (in-memory by default):
+Open **[http://localhost:3000/graphql](http://localhost:3000/graphql)**. The schema is auto-generated from the catalog resolver, backed by whichever `SQL_ORM` adapter is active (mikro-orm by default):
 
 ```graphql
 query GetProducts {
@@ -233,9 +232,8 @@ Every context is layered (domain / application / http / infrastructure); the com
 ```
 AppModule (no controller — only global forRoot + feature modules)
 ├── CatalogModule            products aggregate, REST + GraphQL
-│     ├── ProductInMemoryModule  [SQL_ORM=in-memory, default]  → no infrastructure
-│     ├── ProductTypeOrmModule   [SQL_ORM=typeorm]   → TypeOrmCollectorModule  (nest-profiler-typeorm)
-│     ├── ProductMikroOrmModule  [SQL_ORM=mikro-orm] → MikroOrmCollectorModule (nest-profiler-mikro-orm)
+│     ├── ProductMikroOrmModule  [SQL_ORM=mikro-orm, default] → MikroOrmCollectorModule (nest-profiler-mikro-orm)
+│     ├── ProductTypeOrmModule   [SQL_ORM=typeorm]            → TypeOrmCollectorModule  (nest-profiler-typeorm)
 │     └── CatalogGraphQLModule   [FEATURE_GRAPHQL]   → GraphQLCollectorModule  (nest-profiler-graphql) + Apollo
 ├── ContentModule            /api/v1/articles + content:sync CLI → CacheCollectorModule
 │     ├── ArticleAxiosModule    [HTTP_CLIENT=axios, default] → HttpCollectorModule (AxiosInstrumentation) + @nestjs/axios
@@ -257,7 +255,7 @@ AppModule (no controller — only global forRoot + feature modules)
                   └── both bind the ReviewerGateway port: ReviewerAxiosModule [HTTP_CLIENT=axios] | ReviewerFetchModule [HTTP_CLIENT=fetch]
 
 Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
-        / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, opt-in)
+        / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, default)
 ```
 
 The profiler is toggled with `ConditionalModule.registerWhen` — the recommended pattern (see below). The root-level profiler modules are bundled into one `ProfilingModule`, so `AppModule` keeps just two gates. Infra-scoped collectors stay co-located in their bounded context.
@@ -269,7 +267,6 @@ Each context declares its outbound dependency as an `abstract class` (the DI tok
 ```ts title="catalog/catalog.module.ts"
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProductInMemoryModule, isSqlOrm('in-memory')),
     ConditionalModule.registerWhen(ProductTypeOrmModule, isSqlOrm('typeorm')),
     ConditionalModule.registerWhen(ProductMikroOrmModule, isSqlOrm('mikro-orm')),
     ConditionalModule.registerWhen(CatalogGraphQLModule, isGraphQLEnabled),
@@ -296,7 +293,7 @@ export class CatalogModule {}
 export class ProductMikroOrmModule {}
 ```
 
-The `in-memory` adapter is identical in shape but binds `InMemoryProductRepository` and wires no connection or collector — that is the path that keeps the catalog (REST + GraphQL) running with no infrastructure.
+The TypeORM adapter is identical in shape: same port, its own connection, its own collector. Swapping `SQL_ORM` swaps the whole persistence stack — and the Database panel's sub-tab with it — without the domain, application or transport layers noticing.
 
 `ContentModule` applies the exact same idiom to the outgoing HTTP client: it selects `ArticleAxiosModule` or `ArticleFetchModule` by `HTTP_CLIENT`, each binding a different `ArticleGateway` implementation and registering its matching `HttpCollectorModule` adapter (`AxiosInstrumentation` / `FetchInstrumentation`).
 
@@ -370,7 +367,7 @@ Seeded automatically at startup (4 products). REST and GraphQL share the same `P
 | `POST /graphql`               | **GraphQL** (GQL badge) — `products` / `product(id)` / `createProduct`       |
 
 ```bash
-# SQL_ORM=in-memory (default) needs no database and has no Database tab; SQL_ORM=typeorm|mikro-orm does.
+# Both adapters fill the Database tab; SQL_ORM=mikro-orm is the default, SQL_ORM=typeorm the other one.
 curl http://localhost:3000/api/v1/products
 curl -X POST http://localhost:3000/api/v1/products -H "Content-Type: application/json" \
   -d '{"name":"Widget","price":9.99}'
