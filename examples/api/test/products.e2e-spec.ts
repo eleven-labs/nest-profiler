@@ -1,6 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import type { QueryEntry } from '@eleven-labs/nest-profiler';
 import type { ValidationEntry } from '@eleven-labs/nest-profiler-validator';
+import { ProductRepository } from '../src/catalog/domain/product.repository.js';
+import { PRODUCT_SEED } from '../src/catalog/application/product.seed.js';
 import { activeSqlOrm, createE2EApp, inactiveSqlOrm, profileOf } from './helpers/app.js';
 
 const ormKey = activeSqlOrm();
@@ -26,6 +28,12 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(4); // seeded on bootstrap
+
+    // Fixed ids, not whatever the id sequence had reached: `REVIEW_SEED` points at productId
+    // "1".."3" and the documented demo URLs use /products/1, so a redeploy that keeps its database
+    // must not shift them.
+    const seededIds = (res.body as Array<{ id: number }>).map((p) => p.id).sort((a, b) => a - b);
+    expect(seededIds).toEqual([1, 2, 3, 4]);
 
     const entries = sqlEntries(profile.collectors);
     expect(entries.length).toBeGreaterThanOrEqual(1);
@@ -65,6 +73,30 @@ describe(`Products endpoints (e2e) — ${ormKey} collector`, () => {
 
     // And each bar links back to the row holding its full statement.
     expect(queries[0]!.source).toMatchObject({ tab: 'database' });
+  });
+
+  it('seeding again changes nothing — two instances can boot against one database', async () => {
+    // What a second instance does on startup. The insert carries fixed ids, so without
+    // ON CONFLICT DO NOTHING this second pass would fail on a duplicate key instead of shrugging.
+    await app.get(ProductRepository).seed(PRODUCT_SEED);
+
+    const { res } = await profileOf(app, 'get', '/api/v1/products');
+    expect(res.body).toHaveLength(4);
+    expect((res.body as Array<{ id: number }>).map((p) => p.id).sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4,
+    ]);
+  });
+
+  it('POST /products picks up after the seeded ids, so the sequence was realigned', async () => {
+    // The seed writes ids 1-4 without drawing from the sequence. Left alone, the sequence would
+    // still point at 1 and this insert would collide with the seeded row.
+    const { res } = await profileOf(app, 'post', '/api/v1/products', {
+      name: 'Sequence probe',
+      price: 1,
+    });
+
+    expect(res.status).toBe(201);
+    expect((res.body as { id: number }).id).toBeGreaterThan(4);
   });
 
   it('GET /products/export streams every row into a CSV and records the streaming read', async () => {

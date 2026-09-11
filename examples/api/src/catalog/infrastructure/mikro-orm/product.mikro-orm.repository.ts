@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/core';
 import type { EntityManager as SqlEntityManager } from '@mikro-orm/postgresql';
 import { ProductRepository } from '../../domain/product.repository.js';
-import type { NewProduct, Product } from '../../domain/product.js';
+import type { NewProduct, Product, SeededProduct } from '../../domain/product.js';
 import { ProductEntity } from './product.mikro-orm.entity.js';
 import { toCsvRow } from '../../../shared/csv.util.js';
 
@@ -68,6 +68,28 @@ export class MikroOrmProductRepository implements ProductRepository {
     const em = this.em.fork();
     const product = await em.findOne(ProductEntity, { id });
     if (product) await em.remove(product).flush();
+  }
+
+  async seed(products: readonly SeededProduct[]): Promise<void> {
+    const em = this.em.fork() as unknown as SqlEntityManager;
+    for (const product of products) {
+      const now = new Date();
+      await em
+        .createQueryBuilder(ProductEntity)
+        .insert({ inStock: true, ...product, createdAt: now, updatedAt: now })
+        // ON CONFLICT (id) DO NOTHING — another instance may be seeding the same database right now.
+        .onConflict('id')
+        .ignore()
+        .execute();
+    }
+    // The explicit ids never drew from the sequence, so move it past them: without this the next
+    // `create()` would hand out an id the seed already took.
+    const table = em.getMetadata().find(ProductEntity)?.tableName ?? 'products';
+    await em
+      .getConnection()
+      .execute(
+        `SELECT setval(pg_get_serial_sequence('${table}', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "${table}"))`,
+      );
   }
 
   async clear(): Promise<void> {

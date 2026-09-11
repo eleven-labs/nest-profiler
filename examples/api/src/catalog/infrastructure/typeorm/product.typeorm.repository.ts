@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductRepository } from '../../domain/product.repository.js';
-import type { NewProduct, Product } from '../../domain/product.js';
+import type { NewProduct, Product, SeededProduct } from '../../domain/product.js';
 import { ProductEntity } from './product.typeorm.entity.js';
 import { toCsvRow } from '../../../shared/csv.util.js';
 
@@ -52,6 +52,29 @@ export class TypeOrmProductRepository implements ProductRepository {
 
   async delete(id: number): Promise<void> {
     await this.repo.delete(id);
+  }
+
+  async seed(products: readonly SeededProduct[]): Promise<void> {
+    // Naming the columns is what carries the explicit id: an InsertQueryBuilder leaves a generated
+    // primary key out of the statement unless the column list asks for it.
+    const columns = this.repo.metadata.columns.map((column) => column.propertyName);
+    for (const product of products) {
+      const now = new Date();
+      await this.repo
+        .createQueryBuilder()
+        .insert()
+        .into(ProductEntity, columns)
+        .values({ inStock: true, ...product, createdAt: now, updatedAt: now })
+        // ON CONFLICT DO NOTHING — another instance may be seeding the same database right now.
+        .orIgnore()
+        .execute();
+    }
+    // The explicit ids never drew from the sequence, so move it past them: without this the next
+    // `create()` would hand out an id the seed already took.
+    const table = this.repo.metadata.tableName;
+    await this.repo.query(
+      `SELECT setval(pg_get_serial_sequence('${table}', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "${table}"))`,
+    );
   }
 
   async clear(): Promise<void> {
