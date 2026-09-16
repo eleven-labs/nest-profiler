@@ -12,6 +12,7 @@ body:
         - '@eleven-labs/nest-profiler-typeorm'
         - '@eleven-labs/nest-profiler-http'
         - '@eleven-labs/nest-profiler-cache'
+        - '@eleven-labs/nest-profiler-ai'
         - '@eleven-labs/nest-profiler-auth'
         - '@eleven-labs/nest-profiler-config'
         - '@eleven-labs/nest-profiler-mongoose'

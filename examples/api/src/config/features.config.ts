@@ -68,6 +68,9 @@ export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
 // Batches the GraphQL author lookups (`Review.author`) into a single HTTP call. Off by default so
 // the demo query keeps its observable N+1; turn it on to compare the two waterfalls.
 export const isDataloaderEnabled = enabled('FEATURE_DATALOADER');
+// OpenRouter-backed assistant with streamed answers. Needs OPENROUTER_API_KEY, so it is off by
+// default and excluded from the Vercel deployment.
+export const isAiEnabled = enabled('FEATURE_AI');
 
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),
@@ -78,4 +81,5 @@ export default registerAs('features', () => ({
   pinoLogger: isPinoLoggerEnabled(process.env),
   rabbitmq: isRabbitMqEnabled(process.env),
   dataloader: isDataloaderEnabled(process.env),
+  ai: isAiEnabled(process.env),
 }));

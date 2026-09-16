@@ -28,6 +28,7 @@
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   },
   "ignore": [
+    "@eleven-labs/nest-profiler-ai",
     "docs",
     "example-api",
     "@repo/eslint-config",

@@ -1,0 +1,95 @@
+<%
+  const emptyAi = { entries: [], callCount: 0, toolCount: 0, totalTokens: 0, totalCost: 0, costKnown: false, costEstimated: false, totalDuration: 0 };
+  const originClass = { mcp: 'badge-tag-info', provider: 'badge-tag-warning', local: 'badge-default' };
+%>
+<div class="rounded-xl border border-line overflow-x-auto bg-surface">
+  <table class="w-full min-w-[640px]">
+    <thead>
+      <tr class="bg-surface-muted border-b border-line">
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Time</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Duration</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Model</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Endpoint</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Tokens</th>
+        <th class="text-left py-3 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Cost</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line-subtle">
+      <% if (profiles.length === 0) { %>
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="text-foreground-muted text-sm mb-1">No language-model calls found</p>
+            <p class="text-foreground-faint text-xs">Call one of the <code>/ai/*</code> endpoints to start collecting data.</p>
+          </td>
+        </tr>
+      <% } else { %>
+      <% for (const p of profiles) { %>
+        <%
+          const ai = p.collectors && p.collectors.ai ? p.collectors.ai : emptyAi;
+          const calls = (ai.entries || []).filter((e) => e.kind === 'call');
+          const tools = (ai.entries || []).filter((e) => e.kind === 'tool');
+          const models = [...new Set(calls.map((c) => c.model))];
+          const operations = [...new Set(calls.map((c) => c.operation))];
+          const dur = p.performance.duration;
+          const durClass = dur === undefined ? 'dur-none'
+            : dur < 100  ? 'dur-fast'
+            : dur < 500  ? 'dur-medium'
+            : 'dur-slow';
+          const stream = p.response && p.response.stream;
+        %>
+        <tr data-row-href="<%= link(profilerPath + '/' + p.token) %>" tabindex="0"
+            class="group cursor-pointer hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nest transition-colors">
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap group-hover:text-nest transition-colors">
+            <%= isoDate(p.createdAt) %>
+          </td>
+          <td class="py-2.5 px-4 text-xs tabular-nums whitespace-nowrap">
+            <span class="<%= durClass %>"><%= dur !== undefined ? formatDuration(dur) + 'ms' : '—' %></span>
+            <% if (stream) { %>
+              <span class="text-foreground-faint text-2xs block">streamed · <%= stream.chunks %> chunks</span>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs font-mono max-w-xs">
+            <div class="truncate" title="<%= models.join(', ') %>"><%= models.length ? models.join(', ') : '—' %></div>
+            <% if (operations.length) { %>
+              <span class="text-foreground-faint text-2xs"><%= operations.join(', ') %><%= calls.length > 1 ? ' · ' + calls.length + ' steps' : '' %></span>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs max-w-xs">
+            <div class="truncate" title="<%= p.entrypoint.data.url %>">
+              <span class="px-2 py-0.5 rounded text-2xs font-bold tracking-wide <%= methodClass(p.entrypoint.data.method) %>"><%= p.entrypoint.data.method %></span>
+              <%= p.entrypoint.data.url %>
+            </div>
+            <% if (tools.length) { %>
+              <div class="mt-1 flex flex-wrap gap-1">
+                <% for (const t of tools) { %>
+                  <span class="text-2xs px-1.5 py-0.5 rounded <%= originClass[t.origin] || 'badge-default' %>"><%= t.name %></span>
+                <% } %>
+              </div>
+            <% } %>
+            <% if (p.tags && p.tags.length > 0) { %>
+              <div class="mt-1 flex flex-wrap gap-1"><%- tagBadges(p.tags) %></div>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap">
+            <%= ai.totalTokens || '—' %>
+            <% if (ai.totalDuration) { %>
+              <span class="text-foreground-faint text-2xs block"><%= formatDuration(ai.totalDuration) %>ms in model</span>
+            <% } %>
+          </td>
+          <td class="py-2.5 px-4 text-foreground-secondary text-xs tabular-nums whitespace-nowrap">
+            <% if (!ai.costKnown) { %>
+              <span class="text-foreground-muted" title="This provider reports no cost and no price is configured for this model">unknown</span>
+              <span class="text-foreground-faint text-2xs block">no pricing set</span>
+            <% } else { %>
+              <%= ai.totalCost === 0 ? 'free' : ai.totalCost < 0.00001 ? '<$0.00001' : '$' + ai.totalCost.toFixed(5) %>
+              <% if (ai.costEstimated) { %>
+                <span class="text-foreground-faint text-2xs block">estimated</span>
+              <% } %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+      <% } %>
+    </tbody>
+  </table>
+</div>

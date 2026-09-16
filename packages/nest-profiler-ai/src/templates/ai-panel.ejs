@@ -1,0 +1,291 @@
+<%
+  const entries = (data && data.entries) || [];
+  const callCount = (data && data.callCount) || 0;
+  const toolCount = (data && data.toolCount) || 0;
+  const totalTokens = (data && data.totalTokens) || 0;
+  const totalCost = (data && data.totalCost) || 0;
+  const costKnown = !!(data && data.costKnown);
+  const costEstimated = !!(data && data.costEstimated);
+  /* No price for any call means the cost is unknown — never guessed, and never called free. */
+  const costLabel = !costKnown
+    ? 'unknown'
+    : totalCost === 0 ? 'free'
+    : totalCost < 0.00001 ? '<$0.00001'
+    : '$' + totalCost.toFixed(5);
+  const totalDuration = (data && data.totalDuration) || 0;
+  const toolDuration = (data && data.toolDuration) || 0;
+
+  /* One group per generateText/streamText invocation, in the order they started. */
+  const groups = [];
+  const byCallId = {};
+  for (const entry of entries) {
+    let group = byCallId[entry.callId];
+    if (!group) {
+      group = { callId: entry.callId, entries: [], head: null };
+      byCallId[entry.callId] = group;
+      groups.push(group);
+    }
+    group.entries.push(entry);
+    if (!group.head && entry.kind === 'call') group.head = entry;
+  }
+
+  const roleClass = {
+    system: 'badge-tag-info',
+    user: 'badge-post',
+    assistant: 'badge-2xx',
+    tool: 'badge-tag-warning',
+  };
+
+  const originClass = { mcp: 'badge-tag-info', provider: 'badge-tag-warning', local: 'badge-default' };
+  const originLabel = { mcp: 'mcp', provider: 'provider', local: 'local' };
+
+  function settingChips(settings) {
+    if (!settings) return [];
+    return Object.keys(settings).map(function (key) {
+      const value = settings[key];
+      return key + ' ' + (Array.isArray(value) ? value.join(', ') : value);
+    });
+  }
+%>
+
+<% if (entries.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No language-model calls during this request.</p>
+  </div>
+<% } else { %>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Calls</p>
+      <p class="text-foreground text-xl font-bold tabular-nums"><%= callCount %></p>
+      <% if (toolCount > 0) { %>
+        <p class="text-foreground-faint text-2xs mt-1"><%= toolCount %> tool<%= toolCount > 1 ? 's' : '' %> · <%= formatDuration(toolDuration) %>ms</p>
+      <% } %>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Model time</p>
+      <p class="text-foreground text-xl font-bold tabular-nums"><%= formatDuration(totalDuration) %>ms</p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Tokens</p>
+      <p class="text-foreground text-xl font-bold tabular-nums"><%= totalTokens || '—' %></p>
+    </div>
+    <div class="bg-surface-muted border border-line rounded-lg p-3 text-center">
+      <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Cost<%= costEstimated ? ' (est.)' : '' %></p>
+      <p class="<%= costKnown ? 'text-foreground' : 'text-foreground-muted' %> text-xl font-bold tabular-nums" title="<%= costKnown ? (costEstimated ? 'Worked out from the token prices this module was configured with' : 'Reported by the provider') : 'This provider reports no cost and no price is configured for this model' %>"><%= costLabel %></p>
+      <% if (!costKnown) { %>
+        <p class="text-foreground-faint text-2xs mt-1">set <code>pricing</code> to cost it</p>
+      <% } %>
+    </div>
+  </div>
+
+  <% for (const group of groups) { %>
+    <% const head = group.head; %>
+    <section class="mb-6 rounded-lg border border-line overflow-hidden">
+      <header class="bg-surface-muted border-b border-line px-4 py-2.5 flex flex-wrap items-center gap-2">
+        <% if (head) { %>
+          <span class="text-foreground text-xs font-mono font-semibold"><%= head.model %></span>
+          <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint"><%= head.provider %></span>
+          <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint"><%= head.operation %></span>
+        <% } %>
+        <% if (group.entries.filter(function (e) { return e.kind === 'call'; }).length > 1) { %>
+          <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint"><%= group.entries.filter(function (e) { return e.kind === 'call'; }).length %> steps</span>
+        <% } %>
+      </header>
+
+      <% if (head && head.settings) { %>
+        <div class="px-4 py-2.5 border-b border-line-subtle flex flex-wrap gap-2">
+          <% for (const chip of settingChips(head.settings)) { %>
+            <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-muted font-mono"><%= chip %></span>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (head && head.instructions) { %>
+        <div class="px-4 py-3 border-b border-line-subtle">
+          <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">System prompt</p>
+          <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= head.instructions %></code></pre>
+        </div>
+      <% } %>
+
+      <% if (head && head.tools && head.tools.length) { %>
+        <div class="px-4 py-3 border-b border-line-subtle">
+          <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Tools declared (<%= head.tools.length %>)</p>
+          <% for (const tool of head.tools) { %>
+            <details class="group mb-2 rounded-lg border border-line overflow-hidden">
+              <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+                <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="text-xs font-mono font-semibold text-foreground"><%= tool.name %></span>
+                <span class="text-2xs px-1.5 py-0.5 rounded <%= originClass[tool.origin] || 'badge-default' %>"><%= originLabel[tool.origin] || tool.origin %></span>
+                <% if (tool.description) { %><span class="text-2xs text-foreground-faint truncate"><%= tool.description %></span><% } %>
+              </summary>
+              <div class="px-3 py-2">
+                <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(tool.inputSchema) %></code></pre>
+              </div>
+            </details>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% for (const entry of group.entries) { %>
+        <% if (entry.kind === 'call') { %>
+          <div class="px-4 py-3 border-b border-line-subtle">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-muted">step <%= entry.step %></span>
+              <% if (entry.finishReason) { %>
+                <span class="text-2xs px-1.5 py-0.5 rounded <%= entry.finishReason === 'stop' ? 'badge-2xx' : 'badge-4xx' %>"><%= entry.finishReason %></span>
+              <% } %>
+              <%- tagBadges(entry.tags) %>
+              <span class="ml-auto text-foreground-secondary text-xs tabular-nums"><%= formatDuration(entry.duration) %>ms</span>
+            </div>
+
+            <% if (entry.error) { %>
+              <p class="text-danger text-xs font-mono break-all"><%= entry.error %></p>
+            <% } else { %>
+              <div class="flex flex-wrap gap-3 mb-3 text-xs">
+                <% if (entry.timeToFirstOutput !== undefined) { %>
+                  <span class="text-foreground-faint">First token <span class="text-foreground tabular-nums"><%= entry.timeToFirstOutput %>ms</span></span>
+                <% } %>
+                <% if (entry.outputTokensPerSecond !== undefined) { %>
+                  <span class="text-foreground-faint">Throughput <span class="text-foreground tabular-nums"><%= entry.outputTokensPerSecond %> tok/s</span></span>
+                <% } %>
+                <% if (entry.usage) { %>
+                  <span class="text-foreground-faint">In <span class="text-foreground tabular-nums"><%= entry.usage.input !== undefined ? entry.usage.input : '—' %></span></span>
+                  <span class="text-foreground-faint">Out <span class="text-foreground tabular-nums"><%= entry.usage.output !== undefined ? entry.usage.output : '—' %></span></span>
+                  <% if (entry.usage.reasoning) { %>
+                    <span class="text-foreground-faint">Reasoning <span class="text-foreground tabular-nums"><%= entry.usage.reasoning %></span></span>
+                  <% } %>
+                  <% if (entry.usage.cacheRead) { %>
+                    <span class="text-foreground-faint">Cached <span class="text-foreground tabular-nums"><%= entry.usage.cacheRead %></span></span>
+                  <% } %>
+                <% } %>
+                <% if (entry.cost !== undefined) { %>
+                  <span class="text-foreground-faint">Cost <span class="text-foreground tabular-nums"><%= entry.cost === 0 ? 'free' : entry.cost < 0.000001 ? '<$0.000001' : '$' + entry.cost.toFixed(6) %></span><%= entry.costSource === 'estimated' ? ' est.' : '' %></span>
+                <% } else if (entry.usage) { %>
+                  <span class="text-foreground-faint" title="This provider reports no cost and no price is configured for <%= entry.model %>">Cost <span class="text-foreground-muted">unknown</span></span>
+                <% } %>
+                <% if (entry.responseId) { %>
+                  <span class="text-foreground-faint">Response <span class="text-foreground font-mono"><%= entry.responseId %></span></span>
+                <% } %>
+              </div>
+
+              <% if (entry.messages && entry.messages.length) { %>
+                <details class="group mb-3 rounded-lg border border-line overflow-hidden"<%= entry.step === 0 ? ' open' : '' %>>
+                  <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+                    <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="text-2xs uppercase tracking-widest text-foreground-muted font-semibold">Messages sent (<%= entry.messages.length %>)</span>
+                  </summary>
+                  <div class="px-3 py-2">
+                    <% for (const message of entry.messages) { %>
+                      <div class="mb-2">
+                        <span class="text-2xs px-1.5 py-0.5 rounded <%= roleClass[message.role] || 'badge-default' %>"><%= message.role %></span>
+                        <% if (message.text) { %>
+                          <pre class="bg-surface-muted border border-line rounded p-3 mt-1 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= message.text %></code></pre>
+                        <% } %>
+                        <% for (const part of (message.parts || [])) { %>
+                          <% if (part.type === 'file') { %>
+                            <p class="text-2xs mt-1 font-mono break-all">
+                              <span class="px-1.5 py-0.5 rounded badge-tag-info">attachment</span>
+                              <span class="text-foreground-secondary"><%= part.mediaType || 'unknown type' %><%= part.name ? ' · ' + part.name : '' %><%= part.bytes !== undefined ? ' · ' + formatBytes(part.bytes) : '' %></span>
+                              <% if (part.url) { %><span class="text-foreground-faint"> · <%= part.url %></span><% } %>
+                            </p>
+                          <% } else { %>
+                            <p class="text-2xs text-foreground-faint mt-1 font-mono break-all"><%= part.type %><%= part.name ? ' · ' + part.name : '' %>: <%= toJson(part.value) %></p>
+                          <% } %>
+                        <% } %>
+                      </div>
+                    <% } %>
+                  </div>
+                </details>
+              <% } %>
+
+              <% if (entry.reasoning) { %>
+                <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Reasoning</p>
+                <pre class="bg-surface-muted border border-line rounded p-3 mb-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= entry.reasoning %></code></pre>
+              <% } %>
+
+              <% if (entry.completion) { %>
+                <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Completion</p>
+                <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= entry.completion %></code></pre>
+              <% } %>
+
+              <% if (entry.outputSchema || entry.output !== undefined) { %>
+                <div class="mb-3">
+                  <div class="flex flex-wrap items-center gap-2 mb-2">
+                    <p class="text-foreground-muted text-2xs uppercase tracking-widest">Structured output</p>
+                    <% if (entry.outputStrategy) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint"><%= entry.outputStrategy %></span><% } %>
+                    <% if (entry.schemaName) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint font-mono"><%= entry.schemaName %></span><% } %>
+                  </div>
+                  <% if (entry.outputSchema) { %>
+                    <details class="group mb-2 rounded-lg border border-line overflow-hidden">
+                      <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+                        <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                        <span class="text-2xs uppercase tracking-widest text-foreground-muted font-semibold">Schema the model had to satisfy</span>
+                      </summary>
+                      <div class="px-3 py-2">
+                        <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.outputSchema) %></code></pre>
+                      </div>
+                    </details>
+                  <% } %>
+                  <% if (entry.output !== undefined) { %>
+                    <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.output) %></code></pre>
+                  <% } %>
+                </div>
+              <% } %>
+
+              <% if (entry.approvals && entry.approvals.length) { %>
+                <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2 mt-3">Human approval</p>
+                <% for (const approval of entry.approvals) { %>
+                  <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="text-2xs px-1.5 py-0.5 rounded <%= approval.decision === 'approved' ? 'badge-2xx' : (approval.decision === 'denied' ? 'badge-5xx' : 'badge-tag-warning') %>"><%= approval.decision %></span>
+                    <span class="text-xs font-mono text-foreground"><%= approval.tool %></span>
+                    <% if (approval.automatic) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">automatic</span><% } %>
+                    <% if (approval.reason) { %><span class="text-2xs text-foreground-faint"><%= approval.reason %></span><% } %>
+                  </div>
+                <% } %>
+              <% } %>
+
+              <% if (entry.warnings && entry.warnings.length) { %>
+                <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2 mt-3">Provider warnings</p>
+                <% for (const warning of entry.warnings) { %>
+                  <p class="text-xs text-warning break-all"><%= warning %></p>
+                <% } %>
+              <% } %>
+
+              <% if (entry.toolCalls && entry.toolCalls.length) { %>
+                <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2 mt-3">Tool calls requested</p>
+                <% for (const toolCall of entry.toolCalls) { %>
+                  <p class="text-xs font-mono text-foreground-secondary break-all"><%= toolCall.name %><% if (toolCall.origin && toolCall.origin !== 'local') { %><span class="text-2xs px-1.5 py-0.5 rounded <%= originClass[toolCall.origin] %> ml-1"><%= originLabel[toolCall.origin] %></span><% } %>(<%= toJson(toolCall.input) %>)</p>
+                <% } %>
+              <% } %>
+            <% } %>
+          </div>
+        <% } else { %>
+          <div class="px-4 py-3 border-b border-line-subtle bg-surface-muted">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="text-2xs px-1.5 py-0.5 rounded badge-tag-warning">tool</span>
+              <span class="text-foreground text-xs font-mono font-semibold"><%= entry.name %></span>
+              <span class="text-2xs px-1.5 py-0.5 rounded <%= originClass[entry.origin] || 'badge-default' %>"><%= originLabel[entry.origin] || entry.origin %></span>
+              <%- tagBadges(entry.tags) %>
+              <span class="ml-auto text-foreground-secondary text-xs tabular-nums"><%= formatDuration(entry.duration) %>ms</span>
+            </div>
+            <p class="text-2xs text-foreground-faint mb-1">Input</p>
+            <pre class="bg-surface border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.input) %></code></pre>
+            <% if (entry.error) { %>
+              <p class="text-2xs text-foreground-faint mt-2 mb-1">Error</p>
+              <p class="text-danger text-xs font-mono break-all"><%= entry.error %></p>
+            <% } else { %>
+              <p class="text-2xs text-foreground-faint mt-2 mb-1">Output</p>
+              <pre class="bg-surface border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.output) %></code></pre>
+            <% } %>
+          </div>
+        <% } %>
+      <% } %>
+    </section>
+  <% } %>
+<% } %>

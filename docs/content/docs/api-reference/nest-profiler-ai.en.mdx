@@ -1,0 +1,202 @@
+---
+title: nest-profiler-ai
+description: Types and API of the AI SDK collector.
+seo:
+  title: AI collector API reference
+  description: 'Complete API reference for @eleven-labs/nest-profiler-ai: the module options, the recorded entry types, the tool origins and the ai entrypoint kind.'
+---
+
+## AiCollectorModuleOptions
+
+<AutoTypeTable
+  path="packages/nest-profiler-ai/src/ai-collector.interface.ts"
+  name="AiCollectorModuleOptions"
+/>
+
+## AiCallEntry
+
+One provider round-trip. A tool loop records several, distinguished by `step`.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiCallEntry" />
+
+## AiToolExecutionEntry
+
+One tool the SDK ran between two model calls — real time, spent outside the model.
+
+<AutoTypeTable
+  path="packages/nest-profiler-ai/src/ai-call.interface.ts"
+  name="AiToolExecutionEntry"
+/>
+
+## AiToolDefinition
+
+A tool as it was declared to the model, with the schema the model had to fill.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiToolDefinition" />
+
+## AiToolOrigin
+
+```ts
+type AiToolOrigin = 'local' | 'mcp' | 'provider';
+```
+
+Where a tool comes from, which decides who runs it: `local` is declared in the application's code,
+`mcp` was discovered on an MCP server at runtime, and `provider` is built into the model itself (a
+provider-run web search, say) and never executes in the application at all.
+
+## AiMessage
+
+One message of the conversation as it was sent to the model.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiMessage" />
+
+## AiMessagePart
+
+A message part that is not plain text — a tool call, a tool result, an attachment. An attachment is
+recorded as its media type and its size or URL, never as its bytes.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiMessagePart" />
+
+## AiApproval
+
+A human-in-the-loop decision on one tool call.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiApproval" />
+
+## AiCallSettings
+
+The sampling settings a call was made with — what a reproduction would need.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiCallSettings" />
+
+## AiTokenUsage
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiTokenUsage" />
+
+## AiCollectorData
+
+What the collector exposes to its panel.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiCollectorData" />
+
+## AiModelPricing
+
+What one model charges. Rates are per `per` tokens — a million by default, the unit providers
+publish. A rate left out falls back to the one it refines, so a model with no cache discount and
+no separate thinking rate needs only `input` and `output`.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-pricing.ts" name="AiModelPricing" />
+
+## AiPricingTable
+
+```ts
+type AiPricingTable = Record<string, AiModelPricing>;
+```
+
+Prices by model. A key is `provider:model` (`openai:gpt-4o-mini`) or the bare model id
+(`gpt-4o-mini`), matched in that order and case-insensitively. A provider arrives qualified by its
+transport (`openai.responses`), and its root is tried too.
+
+## AiPricingSource
+
+```ts
+type AiPricingSource = () => AiPricingTable | Promise<AiPricingTable>;
+```
+
+Loads a price table from wherever the prices live. Called when the module starts and, once
+`pricingTtl` has passed, again in the background — never on the path of a model call.
+
+## fetchOpenRouterPricing
+
+```ts
+function fetchOpenRouterPricing(options?: OpenRouterPricingOptions): Promise<AiPricingTable>;
+```
+
+Reads the prices of every model OpenRouter serves, ready to hand to `pricingSource`. The list is
+public, so no key is needed. Model ids come back as OpenRouter writes them (`openai/gpt-4o-mini`),
+which is what the AI SDK reports for a call that went through OpenRouter.
+
+<AutoTypeTable
+  path="packages/nest-profiler-ai/src/openrouter-pricing.ts"
+  name="OpenRouterPricingOptions"
+/>
+
+## estimateCost
+
+```ts
+function estimateCost(
+  usage: AiTokenUsage | undefined,
+  provider: string,
+  model: string,
+): number | undefined;
+```
+
+What a call cost, from its token counts and the configured prices — `undefined` when the model has
+no price. Cached and thinking tokens are billed at their own rate and are already counted in the
+input and output totals, so each is taken out before its rate is applied. The collector applies
+this itself; call it directly only to cost something of your own.
+
+## markMcpTools
+
+```ts
+function markMcpTools(names: readonly string[]): void;
+```
+
+Tells the collector which tool names came from an MCP server, so it can label their origin `mcp`.
+Call it once after loading a server's tools.
+
+## AI_ENTRYPOINT_TYPE
+
+```ts
+const AI_ENTRYPOINT_TYPE = 'ai';
+```
+
+The `Profile.entrypoint.type` a profiled HTTP request is promoted to once it has called a model.
+
+## Public exports
+
+```ts
+import { AiCollectorModule } from '@eleven-labs/nest-profiler-ai';
+import { AiCollector } from '@eleven-labs/nest-profiler-ai';
+import { markMcpTools, isMcpTool } from '@eleven-labs/nest-profiler-ai';
+import {
+  configureAiPricing,
+  loadAiPricing,
+  resetAiPricing,
+  pricingFor,
+  estimateCost,
+} from '@eleven-labs/nest-profiler-ai';
+import { fetchOpenRouterPricing } from '@eleven-labs/nest-profiler-ai';
+import {
+  AI_COLLECTOR_OPTIONS,
+  AI_ENTRIES_KEY,
+  AI_ENTRYPOINT_TYPE,
+  buildAiEntrypointType,
+  isAiCall,
+} from '@eleven-labs/nest-profiler-ai';
+
+import type {
+  AiCollectorModuleOptions,
+  AiCollectorModuleAsyncOptions,
+  AiEntry,
+  AiCallEntry,
+  AiToolExecutionEntry,
+  AiCollectorData,
+  AiToolDefinition,
+  AiToolCall,
+  AiToolOrigin,
+  AiApproval,
+  AiMessage,
+  AiMessagePart,
+  AiMessageRole,
+  AiCallSettings,
+  AiTokenUsage,
+  AiModelPricing,
+  AiPricingTable,
+  AiPricingSource,
+  AiPricingConfig,
+  OpenRouterPricingOptions,
+} from '@eleven-labs/nest-profiler-ai';
+```
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).

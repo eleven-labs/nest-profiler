@@ -205,6 +205,13 @@ export const HELPERS = {
   tagBadges: (tags: TagLike[] | undefined): string =>
     (tags ?? []).map((tag) => HELPERS.tagBadge(tag)).join(' '),
   mb: (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`,
+  // Byte counts on a profile span four orders of magnitude — a 38-byte SSE event, a 12 MB
+  // download — so they are scaled rather than printed raw in a single unit.
+  formatBytes: (bytes: number): string => {
+    if (!Number.isFinite(bytes) || bytes < 1024) return `${Math.max(0, Math.round(bytes))} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  },
   // Durations carry decimals — never print one raw. See `formatDuration`.
   formatDuration,
   // Host-timezone defaults. `TemplateRendererService` overrides both with helpers bound to the

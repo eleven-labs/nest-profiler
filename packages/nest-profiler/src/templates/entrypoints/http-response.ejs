@@ -4,12 +4,54 @@
   </div>
 <% } else { %>
 
+  <% const stream = profile.response.stream; %>
+
   <div class="flex flex-wrap gap-6 mb-8 pb-6 border-b border-line-subtle">
     <div>
       <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Status</p>
       <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= statusClass(profile.response.statusCode) %>"><%= profile.response.statusCode %></span>
     </div>
+    <% if (stream) { %>
+      <div>
+        <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-2">Delivery</p>
+        <span class="px-2.5 py-1 rounded text-2xs font-bold tracking-wide <%= stream.aborted ? 'badge-4xx' : 'badge-2xx' %>"><%= stream.aborted ? 'streamed · aborted' : 'streamed' %></span>
+      </div>
+    <% } %>
   </div>
+
+  <% if (stream) { %>
+    <section class="mb-6">
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Stream</h2>
+        <% if (stream.contentType) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint font-mono"><%= stream.contentType %></span><% } %>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line rounded-lg overflow-hidden border border-line">
+        <div class="bg-surface p-3">
+          <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Time to first chunk</p>
+          <p class="text-foreground text-sm font-mono"><%= formatDuration(stream.timeToFirstChunk) %>ms</p>
+        </div>
+        <div class="bg-surface p-3">
+          <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Streaming for</p>
+          <p class="text-foreground text-sm font-mono"><%= formatDuration(stream.duration) %>ms</p>
+        </div>
+        <div class="bg-surface p-3">
+          <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Chunks</p>
+          <p class="text-foreground text-sm font-mono"><%= stream.chunks %><% if (stream.interval !== undefined) { %><span class="text-foreground-faint"> · <%= formatDuration(stream.interval) %>ms apart</span><% } %></p>
+        </div>
+        <div class="bg-surface p-3">
+          <p class="text-foreground-faint text-2xs uppercase tracking-widest mb-1">Bytes</p>
+          <p class="text-foreground text-sm font-mono"><%= formatBytes(stream.bytes) %></p>
+        </div>
+      </div>
+      <p class="text-foreground-faint text-2xs mt-2">
+        <% if (stream.aborted) { %>
+          The client closed the connection before the response completed — the figures cover what was sent.
+        <% } else { %>
+          The request's total duration covers the whole stream; the caller saw its first byte after <%= formatDuration(stream.timeToFirstChunk) %>ms.
+        <% } %>
+      </p>
+    </section>
+  <% } %>
 
   <section class="mb-6">
     <h2 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-3">Response Headers</h2>

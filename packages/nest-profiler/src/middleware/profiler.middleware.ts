@@ -3,7 +3,12 @@ import { ClsService } from 'nestjs-cls';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder';
 import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import type {
+  HttpRequestData,
+  Profile,
+  ResponseData,
+  ResponseStreamData,
+} from '../interfaces/profile.interface';
 import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
 import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants';
 import { ProfilerCoreService } from '../services/profiler-core.service';
@@ -13,7 +18,12 @@ import type {
   ProfilerForceProfileFilter,
   ProfilerRequestFilter,
 } from '../filters';
-import { markProfileStart } from '../utils/profile-metrics.util';
+import {
+  completeProfilePerformance,
+  markProfileStart,
+  profileElapsedMs,
+} from '../utils/profile-metrics.util';
+import { roundMs } from '../utils/clock.utils';
 import {
   captureBody,
   captureHeaders,
@@ -45,13 +55,16 @@ export const DEFAULT_IGNORE_PATHS: (string | RegExp)[] = [
 
 /** Shape of the raw Node.js / Express response used for lifecycle hooks. */
 type RawResponse = {
-  once?: (event: 'finish', fn: () => void) => void;
+  once?: (event: 'finish' | 'close', fn: () => void) => void;
   statusCode?: number;
+  /** `true` once the response has been fully written — what tells a close from an abort. */
+  writableEnded?: boolean;
   json?: (body: unknown) => unknown;
   send?: (body: unknown) => unknown;
   write?: (...args: unknown[]) => unknown;
   end?: (...args: unknown[]) => unknown;
   getHeader?: (name: string) => unknown;
+  getHeaders?: () => unknown;
 };
 
 /**
@@ -60,6 +73,40 @@ type RawResponse = {
  * bulk JSON payload we have no reason to hold in memory, so buffering is abandoned past it.
  */
 const MAX_BUFFERED_BODY_BYTES = 1024 * 1024;
+
+/** Content types that declare a stream, so a one-event SSE response is still reported as one. */
+const STREAMING_CONTENT_TYPES = [
+  'text/event-stream',
+  'application/x-ndjson',
+  'application/stream+json',
+  'multipart/x-mixed-replace',
+];
+
+/** Whether a `content-type` header value declares one of {@link STREAMING_CONTENT_TYPES}. */
+function isStreamingContentType(contentType: string | undefined): boolean {
+  if (contentType === undefined) return false;
+  const value = contentType.toLowerCase();
+  return STREAMING_CONTENT_TYPES.some((type) => value.includes(type));
+}
+
+/** Live measurement of a response's body as the transport writes it. */
+interface StreamMeter {
+  /** Chunks written so far. */
+  chunks: number;
+  /** Bytes written so far. */
+  bytes: number;
+  /** Profile-relative ms of the first chunk; `undefined` while nothing has been written. */
+  firstChunkAt?: number;
+  /** `content-type` as it stood when the first chunk went out. */
+  contentType?: string;
+}
+
+/** Byte size of a chunk without copying it — `Buffer.from()` would allocate one copy per chunk. */
+function byteLengthOf(chunk: unknown): number {
+  if (typeof chunk === 'string') return Buffer.byteLength(chunk);
+  if (ArrayBuffer.isView(chunk)) return chunk.byteLength;
+  return 0;
+}
 
 @Injectable()
 export class ProfilerMiddleware implements NestMiddleware {
@@ -178,14 +225,13 @@ export class ProfilerMiddleware implements NestMiddleware {
   }
 
   /**
-   * Attaches **the** response finish listener — the profiler registers exactly one, here.
+   * Attaches **the** response lifecycle listeners — the profiler registers exactly one pair, here.
    *
-   * It plays two roles. As a safety net, it closes a profile the interceptor never got to:
-   * frameworks that handle the response themselves (Apollo Server) bypass Express's `next()`,
-   * so NestJS interceptors never run and the profile would otherwise be lost. And as the last
-   * word on the response body, it intercepts `res.json()` / `res.send()` / `res.write()` so a
-   * payload written after the observable completed — a GraphQL `{ data, errors }` envelope, an
-   * exception filter's output, an async `res.render()` — still reaches the profile.
+   * They close a profile the interceptor never got to (a framework that answers by itself, like
+   * Apollo Server), read back a body written after the observable completed, and — for a streamed
+   * response — are the only place its duration, chunk count and time to first byte are knowable.
+   * `close` is listened for beside `finish` because a stream the client walks away from never
+   * fires `finish`.
    */
   private attachFinishHook(
     profile: Profile<HttpRequestData>,
@@ -196,39 +242,106 @@ export class ProfilerMiddleware implements NestMiddleware {
     const rawRes = res as unknown as RawResponse;
     if (!rawRes.once) return;
 
-    // A finish listener is guaranteed to run: let the non-HTTP (GraphQL) interceptor path defer
-    // collection to it, so queries issued in field resolvers — which execute after the root
-    // resolver returns — are still drained into their panels.
+    // Guarantees a hook will run, so the interceptor may defer collection of work that happens
+    // after the handler returned (GraphQL field resolvers, the body of a stream).
     deferCollectionToFinishHook(profile);
 
-    const getResponseBody = this.interceptResponseBody(rawRes, profile);
+    const meter: StreamMeter = { chunks: 0, bytes: 0 };
+    const getResponseBody = this.interceptResponseBody(rawRes, profile, meter);
 
     // Published for the interceptor, which needs the body the transport wrote rather than the
     // value the route handler emitted — they differ under `@Res()`.
     setTransportResponseBody(profile, getResponseBody);
 
-    rawRes.once('finish', () => {
-      const transportBody = getResponseBody();
-      if (profile.response) {
-        this.backfillResponseBody(profile, rawRes, transportBody);
+    let completed = false;
+    const complete = (aborted: boolean): void => {
+      if (completed) return;
+      completed = true;
+      this.completeProfile(
+        profile,
+        req,
+        rawRes,
+        getResponseBody(),
+        this.readStream(profile, meter, aborted),
+      );
+    };
+
+    rawRes.once('finish', () => complete(false));
+    // Fires after `finish` when there was one, so this only ever acts on an aborted connection.
+    rawRes.once('close', () => complete(rawRes.writableEnded !== true));
+  }
+
+  /**
+   * Closes the profile once the response is really over: backfilling a late body when the
+   * interceptor already built `profile.response`, extending the duration when the response turned
+   * out to be streamed, and owning the whole finalization when the interceptor never ran.
+   */
+  private completeProfile(
+    profile: Profile<HttpRequestData>,
+    req: PlatformRequest,
+    rawRes: RawResponse,
+    transportBody: unknown,
+    stream: ResponseStreamData | undefined,
+  ): void {
+    if (profile.response) {
+      const bodyChanged = this.backfillResponseBody(profile, rawRes, transportBody);
+      if (!stream) {
+        if (bodyChanged) this.core.scheduleSave(profile);
         return;
       }
+      profile.response.stream = stream;
+      // The profile's window only closed now — re-read the clock and the resource counters.
+      completeProfilePerformance(profile);
+      // Saved, not re-collected: a collector may drain destructively, so running the pipeline a
+      // second time would empty the panels the interceptor already filled.
+      this.core.scheduleSave(profile);
+      return;
+    }
 
-      // The interceptor never ran: this hook owns the whole finalization. Transport headers are
-      // left out — this path exists precisely because the framework wrote the response itself.
-      finalizeHttpProfile(
-        profile,
-        { statusCode: rawRes.statusCode ?? 200, body: transportBody },
-        this.capture,
-      );
-      this.core.enrichHttpResponse(profile, req, transportBody);
-      this.core.schedulePersist(profile);
-    });
+    finalizeHttpProfile(
+      profile,
+      {
+        statusCode: rawRes.statusCode ?? 200,
+        // Readable here whatever wrote the response, unlike in the interceptor.
+        headers: rawRes.getHeaders?.(),
+        body: transportBody,
+      },
+      this.capture,
+    );
+    if (stream && profile.response) (profile.response as ResponseData).stream = stream;
+    this.core.enrichHttpResponse(profile, req, transportBody);
+    this.core.schedulePersist(profile);
+  }
+
+  /**
+   * Builds {@link ResponseStreamData} for a response the transport wrote in pieces, or `undefined`
+   * for a one-shot answer. Reading the end of the stream here rather than per chunk keeps the
+   * whole measurement down to two clock readings, whatever the stream's length.
+   */
+  private readStream(
+    profile: Profile<HttpRequestData>,
+    meter: StreamMeter,
+    aborted: boolean,
+  ): ResponseStreamData | undefined {
+    if (meter.firstChunkAt === undefined) return undefined;
+    // One chunk is how Express sends a JSON body — unless the content type declares a stream.
+    if (meter.chunks < 2 && !isStreamingContentType(meter.contentType)) return undefined;
+
+    const duration = roundMs(Math.max(0, profileElapsedMs(profile) - meter.firstChunkAt));
+    return {
+      chunks: meter.chunks,
+      bytes: meter.bytes,
+      timeToFirstChunk: roundMs(meter.firstChunkAt),
+      duration,
+      ...(meter.chunks > 1 && { interval: roundMs(duration / (meter.chunks - 1)) }),
+      aborted,
+      ...(meter.contentType !== undefined && { contentType: meter.contentType }),
+    };
   }
 
   /**
    * Completes an already-finalized profile with the body the transport wrote afterwards, and
-   * re-saves it when it changed.
+   * reports whether anything changed so the caller can decide how to re-persist it.
    *
    * Two cases need it: GraphQL, whose resolver context never saw the `{ data, errors }` envelope
    * the driver sent (and whose real status is only known now), and any response whose body was
@@ -239,33 +352,36 @@ export class ProfilerMiddleware implements NestMiddleware {
     profile: Profile<HttpRequestData>,
     rawRes: RawResponse,
     transportBody: unknown,
-  ): void {
+  ): boolean {
     const response = profile.response;
-    if (!response || transportBody === undefined) return;
+    if (!response || transportBody === undefined) return false;
 
     const isGraphql = Boolean(profile.entrypoint.data.graphql);
     const needsBody = this.capture.collectBody && response.body === undefined;
-    if (!isGraphql && !needsBody) return;
+    if (!isGraphql && !needsBody) return false;
 
     response.body = captureBody(transportBody, this.capture);
     if (isGraphql) response.statusCode = rawRes.statusCode ?? response.statusCode;
-    this.core.scheduleSave(profile);
+    return true;
   }
 
   /**
-   * Wraps the response's write methods so the body can be read back after it is sent, then
-   * returns a getter for the parsed body (`undefined` when nothing JSON-shaped was captured).
+   * Wraps the response's write methods so the body can be read back after it is sent and the write
+   * itself measured, then returns a getter for the parsed body.
    *
-   * GraphQL drivers write their `{ data, errors }` envelope straight to the transport, but
-   * via different methods: Apollo (Express) uses `res.json()`/`res.send()`, while Mercurius
-   * (Fastify, through `@fastify/middie`) writes the raw Node response with `res.write(chunk…)`
-   * followed by an empty `res.end()`. Raw chunks are only buffered when the body will actually
-   * be consumed (body collection enabled, or a GraphQL request whose envelope we always
-   * surface), are restricted to JSON responses, and are capped to bound memory.
+   * This is the hot path of every streamed response, so every wrapper forwards its arguments and
+   * its return value untouched — the boolean `res.write()` returns *is* the backpressure signal —
+   * and does its own work inside a `try`, so a fault here cannot become a fault in the response.
+   *
+   * GraphQL drivers write their `{ data, errors }` envelope straight to the transport: Apollo
+   * (Express) through `res.json()`/`res.send()`, Mercurius (Fastify) through raw `res.write()`
+   * chunks followed by an empty `res.end()`. Those chunks are buffered only for a JSON body that
+   * will be consumed, and capped — which is also what keeps a long stream from accumulating.
    */
   private interceptResponseBody(
     rawRes: RawResponse,
     profile: Profile<HttpRequestData>,
+    meter: StreamMeter,
   ): () => unknown {
     let body: unknown;
     const capture = (value: unknown): void => {
@@ -275,6 +391,19 @@ export class ProfilerMiddleware implements NestMiddleware {
         body = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
       } catch {
         body = raw;
+      }
+    };
+
+    /** Called for every chunk of every response — keep it to integer additions. */
+    const measure = (chunk: unknown): void => {
+      const size = byteLengthOf(chunk);
+      if (size === 0) return;
+      meter.chunks += 1;
+      meter.bytes += size;
+      if (meter.firstChunkAt === undefined) {
+        meter.firstChunkAt = profileElapsedMs(profile);
+        const contentType = rawRes.getHeader?.('content-type');
+        if (typeof contentType === 'string') meter.contentType = contentType;
       }
     };
 
@@ -298,25 +427,40 @@ export class ProfilerMiddleware implements NestMiddleware {
     let chunks: Buffer[] | undefined;
     let bufferedBytes = 0;
     let overflow = false;
+    // Latched on the first chunk: the content type cannot change once the headers are out.
+    let buffering: boolean | undefined;
     const shouldBuffer = (): boolean => {
-      if (!this.capture.collectBody && !profile.entrypoint.data.graphql) return false;
+      if (buffering !== undefined) return buffering;
+      if (!this.capture.collectBody && !profile.entrypoint.data.graphql) return (buffering = false);
       const contentType = rawRes.getHeader?.('content-type');
-      return typeof contentType === 'string' && contentType.includes('json');
+      return (buffering =
+        typeof contentType === 'string' &&
+        contentType.includes('json') &&
+        !isStreamingContentType(contentType));
     };
 
     const originalWrite = rawRes.write?.bind(rawRes);
     if (originalWrite) {
       rawRes.write = (...args: unknown[]): unknown => {
         const chunk = args[0];
-        if (!overflow && (typeof chunk === 'string' || Buffer.isBuffer(chunk)) && shouldBuffer()) {
-          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          bufferedBytes += buf.length;
-          if (bufferedBytes > MAX_BUFFERED_BODY_BYTES) {
-            overflow = true;
-            chunks = undefined; // give up — too large to be a GraphQL envelope
-          } else {
-            (chunks ??= []).push(buf);
+        try {
+          measure(chunk);
+          if (
+            !overflow &&
+            (typeof chunk === 'string' || Buffer.isBuffer(chunk)) &&
+            shouldBuffer()
+          ) {
+            const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            bufferedBytes += buf.length;
+            if (bufferedBytes > MAX_BUFFERED_BODY_BYTES) {
+              overflow = true;
+              chunks = undefined; // give up — too large to be a GraphQL envelope
+            } else {
+              (chunks ??= []).push(buf);
+            }
           }
+        } catch {
+          // Never let profiling break a response that is already on the wire.
         }
         return originalWrite(...args);
       };
@@ -329,10 +473,15 @@ export class ProfilerMiddleware implements NestMiddleware {
     if (originalEnd) {
       rawRes.end = (...args: unknown[]): unknown => {
         const chunk = typeof args[0] === 'function' ? undefined : args[0];
-        if (chunk !== undefined && chunk !== null) {
-          capture(chunk);
-        } else if (chunks?.length) {
-          capture(Buffer.concat(chunks));
+        try {
+          measure(chunk);
+          if (chunk !== undefined && chunk !== null) {
+            capture(chunk);
+          } else if (chunks?.length) {
+            capture(Buffer.concat(chunks));
+          }
+        } catch {
+          // Never let profiling break a response that is already on the wire.
         }
         return originalEnd(...args);
       };
