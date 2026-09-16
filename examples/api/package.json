@@ -65,7 +65,7 @@
     "class-validator": "^0.15.1",
     "dataloader": "^2.2.3",
     "graphql": "^16.14.2",
-    "mongoose": "^9.9.3",
+    "mongoose": "^9.9.5",
     "nest-commander": "^3.20.1",
     "nestjs-cls": "^6.2.1",
     "nestjs-pino": "^4.4.0",
