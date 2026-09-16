@@ -426,8 +426,8 @@ importers:
         version: 6.0.1
     devDependencies:
       '@highlightjs/cdn-assets':
-        specifier: 11.11.1
-        version: 11.11.1
+        specifier: 11.12.0
+        version: 11.12.0
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -2184,8 +2184,8 @@ packages:
     peerDependencies:
       graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
-  '@highlightjs/cdn-assets@11.11.1':
-    resolution: {integrity: sha512-VEPdHzwelZ12hEX18BHduqxMZGolcUsrbeokHYxOUIm8X2+M7nx5QPtPeQgRxR9XjhdLv4/7DD5BWOlSrJ3k7Q==}
+  '@highlightjs/cdn-assets@11.12.0':
+    resolution: {integrity: sha512-KvOKXODaiFmId9xaq3xc5xCL66wVLUuOngDbO9B/kewbFTqdGbn2nJxNhN3H5R1cgDTVj6R8vH0zgiNDEGjpDw==}
     engines: {node: '>=12.0.0'}
 
   '@humanfs/core@0.19.2':
@@ -9803,7 +9803,7 @@ snapshots:
     dependencies:
       graphql: 16.14.2
 
-  '@highlightjs/cdn-assets@11.11.1': {}
+  '@highlightjs/cdn-assets@11.12.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:
