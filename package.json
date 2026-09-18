@@ -55,7 +55,7 @@
     "test:cov": "turbo run test:cov",
     "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
-    "version-packages": "changeset version",
+    "version-packages": "tsx scripts/changesets/version.ts",
     "prepare": "husky"
   },
   "devDependencies": {
