@@ -191,6 +191,7 @@ export type {
   LogEntry,
   ExceptionEntry,
   HttpRequestData,
+  ResponseStreamData,
   ResponseData,
   PerformanceData,
   LogLevel,

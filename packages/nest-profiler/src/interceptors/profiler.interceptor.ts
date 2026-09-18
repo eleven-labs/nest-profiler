@@ -42,6 +42,56 @@ function isPlatformResponse(value: unknown, res: PlatformResponse | null): boole
   );
 }
 
+/**
+ * `SSE_METADATA`, `ROUTE_ARGS_METADATA` and `RESPONSE_PASSTHROUGH_METADATA` from
+ * `@nestjs/common/constants`, copied rather than deep-imported.
+ */
+const SSE_HANDLER_METADATA = '__sse__';
+const ROUTE_ARGS_METADATA = '__routeArguments__';
+const RESPONSE_PASSTHROUGH_METADATA = '__responsePassthrough__';
+
+/**
+ * `RouteParamtypes.RESPONSE` and `.NEXT` — the two parameters that hand the response to the
+ * handler. Route-argument metadata keys are `${paramtype}:${index}`.
+ */
+const RESPONSE_PARAM_TYPES = ['1', '2'];
+
+/**
+ * True when the route handler took the response over (`@Res()` / `@Next()` without `passthrough`),
+ * which is exactly what NestJS itself checks to decide it must write nothing.
+ *
+ * It is what makes the streaming detection reliable rather than lucky: such a handler may start
+ * writing long after it returned — an LLM answer piped to the response once the model replies —
+ * and until it does, the response is indistinguishable from one simply not written yet. Its
+ * profile therefore has to stay open until the transport is done with it.
+ */
+function handlesResponseItself(ctx: ExecutionContext): boolean {
+  const controller = ctx.getClass();
+  const method = ctx.getHandler().name;
+  if (Reflect.getMetadata(RESPONSE_PASSTHROUGH_METADATA, controller, method) === true) return false;
+
+  const args = Reflect.getMetadata(ROUTE_ARGS_METADATA, controller, method) as
+    Record<string, unknown> | undefined;
+  if (args === undefined) return false;
+
+  return Object.keys(args).some((key) => RESPONSE_PARAM_TYPES.includes(key.split(':')[0] ?? ''));
+}
+
+/**
+ * True when the handler emitted a stream the framework has yet to drain — a `StreamableFile`, a
+ * Node `Readable`, a web `ReadableStream`. Duck-typed so the core stays off `instanceof` against
+ * the application's own `@nestjs/common` copy.
+ */
+function isStreamLike(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const candidate = value as { getStream?: unknown; pipe?: unknown; getReader?: unknown };
+  return (
+    typeof candidate.getStream === 'function' ||
+    typeof candidate.pipe === 'function' ||
+    typeof candidate.getReader === 'function'
+  );
+}
+
 /** Status reported for a non-HTTP execution, which has no transport status of its own. */
 const NON_HTTP_STATUS = 200;
 
@@ -125,17 +175,40 @@ export class ProfilerInterceptor implements NestInterceptor {
     const res = httpCtx.getResponse<PlatformResponse>();
     const req = httpCtx.getRequest<PlatformRequest>();
 
+    // NestJS flattens an `@Sse()` handler's Observable into this chain, so a streamed response
+    // emits once per chunk: the first emission decides, every later one is forwarded untouched.
+    // Without the latch a thousand-token stream would collect and store its profile as many times.
+    let settled = false;
+    /** Set when the response-finish hook was left to own the finalization (see below). */
+    let deferred = false;
+
     // No `finish` listener here: the middleware registered the one the profiler needs, and it
     // already covers the case this path cannot see (a framework answering without ever reaching
     // the interceptor). A second listener only had to guard itself against the first.
     return next.handle().pipe(
       switchMap((body: unknown) => {
+        if (settled) return of(body);
+        settled = true;
+
+        // The finish hook can close the profile before this runs, when a handler awaits the
+        // stream it is writing. Re-finalizing would run the collectors a second time.
+        if (capturedProfile.response) return of(body);
+
+        capturedProfile.route =
+          this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
+
+        // The response has only *started* — finalizing now would file the time it took to open
+        // the stream as the request's duration and drain the collectors before it did any work.
+        // The middleware's finish hook closes it when the transport is really done.
+        if (isCollectionDeferred(capturedProfile) && this.isStreamedResponse(ctx, res, body)) {
+          deferred = true;
+          return of(body);
+        }
+
         // What the handler emitted is not always what the client receives (`@Res()`), so the
         // profile records the resolved payload while the stream keeps forwarding `body` untouched.
         const responseBody = this.resolveResponseBody(capturedProfile, res, body);
         this.finalize(capturedProfile, res, res.statusCode, responseBody);
-        capturedProfile.route =
-          this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         this.core.enrichHttpResponse(capturedProfile, req, responseBody);
 
         // The toolbar embeds collector panels, so HTML responses are the only ones that
@@ -158,18 +231,39 @@ export class ProfilerInterceptor implements NestInterceptor {
       }),
       catchError((err: unknown) => {
         capturedProfile.exceptions.push(toExceptionEntry(err, this.exceptionCapture));
+        capturedProfile.route =
+          this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
+        // A stream that failed mid-flight: the finish hook owns closing and saving the profile,
+        // and the exception is already on it.
+        if (deferred) return throwError(() => err);
         // Exception filters run after the observable chain, so `res.statusCode` still reads 200
         // here. The real status comes from the error: an HttpException carries its own, anything
         // else is a 500 (mirrors processNonHttp).
         this.finalize(capturedProfile, res, statusOf(err), undefined);
-        capturedProfile.route =
-          this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
         // Collectors still run (deferred) so pipes/guards data (e.g. validator) is
         // captured without delaying the error response behind them.
         this.core.schedulePersist(capturedProfile);
         return throwError(() => err);
       }),
     );
+  }
+
+  /**
+   * Whether the transport will still be writing once the handler's observable has completed.
+   *
+   * Four signals, none of which asks the application for anything: the `@Sse()` metadata on the
+   * handler (the only reliable one there — an emission reaching this chain is an individual event,
+   * and the SSE headers may not be out yet), a handler that took the response over and has not
+   * ended it, headers already sent, and a stream object emitted by the handler.
+   */
+  private isStreamedResponse(ctx: ExecutionContext, res: PlatformResponse, body: unknown): boolean {
+    const raw = res as unknown as { writableEnded?: boolean; headersSent?: boolean };
+    // Already written in full — whatever it was, it is over.
+    if (raw.writableEnded === true) return false;
+    if (Reflect.getMetadata(SSE_HANDLER_METADATA, ctx.getHandler()) === true) return true;
+    if (handlesResponseItself(ctx)) return true;
+    if (raw.headersSent === true) return true;
+    return isStreamLike(body);
   }
 
   private processNonHttp(

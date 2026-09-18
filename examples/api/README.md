@@ -46,20 +46,21 @@ This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7**
 
 The app uses flags to conditionally load infrastructure-dependent contexts. Everything beyond the catalog's PostgreSQL is **off by default**, so a bare run needs no MongoDB and no broker. Set them in `.env`:
 
-| Variable                      | Default     | Description                                                                                                                                                                                        |
-| ----------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SQL_ORM`                     | `mikro-orm` | Catalog persistence adapter: `mikro-orm` \| `typeorm` (both need PostgreSQL)                                                                                                                       |
-| `HTTP_CLIENT`                 | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                         |
-| `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                           |
-| `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over either catalog adapter)                                                                                                                               |
-| `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`). Requires a reachable broker: the boot fails fast without one                                    |
-| `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                    |
-| `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                    |
-| `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                          |
-| `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                           |
-| `PROFILER_AUTH`               | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                          |
-| `PROFILER_INSTRUMENT`         | `true`      | Automatic instrumentation: one span per provider method call, so the Execution Trace shows the full call tree. On here because this app is a demo; **opt-in and development-only** in your own app |
-| `PROFILER_INSTRUMENT_EXCLUDE` | —           | Classes and methods to keep off the instrumented trace, comma-separated: `ConfigService` (the class), `ClockService.now` (one method), `*.getRequestId` (a wildcard within a name)                 |
+| Variable                      | Default     | Description                                                                                                                                                                                             |
+| ----------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SQL_ORM`                     | `mikro-orm` | Catalog persistence adapter: `mikro-orm` \| `typeorm` (both need PostgreSQL)                                                                                                                            |
+| `HTTP_CLIENT`                 | `axios`     | Content HTTP client / profiler adapter: `axios` \| `fetch`                                                                                                                                              |
+| `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                                |
+| `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over either catalog adapter)                                                                                                                                    |
+| `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`). Requires a reachable broker: the boot fails fast without one                                         |
+| `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                         |
+| `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                         |
+| `FEATURE_AI`                  | `false`     | Load the `AiModule`: an OpenRouter-backed assistant — blocking, tool-calling, structured, streamed — plus a custom **AI** profiler panel. Needs `OPENROUTER_API_KEY`; not part of the Vercel deployment |
+| `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                               |
+| `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                                |
+| `PROFILER_AUTH`               | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                               |
+| `PROFILER_INSTRUMENT`         | `true`      | Automatic instrumentation: one span per provider method call, so the Execution Trace shows the full call tree. On here because this app is a demo; **opt-in and development-only** in your own app      |
+| `PROFILER_INSTRUMENT_EXCLUDE` | —           | Classes and methods to keep off the instrumented trace, comma-separated: `ConfigService` (the class), `ClockService.now` (one method), `*.getRequestId` (a wildcard within a name)                      |
 
 `PROFILER_AUTH` selects how the demo protects the `/_profiler` dashboard — the consumer-side counterpart of the profiler's pluggable [`security`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#securing-the-ui) option, chosen by env exactly like `SQL_ORM`. `none` (default) leaves it open; `basic` uses HTTP Basic auth (`PROFILER_BASIC_USER` / `PROFILER_BASIC_PASSWORD`); `token` checks a bearer or `?token=<PROFILER_TOKEN>` credential (the query is threaded across UI links via `linkQuery`); and `cookie` reuses the app's own `JwtAuthGuard` through `security.guards` — the guard reads the JWT from the `profiler_jwt` cookie that `GET /api/v1/auth/token` sets, so the browser sends it on every link and the whole UI is navigable (a `Bearer` header is still accepted for `curl`). Because navigation happens through plain links, prefer `basic`, `cookie` or a session for browser access (the browser propagates those automatically); a pure `token` header suits `curl`.
 
@@ -68,6 +69,8 @@ The app uses flags to conditionally load infrastructure-dependent contexts. Ever
 `SQL_ORM` selects which adapter backs the **catalog** context: `mikro-orm` (the default) or `typeorm`. They are mutually exclusive — both map the same Postgres `products` table — so the catalog always needs a database. The other contexts stay behind their own flags: the ones whose infrastructure is off are simply not registered, so no connection is attempted and nothing crashes.
 
 PostgreSQL can be configured with the app-specific `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_NAME` variables. Hosted Vercel Neon integrations also work without aliases: the app falls back to `POSTGRES_*` and `PG*` variables, and enables SSL when `DATABASE_SSL=true` or `PGSSLMODE=require`. The demo ships no migrations, so the ORM creates the `products` table automatically on boot; the destructive drop-and-recreate only runs outside production, so a deployed database keeps its structure across cold starts.
+
+`FEATURE_AI` loads the **ai** context: an assistant built on the [AI SDK](https://ai-sdk.dev) v7 talking to a free [OpenRouter](https://openrouter.ai) model. It is the app's answer to two questions a profiler has to handle and most demos skip — how a **streamed response** is measured, and what an **LLM call** costs. It covers the shapes a real assistant takes: a blocking answer, a tool loop, structured output, an attachment, a human approval, and tools borrowed from an MCP server. Set `OPENROUTER_API_KEY` (free keys at <https://openrouter.ai/keys>); the default model is free, so the demo costs nothing.
 
 `HTTP_CLIENT` selects which adapter backs the outgoing HTTP ports — the **content** context's `ArticleGateway` and the **reviews** context's `ReviewerGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
 
@@ -86,6 +89,9 @@ pnpm example:dev
 
 # Without GraphQL
 FEATURE_GRAPHQL=false pnpm example:dev
+
+# With the streamed AI assistant (needs an OpenRouter key)
+FEATURE_AI=true OPENROUTER_API_KEY=sk-or-... pnpm example:dev
 ```
 
 Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab.
@@ -424,6 +430,63 @@ curl -X POST http://localhost:3000/api/v1/reviews -H "Content-Type: application/
   -d '{"productId":"1","rating":4,"comment":"Great product!","authorId":1}'
 curl http://localhost:3000/api/v1/reviews/stats
 ```
+
+### AI (`AiModule` → AI SDK v7 + OpenRouter, `FEATURE_AI=true`)
+
+| Endpoint                       | What it demonstrates                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `POST /api/v1/ai/ask`          | **AI** — one blocking `generateText`; the non-streaming baseline to compare the others with     |
+| `POST /api/v1/ai/agent`        | **AI** — a tool loop: one model call per round trip, plus every tool the SDK ran between them   |
+| `POST /api/v1/ai/object`       | **AI** — structured output: the model fills a JSON Schema instead of writing prose              |
+| `POST /api/v1/ai/describe`     | **AI** — an attachment sent beside the question, as a file part                                 |
+| `POST /api/v1/ai/approval`     | **AI** — human in the loop: the model asks before a destructive tool runs                       |
+| `POST /api/v1/ai/approval/:id` | **AI** — the decision that resumes it, and the tool run only if it was granted                  |
+| `POST /api/v1/ai/stream`       | **AI** + **streamed response** — `streamText` piped to the Node response as raw chunks          |
+| `GET /api/v1/ai/sse`           | **AI** + **streamed response** — the same stream delivered as Server-Sent Events (`@Sse()`)     |
+| `POST GET DELETE /mcp`         | **MCP** — the app's own Model Context Protocol endpoint (`McpModule`), served with `FEATURE_AI` |
+
+```bash
+# requires FEATURE_AI=true + OPENROUTER_API_KEY
+curl -X POST http://localhost:3000/api/v1/ai/ask -H "Content-Type: application/json" \
+  -d '{"prompt":"Explain what a web profiler is, in two sentences."}'
+
+# lets the model call the tools: appFeatures (local, instant) and fetchArticle (a real HTTP call)
+curl -X POST http://localhost:3000/api/v1/ai/agent -H "Content-Type: application/json" \
+  -d '{"prompt":"Summarise article 1, then tell me which features are enabled."}'
+
+# structured output — the answer is checked against a JSON Schema
+curl -X POST http://localhost:3000/api/v1/ai/object -H "Content-Type: application/json" \
+  -d '{"prompt":"Digest this: web profilers show what a request did."}'
+
+# an attachment beside the question — needs a vision model and a URL the provider can fetch
+AI_MODEL=inclusionai/ling-3.0-flash-vl:free pnpm example:dev   # in another shell
+curl -X POST http://localhost:3000/api/v1/ai/describe -H "Content-Type: application/json" \
+  -d '{"prompt":"What is in this picture?","url":"https://www.gstatic.com/webp/gallery/1.jpg","mediaType":"image/jpeg"}'
+
+# human in the loop: the first call stops on an approval request, the second carries the decision
+PENDING=$(curl -s -X POST http://localhost:3000/api/v1/ai/approval -H "Content-Type: application/json" \
+  -d '{"prompt":"Delete article 1."}' | jq -r .pendingId)
+curl -X POST "http://localhost:3000/api/v1/ai/approval/$PENDING" -H "Content-Type: application/json" \
+  -d '{"approved":true}'
+
+# watch the answer arrive token by token
+curl -N -X POST http://localhost:3000/api/v1/ai/stream -H "Content-Type: application/json" \
+  -d '{"prompt":"Explain what a web profiler is, in two sentences."}'
+
+curl -N "http://localhost:3000/api/v1/ai/sse?prompt=Explain%20what%20a%20web%20profiler%20is"
+```
+
+Three things to look at in `/_profiler` afterwards.
+
+A request that called a model is filed under its own **AI** kind rather than among the plain HTTP requests — the same promotion GraphQL operations get. That buys it a dedicated list with the columns an HTTP row has no room for: the models it used, the operation and step count, the tools it ran, the tokens, the model time and the cost, plus a `Model` filter. It keeps the Request and Response tabs, since it is still an HTTP request — and for a streamed answer the Response tab is where the delivery is described.
+
+The **AI** panel reconstructs the whole exchange, one section per `generateText` / `streamText` / `generateObject` invocation: the model and provider, the sampling settings the call was made with, the **system prompt** kept apart from the conversation, and the **tools declared**, each tagged with where it comes from — `local` (declared in this codebase), `mcp` (discovered on an MCP server at runtime) or `provider` (built into the model, like a hosted web search, and never executed here) — with the JSON Schema the model had to fill. Then every step in order — each model call with its token usage, cost, finish reason, time to first token, throughput, the **messages sent** to it, its reasoning, its completion and the tool calls it asked for — interleaved with each **tool execution** and its input, output and duration. A tool loop therefore reads top to bottom as it happened.
+
+It also covers what the shape of a call adds: **structured output** shows the schema beside the object that came back; an **attachment** is recorded as its media type and size or URL, never as its bytes; a **human approval** shows the request, and then the decision and whether the tool ran; and a tool borrowed from an **MCP** server (`AI_MCP_URL`) is flagged `mcp`, since it was discovered at runtime rather than declared in code. The app serves its own MCP endpoint at `/mcp` (`McpModule`, mounted behind `FEATURE_AI` like the assistant), so `AI_MCP_URL=http://localhost:3000/mcp` is enough to see an MCP tool run inside a profile — no second process to start. It is documented in Swagger under the `mcp` tag, with ready-made `initialize` / `tools/list` / `tools/call` payloads, and `Try it out` works from there. The e2e suite exercises that path against a real MCP server built with the official v2 SDK (`@modelcontextprotocol/server` + `@modelcontextprotocol/node`, see `test/helpers/mcp-server.ts`), so it is tested rather than assumed. Public servers work too — mind the context budget, since some advertise very large tool descriptions.
+
+Nothing in the controller or the service knows the profiler exists: `AiProfilingModule` registers one AI SDK telemetry integration with `registerTelemetry()` at startup, and every AI SDK call in the process is captured from there. A custom collector (`src/ai/profiling/`) renders the panel — the pattern documented in [Write a custom collector](https://nest-profiler.eleven-labs.com/docs/tutorials/custom-collector). Model calls and tool executions also land on the **execution trace**, so the model's share of the request is visible against everything else it did.
+
+The **Response** tab of the two streaming endpoints reports the delivery: time to first chunk, how long the stream ran, how many chunks and how many bytes. Compare their total duration with `POST /ai/ask`'s — the profiler measures a stream until its last chunk, not until the handler returned, so the model call made _during_ the stream still lands in the AI panel.
 
 ### Auth (`AuthModule` → JWT)
 

@@ -23,6 +23,10 @@ process.env['FEATURE_DATALOADER'] ??= 'false';
 // broker the suite never starts.
 process.env['FEATURE_RABBITMQ'] = 'false';
 process.env['FEATURE_PINO_LOGGER'] = 'true';
+// The AI context needs no infrastructure: `ai.e2e-spec` swaps the language model for a mock, so
+// no request ever reaches OpenRouter and the key below is never used.
+process.env['FEATURE_AI'] = 'true';
+process.env['OPENROUTER_API_KEY'] ??= 'test-key';
 // Mute pino's stdout in tests; the profiler's logger adapter records entries before
 // pino applies its level filter, so `profile.logs` assertions still work.
 process.env['LOG_LEVEL'] = 'silent';

@@ -2,7 +2,7 @@
   "name": "nest-profiler-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "NestJS profiler toolkit — pnpm + Turbo monorepo for @eleven-labs/nest-profiler and its collector packages.",
+  "description": "NestJS profiler toolkit \u2014 pnpm + Turbo monorepo for @eleven-labs/nest-profiler and its collector packages.",
   "license": "MIT",
   "author": {
     "name": "Fabien Pasquet",
@@ -30,6 +30,7 @@
     "example:start": "turbo run build && pnpm --filter=example-api start",
     "screenshots": "tsx scripts/generate-profiler-screenshots.ts",
     "check:api-exports": "tsx scripts/check-api-reference-exports.ts",
+    "check:cjs-require": "tsx scripts/check-cjs-require.ts",
     "sync:skill-refs": "tsx scripts/sync-skill-references.ts",
     "sync:skill-refs:check": "tsx scripts/sync-skill-references.ts --check",
     "docker:up": "docker compose up -d",

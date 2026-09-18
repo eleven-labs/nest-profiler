@@ -1,0 +1,110 @@
+{
+  "name": "@eleven-labs/nest-profiler-ai",
+  "version": "1.0.0-alpha.0",
+  "description": "AI SDK collector for @eleven-labs/nest-profiler",
+  "keywords": [
+    "nestjs",
+    "ai",
+    "ai-sdk",
+    "llm",
+    "openai",
+    "anthropic",
+    "mcp",
+    "profiler",
+    "debug",
+    "monitoring",
+    "devtools",
+    "nest-profiler",
+    "observability"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "prettier": "@repo/prettier-config",
+  "scripts": {
+    "build": "repo-build",
+    "clean": "repo-clean dist coverage",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src",
+    "test": "NODE_OPTIONS=\"${NODE_OPTIONS:+$NODE_OPTIONS }--experimental-vm-modules\" jest",
+    "test:cov": "NODE_OPTIONS=\"${NODE_OPTIONS:+$NODE_OPTIONS }--experimental-vm-modules\" jest --coverage",
+    "typecheck": "tsc --noEmit --incremental false"
+  },
+  "peerDependencies": {
+    "@eleven-labs/nest-profiler": "^1.0.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "ai": "^7.0.0",
+    "nestjs-cls": "^6.0.0",
+    "reflect-metadata": "^0.2.0"
+  },
+  "devDependencies": {
+    "@eleven-labs/nest-profiler": "workspace:*",
+    "@nestjs/common": "^11.2.3",
+    "@nestjs/core": "^11.2.3",
+    "@nestjs/testing": "^11.2.3",
+    "@repo/build": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/jest-config": "workspace:*",
+    "@repo/prettier-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.13.3",
+    "ai": "^7.0.102",
+    "jest": "^30.5.1",
+    "nestjs-cls": "^6.2.1",
+    "reflect-metadata": "^0.2.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "^6.0.3"
+  },
+  "jest": {
+    "preset": "@repo/jest-config",
+    "rootDir": ".",
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s",
+      "!src/index.ts"
+    ],
+    "coverageDirectory": "coverage"
+  },
+  "author": {
+    "name": "Fabien Pasquet",
+    "url": "https://github.com/fpasquet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eleven-labs/nest-profiler.git",
+    "directory": "packages/nest-profiler-ai"
+  },
+  "homepage": "https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-ai",
+  "bugs": {
+    "url": "https://github.com/eleven-labs/nest-profiler/issues"
+  },
+  "contributors": [
+    {
+      "name": "Eleven Labs",
+      "url": "https://eleven-labs.com"
+    }
+  ],
+  "funding": "https://eleven-labs.com"
+}

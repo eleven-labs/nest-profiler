@@ -10,9 +10,13 @@ import { ContentModule } from './content/content.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
+import { AiModule } from './ai/ai.module.js';
+import { McpModule } from './mcp/mcp.module.js';
 import appConfig from './config/app.config.js';
+import aiConfig from './config/ai.config.js';
 import profilerConfig, { isProfilerEnabled } from './config/profiler.config.js';
 import featuresConfig, {
+  isAiEnabled,
   isMongooseEnabled,
   isPinoLoggerEnabled,
 } from './config/features.config.js';
@@ -34,7 +38,7 @@ import { not } from './config/env-condition.js';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, profilerConfig, featuresConfig],
+      load: [appConfig, profilerConfig, featuresConfig, aiConfig],
     }),
 
     ConditionalModule.registerWhen(
@@ -66,6 +70,10 @@ import { not } from './config/env-condition.js';
     HealthModule,
     DiagnosticsModule,
     ConditionalModule.registerWhen(ReviewsModule, isMongooseEnabled),
+    ConditionalModule.registerWhen(AiModule, isAiEnabled),
+    // Behind the same flag as the assistant: the endpoint exists so the demo can point
+    // `AI_MCP_URL` at itself, and it has no reason to be served where the AI context is off.
+    ConditionalModule.registerWhen(McpModule, isAiEnabled),
   ],
 })
 export class AppModule {}

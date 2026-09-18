@@ -14,6 +14,7 @@
     "nest-profiler-validator",
     "nest-profiler-graphql",
     "nest-profiler-rabbitmq",
-    "nest-profiler-event-emitter"
+    "nest-profiler-event-emitter",
+    "nest-profiler-ai"
   ]
 }

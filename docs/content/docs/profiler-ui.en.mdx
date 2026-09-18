@@ -54,6 +54,10 @@ The **Response** tab shows the status, response headers, and body returned by th
 
 ![Response tab showing status, headers, and JSON body](/screenshots/profiler/response.png)
 
+When the response was **streamed** — Server-Sent Events, an LLM token stream, NDJSON, a piped file — the tab adds a `streamed` badge and a **Stream** section describing the delivery: time to first chunk, how long the stream ran, how many chunks (and how far apart), and how many bytes. A stream the client hung up on is flagged `aborted`, and its profile is saved all the same.
+
+This is the one case where the request's duration would otherwise be meaningless. A streaming handler returns in microseconds and the transport keeps writing for seconds, so the profiler closes the profile when the response really ends rather than when the handler returns — which is also what lets work done _during_ the stream reach the collector panels. It needs nothing from the application: the figures come from the transport's own writes.
+
 The **Performance** tab groups everything about what the execution cost. It leads with four figures: the request **duration** (also badged on the tab), the **CPU time** with its share of that duration, the **heap** at the end with how much the request moved it, and the **event-loop** utilization over the window.
 
 The CPU share is the one that changes what you do next. Near 100% the request was computing, near 0% it was waiting on something — and a slow endpoint is fixed very differently in the two cases, so the tab names it rather than leaving you to divide: _CPU-bound_, _waiting on I/O_, or _mixed_. Under `Resource usage` below the tiles sit the user/system split, the resident set and its delta, the heap before and after, and the garbage collections that ran during the request — the explanation for a latency spike a duration alone cannot give.

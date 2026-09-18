@@ -20,6 +20,7 @@ export function applyGlobalPrefix(app: INestApplication): void {
     exclude: [
       { path: 'health', method: RequestMethod.ALL },
       { path: 'graphql', method: RequestMethod.ALL },
+      { path: 'mcp', method: RequestMethod.ALL },
     ],
   });
 }

@@ -14,6 +14,7 @@ import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
+import { HTTP_ERROR_OPTIONS } from './error-classification.js';
 
 /**
  * Resolves the storage-related profiler options from config. `sqlite` is opted into via
@@ -172,10 +173,7 @@ export class ProfilingModule {
             sampleRate: 1.0,
             ignorePaths: ['/favicon.ico'],
             ignoreRequest: combineFilters(ignoreGraphQLPlayground, ignoreGraphQLIntrospection),
-            // What counts as a failed request. The default (5xx, so a 404 is an answer rather
-            // than an error) is what most apps want; this demo also flags 429 to show that a
-            // predicate can pick out individual statuses.
-            error: { httpStatus: (statusCode) => statusCode >= 500 || statusCode === 429 },
+            error: HTTP_ERROR_OPTIONS,
           }),
         }),
         ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),

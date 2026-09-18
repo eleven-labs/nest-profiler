@@ -55,6 +55,12 @@ jobs:
       - name: Verify documented public exports
         run: pnpm check:api-exports
 
+      # The packages ship CommonJS, so a value import of an ESM-only dependency compiles to a
+      # `require()` Node refuses — invisible to the compiler, to the unit tests (CommonJS on both
+      # sides) and to the e2e suite (which runs as ESM), and fatal in a deployed CommonJS app.
+      - name: Verify the packages can be required from CommonJS
+        run: pnpm check:cjs-require
+
   skill-references:
     name: Skill references in sync
     runs-on: ubuntu-latest

@@ -115,10 +115,47 @@ export interface HttpRequestData {
   graphql?: GraphQLInfo;
 }
 
+/**
+ * How a response was written when it was **streamed** — sent in several pieces over time rather
+ * than in one shot: Server-Sent Events, an LLM token stream, NDJSON, a piped file.
+ *
+ * Such a response breaks the assumption every other figure on the profile rests on, that the
+ * response is over when the route handler returns. Measured from the transport's own `write`/`end`
+ * calls, so an application streams exactly the way it did before — nothing to instrument by hand.
+ */
+export interface ResponseStreamData {
+  /** Number of body chunks the transport wrote. */
+  chunks: number;
+  /** Total bytes written across every chunk. */
+  bytes: number;
+  /**
+   * Milliseconds from the start of the profile to the **first** byte written — the latency the
+   * caller actually perceives on a stream, and the only part of the duration it can act on.
+   */
+  timeToFirstChunk: number;
+  /** Milliseconds spent streaming: from the first chunk to the moment the response closed. */
+  duration: number;
+  /** Mean milliseconds between two consecutive chunks, `undefined` for a single-chunk stream. */
+  interval?: number;
+  /**
+   * `true` when the connection closed before the response completed — the client went away
+   * mid-stream. The profile is still saved: an abandoned stream is a thing worth seeing, and it
+   * is the one case where `finish` never fires.
+   */
+  aborted: boolean;
+  /** Value of the response's `content-type` when it was written, e.g. `text/event-stream`. */
+  contentType?: string;
+}
+
 export interface ResponseData {
   statusCode: number;
   headers: Record<string, string | string[]>;
   body?: unknown;
+  /**
+   * Present only when the response was streamed — see {@link ResponseStreamData}. Its absence
+   * means the response was written in one piece, which is what a plain JSON answer does.
+   */
+  stream?: ResponseStreamData;
 }
 
 export interface PerformanceData {

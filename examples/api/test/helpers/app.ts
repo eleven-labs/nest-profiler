@@ -36,9 +36,19 @@ export const activeHttpClient = (): HttpClient =>
  */
 export const isDataLoaderRun = (): boolean => process.env['FEATURE_DATALOADER'] === 'true';
 
+/** One provider swapped out for the test — used to stand a fake in for a paid external service. */
+export interface ProviderOverride {
+  token: unknown;
+  value: unknown;
+}
+
 /** Boots the real AppModule and mirrors the logger wiring from `src/main.ts`. */
-export async function createE2EApp(): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+export async function createE2EApp(overrides: ProviderOverride[] = []): Promise<INestApplication> {
+  const builder = overrides.reduce(
+    (acc, { token, value }) => acc.overrideProvider(token).useValue(value),
+    Test.createTestingModule({ imports: [AppModule] }),
+  );
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ bufferLogs: true });
 
   const baseLogger = isPinoLoggerEnabled(process.env)
