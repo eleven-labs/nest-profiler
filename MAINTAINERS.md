@@ -75,6 +75,18 @@ git push                                  # CI's Release workflow then cuts the 
 
 `changeset pre exit` does not delete `.changeset/pre.json`; it sets `"mode": "exit"`. The next `changeset version` (run by the Release workflow once the commit lands on `main`) produces stable versions from every changeset accumulated in `.changeset/pre/`, then removes both that folder and `pre.json`. Review that batch before merging the version PR: it is the changelog of the whole prerelease series.
 
+### First publish of a new package
+
+npm trusted publishing (OIDC) is declared per package on npmjs.com, and the package has to exist there before a trusted publisher can be attached to it. The very first version is therefore published by hand, from a maintainer's machine:
+
+```bash
+pnpm --filter <package> publish --tag <channel>   # e.g. --tag alpha
+```
+
+Then declare this repository and `release.yml` as the package's trusted publisher on npmjs.com. Every release after that goes through CI with no token at all. `@eleven-labs/nest-profiler-ai@1.0.0-alpha.0` was bootstrapped that way.
+
+npm assigns `latest` on a package's first-ever publish — for a package bootstrapped on a prerelease channel, `latest` therefore points at that first alpha — and nothing in the release flow moves it afterwards: OIDC only authenticates `npm publish`, so moving a dist-tag in CI would take a long-lived write token, which is exactly what the workflow avoids. Promote it by hand (`npm dist-tag add <package>@<version> latest`) if a bare `npm install` should resolve to a newer prerelease.
+
 ### Packages pinned to their own dist-tag
 
 A package whose manifest declares a non-`latest` `publishConfig.tag` is pinned to that channel and stays there, release after release, while the rest of the suite ships stable. Today that is `@eleven-labs/nest-profiler-ai`, pinned to `alpha`.
