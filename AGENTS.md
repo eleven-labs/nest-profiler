@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 14 publishable packages (`@eleven-labs/nest-profiler` core + 13 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to npm.
+Open-source monorepo for the `@eleven-labs/nest-profiler` ecosystem: a Symfony Web Profiler-inspired toolkit for NestJS. It ships 15 publishable packages (`@eleven-labs/nest-profiler` core + 14 collector packages), a consuming example app (`example-api`), shared `@repo/*` workspace presets, an English-only Fumadocs site, and full CI / release automation to publish to npm.
 
 Constraints:
 
@@ -28,6 +28,7 @@ The agent should introspect the workspace before editing; only the non-obvious r
 - `packages/<name>` is the only path for publishable packages. New packages mirror the shape of `packages/nest-profiler`.
 - `packages/configs/*` are private `@repo/*` presets, never published.
 - `examples/api` is the consumer-side demonstration. It is in `.changeset/config.json#ignore` and never enters the release flow.
+- `@eleven-labs/nest-profiler-ai` is pinned to the `alpha` dist-tag through its `publishConfig.tag`. It is versioned and published by the normal Changesets flow, on its own prerelease line — see `MAINTAINERS.md`.
 - `docs/` is a Fumadocs site deployed to Vercel via Vercel's Git integration (no workflow in this repo), independently of package release.
 - `scripts/` holds release helpers (`changesets/*`, `absolutize-readme-images.ts`), not runtime code. Repository labels are declarative (`.github/labels.yml`) and synced by the `repo-config.yml` workflow, while milestones are managed by hand in the GitHub UI; one-time GitHub setup is documented in `MAINTAINERS.md`.
 

@@ -1,7 +1,22 @@
 #!/usr/bin/env tsx
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * Publish the packages `changeset version` bumped.
+ *
+ * Packages pinned to their own dist-tag (`publishConfig.tag`, today only the
+ * alpha `@eleven-labs/nest-profiler-ai`) are published first, one by one, under
+ * that tag: `changeset publish` applies a single dist-tag to the whole run, so
+ * an alpha caught in a stable release would land on `latest` and take over the
+ * stable line. Changesets then skips them — it publishes what the registry does
+ * not have yet — and ships the rest under the release channel's dist-tag.
+ */
+import { appendFileSync } from 'node:fs';
+
+import {
+  readActivePrereleaseTag,
+  readPinnedChannelPackages,
+  type PinnedChannelPackage,
+} from './release-channel';
+import { capture, run } from './run';
 
 const CHANNEL_TO_DIST_TAG = {
   stable: 'latest',
@@ -11,26 +26,6 @@ const CHANNEL_TO_DIST_TAG = {
 } as const;
 
 type ReleaseChannel = keyof typeof CHANNEL_TO_DIST_TAG;
-
-type PreState = {
-  mode?: string;
-  tag?: string;
-};
-
-function readActivePrereleaseTag(): string | null {
-  const preStatePath = join(process.cwd(), '.changeset', 'pre.json');
-
-  if (!existsSync(preStatePath)) {
-    return null;
-  }
-
-  const preState = JSON.parse(readFileSync(preStatePath, 'utf-8')) as PreState;
-  if (preState.mode !== 'pre' || !preState.tag) {
-    return null;
-  }
-
-  return preState.tag;
-}
 
 function resolveDistTag(): string {
   const requestedChannel = process.argv[2]?.trim();
@@ -79,18 +74,80 @@ function assertValidDistTag(distTag: string): void {
   }
 }
 
-function run(command: string, args: string[]): number {
-  const result = spawnSync(command, args, {
-    env: process.env,
-    stdio: 'inherit',
-  });
+/** Whether this exact version is already on the registry, as Changesets asks it. */
+function isAlreadyPublished(pkg: PinnedChannelPackage): boolean {
+  const { exitCode, stdout } = capture(
+    'pnpm',
+    ['info', `${pkg.name}@${pkg.version}`, 'version', '--json'],
+    pkg.dir,
+  );
 
-  if (result.error) {
-    console.error(result.error.message);
-    return 1;
+  if (exitCode === 0) {
+    return stdout.trim().length > 0;
   }
 
-  return result.status ?? 1;
+  if (stdout.includes('E404') || stdout.includes('ERR_PNPM_FETCH_404')) {
+    return false;
+  }
+
+  throw new Error(`Failed to query the registry for ${pkg.name}@${pkg.version}:\n${stdout}`);
+}
+
+/**
+ * Tag the release the way Changesets would, and report it to the runner.
+ *
+ * `changesets/action` reads the NDJSON event stream at `CHANGESETS_OUTPUT` to
+ * know what was published: it pushes a git tag and cuts a GitHub release for
+ * every `git-tag` event. A package published outside `changeset publish` has to
+ * announce itself there, or it silently ends up on npm with no tag and no
+ * release notes.
+ */
+function tagRelease(pkg: PinnedChannelPackage): number {
+  const tag = `${pkg.name}@${pkg.version}`;
+
+  if (capture('git', ['tag', '-l', tag]).stdout.trim() === '') {
+    const exitCode = run('git', ['tag', tag, '-m', tag]);
+    if (exitCode !== 0) {
+      return exitCode;
+    }
+  }
+
+  const outputPath = process.env.CHANGESETS_OUTPUT;
+  if (outputPath) {
+    appendFileSync(
+      outputPath,
+      `${JSON.stringify({ type: 'git-tag', tag, packageName: pkg.name })}\n`,
+    );
+  }
+
+  return 0;
+}
+
+function publishPinnedChannelPackages(): number {
+  for (const pkg of readPinnedChannelPackages()) {
+    if (isAlreadyPublished(pkg)) {
+      console.log(`${pkg.name}@${pkg.version} is already published, skipping.`);
+      continue;
+    }
+
+    console.log(`Publishing ${pkg.name}@${pkg.version} with dist-tag "${pkg.distTag}".`);
+
+    const exitCode = run(
+      'pnpm',
+      ['publish', '--access', pkg.access, '--tag', pkg.distTag, '--no-git-checks'],
+      pkg.dir,
+    );
+    if (exitCode !== 0) {
+      return exitCode;
+    }
+
+    const tagExitCode = tagRelease(pkg);
+    if (tagExitCode !== 0) {
+      return tagExitCode;
+    }
+  }
+
+  return 0;
 }
 
 function main(): void {
@@ -119,6 +176,10 @@ function main(): void {
 
   try {
     exitCode = run('tsx', ['scripts/absolutize-readme-images.ts']);
+
+    if (exitCode === 0) {
+      exitCode = publishPinnedChannelPackages();
+    }
 
     if (exitCode === 0) {
       exitCode = run('changeset', publishArgs);

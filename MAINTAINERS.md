@@ -75,6 +75,17 @@ git push                                  # CI's Release workflow then cuts the 
 
 `changeset pre exit` does not delete `.changeset/pre.json`; it sets `"mode": "exit"`. The next `changeset version` (run by the Release workflow once the commit lands on `main`) produces stable versions from every changeset accumulated in `.changeset/pre/`, then removes both that folder and `pre.json`. Review that batch before merging the version PR: it is the changelog of the whole prerelease series.
 
+### Packages pinned to their own dist-tag
+
+A package whose manifest declares a non-`latest` `publishConfig.tag` is pinned to that channel and stays there, release after release, while the rest of the suite ships stable. Today that is `@eleven-labs/nest-profiler-ai`, pinned to `alpha`.
+
+Such a package goes through the ordinary flow — `pnpm changeset` lists it, it gets a changelog, a git tag and a GitHub release — with two channel-specific steps:
+
+- `pnpm version-packages` (`scripts/changesets/version.ts`) runs `changeset version`, then puts the pinned package back on its prerelease line. Changesets, whose prerelease mode is repo-wide and off here, would version `1.0.0-alpha.0` plus a `minor` as a stable `1.0.0`; the script rewrites that to `1.0.0-alpha.1`, in the manifest and in the changelog entry. A bump that reaches a new base version starts that base's own series, e.g. `2.0.0-alpha.0`.
+- `pnpm release` (`scripts/changesets/publish.ts`) publishes it first, under its own dist-tag, then lets `changeset publish` ship the rest under the release channel's tag. `changeset publish` applies one dist-tag to the whole run, so an alpha caught in a stable release would otherwise land on `latest` and take over the stable line. The script tags the release and reports it through `CHANGESETS_OUTPUT`, the NDJSON stream `changesets/action` reads to push git tags and cut GitHub releases — a prerelease version is flagged as a pre-release there.
+
+A pinned package is deliberately outside the `linked` group: it keeps its own version line and is never dragged along by a suite-wide release. Graduating it is a one-off manual step — drop `publishConfig.tag`, set the stable version by hand, and add it to `linked` if it should follow the suite from then on.
+
 ### Versioning policy
 
 Breaking changes ship as a **major** with a `BREAKING:` note in the changeset body. In alpha/beta (prerelease) mode a major never moves the base version — every run only bumps the `-alpha.N` / `-beta.N` counter — so breaking changes flow freely; the major only materializes when you leave prerelease mode and cut the stable version. Review the `chore(release): version packages` PR before merging it: that diff is the deliberate gate on what actually ships.
