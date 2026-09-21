@@ -5,7 +5,8 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry, configureAiCapture } from './ai-telemetry';
+import { AiProfilerTelemetry } from './ai-telemetry';
+import { resetAiCapture } from './ai-capture';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
 import type { AiCallEntry, AiEntry } from './ai-call.interface';
 
@@ -40,7 +41,7 @@ describe('AiProfilerTelemetry — edges', () => {
 
   beforeEach(() => {
     telemetry = new AiProfilerTelemetry();
-    configureAiCapture({ captureContent: true, maxTextLength: 2000, maxMessages: 40 });
+    resetAiCapture();
   });
 
   /** Records one call from `start`, then ends it with `end`. */

@@ -2,6 +2,7 @@ import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { AiCollector } from './ai.collector';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
+import { configureAiCapture, resetAiCapture } from './ai-capture';
 import type { AiCallEntry, AiCollectorData, AiToolExecutionEntry } from './ai-call.interface';
 
 function newProfile(): Profile {
@@ -47,6 +48,20 @@ describe('AiCollector', () => {
 
   beforeEach(() => {
     collector = new AiCollector();
+    resetAiCapture();
+  });
+
+  afterAll(() => resetAiCapture());
+
+  it('records how the content was captured, so the panel can say what is missing', () => {
+    configureAiCapture({ capture: { default: 'redacted', messages: 'none' } });
+    const profile = newProfile();
+    appendCollectorEntry(profile, AI_ENTRIES_KEY, call());
+
+    expect(collector.collect(profile).capture).toMatchObject({
+      messages: 'none',
+      completion: 'redacted',
+    });
   });
 
   it('sums the calls, tools, tokens and cost', () => {

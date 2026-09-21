@@ -79,30 +79,118 @@ A streaming handler returns long before the transport stops writing. `@eleven-la
 
 ## Options
 
-| Option              | Default | Description                                                                |
-| ------------------- | ------- | -------------------------------------------------------------------------- |
-| `enabled`           | `true`  | Register the collector at all                                              |
-| `captureContent`    | `true`  | Record prompts, messages, completions, reasoning and tool payloads         |
-| `maxTextLength`     | `2000`  | Characters kept of any one captured text                                   |
-| `maxMessages`       | `40`    | Messages kept per call, counted from the most recent                       |
-| `pricing`           | —       | Token prices by model, so calls are costed (see [Cost](#cost))             |
-| `pricingSource`     | —       | Loads those prices from an API or a database, once at startup, cached      |
-| `pricingTtl`        | `0`     | ms before a loaded price table is reloaded in the background               |
-| `entrypoint`        | `true`  | Promote a request that called a model to the `ai` kind, with its own list  |
-| `error`             | HTTP    | What counts as a failed AI request, for the `ai` kind                      |
-| `slowThreshold`     | `5000`  | A model call at or above this duration (ms) is tagged `slow`               |
-| `nPlusOneThreshold` | `3`     | This many identical calls or more are tagged `n-plus-one`                  |
-| `chattyThreshold`   | `5`     | At or above this many calls in one profile, the profile is tagged `chatty` |
+| Option              | Default      | Description                                                                                                        |
+| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `enabled`           | `true`       | Register the collector at all                                                                                      |
+| `capture`           | `'redacted'` | How much of what was said is stored (see [Prompts, secrets and personal data](#prompts-secrets-and-personal-data)) |
+| `redaction`         | —            | What the `redacted` level masks, on top of the built-in detectors                                                  |
+| `maxTextLength`     | `2000`       | Characters kept of any one captured text                                                                           |
+| `maxMessages`       | `40`         | Messages kept per call, counted from the most recent                                                               |
+| `pricing`           | —            | Token prices by model, so calls are costed (see [Cost](#cost))                                                     |
+| `pricingSource`     | —            | Loads those prices from an API or a database, once at startup, cached                                              |
+| `pricingTtl`        | `0`          | ms before a loaded price table is reloaded in the background                                                       |
+| `entrypoint`        | `true`       | Promote a request that called a model to the `ai` kind, with its own list                                          |
+| `error`             | HTTP         | What counts as a failed AI request, for the `ai` kind                                                              |
+| `slowThreshold`     | `5000`       | A model call at or above this duration (ms) is tagged `slow`                                                       |
+| `nPlusOneThreshold` | `3`          | This many identical calls or more are tagged `n-plus-one`                                                          |
+| `chattyThreshold`   | `5`          | At or above this many calls in one profile, the profile is tagged `chatty`                                         |
 
-### Prompts that must not be stored
+## Prompts, secrets and personal data
 
-Where prompts carry personal or regulated data, turn the content off and keep the figures:
+A prompt is not a SQL query. It carries whatever the application put in front of the model: the user's own words, the documents retrieved for them, the record a tool just read, the key another tool was handed. The completion, the model's reasoning, the tool arguments and the structured output carry the same things back. All of it would otherwise be written to a profile that outlives the request, is readable in the dashboard and is exported by `/_profiler/:token/data`.
+
+So the collector **masks content by default**. `capture` decides how much reaches a stored profile:
+
+| Level        | What is stored                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `'none'`     | No content at all. The figures stay: model, tokens, cost, timings, tool names, finish reasons |
+| `'metadata'` | The shape only — `[text omitted · 1842 chars]`, `[object omitted · keys: query, limit]`       |
+| `'redacted'` | **Default.** The content, with credentials and personal data masked                           |
+| `'full'`     | Verbatim, masking off. A local machine, not a shared environment                              |
 
 ```ts
-AiCollectorModule.forRoot({ captureContent: false });
+AiCollectorModule.forRoot({ capture: 'redacted' });
 ```
 
-The panel then still reports the model, token usage, cost, timings, finish reasons and tool names — everything you profile for — and records none of what was said.
+One level covers everything, or set them field by field — the conversation is usually the sensitive part, not the completion, and a tool that reads a customer record is not its arguments:
+
+```ts
+AiCollectorModule.forRoot({
+  capture: {
+    default: 'redacted',
+    messages: 'metadata', // the user's own words never leave the process
+    reasoning: 'none', // a thinking model restates the whole prompt to itself
+    toolResults: 'metadata', // the tools read production data; their arguments are harmless
+  },
+});
+```
+
+| Field             | What it covers                                                              |
+| ----------------- | --------------------------------------------------------------------------- |
+| `instructions`    | The system prompt, which the SDK keeps apart from the conversation          |
+| `messages`        | The conversation sent to the model                                          |
+| `completion`      | The model's answer                                                          |
+| `reasoning`       | The model's thinking, when it exposed any                                   |
+| `toolDefinitions` | The tools declared to the model: descriptions and input schemas             |
+| `toolArguments`   | What a tool was called with, and the reason of an approval on it            |
+| `toolResults`     | What a tool answered                                                        |
+| `output`          | `generateObject`'s parsed object and the schema it had to satisfy           |
+| `runtimeContext`  | The context the application threads through the run — **opt-in**, see below |
+
+Two shorthands set several at once: `prompt` covers `instructions` and `messages`, `tools` covers the three tool fields. A field named on its own always wins over its group, and a group over `default`:
+
+```ts
+capture: { default: 'full', prompt: 'redacted', tools: 'metadata', toolResults: 'none' }
+```
+
+A tool payload is captured under its own field wherever it turns up, including inside the conversation — the messages carry the same arguments and results back to the model, and `tools: 'none'` means it there too.
+
+The panel says which level a profile was taken at, so a completion that was never recorded is never mistaken for a model that answered nothing, and the module logs a warning at startup when anything is set to `'full'`.
+
+### The runtime context is opt-in
+
+An application threads its own state through a generation: the AI SDK's `runtimeContext` on the call, and each tool's `toolContext` on its execution — the user, the tenant, the token a tool needs to reach your own API. It is the one thing here that is not what was said, so no blanket level pulls it in, not even `capture: 'full'`. It is recorded only when `runtimeContext` names it:
+
+```ts
+AiCollectorModule.forRoot({
+  capture: { default: 'redacted', runtimeContext: 'redacted' }, // tenant kept, token masked
+});
+```
+
+The call's context then shows with the generation, and each tool's own beside its input and output.
+
+### What `redacted` masks
+
+The same detectors the rest of the profiler uses on request bodies, so an AI payload is protected by the same rules: object keys that name a secret (`password`, `apiKey`, `authorization`, `token`, …) and values that look like one — JWTs, `sk-`/`pk-` keys, PEM private-key blocks, `scheme://user:pass@` userinfo, Luhn-valid card numbers. On top of those, the personal-data shapes a prompt is full of: email addresses, international phone numbers, IBANs, US social-security numbers.
+
+An attachment's URL goes through the query-string masking a captured request URL gets, so a signed URL keeps its address and loses its signature. A provider error or warning is masked too, and never dropped — a provider quotes the offending prompt back at you.
+
+Masking runs over the whole text before it is truncated, so a credential cannot survive by straddling the cut.
+
+### Extending it
+
+```ts
+AiCollectorModule.forRoot({
+  redaction: {
+    keys: ['patientId', 'ssn'], // extra object keys whose value is masked
+    patterns: [/CUST-\d{6}/g], // extra value shapes, masked inside any text
+    replacement: '***', // default '[REDACTED]'
+    pii: false, // stop masking emails, phone numbers, IBANs
+    useDefaults: false, // drop the built-in key list — deliberate and total
+  },
+});
+```
+
+Detection is best-effort: a name, a street or a national id in a local format goes through. Where the data is regulated, `metadata` or `none` is the answer rather than a longer pattern list — or your own scrubber, which runs over every text that is kept, after the built-in masking:
+
+```ts
+AiCollectorModule.forRoot({
+  redaction: {
+    sanitize: (text, { field, role, tool }) =>
+      field === 'toolResults' && tool === 'readPatientRecord' ? '[REDACTED]' : presidio.scrub(text),
+  },
+});
+```
 
 ## Cost
 
@@ -118,6 +206,8 @@ AiCollectorModule.forRoot({
 ```
 
 Rates are USD per million tokens, the unit providers publish. A key is `provider:model` or the bare model id, matched in that order, so one entry can cover a model served by several providers. `cacheRead`, `cacheWrite` and `reasoning` are optional and fall back to `input` or `output`; cached and thinking tokens are already counted in the totals, so each is billed once, at its own rate.
+
+A provider that answers as another model prices under the id the call asked for: OpenAI resolves `gpt-4o-mini` to the dated snapshot `gpt-4o-mini-2024-07-18`, and a table keyed on the models your application knows about still costs that call. The snapshot is what the panel shows, since it is what ran, and a price set on the snapshot itself wins over the one asked for.
 
 When the prices are not yours to hardcode — they change, or your application already keeps them — load them instead:
 

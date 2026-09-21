@@ -5,7 +5,8 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry, configureAiCapture } from './ai-telemetry';
+import { AiProfilerTelemetry } from './ai-telemetry';
+import { configureAiCapture, resetAiCapture } from './ai-capture';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
 import type {
   AiCallEntry,
@@ -61,7 +62,7 @@ describe('AiProfilerTelemetry — message parts', () => {
 
   beforeEach(() => {
     telemetry = new AiProfilerTelemetry();
-    configureAiCapture({ captureContent: true, maxTextLength: 2000, maxMessages: 40 });
+    resetAiCapture();
   });
 
   /** Records one call whose prompt carries `messages`, and returns the captured parts. */
@@ -291,6 +292,27 @@ describe('AiProfilerTelemetry — message parts', () => {
   });
 
   it('survives a payload that cannot be serialized', async () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic['self'] = cyclic;
+    const profile = newProfile();
+
+    await withProfile(profile, () => {
+      telemetry.onToolExecutionEnd?.({
+        callId: 'c1',
+        toolExecutionMs: 1,
+        toolCall: { toolCallId: 'tc1', toolName: 'loop', input: cyclic },
+        toolOutput: { type: 'tool-result', output: 'ok' },
+      } as any);
+    });
+
+    // Masking walks the payload and breaks the cycle on the way, so the shape survives it.
+    expect((entriesOf(profile)[0] as AiToolExecutionEntry).input).toEqual({
+      self: '[Circular]',
+    });
+  });
+
+  it('survives a payload that cannot be serialized when nothing is masked', async () => {
+    configureAiCapture({ capture: 'full' });
     const cyclic: Record<string, unknown> = {};
     cyclic['self'] = cyclic;
     const profile = newProfile();

@@ -233,6 +233,7 @@ export class AssistantService {
     temperature: number;
     timeout: number;
     reasoning: ReasoningEffort;
+    runtimeContext: { tenant: string; locale: string };
   } {
     return {
       maxOutputTokens: this.config.getOrThrow<number>('ai.maxOutputTokens'),
@@ -240,6 +241,10 @@ export class AssistantService {
       timeout: this.config.getOrThrow<number>('ai.timeoutMs'),
       // Captured in the AI panel as reasoning text and reasoning tokens, when the model exposes them.
       reasoning: this.config.getOrThrow<ReasoningEffort>('ai.reasoning'),
+      // What a real application threads through a generation and hands its tools — a tenant, a
+      // locale, often a token. The AI panel records it only where `capture.runtimeContext` says
+      // to, which is why this demo opts in; see `AI_CAPTURE`.
+      runtimeContext: { tenant: 'demo', locale: 'en' },
     };
   }
 }

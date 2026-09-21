@@ -22,6 +22,18 @@ export type {
 } from './ai-pricing';
 export { fetchOpenRouterPricing } from './openrouter-pricing';
 export type { OpenRouterPricingOptions } from './openrouter-pricing';
+export { AI_CAPTURE_FIELDS, AI_CAPTURE_GROUPS, AI_PII_PATTERNS } from './ai-capture';
+export type {
+  AiCaptureLevel,
+  AiCaptureField,
+  AiCaptureGroup,
+  AiCaptureFieldLevels,
+  AiCaptureOptions,
+  AiCaptureOrigin,
+  AiRedactionContext,
+  AiRedactionOptions,
+  AiSanitizer,
+} from './ai-capture';
 export { AI_ENTRIES_KEY, isAiCall } from './ai-call.interface';
 export type {
   AiEntry,

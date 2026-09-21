@@ -1,4 +1,26 @@
 import { registerAs } from '@nestjs/config';
+import type { AiCaptureLevel, AiCaptureOptions } from '@eleven-labs/nest-profiler-ai';
+
+const CAPTURE_LEVELS: readonly string[] = ['none', 'metadata', 'redacted', 'full'];
+
+const isLevel = (value: string): value is AiCaptureLevel => CAPTURE_LEVELS.includes(value);
+
+/**
+ * `AI_CAPTURE` as the collector takes it: one level for everything (`full`), or a level per field
+ * and per group (`default:redacted,prompt:metadata,toolResults:none`).
+ *
+ * The collector's own contract is what is being demonstrated here — an application with one
+ * policy writes the level and never needs the second form.
+ */
+function parseCapture(raw: string): AiCaptureOptions {
+  if (!raw.includes(':')) return isLevel(raw) ? raw : 'redacted';
+  const levels: Record<string, AiCaptureLevel> = {};
+  for (const pair of raw.split(',')) {
+    const [field, level] = pair.split(':').map((part) => part.trim());
+    if (field !== undefined && level !== undefined && isLevel(level)) levels[field] = level;
+  }
+  return levels;
+}
 
 /** Free OpenRouter model that streams reliably and supports tools; override with `AI_MODEL`. */
 const DEFAULT_MODEL = 'liquid/lfm-2.5-2.6b:free';
@@ -20,6 +42,11 @@ export default registerAs('ai', () => ({
   // `openrouter` prices every model from OpenRouter's public list, so a call is costed even when
   // the provider reports no cost. Off by default: it is one HTTP call at startup.
   pricing: process.env['AI_PRICING'] ?? '',
+  // How much of what was said reaches a stored profile: none | metadata | redacted | full, or a
+  // level per field. The collector's own default is `redacted`; this demo shows the prompts as
+  // they were sent, which is the point of the panel and is only safe because nothing here is
+  // real data.
+  capture: parseCapture(process.env['AI_CAPTURE'] ?? 'full'),
   // Sent to OpenRouter as the calling app, which is how it attributes free-tier usage.
   appUrl: process.env['AI_APP_URL'] ?? 'https://nest-profiler.eleven-labs.com',
   appTitle: process.env['AI_APP_TITLE'] ?? 'nest-profiler example API',
@@ -34,6 +61,7 @@ export interface AiConfig {
   reasoning: string;
   mcpUrl: string;
   pricing: string;
+  capture: AiCaptureOptions;
   appUrl: string;
   appTitle: string;
 }

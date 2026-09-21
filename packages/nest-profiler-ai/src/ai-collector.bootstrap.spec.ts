@@ -2,10 +2,12 @@
 // module only needs `registerTelemetry` here; the real SDK is exercised by the example's e2e.
 jest.mock('ai', () => ({ registerTelemetry: jest.fn() }));
 
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { AiCollectorModule } from './ai-collector.module';
 import { pricingFor, resetAiPricing } from './ai-pricing';
+import { aiCaptureLevels, resetAiCapture } from './ai-capture';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler core
@@ -28,6 +30,8 @@ describe.each([
 });
 
 describe('AiCollectorModule', () => {
+  afterEach(() => resetAiCapture());
+
   it('registers no provider when disabled', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -75,7 +79,8 @@ describe('AiCollectorModule', () => {
       imports: [
         ProfilerModule.forRoot({ isGlobal: true }),
         AiCollectorModule.forRoot({
-          captureContent: false,
+          capture: { default: 'redacted', messages: 'metadata' },
+          redaction: { keys: ['patientId'] },
           maxTextLength: 50,
           maxMessages: 5,
           entrypoint: false,
@@ -85,7 +90,56 @@ describe('AiCollectorModule', () => {
 
     const app = moduleRef.createNestApplication();
     await expect(app.init()).resolves.toBeDefined();
+    expect(aiCaptureLevels()).toMatchObject({ messages: 'metadata', completion: 'redacted' });
     await app.close();
+  });
+
+  it('warns once when content is captured verbatim', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ProfilerModule.forRoot({ isGlobal: true }),
+        AiCollectorModule.forRoot({ capture: 'full' }),
+      ],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("capture is set to 'full'"));
+    await app.close();
+    warn.mockRestore();
+  });
+
+  it('says nothing when the content is masked', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const moduleRef = await Test.createTestingModule({
+      imports: [ProfilerModule.forRoot({ isGlobal: true }), AiCollectorModule.forRoot()],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    expect(warn).not.toHaveBeenCalled();
+    await app.close();
+    warn.mockRestore();
+  });
+
+  it('forgets the capture settings of a previous application in the same process', async () => {
+    const boot = async (options: Parameters<typeof AiCollectorModule.forRoot>[0]) => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [ProfilerModule.forRoot({ isGlobal: true }), AiCollectorModule.forRoot(options)],
+      }).compile();
+      const app = moduleRef.createNestApplication();
+      await app.init();
+      return app;
+    };
+
+    const first = await boot({ capture: 'none', maxMessages: 1 });
+    await first.close();
+    const second = await boot({});
+    expect(aiCaptureLevels().messages).toBe('redacted');
+    await second.close();
   });
 
   it('initialises without a profiler core at all', async () => {
@@ -103,7 +157,7 @@ describe('AiCollectorModule', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ProfilerModule.forRoot({ isGlobal: true }),
-        AiCollectorModule.forRootAsync({ useFactory: () => ({ captureContent: false }) }),
+        AiCollectorModule.forRootAsync({ useFactory: () => ({ capture: 'none' as const }) }),
       ],
     }).compile();
 

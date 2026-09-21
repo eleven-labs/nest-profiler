@@ -12,6 +12,16 @@ import { AI_ENTRIES_KEY } from './ai-call.interface';
 import { estimateCost } from './ai-pricing';
 import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
 import { isMcpTool } from './mcp-tool-registry';
+import {
+  captureDiagnostic,
+  type AiCaptureField,
+  captureLevelOf,
+  captureSchema,
+  captureText,
+  captureUrl,
+  captureValue,
+  maxCapturedMessages,
+} from './ai-capture';
 import type {
   AiApproval,
   AiToolOrigin,
@@ -26,33 +36,6 @@ import type {
   AiToolExecutionEntry,
 } from './ai-call.interface';
 
-/** Defaults for the bounds applied before anything reaches a stored profile. */
-const DEFAULT_MAX_TEXT_LENGTH = 2000;
-const DEFAULT_MAX_MESSAGES = 40;
-
-/** What the capture functions need from the module options, resolved once. */
-interface CaptureConfig {
-  captureContent: boolean;
-  maxTextLength: number;
-  maxMessages: number;
-}
-
-let config: CaptureConfig = {
-  captureContent: true,
-  maxTextLength: DEFAULT_MAX_TEXT_LENGTH,
-  maxMessages: DEFAULT_MAX_MESSAGES,
-};
-
-/**
- * Applies the module's capture settings.
- *
- * Module-scoped rather than threaded through every helper: the telemetry integration is a
- * process-wide singleton (`registerTelemetry` is), so there is exactly one configuration to hold.
- */
-export function configureAiCapture(next: Partial<CaptureConfig>): void {
-  config = { ...config, ...next };
-}
-
 /** Whether a profiled HTTP request that called a model is promoted to the `ai` kind. */
 let promoteEntrypoint = true;
 
@@ -63,6 +46,8 @@ export function configureAiEntrypointPromotion(enabled: boolean): void {
 interface Operation {
   id: string;
   startedAt: number;
+  /** The AI SDK's `runtimeContext`, captured once for every call of this operation. */
+  context?: unknown;
   provider?: string;
   model?: string;
   instructions?: string;
@@ -87,29 +72,6 @@ interface PendingCall {
   settings?: AiCallSettings;
 }
 
-function truncate(text: string): string {
-  const max = config.maxTextLength;
-  return text.length <= max ? text : `${text.slice(0, max)}…`;
-}
-
-/** Content the host asked not to record is dropped here, once, rather than at every call site. */
-function content<T>(value: T): T | undefined {
-  return config.captureContent ? value : undefined;
-}
-
-/** Keeps an arbitrary payload (a tool input, a tool result) inside a bounded size. */
-function boundValue(value: unknown): unknown {
-  if (value === undefined || value === null) return value;
-  if (typeof value === 'string') return truncate(value);
-  try {
-    const max = config.maxTextLength * 2;
-    const json = JSON.stringify(value);
-    return json !== undefined && json.length > max ? `${json.slice(0, max)}…` : value;
-  } catch {
-    return '[unserializable]';
-  }
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -128,14 +90,20 @@ function describeAttachment(part: Record<string, unknown>): AiMessagePart {
     ...(typeof mediaType === 'string' && { mediaType }),
   };
 
+  // A URL is a pointer, but a signed one carries its credential in the query string.
+  const pointer = (url: string): AiMessagePart => {
+    const captured = captureUrl(url, 'messages');
+    return { ...described, ...(captured !== undefined && { url: captured }) };
+  };
+
   const describe = (value: unknown): AiMessagePart | undefined => {
     // Structural rather than `instanceof URL`: the URL may come from another realm.
     if (isRecord(value) && typeof value['href'] === 'string') {
-      return { ...described, url: value['href'] };
+      return pointer(value['href']);
     }
     if (typeof value === 'string') {
       return value.startsWith('http') || value.startsWith('data:')
-        ? { ...described, url: value.slice(0, 200), bytes: value.length }
+        ? { ...pointer(value), bytes: value.length }
         : { ...described, bytes: value.length };
     }
     if (ArrayBuffer.isView(value)) return { ...described, bytes: value.byteLength };
@@ -147,7 +115,24 @@ function describeAttachment(part: Record<string, unknown>): AiMessagePart {
   const tagged = isRecord(data)
     ? (data['url'] ?? data['data'] ?? data['reference'] ?? data['text'])
     : undefined;
-  return describe(data) ?? describe(tagged) ?? { ...described, value: boundValue(tagged ?? data) };
+  const pointed = describe(data) ?? describe(tagged);
+  if (pointed !== undefined) return pointed;
+  // Read last: inline bytes arrive as a base64 string of any size, and masking one would cost
+  // more than the whole call it belongs to.
+  const value = captureValue(tagged ?? data, 'messages');
+  return { ...described, ...(value !== undefined && { value }) };
+}
+
+/**
+ * The field a message part's payload is captured under. A tool payload is a tool payload wherever
+ * it turns up — the conversation carries the same arguments and results back to the model, and a
+ * host that asked for them not to be stored means it there too.
+ */
+function fieldOfPart(type: string): AiCaptureField {
+  if (type === 'tool-result' || type === 'tool-error' || type === 'tool-output-error') {
+    return 'toolResults';
+  }
+  return type.startsWith('tool-') ? 'toolArguments' : 'messages';
 }
 
 /** A tool result travels as `{ type: 'json', value }`; the panel wants the value, not the envelope. */
@@ -159,8 +144,10 @@ function unwrapToolOutput(value: unknown): unknown {
 
 /** Splits a message's content into the text a panel shows and the parts it lists separately. */
 function toMessage(message: ModelMessage): AiMessage {
+  const origin = { role: message.role };
   if (typeof message.content === 'string') {
-    return { role: message.role, text: truncate(message.content) };
+    const text = captureText(message.content, 'messages', origin);
+    return { role: message.role, ...(text !== undefined && { text }) };
   }
 
   const texts: string[] = [];
@@ -184,23 +171,28 @@ function toMessage(message: ModelMessage): AiMessage {
         : part.type === 'tool-approval-request'
           ? { reason: raw['reason'] }
           : unwrapToolOutput(raw['input'] ?? raw['output']);
+    const captured = captureValue(value, fieldOfPart(part.type), {
+      ...origin,
+      ...(typeof name === 'string' && { tool: name }),
+    });
     parts.push({
       type: part.type,
       ...(typeof name === 'string' && { name }),
-      value: boundValue(value),
+      ...(captured !== undefined && { value: captured }),
     });
   }
 
+  const text = texts.length > 0 ? captureText(texts.join(''), 'messages', origin) : undefined;
   return {
     role: message.role,
-    ...(texts.length > 0 && { text: truncate(texts.join('')) }),
+    ...(text !== undefined && { text }),
     ...(parts.length > 0 && { parts }),
   };
 }
 
 function toMessages(messages: readonly ModelMessage[]): AiMessage[] | undefined {
-  if (!config.captureContent) return undefined;
-  const mapped = messages.slice(-config.maxMessages).map(toMessage);
+  if (captureLevelOf('messages') === 'none') return undefined;
+  const mapped = messages.slice(-maxCapturedMessages()).map(toMessage);
   return mapped.length > 0 ? mapped : undefined;
 }
 
@@ -209,9 +201,7 @@ function messagesOf(event: LanguageModelCallStartEvent): AiMessage[] | undefined
 }
 
 function toInstructions(instructions: unknown): string | undefined {
-  if (instructions === undefined || instructions === null || !config.captureContent) {
-    return undefined;
-  }
+  if (instructions === undefined || instructions === null) return undefined;
   const list = Array.isArray(instructions) ? instructions : [instructions];
   const text = list
     .map((item: unknown) =>
@@ -219,7 +209,7 @@ function toInstructions(instructions: unknown): string | undefined {
     )
     .filter((item) => item !== '')
     .join('\n');
-  return text === '' ? undefined : truncate(text);
+  return captureText(text, 'instructions');
 }
 
 /** The conversation an operation-level start event carries, under whichever field it used. */
@@ -228,7 +218,11 @@ function operationMessages(raw: Record<string, unknown>): AiMessage[] | undefine
   if (Array.isArray(messages)) return toMessages(messages as ModelMessage[]);
   const prompt = raw['prompt'];
   if (Array.isArray(prompt)) return toMessages(prompt as ModelMessage[]);
-  if (typeof prompt === 'string') return [{ role: 'user', text: truncate(prompt) }];
+  if (typeof prompt === 'string') {
+    if (captureLevelOf('messages') === 'none') return undefined;
+    const text = captureText(prompt, 'messages', { role: 'user' });
+    return [{ role: 'user', ...(text !== undefined && { text }) }];
+  }
   return undefined;
 }
 
@@ -294,13 +288,19 @@ function originOf(name: string, providerDefined = false): AiToolOrigin {
 
 /** The tools as the provider received them — name, origin, description and the input schema. */
 function toolsOf(event: LanguageModelCallStartEvent): AiToolDefinition[] | undefined {
+  if (captureLevelOf('toolDefinitions') === 'none') return undefined;
   const tools = event.tools?.filter(isRecord).map((tool) => {
     const name = typeof tool['name'] === 'string' ? tool['name'] : 'unknown';
+    const description =
+      typeof tool['description'] === 'string'
+        ? captureText(tool['description'], 'toolDefinitions', { tool: name })
+        : undefined;
+    const inputSchema = captureSchema(tool['inputSchema'], 'toolDefinitions');
     return {
       name,
       origin: originOf(name, tool['type'] === 'provider-defined'),
-      ...(typeof tool['description'] === 'string' && { description: tool['description'] }),
-      ...(tool['inputSchema'] !== undefined && { inputSchema: tool['inputSchema'] }),
+      ...(description !== undefined && { description }),
+      ...(inputSchema !== undefined && { inputSchema }),
     };
   });
   return tools?.length ? tools : undefined;
@@ -371,16 +371,26 @@ function costOf(metadata: ProviderMetadata | undefined): number | undefined {
  * What the call cost. The provider's own figure wins — it is what will be invoiced — and the
  * token prices the module was configured with fill in for the providers that report none, which
  * is most of them.
+ *
+ * A provider often answers as something other than the model it was asked for: OpenAI resolves
+ * `gpt-4o-mini` to the dated snapshot `gpt-4o-mini-2024-07-18`. The snapshot is what the call is
+ * recorded as, since it is what ran, but a price table holds the id an application asks for — so
+ * `requested` is tried when the resolved id is priced nowhere.
  */
 function priceOf(
   metadata: ProviderMetadata | undefined,
   usage: AiTokenUsage | undefined,
   provider: string,
   model: string,
+  requested?: string,
 ): Pick<AiCallEntry, 'cost' | 'costSource'> {
   const reported = costOf(metadata);
   if (reported !== undefined) return { cost: reported, costSource: 'provider' };
-  const estimated = estimateCost(usage, provider, model);
+  const fallback =
+    requested !== undefined && requested !== model
+      ? estimateCost(usage, provider, requested)
+      : undefined;
+  const estimated = estimateCost(usage, provider, model) ?? fallback;
   if (estimated !== undefined) return { cost: estimated, costSource: 'estimated' };
   return {};
 }
@@ -402,12 +412,19 @@ function approvalsOf(content: unknown): AiApproval[] | undefined {
     const raw = part;
     const toolCall = isRecord(raw['toolCall']) ? raw['toolCall'] : {};
     const approved = raw['approved'];
+    const tool = typeof toolCall['toolName'] === 'string' ? toolCall['toolName'] : 'unknown';
+    // A reason is written by a person about this call: content, and captured as such. The
+    // decision itself is a fact about the run and is always kept.
+    const reason =
+      typeof raw['reason'] === 'string'
+        ? captureText(raw['reason'], 'toolArguments', { tool })
+        : undefined;
     approvals.push({
       approvalId: typeof raw['approvalId'] === 'string' ? raw['approvalId'] : '',
-      tool: typeof toolCall['toolName'] === 'string' ? toolCall['toolName'] : 'unknown',
+      tool,
       decision:
         raw['type'] === 'tool-approval-request' ? 'requested' : approved ? 'approved' : 'denied',
-      ...(typeof raw['reason'] === 'string' && { reason: raw['reason'] }),
+      ...(reason !== undefined && { reason }),
       ...(raw['isAutomatic'] === true && { automatic: true }),
     });
   }
@@ -429,19 +446,21 @@ function contentOf(event: LanguageModelCallEndEvent): {
     .join('');
   const toolCalls = event.content
     .filter((part) => part.type === 'tool-call')
-    .map(
-      (part) =>
-        ({
-          id: part.toolCallId,
-          name: part.toolName,
-          input: boundValue(part.input),
-          origin: originOf(part.toolName, part.providerExecuted === true),
-        }) satisfies AiToolCall,
-    );
+    .map((part) => {
+      const input = captureValue(part.input, 'toolArguments', { tool: part.toolName });
+      return {
+        id: part.toolCallId,
+        name: part.toolName,
+        ...(input !== undefined && { input }),
+        origin: originOf(part.toolName, part.providerExecuted === true),
+      } satisfies AiToolCall;
+    });
 
+  const capturedCompletion = captureText(completion, 'completion');
+  const capturedReasoning = captureText(reasoning, 'reasoning');
   return {
-    ...(completion !== '' && content({ completion: truncate(completion) })),
-    ...(reasoning !== '' && content({ reasoning: truncate(reasoning) })),
+    ...(capturedCompletion !== undefined && { completion: capturedCompletion }),
+    ...(capturedReasoning !== undefined && { reasoning: capturedReasoning }),
     ...(toolCalls.length > 0 && { toolCalls }),
   };
 }
@@ -475,10 +494,14 @@ export class AiProfilerTelemetry implements Telemetry {
     const settings = settingsOf(event);
     const instructions = toInstructions(raw['system']);
     const messages = operationMessages(raw);
+    const outputSchema = captureSchema(raw['schema'], 'output');
+    // What the application threads through the whole generation — off unless the host asked.
+    const context = captureValue(raw['runtimeContext'], 'runtimeContext');
     this.operations.set(event.callId, {
       id: event.operationId,
       startedAt: Date.now(),
       steps: 0,
+      ...(context !== undefined && { context }),
       ...(typeof raw['provider'] === 'string' && { provider: raw['provider'] }),
       ...(typeof raw['modelId'] === 'string' && { model: raw['modelId'] }),
       ...(instructions !== undefined && { instructions }),
@@ -486,7 +509,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(settings !== undefined && { settings }),
       ...(toolChoice !== undefined && { toolChoice }),
       ...(typeof raw['output'] === 'string' && { outputStrategy: raw['output'] }),
-      ...(raw['schema'] !== undefined && { outputSchema: raw['schema'] }),
+      ...(outputSchema !== undefined && { outputSchema }),
       ...(typeof raw['schemaName'] === 'string' && { schemaName: raw['schemaName'] }),
     });
   };
@@ -506,16 +529,20 @@ export class AiProfilerTelemetry implements Telemetry {
     const call = operation.lastCall ?? this.synthesize(operation, raw);
     if (!call) return;
 
-    if (raw['object'] !== undefined) call.output = content(boundValue(raw['object']));
+    if (raw['object'] !== undefined) {
+      const output = captureValue(raw['object'], 'output');
+      if (output !== undefined) call.output = output;
+    }
     const approvals = approvalsOf(raw['content']);
     if (approvals !== undefined) call.approvals = approvals;
     const reasoning = raw['reasoning'];
-    if (typeof reasoning === 'string' && reasoning !== '' && config.captureContent) {
-      call.reasoning = truncate(reasoning);
+    if (typeof reasoning === 'string') {
+      const captured = captureText(reasoning, 'reasoning');
+      if (captured !== undefined) call.reasoning = captured;
     }
     const warnings = Array.isArray(raw['warnings']) ? raw['warnings'] : [];
     if (warnings.length > 0) {
-      call.warnings = warnings.map((warning) => truncate(describeWarning(warning)));
+      call.warnings = warnings.map((warning) => captureDiagnostic(describeWarning(warning)));
     }
   };
 
@@ -537,6 +564,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(operation.instructions !== undefined && { instructions: operation.instructions }),
       ...(operation.messages !== undefined && { messages: operation.messages }),
       ...(operation.settings !== undefined && { settings: operation.settings }),
+      ...(operation.context !== undefined && { context: operation.context }),
       ...(operation.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation.schemaName !== undefined && { schemaName: operation.schemaName }),
@@ -595,13 +623,20 @@ export class AiProfilerTelemetry implements Telemetry {
         outputTokensPerSecond: Math.round(performance.outputTokensPerSecond * 10) / 10,
       }),
       ...(usageOf(event) !== undefined && { usage: usageOf(event) }),
-      ...priceOf(event.providerMetadata, usageOf(event), event.provider, event.modelId),
+      ...priceOf(
+        event.providerMetadata,
+        usageOf(event),
+        event.provider,
+        event.modelId,
+        operation?.model,
+      ),
       finishReason: event.finishReason,
       ...(event.responseId !== '' && { responseId: event.responseId }),
       ...(pending?.instructions !== undefined && { instructions: pending.instructions }),
       ...(pending?.messages !== undefined && { messages: pending.messages }),
       ...(pending?.tools !== undefined && { tools: pending.tools }),
       ...(settings !== undefined && { settings }),
+      ...(operation?.context !== undefined && { context: operation.context }),
       ...contentOf(event),
       ...(operation?.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation?.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
@@ -618,6 +653,10 @@ export class AiProfilerTelemetry implements Telemetry {
     const { toolCall, toolOutput } = event;
     const startedAt = this.pendingTools.get(toolCall.toolCallId);
     this.pendingTools.delete(toolCall.toolCallId);
+    // What the application handed its tools for this run — off unless the host asked for it.
+    const context = captureValue(event.toolContext, 'runtimeContext', {
+      tool: toolCall.toolName,
+    });
 
     const entry: AiToolExecutionEntry = {
       kind: 'tool',
@@ -626,12 +665,17 @@ export class AiProfilerTelemetry implements Telemetry {
       toolCallId: toolCall.toolCallId,
       duration: Math.round(event.toolExecutionMs * 1000) / 1000,
       startedAt: startedAt ?? Date.now() - event.toolExecutionMs,
-      input: content(boundValue(toolCall.input)),
+      input: captureValue(toolCall.input, 'toolArguments', { tool: toolCall.toolName }),
       origin: originOf(toolCall.toolName, toolCall.providerExecuted === true),
+      ...(context !== undefined && { context }),
       fingerprint: `tool:${toolCall.toolName}`,
       ...(toolOutput.type === 'tool-error'
-        ? { error: String((toolOutput as { error?: unknown }).error) }
-        : { output: content(boundValue((toolOutput as { output?: unknown }).output)) }),
+        ? { error: captureDiagnostic(String((toolOutput as { error?: unknown }).error)) }
+        : {
+            output: captureValue((toolOutput as { output?: unknown }).output, 'toolResults', {
+              tool: toolCall.toolName,
+            }),
+          }),
     };
     this.record(entry);
   };
@@ -665,7 +709,8 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(messages !== undefined && { messages }),
       ...(pending?.tools !== undefined && { tools: pending.tools }),
       ...(settings !== undefined && { settings }),
-      error: describeError(cause),
+      ...(operation?.context !== undefined && { context: operation.context }),
+      error: captureDiagnostic(describeError(cause)),
     });
   };
 

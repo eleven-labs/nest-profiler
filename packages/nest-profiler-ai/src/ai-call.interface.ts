@@ -1,4 +1,5 @@
 import type { ProfilerTag } from '@eleven-labs/nest-profiler';
+import type { AiCaptureField, AiCaptureLevel } from './ai-capture';
 
 /** Key the raw entries are accumulated under, before {@link AiCollector} shapes them. */
 export const AI_ENTRIES_KEY = 'ai.entries';
@@ -135,6 +136,13 @@ export interface AiCallEntry extends AiEntryBase {
   completion?: string;
   /** The model's thinking, when it exposed any. */
   reasoning?: string;
+  /**
+   * The runtime context the application threaded through this generation — the AI SDK's
+   * `runtimeContext`, as the operation started. Recorded only where `capture.runtimeContext`
+   * asks for it: it is the application's own state (the user, the tenant, a token) rather than
+   * anything the model said.
+   */
+  context?: unknown;
   toolCalls?: AiToolCall[];
   /** Approval requests and responses exchanged over this call's tool calls. */
   approvals?: AiApproval[];
@@ -154,6 +162,12 @@ export interface AiToolExecutionEntry extends AiEntryBase {
   input?: unknown;
   output?: unknown;
   origin: AiToolOrigin;
+  /**
+   * The context this tool was handed — the AI SDK's `toolContext`. Recorded only where
+   * `capture.runtimeContext` asks for it, since it holds the application's own runtime state
+   * (the user, the tenant, a token) rather than anything the model said.
+   */
+  context?: unknown;
 }
 
 export type AiEntry = AiCallEntry | AiToolExecutionEntry;
@@ -176,4 +190,11 @@ export interface AiCollectorData {
   totalDuration: number;
   /** Sum of every tool execution time. */
   toolDuration: number;
+  /**
+   * The capture level each content field was recorded at. Stored on the profile rather than read
+   * from the configuration when the panel renders: a profile is read long after it was taken,
+   * often on another machine, and a reader must be able to tell a model that said nothing from a
+   * completion that was never recorded.
+   */
+  capture?: Record<AiCaptureField, AiCaptureLevel>;
 }
