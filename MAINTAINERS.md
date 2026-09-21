@@ -85,7 +85,7 @@ pnpm --filter <package> publish --tag <channel>   # e.g. --tag alpha
 
 Then declare this repository and `release.yml` as the package's trusted publisher on npmjs.com. Every release after that goes through CI with no token at all. `@eleven-labs/nest-profiler-ai@1.0.0-alpha.0` was bootstrapped that way.
 
-npm assigns `latest` on a package's first-ever publish — for a package bootstrapped on a prerelease channel, `latest` therefore points at that first alpha — and nothing in the release flow moves it afterwards: OIDC only authenticates `npm publish`, so moving a dist-tag in CI would take a long-lived write token, which is exactly what the workflow avoids. Promote it by hand (`npm dist-tag add <package>@<version> latest`) if a bare `npm install` should resolve to a newer prerelease.
+npm assigns `latest` on a package's first-ever publish, so a package bootstrapped on a prerelease channel advertises that first alpha as `latest`, and a later publish under another dist-tag never moves it. While such a package has no stable release, `pnpm release` therefore promotes `latest` onto the version it just published, so a bare `npm install` resolves to the newest prerelease rather than to the bootstrap one; once a stable version exists it owns `latest` and the promotion stops.
 
 ### Packages pinned to their own dist-tag
 
@@ -95,6 +95,13 @@ Such a package goes through the ordinary flow — `pnpm changeset` lists it, it 
 
 - `pnpm version-packages` (`scripts/changesets/version.ts`) runs `changeset version`, then puts the pinned package back on its prerelease line. Changesets, whose prerelease mode is repo-wide and off here, would version `1.0.0-alpha.0` plus a `minor` as a stable `1.0.0`; the script rewrites that to `1.0.0-alpha.1`, in the manifest and in the changelog entry. A bump that reaches a new base version starts that base's own series, e.g. `2.0.0-alpha.0`.
 - `pnpm release` (`scripts/changesets/publish.ts`) publishes it first, under its own dist-tag, then lets `changeset publish` ship the rest under the release channel's tag. `changeset publish` applies one dist-tag to the whole run, so an alpha caught in a stable release would otherwise land on `latest` and take over the stable line. The script tags the release and reports it through `CHANGESETS_OUTPUT`, the NDJSON stream `changesets/action` reads to push git tags and cut GitHub releases — a prerelease version is flagged as a pre-release there.
+- The `latest` promotion described above is best-effort, and **CI cannot complete it**: trusted publishing mints a publish-scoped token, and `npm dist-tag add` is not in its scope ([npm/cli#8547](https://github.com/npm/cli/issues/8547)). The release does not fail over it — it prints a GitHub Actions warning naming the exact command, which a maintainer runs from an authenticated shell:
+
+  ```bash
+  pnpm dist-tag add <package>@<version> latest
+  ```
+
+  The promotion also runs for packages that were already published, so leaving it to the next release fixes the tag on its own. Nothing else is needed once npm allows trusted publishers to set dist-tags.
 
 A pinned package is deliberately outside the `linked` group: it keeps its own version line and is never dragged along by a suite-wide release. Graduating it is a one-off manual step — drop `publishConfig.tag`, set the stable version by hand, and add it to `linked` if it should follow the suite from then on.
 
