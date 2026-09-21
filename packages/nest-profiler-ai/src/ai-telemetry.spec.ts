@@ -446,6 +446,56 @@ describe('AiProfilerTelemetry', () => {
       expect(call).toMatchObject({ cost: 0.0042, costSource: 'provider' });
     });
 
+    it('prices a resolved snapshot under the model the call asked for', async () => {
+      configureAiPricing({ table: { 'openai:gpt-test': { input: 1, output: 2, cacheRead: 0.5 } } });
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        start();
+        // The provider answers as the dated snapshot it resolved `gpt-test` to, which nobody priced.
+        telemetry.onLanguageModelCallEnd?.({
+          callId: 'c1',
+          provider: 'openai.responses',
+          modelId: 'gpt-test-2024-07-18',
+          finishReason: 'stop',
+          usage: USAGE,
+          content: [],
+          responseId: 'r',
+          performance: PERFORMANCE,
+        } as any);
+      });
+
+      const [call] = callsOf(profile);
+      expect(call?.model).toBe('gpt-test-2024-07-18');
+      expect(call?.cost).toBeCloseTo((10 * 1 + 2 * 0.5 + 5 * 2) / 1_000_000, 9);
+      expect(call?.costSource).toBe('estimated');
+    });
+
+    it('keeps a price set on the resolved model over the one asked for', async () => {
+      configureAiPricing({
+        table: {
+          'openai:gpt-test': { input: 1, output: 2 },
+          'openai:gpt-test-2024-07-18': { input: 10, output: 20 },
+        },
+      });
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        start();
+        telemetry.onLanguageModelCallEnd?.({
+          callId: 'c1',
+          provider: 'openai.responses',
+          modelId: 'gpt-test-2024-07-18',
+          finishReason: 'stop',
+          usage: USAGE,
+          content: [],
+          responseId: 'r',
+          performance: PERFORMANCE,
+        } as any);
+      });
+
+      const [call] = callsOf(profile);
+      expect(call?.cost).toBeCloseTo((12 * 10 + 5 * 20) / 1_000_000, 9);
+    });
+
     it('leaves the cost off entirely when no price is known', async () => {
       const profile = newProfile();
       await withProfile(profile, () => {

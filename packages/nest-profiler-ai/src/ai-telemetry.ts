@@ -371,16 +371,26 @@ function costOf(metadata: ProviderMetadata | undefined): number | undefined {
  * What the call cost. The provider's own figure wins — it is what will be invoiced — and the
  * token prices the module was configured with fill in for the providers that report none, which
  * is most of them.
+ *
+ * A provider often answers as something other than the model it was asked for: OpenAI resolves
+ * `gpt-4o-mini` to the dated snapshot `gpt-4o-mini-2024-07-18`. The snapshot is what the call is
+ * recorded as, since it is what ran, but a price table holds the id an application asks for — so
+ * `requested` is tried when the resolved id is priced nowhere.
  */
 function priceOf(
   metadata: ProviderMetadata | undefined,
   usage: AiTokenUsage | undefined,
   provider: string,
   model: string,
+  requested?: string,
 ): Pick<AiCallEntry, 'cost' | 'costSource'> {
   const reported = costOf(metadata);
   if (reported !== undefined) return { cost: reported, costSource: 'provider' };
-  const estimated = estimateCost(usage, provider, model);
+  const fallback =
+    requested !== undefined && requested !== model
+      ? estimateCost(usage, provider, requested)
+      : undefined;
+  const estimated = estimateCost(usage, provider, model) ?? fallback;
   if (estimated !== undefined) return { cost: estimated, costSource: 'estimated' };
   return {};
 }
@@ -595,7 +605,13 @@ export class AiProfilerTelemetry implements Telemetry {
         outputTokensPerSecond: Math.round(performance.outputTokensPerSecond * 10) / 10,
       }),
       ...(usageOf(event) !== undefined && { usage: usageOf(event) }),
-      ...priceOf(event.providerMetadata, usageOf(event), event.provider, event.modelId),
+      ...priceOf(
+        event.providerMetadata,
+        usageOf(event),
+        event.provider,
+        event.modelId,
+        operation?.model,
+      ),
       finishReason: event.finishReason,
       ...(event.responseId !== '' && { responseId: event.responseId }),
       ...(pending?.instructions !== undefined && { instructions: pending.instructions }),

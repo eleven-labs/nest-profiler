@@ -119,6 +119,8 @@ AiCollectorModule.forRoot({
 
 Rates are USD per million tokens, the unit providers publish. A key is `provider:model` or the bare model id, matched in that order, so one entry can cover a model served by several providers. `cacheRead`, `cacheWrite` and `reasoning` are optional and fall back to `input` or `output`; cached and thinking tokens are already counted in the totals, so each is billed once, at its own rate.
 
+A provider that answers as another model prices under the id the call asked for: OpenAI resolves `gpt-4o-mini` to the dated snapshot `gpt-4o-mini-2024-07-18`, and a table keyed on the models your application knows about still costs that call. The snapshot is what the panel shows, since it is what ran, and a price set on the snapshot itself wins over the one asked for.
+
 When the prices are not yours to hardcode — they change, or your application already keeps them — load them instead:
 
 ```ts
