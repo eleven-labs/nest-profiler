@@ -16,12 +16,12 @@ export function run(command: string, args: string[], cwd?: string): number {
   return result.status ?? 1;
 }
 
-/** Run a command silently and return its exit code alongside its stdout. */
+/** Run a command silently and return its exit code alongside its output. */
 export function capture(
   command: string,
   args: string[],
   cwd?: string,
-): { exitCode: number; stdout: string } {
+): { exitCode: number; stdout: string; stderr: string } {
   const result = spawnSync(command, args, {
     cwd,
     env: process.env,
@@ -29,8 +29,8 @@ export function capture(
   });
 
   if (result.error) {
-    return { exitCode: 1, stdout: '' };
+    return { exitCode: 1, stdout: '', stderr: result.error.message };
   }
 
-  return { exitCode: result.status ?? 1, stdout: result.stdout ?? '' };
+  return { exitCode: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }

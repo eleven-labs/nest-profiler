@@ -74,9 +74,34 @@ function assertValidDistTag(distTag: string): void {
   }
 }
 
+type RegistryManifest = {
+  versions?: string[];
+  'dist-tags'?: Record<string, string>;
+};
+
+/** Report a non-fatal problem, as a GitHub Actions annotation when running there. */
+function warn(message: string): void {
+  console.warn(
+    process.env.GITHUB_ACTIONS === 'true' ? `::warning::${message}` : `Warning: ${message}`,
+  );
+}
+
+/**
+ * Registry answers that mean "nothing published under that spec" rather than
+ * "the lookup itself failed". A package the registry has never seen and a
+ * version missing from a package it does know are reported differently, and the
+ * code depends on whether pnpm resolved the spec itself or delegated to npm.
+ */
+const NOT_PUBLISHED_ERROR_CODES = [
+  'E404',
+  'ERR_PNPM_FETCH_404',
+  'ERR_PNPM_PACKAGE_NOT_FOUND',
+  'ERR_PNPM_NO_MATCHING_VERSION',
+];
+
 /** Whether this exact version is already on the registry, as Changesets asks it. */
 function isAlreadyPublished(pkg: PinnedChannelPackage): boolean {
-  const { exitCode, stdout } = capture(
+  const { exitCode, stdout, stderr } = capture(
     'pnpm',
     ['info', `${pkg.name}@${pkg.version}`, 'version', '--json'],
     pkg.dir,
@@ -86,11 +111,12 @@ function isAlreadyPublished(pkg: PinnedChannelPackage): boolean {
     return stdout.trim().length > 0;
   }
 
-  if (stdout.includes('E404') || stdout.includes('ERR_PNPM_FETCH_404')) {
+  const output = `${stdout}\n${stderr}`;
+  if (NOT_PUBLISHED_ERROR_CODES.some((code) => output.includes(code))) {
     return false;
   }
 
-  throw new Error(`Failed to query the registry for ${pkg.name}@${pkg.version}:\n${stdout}`);
+  throw new Error(`Failed to query the registry for ${pkg.name}@${pkg.version}:\n${output.trim()}`);
 }
 
 /**
@@ -123,28 +149,94 @@ function tagRelease(pkg: PinnedChannelPackage): number {
   return 0;
 }
 
+/** The `versions` and `dist-tags` the registry holds for `pkg`, or `null` when it holds none. */
+function readRegistryManifest(pkg: PinnedChannelPackage): RegistryManifest | null {
+  const { exitCode, stdout } = capture('pnpm', ['info', pkg.name, '--json'], pkg.dir);
+
+  if (exitCode !== 0 || stdout.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(stdout) as RegistryManifest;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keep `latest` on the pinned line until the package has a stable release.
+ *
+ * npm sets `latest` on a package's first-ever publish and then never moves it
+ * for a publish made under another dist-tag, so an `alpha`-pinned package would
+ * advertise its first alpha as `latest` forever — `npm install <pkg>` would
+ * install an ever-staler prerelease. While every published version is a
+ * prerelease, `latest` follows the pinned channel; as soon as a stable version
+ * exists it owns `latest`, and the stable publish moves it on its own.
+ *
+ * Promotion is best-effort: npm's trusted publishing (OIDC) mints a
+ * publish-scoped token, and `npm dist-tag add` is not in its scope
+ * (npm/cli#8547), so this cannot succeed on CI today. A failure therefore warns
+ * with the command to run by hand instead of failing a release whose packages
+ * are already on the registry — and the next release retries it, since this runs
+ * for packages that were already published too.
+ */
+function syncLatestDistTag(pkg: PinnedChannelPackage): void {
+  const manifest = readRegistryManifest(pkg);
+
+  if (!manifest) {
+    warn(`Could not read the dist-tags of ${pkg.name}; left "latest" untouched.`);
+    return;
+  }
+
+  const versions = manifest.versions ?? [];
+  if (versions.some((version) => !version.includes('-'))) {
+    return;
+  }
+
+  const currentLatest = manifest['dist-tags']?.latest;
+  if (currentLatest === pkg.version) {
+    return;
+  }
+
+  console.log(
+    `${pkg.name} has no stable release yet: moving "latest" from ` +
+      `${currentLatest ?? '(unset)'} to ${pkg.version}.`,
+  );
+
+  const distTagArgs = ['dist-tag', 'add', `${pkg.name}@${pkg.version}`, 'latest'];
+  if (run('pnpm', distTagArgs, pkg.dir) !== 0) {
+    warn(
+      `Could not move the "latest" dist-tag of ${pkg.name} to ${pkg.version} — it still ` +
+        `points at ${currentLatest ?? '(unset)'}. Trusted publishing cannot set dist-tags ` +
+        `(npm/cli#8547), so run "pnpm ${distTagArgs.join(' ')}" from an authenticated shell.`,
+    );
+  }
+}
+
 function publishPinnedChannelPackages(): number {
   for (const pkg of readPinnedChannelPackages()) {
     if (isAlreadyPublished(pkg)) {
       console.log(`${pkg.name}@${pkg.version} is already published, skipping.`);
-      continue;
+    } else {
+      console.log(`Publishing ${pkg.name}@${pkg.version} with dist-tag "${pkg.distTag}".`);
+
+      const exitCode = run(
+        'pnpm',
+        ['publish', '--access', pkg.access, '--tag', pkg.distTag, '--no-git-checks'],
+        pkg.dir,
+      );
+      if (exitCode !== 0) {
+        return exitCode;
+      }
+
+      const tagExitCode = tagRelease(pkg);
+      if (tagExitCode !== 0) {
+        return tagExitCode;
+      }
     }
 
-    console.log(`Publishing ${pkg.name}@${pkg.version} with dist-tag "${pkg.distTag}".`);
-
-    const exitCode = run(
-      'pnpm',
-      ['publish', '--access', pkg.access, '--tag', pkg.distTag, '--no-git-checks'],
-      pkg.dir,
-    );
-    if (exitCode !== 0) {
-      return exitCode;
-    }
-
-    const tagExitCode = tagRelease(pkg);
-    if (tagExitCode !== 0) {
-      return tagExitCode;
-    }
+    syncLatestDistTag(pkg);
   }
 
   return 0;
