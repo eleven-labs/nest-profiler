@@ -1,15 +1,12 @@
-import { Inject, Module, Optional } from '@nestjs/common';
+import { Inject, Logger, Module, Optional } from '@nestjs/common';
 import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { AiCollector } from './ai.collector';
 import { buildAiEntrypointType } from './ai-entrypoint';
-import {
-  AiProfilerTelemetry,
-  configureAiCapture,
-  configureAiEntrypointPromotion,
-} from './ai-telemetry';
+import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
+import { aiCaptureLevels, configureAiCapture, resetAiCapture } from './ai-capture';
 import { configureAiPricing, loadAiPricing } from './ai-pricing';
 import {
   AI_COLLECTOR_OPTIONS,
@@ -55,15 +52,21 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
   async onModuleInit(): Promise<void> {
     if (!this.collector) return;
 
+    // Reset first: the capture configuration is process-wide, so a second application instance
+    // in the same process (a test harness, a hot reload) must not inherit the first one's.
+    resetAiCapture();
     configureAiCapture({
+      ...(this.options.capture !== undefined && { capture: this.options.capture }),
       ...(this.options.captureContent !== undefined && {
         captureContent: this.options.captureContent,
       }),
+      ...(this.options.redaction !== undefined && { redaction: this.options.redaction }),
       ...(this.options.maxTextLength !== undefined && {
         maxTextLength: this.options.maxTextLength,
       }),
       ...(this.options.maxMessages !== undefined && { maxMessages: this.options.maxMessages }),
     });
+    this.warnOnVerbatimCapture();
 
     configureAiPricing({
       ...(this.options.pricing !== undefined && { table: this.options.pricing }),
@@ -97,6 +100,21 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
     // systems accept — and it keeps `ai` unloaded entirely when the collector is disabled.
     const { registerTelemetry } = await import('ai');
     registerTelemetry(new AiProfilerTelemetry());
+  }
+
+  /**
+   * `capture: 'full'` stores prompts, completions and tool payloads exactly as they were, and a
+   * profile outlives the request it describes. Saying so once at startup is what keeps it from
+   * being an accident nobody notices until the profiles are read.
+   */
+  private warnOnVerbatimCapture(): void {
+    const fields = Object.entries(aiCaptureLevels())
+      .filter(([, level]) => level === 'full')
+      .map(([field]) => field);
+    if (fields.length === 0) return;
+    new Logger(AiCollectorModule.name).warn(
+      `AI content capture is set to 'full' (${fields.join(', ')}): prompts, completions and tool payloads are stored verbatim, with no masking. Use 'redacted' anywhere the profiles are readable by others.`,
+    );
   }
 
   static forRoot(options: AiCollectorModuleOptions = {}): DynamicModule {

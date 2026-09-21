@@ -39,6 +39,36 @@
   const originClass = { mcp: 'badge-tag-info', provider: 'badge-tag-warning', local: 'badge-default' };
   const originLabel = { mcp: 'mcp', provider: 'provider', local: 'local' };
 
+  /*
+   * How the content was captured, as the profile recorded it. A reader must be able to tell a
+   * model that answered nothing from a completion that was never stored — so the panel says so
+   * whenever anything was masked or withheld, and stays quiet when everything is there.
+   */
+  const capture = (data && data.capture) || null;
+  /* The runtime context is opt-in, so leaving it out is the normal state and not worth reporting. */
+  const captureFields = capture
+    ? Object.keys(capture).filter(function (field) { return field !== 'runtimeContext' || capture[field] !== 'none'; })
+    : [];
+  const captureCounts = {};
+  for (const field of captureFields) captureCounts[capture[field]] = (captureCounts[capture[field]] || 0) + 1;
+  /* The level most fields share, so only what departs from it has to be spelled out. */
+  const mainLevel = Object.keys(captureCounts).sort(function (a, b) { return captureCounts[b] - captureCounts[a]; })[0];
+  const captureExceptions = captureFields
+    .filter(function (field) { return capture[field] !== mainLevel; })
+    .map(function (field) { return field + ': ' + capture[field]; });
+  const uniformLevel = captureExceptions.length === 0 ? mainLevel : null;
+  const captureNote = captureFields.length === 0 || uniformLevel === 'full'
+    ? ''
+    : uniformLevel
+      ? uniformLevel
+      : mainLevel + ' · except ' + captureExceptions.join(', ');
+
+  const captureHint = {
+    none: 'no prompt, completion or tool payload was recorded',
+    metadata: 'only the shape of what was said was recorded',
+    redacted: 'credentials and personal data were masked before storage',
+  };
+
   function settingChips(settings) {
     if (!settings) return [];
     return Object.keys(settings).map(function (key) {
@@ -78,6 +108,12 @@
     </div>
   </div>
 
+  <% if (captureNote) { %>
+    <p class="text-foreground-faint text-2xs mb-6 -mt-3">
+      Content capture <span class="font-mono text-foreground-muted"><%= captureNote %></span><%= uniformLevel && captureHint[uniformLevel] ? ' — ' + captureHint[uniformLevel] : '' %>
+    </p>
+  <% } %>
+
   <% for (const group of groups) { %>
     <% const head = group.head; %>
     <section class="mb-6 rounded-lg border border-line overflow-hidden">
@@ -104,6 +140,13 @@
         <div class="px-4 py-3 border-b border-line-subtle">
           <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">System prompt</p>
           <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= head.instructions %></code></pre>
+        </div>
+      <% } %>
+
+      <% if (head && head.context !== undefined) { %>
+        <div class="px-4 py-3 border-b border-line-subtle">
+          <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Runtime context</p>
+          <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(head.context) %></code></pre>
         </div>
       <% } %>
 
@@ -282,6 +325,10 @@
             <% } else { %>
               <p class="text-2xs text-foreground-faint mt-2 mb-1">Output</p>
               <pre class="bg-surface border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.output) %></code></pre>
+            <% } %>
+            <% if (entry.context !== undefined) { %>
+              <p class="text-2xs text-foreground-faint mt-2 mb-1">Runtime context</p>
+              <pre class="bg-surface border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(entry.context) %></code></pre>
             <% } %>
           </div>
         <% } %>

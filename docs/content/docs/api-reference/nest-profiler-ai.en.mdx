@@ -13,6 +13,75 @@ seo:
   name="AiCollectorModuleOptions"
 />
 
+## AiCaptureLevel
+
+```ts
+type AiCaptureLevel = 'none' | 'metadata' | 'redacted' | 'full';
+```
+
+How much of one kind of content reaches a stored profile. `none` keeps the figures and records
+nothing of what was said, `metadata` keeps the shape (`[text omitted · 1842 chars]`), `redacted`
+is the default and masks credentials and personal data, and `full` stores it verbatim with no
+masking.
+
+## AiCaptureFieldLevels
+
+A level per content field, for the setups where one field is more sensitive than the rest.
+Resolution runs from the narrowest: a field, then the group it belongs to (`prompt` covers
+`instructions` and `messages`, `tools` covers the three tool fields), then `default`.
+`runtimeContext` is outside that chain — the AI SDK's `runtimeContext` on a call and each tool's
+`toolContext` hold the application's own state rather than what was said, so they are recorded
+only when the field is named, not even by `capture: 'full'`.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-capture.ts" name="AiCaptureFieldLevels" />
+
+## AiCaptureOptions
+
+```ts
+type AiCaptureOptions = AiCaptureLevel | AiCaptureFieldLevels;
+```
+
+## AI_CAPTURE_FIELDS / AI_CAPTURE_GROUPS
+
+```ts
+const AI_CAPTURE_FIELDS: readonly AiCaptureField[];
+const AI_CAPTURE_GROUPS: { prompt: [...]; tools: [...] };
+```
+
+Every field a level can be set on, and the shorthands that cover several of them at once.
+
+## AiRedactionOptions
+
+What the `redacted` level masks, on top of the built-in detectors it shares with the rest of the
+profiler.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-capture.ts" name="AiRedactionOptions" />
+
+## AiSanitizer
+
+```ts
+type AiSanitizer = (text: string, context: AiRedactionContext) => string;
+```
+
+A scrubber of the host's own, run over every text that is kept, after the built-in masking.
+
+## AiRedactionContext
+
+What is being masked, handed to `sanitize`: the content field (or `'error'` for a provider
+message), the role of the message it belongs to, and the tool it belongs to.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-capture.ts" name="AiRedactionContext" />
+
+## AI_PII_PATTERNS
+
+```ts
+const AI_PII_PATTERNS: readonly RegExp[];
+```
+
+The personal-data shapes the `redacted` level masks beyond the credential detectors: email
+addresses, international phone numbers, IBANs and US social-security numbers. Exported so a host
+can see exactly what is matched, and extend it through `redaction.patterns`.
+
 ## AiCallEntry
 
 One provider round-trip. A tool loop records several, distinguished by `step`.
@@ -174,6 +243,11 @@ import {
   buildAiEntrypointType,
   isAiCall,
 } from '@eleven-labs/nest-profiler-ai';
+import {
+  AI_CAPTURE_FIELDS,
+  AI_CAPTURE_GROUPS,
+  AI_PII_PATTERNS,
+} from '@eleven-labs/nest-profiler-ai';
 
 import type {
   AiCollectorModuleOptions,
@@ -191,6 +265,15 @@ import type {
   AiMessageRole,
   AiCallSettings,
   AiTokenUsage,
+  AiCaptureLevel,
+  AiCaptureField,
+  AiCaptureFieldLevels,
+  AiCaptureGroup,
+  AiCaptureOptions,
+  AiCaptureOrigin,
+  AiRedactionContext,
+  AiRedactionOptions,
+  AiSanitizer,
   AiModelPricing,
   AiPricingTable,
   AiPricingSource,

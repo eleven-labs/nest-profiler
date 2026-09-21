@@ -10,5 +10,9 @@
   {
     "query": "Is putting the profiler behind a non-default path (path: '/__debug') enough to secure it?",
     "expected_behavior": "Clarify that the path is not security — an unguessable path is not access control. The actual gate is the `security` option (an `authorize` predicate and/or NestJS `guards`; the profiler is open when none is provided). Recommend adding a security strategy and the rest of the checklist. Must NOT cite a built-in token."
+  },
+  {
+    "query": "We run the AI collector and our prompts carry customer emails, support tickets and a token a tool needs. Is it safe to leave that on in staging?",
+    "expected_behavior": "Must NOT refuse. Explain that `@eleven-labs/nest-profiler-ai` masks content by default (`capture: 'redacted'` — credentials and personal data), and apply the AI item of the checklist: confirm nothing sets `capture: 'full'`, tighten to `capture: 'metadata'` or `'none'` (or a per-field object such as `{ default: 'redacted', prompt: 'metadata', toolResults: 'none' }`) where the prompts carry regulated data, and extend `redaction` (`keys`, `patterns`, `pii`, `sanitize`) for what the built-ins cannot detect. Should also cover the rest of the checklist (security strategy, sampling, retention) since the whole profiler is exposed, not just the AI panel."
   }
 ]

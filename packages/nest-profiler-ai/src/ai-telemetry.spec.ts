@@ -5,11 +5,8 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import {
-  AiProfilerTelemetry,
-  configureAiCapture,
-  configureAiEntrypointPromotion,
-} from './ai-telemetry';
+import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
+import { configureAiCapture, resetAiCapture } from './ai-capture';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
 import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from './ai-call.interface';
 import { markMcpTools } from './mcp-tool-registry';
@@ -67,7 +64,7 @@ describe('AiProfilerTelemetry', () => {
 
   beforeEach(() => {
     telemetry = new AiProfilerTelemetry();
-    configureAiCapture({ captureContent: true, maxTextLength: 2000, maxMessages: 40 });
+    resetAiCapture();
     configureAiEntrypointPromotion(true);
   });
 
@@ -167,6 +164,148 @@ describe('AiProfilerTelemetry', () => {
     // The figures survive — that is the point of the switch.
     expect(call?.usage?.total).toBe(17);
     expect(call?.model).toBe('gpt-test');
+  });
+
+  it('masks a credential a prompt carried, by default', async () => {
+    const profile = newProfile();
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r';
+    await withProfile(profile, () => {
+      telemetry.onLanguageModelCallStart?.({
+        callId: 'c1',
+        provider: 'openai',
+        modelId: 'gpt-test',
+        instructions: `Call the API with ${jwt}`,
+        messages: [{ role: 'user', content: 'my card is 4242 4242 4242 4242' }],
+      } as any);
+      end('c1', [{ type: 'text', text: 'mailed to alice@example.com' }]);
+    });
+
+    const [call] = callsOf(profile);
+    expect(call?.instructions).toBe('Call the API with [REDACTED]');
+    expect(call?.messages?.[0]?.text).toBe('my card is [REDACTED]');
+    expect(call?.completion).toBe('mailed to [REDACTED]');
+  });
+
+  it('records the shape of the conversation and nothing else at metadata', async () => {
+    configureAiCapture({ capture: 'metadata' });
+    const profile = newProfile();
+    await withProfile(profile, () => {
+      start();
+      end();
+    });
+
+    const [call] = callsOf(profile);
+    expect(call?.messages).toEqual([{ role: 'user', text: '[text omitted · 5 chars]' }]);
+    expect(call?.completion).toBe('[text omitted · 8 chars]');
+    // The tool is still declared, without the schema the model had to fill.
+    expect(call?.tools).toEqual([
+      { name: 'shout', origin: 'local', description: '[text omitted · 5 chars]' },
+    ]);
+  });
+
+  it('drops the tool arguments the model asked for when tool payloads are off', async () => {
+    configureAiCapture({ capture: { default: 'redacted', tools: 'none' } });
+    const profile = newProfile();
+    await withProfile(profile, () => {
+      start();
+      end('c1', [
+        { type: 'tool-call', toolCallId: 'tc1', toolName: 'pay', input: { iban: 'FR76' } },
+      ]);
+      telemetry.onToolExecutionEnd?.({
+        callId: 'c1',
+        toolExecutionMs: 3,
+        toolCall: { toolCallId: 'tc1', toolName: 'pay', input: { iban: 'FR76' } },
+        toolOutput: { type: 'tool-result', output: { ok: true } },
+      } as any);
+    });
+
+    const [call] = callsOf(profile);
+    expect(call?.toolCalls).toEqual([{ id: 'tc1', name: 'pay', origin: 'local' }]);
+    const execution = entriesOf(profile).find((entry) => entry.kind === 'tool');
+    expect(execution).toMatchObject({ name: 'pay' });
+    expect(execution?.input).toBeUndefined();
+    expect(execution?.output).toBeUndefined();
+  });
+
+  it("records the generation's runtime context only where it is asked for", async () => {
+    const run = async (): Promise<AiCallEntry | undefined> => {
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        telemetry.onStart?.({
+          callId: 'c1',
+          operationId: 'ai.generateText',
+          provider: 'openai',
+          modelId: 'gpt-test',
+          messages: [{ role: 'user', content: 'Hello' }],
+          runtimeContext: { tenant: 'acme', authorization: 'Bearer abc' },
+        } as any);
+        end();
+      });
+      return callsOf(profile)[0];
+    };
+
+    expect((await run())?.context).toBeUndefined();
+
+    configureAiCapture({ capture: { runtimeContext: 'redacted' } });
+    expect((await run())?.context).toEqual({ tenant: 'acme', authorization: '[REDACTED]' });
+  });
+
+  it("records a tool's own context only where it is asked for", async () => {
+    const run = async (): Promise<AiToolExecutionEntry | undefined> => {
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        telemetry.onToolExecutionEnd?.({
+          callId: 'c1',
+          toolExecutionMs: 3,
+          toolCall: { toolCallId: 'tc1', toolName: 'pay', input: {} },
+          toolContext: { tenant: 'acme', apiKey: 'sk-live-0123456789abcdef01' },
+          toolOutput: { type: 'tool-result', output: { ok: true } },
+        } as any);
+      });
+      return entriesOf(profile).find((entry) => entry.kind === 'tool');
+    };
+
+    expect((await run())?.context).toBeUndefined();
+
+    configureAiCapture({ capture: { runtimeContext: 'redacted' } });
+    expect((await run())?.context).toEqual({ tenant: 'acme', apiKey: '[REDACTED]' });
+  });
+
+  it('keeps a tool result out of the conversation too when tool results are off', async () => {
+    configureAiCapture({ capture: { default: 'full', toolResults: 'none' } });
+    const profile = newProfile();
+    await withProfile(profile, () => {
+      telemetry.onLanguageModelCallStart?.({
+        callId: 'c1',
+        provider: 'openai',
+        modelId: 'gpt-test',
+        messages: [
+          {
+            role: 'tool',
+            content: [
+              { type: 'tool-result', toolName: 'pay', output: { iban: 'FR76', amount: 12 } },
+            ],
+          },
+        ],
+      } as any);
+      end();
+    });
+
+    const [part] = callsOf(profile)[0]?.messages?.[0]?.parts ?? [];
+    expect(part).toEqual({ type: 'tool-result', name: 'pay' });
+  });
+
+  it('masks what a provider error quotes back, and keeps the failure readable', async () => {
+    const profile = newProfile();
+    await withProfile(profile, () => {
+      start();
+      telemetry.onError?.({
+        callId: 'c1',
+        error: { message: 'content filter: reached alice@example.com' },
+      });
+    });
+
+    expect(callsOf(profile)[0]?.error).toBe('content filter: reached [REDACTED]');
   });
 
   it('truncates text past the configured bound', async () => {

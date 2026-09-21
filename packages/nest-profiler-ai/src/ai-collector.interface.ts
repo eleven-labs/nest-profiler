@@ -6,16 +6,48 @@ import type {
   TagSeverityOptions,
 } from '@eleven-labs/nest-profiler';
 import type { AiPricingSource, AiPricingTable } from './ai-pricing';
+import type { AiCaptureOptions, AiRedactionOptions } from './ai-capture';
 
 export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSeverityOptions {
   /**
-   * Record what was said: the system prompt, the conversation, the completion, the model's
-   * reasoning, and tool inputs and outputs. Default: `true`.
+   * How much of what was said reaches a stored profile — the system prompt, the conversation,
+   * the completion, the model's reasoning, tool payloads and structured output. Default:
+   * `'redacted'`.
    *
-   * Turn it off where prompts carry personal or regulated data — the panel then keeps the
-   * figures (model, tokens, cost, timings, tool names) and drops the content.
+   * A prompt carries whatever the application put in front of the model: the user's own words,
+   * the documents retrieved for them, the credentials a tool was handed. So the default records
+   * the content with credentials and personal data masked, and the levels below take it further
+   * in either direction:
+   *
+   * - `'none'` — no content at all; the figures (model, tokens, cost, timings, tool names) stay.
+   * - `'metadata'` — the shape only: how long a text was, which keys a payload had.
+   * - `'redacted'` — the content, masked (**default**). See {@link AiCollectorModuleOptions.redaction}.
+   * - `'full'` — verbatim, masking off. A local machine, not a shared environment.
+   *
+   * One level applies to everything, or set them field by field — `instructions`, `messages`,
+   * `completion`, `reasoning`, `toolDefinitions`, `toolArguments`, `toolResults`, `output` — with
+   * `prompt` and `tools` as shorthands for the fields under them:
+   *
+   * ```ts
+   * capture: { default: 'redacted', prompt: 'metadata', toolResults: 'none' }
+   * ```
+   *
+   * `runtimeContext` (the AI SDK's `toolContext`: the user, the tenant, a token a tool needs) is
+   * the exception — it is the application's own state rather than what was said, so no blanket
+   * level pulls it in and it is recorded only when named.
+   */
+  capture?: AiCaptureOptions;
+  /**
+   * @deprecated Use {@link AiCollectorModuleOptions.capture}: `true` means `'redacted'` and
+   * `false` means `'none'`. Ignored when `capture` is set.
    */
   captureContent?: boolean;
+  /**
+   * What the `redacted` level masks, on top of the built-in credential detectors it shares with
+   * the rest of the profiler — extra object keys, extra value patterns, personal-data shapes, or
+   * your own scrubber.
+   */
+  redaction?: AiRedactionOptions;
   /** Characters kept of any one captured text before it is truncated. Default: `2000`. */
   maxTextLength?: number;
   /** Messages kept per call, counted from the most recent. Default: `40`. */

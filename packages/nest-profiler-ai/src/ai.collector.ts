@@ -14,6 +14,7 @@ import { AI_ICON } from './icons';
 import { AI_COLLECTOR_OPTIONS } from './ai-collector.interface';
 import type { AiCollectorModuleOptions } from './ai-collector.interface';
 import { AI_ENTRIES_KEY, isAiCall } from './ai-call.interface';
+import { aiCaptureLevels } from './ai-capture';
 import type { AiCallEntry, AiCollectorData, AiEntry } from './ai-call.interface';
 
 const EMPTY: AiCollectorData = {
@@ -84,6 +85,7 @@ export class AiCollector implements IProfilerCollector, TraceContributor, Taggab
       costEstimated: calls.some((call) => call.costSource === 'estimated'),
       totalDuration: sum(calls.map((call) => call.duration)),
       toolDuration: sum(tools.map((tool) => tool.duration)),
+      capture: { ...aiCaptureLevels() },
     };
   }
 
