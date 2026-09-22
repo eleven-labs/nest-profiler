@@ -205,14 +205,29 @@ no price. Cached and thinking tokens are billed at their own rate and are alread
 input and output totals, so each is taken out before its rate is applied. The collector applies
 this itself; call it directly only to cost something of your own.
 
+## mcpToolNamesOf
+
+```ts
+function mcpToolNamesOf(tools: unknown): Set<string>;
+```
+
+The names of the MCP tools in a tool set, told apart from local ones by the marks `@ai-sdk/mcp`'s
+client leaves on every tool it builds. The collector calls it on each operation's start event — the
+last point at which a tool still says where it came from, since the provider only ever sees names
+and schemas — so tools discovered through that client are labelled `mcp` with nothing declared.
+
 ## markMcpTools
 
 ```ts
 function markMcpTools(names: readonly string[]): void;
 ```
 
-Tells the collector which tool names came from an MCP server, so it can label their origin `mcp`.
-Call it once after loading a server's tools.
+Declares tool names as coming from an MCP server. Only needed for an integration that builds its
+MCP tools itself rather than through `@ai-sdk/mcp`'s client, which `mcpToolNamesOf` recognises on
+its own. Call it once after loading a server's tools.
+
+Unlike the automatic path, this puts an import of this package in application code, which rules out
+keeping the profiler in `devDependencies` for the file that calls it.
 
 ## AI_ENTRYPOINT_TYPE
 
@@ -227,7 +242,7 @@ The `Profile.entrypoint.type` a profiled HTTP request is promoted to once it has
 ```ts
 import { AiCollectorModule } from '@eleven-labs/nest-profiler-ai';
 import { AiCollector } from '@eleven-labs/nest-profiler-ai';
-import { markMcpTools, isMcpTool } from '@eleven-labs/nest-profiler-ai';
+import { markMcpTools, isMcpTool, mcpToolNamesOf } from '@eleven-labs/nest-profiler-ai';
 import {
   configureAiPricing,
   loadAiPricing,

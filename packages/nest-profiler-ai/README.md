@@ -240,14 +240,26 @@ A figure the provider reports itself always wins: OpenRouter files one under `op
 
 ## MCP tools
 
-Tools borrowed from a Model Context Protocol server arrive as ordinary AI SDK tools, so they are captured like any other. Tell the collector which names came from a server and it labels them `mcp` in the panel:
+Tools borrowed from a Model Context Protocol server arrive as ordinary AI SDK tools, so they are captured like any other — and labelled `mcp` in the panel without the application declaring anything:
+
+```ts
+import { createMCPClient } from '@ai-sdk/mcp';
+
+const client = await createMCPClient({ transport: { type: 'http', url } });
+const tools = await client.tools(); // already recognised as `mcp`
+```
+
+The tool objects the client builds carry marks a local `tool()` never has, and the AI SDK hands the whole tool set over when an operation starts — which is the last point at which a tool still says where it came from, since the provider only ever sees names and schemas. The collector reads it there, per operation, so a local tool that happens to share a name with a remote one is not mislabelled.
+
+If you build your MCP tools yourself rather than through `@ai-sdk/mcp`'s client, declare their names instead:
 
 ```ts
 import { markMcpTools } from '@eleven-labs/nest-profiler-ai';
 
-const tools = await mcpClient.tools();
 markMcpTools(Object.keys(tools));
 ```
+
+> That import lives in application code, so the file that calls it cannot be part of an app that keeps the profiler in [`devDependencies` only](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split). The automatic path has no such constraint.
 
 ## Documentation
 

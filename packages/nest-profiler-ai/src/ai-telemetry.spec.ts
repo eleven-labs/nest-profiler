@@ -319,6 +319,55 @@ describe('AiProfilerTelemetry', () => {
     expect(callsOf(profile)[0]?.completion).toBe(`${'x'.repeat(10)}…`);
   });
 
+  it('labels a tool discovered on an MCP server, with nothing declared', async () => {
+    const profile = newProfile();
+
+    await withProfile(profile, () => {
+      // The tool set the SDK hands over on the start event, as `@ai-sdk/mcp` built it: a name
+      // `markMcpTools` was never told about, so only the tool object itself can give it away.
+      telemetry.onStart?.({
+        callId: 'c1',
+        operationId: 'ai.generateText',
+        provider: 'openai',
+        modelId: 'gpt-test',
+        messages: [{ role: 'user', content: 'Hello' }],
+        tools: {
+          remoteSearch: { type: 'dynamic', _meta: undefined, inputSchema: {} },
+          appFeatures: { inputSchema: {} },
+        },
+      } as any);
+      telemetry.onLanguageModelCallStart?.({
+        callId: 'c1',
+        provider: 'openai',
+        modelId: 'gpt-test',
+        messages: [{ role: 'user', content: 'Hello' }],
+        tools: [
+          { type: 'function', name: 'remoteSearch', inputSchema: {} },
+          { type: 'function', name: 'appFeatures', inputSchema: {} },
+        ],
+      } as any);
+      end('c1', [
+        { type: 'tool-call', toolCallId: 'tc1', toolName: 'remoteSearch', input: { q: 'a' } },
+      ]);
+      telemetry.onToolExecutionEnd?.({
+        callId: 'c1',
+        toolExecutionMs: 12,
+        toolCall: { toolCallId: 'tc1', toolName: 'remoteSearch', input: { q: 'a' } },
+        toolOutput: { type: 'tool-result', output: { hits: 1 } },
+      } as any);
+    });
+
+    const [call] = callsOf(profile);
+    // Declared, requested and executed — the origin has to hold on all three.
+    expect(call?.tools).toEqual([
+      { name: 'remoteSearch', origin: 'mcp', inputSchema: {} },
+      { name: 'appFeatures', origin: 'local', inputSchema: {} },
+    ]);
+    expect(call?.toolCalls?.[0]?.origin).toBe('mcp');
+    const execution = entriesOf(profile).find((entry) => entry.kind === 'tool');
+    expect((execution as AiToolExecutionEntry).origin).toBe('mcp');
+  });
+
   it('numbers the steps of a tool loop and records the tool between them', async () => {
     markMcpTools(['shout']);
     const profile = newProfile();

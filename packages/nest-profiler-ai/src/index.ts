@@ -6,7 +6,7 @@ export type {
 export { AI_COLLECTOR_OPTIONS } from './ai-collector.interface';
 export { AiCollector } from './ai.collector';
 export { AI_ENTRYPOINT_TYPE, buildAiEntrypointType } from './ai-entrypoint';
-export { markMcpTools, isMcpTool } from './mcp-tool-registry';
+export { markMcpTools, isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
 export {
   configureAiPricing,
   loadAiPricing,

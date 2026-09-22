@@ -11,7 +11,7 @@ import { HTTP_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
 import { estimateCost } from './ai-pricing';
 import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
-import { isMcpTool } from './mcp-tool-registry';
+import { isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
 import {
   captureDiagnostic,
   type AiCaptureField,
@@ -48,6 +48,11 @@ interface Operation {
   startedAt: number;
   /** The AI SDK's `runtimeContext`, captured once for every call of this operation. */
   context?: unknown;
+  /**
+   * The tools of this operation that came from an MCP server, read off the tool set the start
+   * event carries — the last point at which a tool still says where it came from.
+   */
+  mcpTools?: Set<string>;
   provider?: string;
   model?: string;
   instructions?: string;
@@ -281,13 +286,18 @@ function instructionsOf(event: LanguageModelCallStartEvent): string | undefined 
  * Where a tool came from. A provider-defined tool runs inside the model (a hosted web search),
  * an MCP one was discovered at runtime, and everything else was declared in this codebase.
  */
-function originOf(name: string, providerDefined = false): AiToolOrigin {
+function originOf(name: string, providerDefined = false, mcpTools?: Set<string>): AiToolOrigin {
   if (providerDefined) return 'provider';
-  return isMcpTool(name) ? 'mcp' : 'local';
+  // What this operation actually declared wins over the process-wide list a host may have filled:
+  // it is scoped to the call rather than matched on a name that another tool could share.
+  return mcpTools?.has(name) === true || isMcpTool(name) ? 'mcp' : 'local';
 }
 
 /** The tools as the provider received them — name, origin, description and the input schema. */
-function toolsOf(event: LanguageModelCallStartEvent): AiToolDefinition[] | undefined {
+function toolsOf(
+  event: LanguageModelCallStartEvent,
+  mcpTools?: Set<string>,
+): AiToolDefinition[] | undefined {
   if (captureLevelOf('toolDefinitions') === 'none') return undefined;
   const tools = event.tools?.filter(isRecord).map((tool) => {
     const name = typeof tool['name'] === 'string' ? tool['name'] : 'unknown';
@@ -298,7 +308,7 @@ function toolsOf(event: LanguageModelCallStartEvent): AiToolDefinition[] | undef
     const inputSchema = captureSchema(tool['inputSchema'], 'toolDefinitions');
     return {
       name,
-      origin: originOf(name, tool['type'] === 'provider-defined'),
+      origin: originOf(name, tool['type'] === 'provider-defined', mcpTools),
       ...(description !== undefined && { description }),
       ...(inputSchema !== undefined && { inputSchema }),
     };
@@ -431,7 +441,10 @@ function approvalsOf(content: unknown): AiApproval[] | undefined {
   return approvals.length > 0 ? approvals : undefined;
 }
 
-function contentOf(event: LanguageModelCallEndEvent): {
+function contentOf(
+  event: LanguageModelCallEndEvent,
+  mcpTools?: Set<string>,
+): {
   completion?: string;
   reasoning?: string;
   toolCalls?: AiToolCall[];
@@ -452,7 +465,7 @@ function contentOf(event: LanguageModelCallEndEvent): {
         id: part.toolCallId,
         name: part.toolName,
         ...(input !== undefined && { input }),
-        origin: originOf(part.toolName, part.providerExecuted === true),
+        origin: originOf(part.toolName, part.providerExecuted === true, mcpTools),
       } satisfies AiToolCall;
     });
 
@@ -497,11 +510,15 @@ export class AiProfilerTelemetry implements Telemetry {
     const outputSchema = captureSchema(raw['schema'], 'output');
     // What the application threads through the whole generation — off unless the host asked.
     const context = captureValue(raw['runtimeContext'], 'runtimeContext');
+    // Read here and nowhere else: the start event is the only one carrying the tool objects
+    // themselves, and a tool object is the only thing that still knows it came from a server.
+    const mcpTools = mcpToolNamesOf(raw['tools']);
     this.operations.set(event.callId, {
       id: event.operationId,
       startedAt: Date.now(),
       steps: 0,
       ...(context !== undefined && { context }),
+      ...(mcpTools.size > 0 && { mcpTools }),
       ...(typeof raw['provider'] === 'string' && { provider: raw['provider'] }),
       ...(typeof raw['modelId'] === 'string' && { model: raw['modelId'] }),
       ...(instructions !== undefined && { instructions }),
@@ -587,7 +604,7 @@ export class AiProfilerTelemetry implements Telemetry {
   onLanguageModelCallStart: Telemetry['onLanguageModelCallStart'] = (event) => {
     const instructions = instructionsOf(event);
     const messages = messagesOf(event);
-    const tools = toolsOf(event);
+    const tools = toolsOf(event, this.operations.get(event.callId)?.mcpTools);
     const settings = settingsOf(event);
     this.pendingCalls.set(event.callId, {
       startedAt: Date.now(),
@@ -637,7 +654,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(pending?.tools !== undefined && { tools: pending.tools }),
       ...(settings !== undefined && { settings }),
       ...(operation?.context !== undefined && { context: operation.context }),
-      ...contentOf(event),
+      ...contentOf(event, operation?.mcpTools),
       ...(operation?.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation?.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation?.schemaName !== undefined && { schemaName: operation.schemaName }),
@@ -653,6 +670,7 @@ export class AiProfilerTelemetry implements Telemetry {
     const { toolCall, toolOutput } = event;
     const startedAt = this.pendingTools.get(toolCall.toolCallId);
     this.pendingTools.delete(toolCall.toolCallId);
+    const mcpTools = this.operations.get(event.callId)?.mcpTools;
     // What the application handed its tools for this run — off unless the host asked for it.
     const context = captureValue(event.toolContext, 'runtimeContext', {
       tool: toolCall.toolName,
@@ -666,7 +684,7 @@ export class AiProfilerTelemetry implements Telemetry {
       duration: Math.round(event.toolExecutionMs * 1000) / 1000,
       startedAt: startedAt ?? Date.now() - event.toolExecutionMs,
       input: captureValue(toolCall.input, 'toolArguments', { tool: toolCall.toolName }),
-      origin: originOf(toolCall.toolName, toolCall.providerExecuted === true),
+      origin: originOf(toolCall.toolName, toolCall.providerExecuted === true, mcpTools),
       ...(context !== undefined && { context }),
       fingerprint: `tool:${toolCall.toolName}`,
       ...(toolOutput.type === 'tool-error'
