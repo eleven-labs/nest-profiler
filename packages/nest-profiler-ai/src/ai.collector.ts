@@ -31,6 +31,12 @@ const EMPTY: AiCollectorData = {
 
 const round = (value: number, places: number): number => Math.round(value * places) / places;
 
+/** The agent a span belongs to, so a trace with several agents in it can still be read. */
+const agentMeta = (entry: AiEntry): Record<string, string> => {
+  const label = entry.agent?.name ?? entry.agent?.id ?? entry.agent?.framework;
+  return label !== undefined ? { agent: label } : {};
+};
+
 const sum = (values: number[]): number =>
   round(
     values.reduce((total, value) => total + value, 0),
@@ -96,8 +102,9 @@ export class AiCollector implements IProfilerCollector, TraceContributor, Taggab
       collector: this.name,
       label: (entry) =>
         isAiCall(entry) ? `${entry.operation} ${entry.model}` : `tool ${entry.name}`,
-      meta: (entry): Record<string, string | number | boolean> =>
-        isAiCall(entry)
+      meta: (entry): Record<string, string | number | boolean> => ({
+        ...agentMeta(entry),
+        ...(isAiCall(entry)
           ? {
               model: entry.model,
               step: entry.step,
@@ -106,7 +113,8 @@ export class AiCollector implements IProfilerCollector, TraceContributor, Taggab
                 ttft: `${entry.timeToFirstOutput}ms`,
               }),
             }
-          : { tool: entry.name },
+          : { tool: entry.name }),
+      }),
     });
   }
 

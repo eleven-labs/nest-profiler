@@ -6,6 +6,7 @@ import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
 import { AiCollector } from './ai.collector';
 import { buildAiEntrypointType } from './ai-entrypoint';
 import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
+import { instrumentAgentClass } from './ai-agent';
 import { aiCaptureLevels, configureAiCapture, resetAiCapture } from './ai-capture';
 import { configureAiPricing, loadAiPricing } from './ai-pricing';
 import {
@@ -34,7 +35,8 @@ let telemetryRegistered = false;
  *
  * Nothing in the application changes: no model is wrapped and no call site is touched. The module
  * registers one AI SDK telemetry integration at startup, and every call made while a request is
- * being profiled lands in that request's profile.
+ * being profiled lands in that request's profile. Agents are covered on the same terms — a
+ * `ToolLoopAgent` is named in its profiles from the `id` the SDK already asks for.
  */
 @Module({})
 export class AiCollectorModule extends ConfigurableModuleClass implements OnModuleInit {
@@ -98,8 +100,12 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
     // `ai` is ESM-only and this package ships CommonJS, where a static import compiles to a
     // `require()` Node refuses for an ES module. A dynamic import is the one form both module
     // systems accept — and it keeps `ai` unloaded entirely when the collector is disabled.
-    const { registerTelemetry } = await import('ai');
+    const { registerTelemetry, ToolLoopAgent } = await import('ai');
     registerTelemetry(new AiProfilerTelemetry());
+    // The same bargain, for the one thing telemetry cannot report: the SDK drops an agent's `id`
+    // before any event carries it, so the class itself is asked instead. Nothing at a call site
+    // changes, which is what lets an application keep this package out of production.
+    instrumentAgentClass(ToolLoopAgent);
   }
 
   /**

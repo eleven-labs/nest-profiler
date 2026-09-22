@@ -10,6 +10,7 @@ import { configureAiCapture, resetAiCapture } from './ai-capture';
 import { AI_ENTRIES_KEY } from './ai-call.interface';
 import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from './ai-call.interface';
 import { markMcpTools } from './mcp-tool-registry';
+import { profileAgent } from './ai-agent';
 import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
 import { configureAiPricing, resetAiPricing } from './ai-pricing';
 
@@ -694,6 +695,120 @@ describe('AiProfilerTelemetry', () => {
       const [call] = callsOf(profile);
       expect(call?.cost).toBeUndefined();
       expect(call?.costSource).toBeUndefined();
+    });
+  });
+  describe('agent runs', () => {
+    /** The user-agent `ToolLoopAgent` gives every request it makes. */
+    const AGENT_HEADERS = { 'user-agent': 'ai/7.0.0 ai-sdk-agent/tool-loop' };
+
+    const startAgentOperation = (headers: unknown = AGENT_HEADERS, callId = 'c1'): void => {
+      telemetry.onStart?.({
+        callId,
+        operationId: 'ai.streamText',
+        provider: 'openai',
+        modelId: 'gpt-test',
+        headers,
+        messages: [{ role: 'user', content: 'Hello' }],
+      } as any);
+    };
+
+    /** The agent wrapper the SDK would hold: `generate` runs a whole operation inside its frame. */
+    const agent = (
+      id: string,
+    ): { id: string; generate: () => Promise<void>; stream: () => Promise<void> } => ({
+      id,
+      generate: async (): Promise<void> => {
+        startAgentOperation();
+        // An await between the two, because a real loop has several.
+        await Promise.resolve();
+        end();
+      },
+      stream: (): Promise<void> => Promise.resolve(),
+    });
+
+    it('marks a tool loop as an agent run without the application declaring anything', async () => {
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        startAgentOperation();
+        end();
+      });
+
+      expect(callsOf(profile)[0]?.agent).toEqual({ framework: 'tool-loop' });
+    });
+
+    it('names the agent when it was wrapped with profileAgent', async () => {
+      const profile = newProfile();
+      await withProfile(profile, async () => {
+        await profileAgent(agent('support'), { name: 'Support' }).generate();
+      });
+
+      expect(callsOf(profile)[0]?.agent).toEqual({
+        id: 'support',
+        name: 'Support',
+        framework: 'tool-loop',
+      });
+    });
+
+    it('carries the agent onto the tools the loop ran', async () => {
+      const profile = newProfile();
+      await withProfile(profile, async () => {
+        await profileAgent(agent('support')).generate();
+        telemetry.onToolExecutionEnd?.({
+          callId: 'c1',
+          toolExecutionMs: 3,
+          toolCall: { toolCallId: 'tc1', toolName: 'fetchArticle', input: { id: 1 } },
+          toolOutput: { type: 'tool-result', output: { ok: true } },
+        } as any);
+      });
+
+      const execution = entriesOf(profile).find((entry) => entry.kind === 'tool');
+      expect(execution?.agent).toEqual({ id: 'support', name: 'support', framework: 'tool-loop' });
+    });
+
+    it('carries the agent onto a failed call, which is where it is needed most', async () => {
+      const profile = newProfile();
+      await withProfile(profile, async () => {
+        await profileAgent({
+          id: 'support',
+          generate: (): Promise<void> => {
+            startAgentOperation();
+            telemetry.onError?.({ callId: 'c1', error: new Error('rate limited') });
+            return Promise.resolve();
+          },
+          stream: (): Promise<void> => Promise.resolve(),
+        }).generate();
+      });
+
+      const [call] = callsOf(profile);
+      expect(call?.error).toContain('rate limited');
+      expect(call?.agent).toMatchObject({ id: 'support', framework: 'tool-loop' });
+    });
+
+    it('names an agent whose loop the SDK does not tag, such as a hand-rolled one', async () => {
+      const profile = newProfile();
+      await withProfile(profile, async () => {
+        await profileAgent({
+          id: 'triage',
+          generate: (): Promise<void> => {
+            startAgentOperation({ 'user-agent': 'ai/7.0.0' });
+            end();
+            return Promise.resolve();
+          },
+          stream: (): Promise<void> => Promise.resolve(),
+        }).generate();
+      });
+
+      expect(callsOf(profile)[0]?.agent).toEqual({ id: 'triage', name: 'triage' });
+    });
+
+    it('leaves a plain generateText call unattributed', async () => {
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        start();
+        end();
+      });
+
+      expect(callsOf(profile)[0]?.agent).toBeUndefined();
     });
   });
 });

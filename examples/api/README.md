@@ -433,17 +433,20 @@ curl http://localhost:3000/api/v1/reviews/stats
 
 ### AI (`AiModule` → AI SDK v7 + OpenRouter, `FEATURE_AI=true`)
 
-| Endpoint                       | What it demonstrates                                                                            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `POST /api/v1/ai/ask`          | **AI** — one blocking `generateText`; the non-streaming baseline to compare the others with     |
-| `POST /api/v1/ai/agent`        | **AI** — a tool loop: one model call per round trip, plus every tool the SDK ran between them   |
-| `POST /api/v1/ai/object`       | **AI** — structured output: the model fills a JSON Schema instead of writing prose              |
-| `POST /api/v1/ai/describe`     | **AI** — an attachment sent beside the question, as a file part                                 |
-| `POST /api/v1/ai/approval`     | **AI** — human in the loop: the model asks before a destructive tool runs                       |
-| `POST /api/v1/ai/approval/:id` | **AI** — the decision that resumes it, and the tool run only if it was granted                  |
-| `POST /api/v1/ai/stream`       | **AI** + **streamed response** — `streamText` piped to the Node response as raw chunks          |
-| `GET /api/v1/ai/sse`           | **AI** + **streamed response** — the same stream delivered as Server-Sent Events (`@Sse()`)     |
-| `POST GET DELETE /mcp`         | **MCP** — the app's own Model Context Protocol endpoint (`McpModule`), served with `FEATURE_AI` |
+| Endpoint                       | What it demonstrates                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/ai/ask`          | **AI** — one blocking `generateText`; the non-streaming baseline to compare the others with          |
+| `POST /api/v1/ai/agent`        | **AI** — a tool loop: one model call per round trip, plus every tool the SDK ran between them        |
+| `POST /api/v1/ai/agent/run`    | **AI** — the same loop held by an AI SDK `ToolLoopAgent`, named in the profile                       |
+| `POST /api/v1/ai/agent/stream` | **AI** + **streamed response** — the agent as a UI message stream (`pipeAgentUIStreamToResponse`)    |
+| `POST /api/v1/ai/agent/ui`     | **AI** + **streamed response** — the same stream as a web `Response` (`createAgentUIStreamResponse`) |
+| `POST /api/v1/ai/object`       | **AI** — structured output: the model fills a JSON Schema instead of writing prose                   |
+| `POST /api/v1/ai/describe`     | **AI** — an attachment sent beside the question, as a file part                                      |
+| `POST /api/v1/ai/approval`     | **AI** — human in the loop: the model asks before a destructive tool runs                            |
+| `POST /api/v1/ai/approval/:id` | **AI** — the decision that resumes it, and the tool run only if it was granted                       |
+| `POST /api/v1/ai/stream`       | **AI** + **streamed response** — `streamText` piped to the Node response as raw chunks               |
+| `GET /api/v1/ai/sse`           | **AI** + **streamed response** — the same stream delivered as Server-Sent Events (`@Sse()`)          |
+| `POST GET DELETE /mcp`         | **MCP** — the app's own Model Context Protocol endpoint (`McpModule`), served with `FEATURE_AI`      |
 
 ```bash
 # requires FEATURE_AI=true + OPENROUTER_API_KEY
@@ -453,6 +456,14 @@ curl -X POST http://localhost:3000/api/v1/ai/ask -H "Content-Type: application/j
 # lets the model call the tools: appFeatures (local, instant) and fetchArticle (a real HTTP call)
 curl -X POST http://localhost:3000/api/v1/ai/agent -H "Content-Type: application/json" \
   -d '{"prompt":"Summarise article 1, then tell me which features are enabled."}'
+
+# the same loop, held by a ToolLoopAgent — the profile names the agent that ran it
+curl -X POST http://localhost:3000/api/v1/ai/agent/run -H "Content-Type: application/json" \
+  -d '{"prompt":"Summarise article 1, then tell me which features are enabled."}'
+
+# the agent as the UI message stream `useChat` consumes — tool calls, results and text deltas
+curl -N -X POST http://localhost:3000/api/v1/ai/agent/stream -H "Content-Type: application/json" \
+  -d '{"prompt":"Summarise article 1."}'
 
 # structured output — the answer is checked against a JSON Schema
 curl -X POST http://localhost:3000/api/v1/ai/object -H "Content-Type: application/json" \
@@ -481,6 +492,8 @@ Three things to look at in `/_profiler` afterwards.
 A request that called a model is filed under its own **AI** kind rather than among the plain HTTP requests — the same promotion GraphQL operations get. That buys it a dedicated list with the columns an HTTP row has no room for: the models it used, the operation and step count, the tools it ran, the tokens, the model time and the cost, plus a `Model` filter. It keeps the Request and Response tabs, since it is still an HTTP request — and for a streamed answer the Response tab is where the delivery is described.
 
 The **AI** panel reconstructs the whole exchange, one section per `generateText` / `streamText` / `generateObject` invocation: the model and provider, the sampling settings the call was made with, the **system prompt** kept apart from the conversation, and the **tools declared**, each tagged with where it comes from — `local` (declared in this codebase), `mcp` (discovered on an MCP server at runtime) or `provider` (built into the model, like a hosted web search, and never executed here) — with the JSON Schema the model had to fill. Then every step in order — each model call with its token usage, cost, finish reason, time to first token, throughput, the **messages sent** to it, its reasoning, its completion and the tool calls it asked for — interleaved with each **tool execution** and its input, output and duration. A tool loop therefore reads top to bottom as it happened.
+
+**Agents** get the same treatment, and one thing more. `/ai/agent/run` runs the identical loop through an AI SDK `ToolLoopAgent` instead of a bare `generateText`; the two streaming endpoints run it through `pipeAgentUIStreamToResponse` and `createAgentUIStreamResponse`, the transports a `useChat` front end talks to. The agent is declared with `id: 'support'` — the SDK's own setting, nothing profiler-specific — and that is enough for its name to land on every call, step and tool execution it produced, for the trace to label its spans with it, and for the AI list to gain an `Agent` filter. `AssistantService` imports nothing from the profiler to get any of it.
 
 It also covers what the shape of a call adds: **structured output** shows the schema beside the object that came back; an **attachment** is recorded as its media type and size or URL, never as its bytes; a **human approval** shows the request, and then the decision and whether the tool ran; and a tool borrowed from an **MCP** server (`AI_MCP_URL`) is flagged `mcp`, since it was discovered at runtime rather than declared in code. The app serves its own MCP endpoint at `/mcp` (`McpModule`, mounted behind `FEATURE_AI` like the assistant), so `AI_MCP_URL=http://localhost:3000/mcp` is enough to see an MCP tool run inside a profile — no second process to start. It is documented in Swagger under the `mcp` tag, with ready-made `initialize` / `tools/list` / `tools/call` payloads, and `Try it out` works from there. The e2e suite exercises that path against a real MCP server built with the official v2 SDK (`@modelcontextprotocol/server` + `@modelcontextprotocol/node`, see `test/helpers/mcp-server.ts`), so it is tested rather than assumed. Public servers work too — mind the context budget, since some advertise very large tool descriptions.
 

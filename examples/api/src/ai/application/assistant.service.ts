@@ -1,7 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateObject, generateText, isStepCount, jsonSchema, streamText } from 'ai';
-import type { LanguageModel, ModelMessage } from 'ai';
+import {
+  ToolLoopAgent,
+  generateObject,
+  generateText,
+  isStepCount,
+  jsonSchema,
+  streamText,
+} from 'ai';
+import type { LanguageModel, ModelMessage, ToolSet, UIMessage } from 'ai';
 import { LANGUAGE_MODEL } from '../domain/assistant.js';
 import type { ApprovalOutcome, ArticleDigest, AssistantAnswer } from '../domain/assistant.js';
 import { ApprovalStore } from './approval.store.js';
@@ -38,6 +46,8 @@ const DIGEST_SCHEMA = jsonSchema<ArticleDigest>({
 @Injectable()
 export class AssistantService {
   private readonly logger = new Logger(AssistantService.name);
+  /** Built on first use, since its tools may have to be discovered on an MCP server. */
+  private supportAgent?: Promise<ToolLoopAgent<never, ToolSet>>;
 
   constructor(
     @Inject(LANGUAGE_MODEL) private readonly model: LanguageModel,
@@ -45,6 +55,47 @@ export class AssistantService {
     private readonly tools: AssistantTools,
     private readonly approvals: ApprovalStore,
   ) {}
+
+  /**
+   * The AI SDK agent the `/ai/agent/*` endpoints run. Built once and reused, the way a real
+   * application holds its agents — a tool loop, its instructions and its stop condition, bound
+   * together so a call site only has to hand it a prompt.
+   *
+   * `id` is the SDK's own setting, and the only thing this file does for the profiler — which is
+   * to say nothing: the AI panel names every call, step and tool execution after it, and the AI
+   * list gains an `Agent` filter, without this module importing the profiler at all.
+   */
+  agent(): Promise<ToolLoopAgent<never, ToolSet>> {
+    this.supportAgent ??= this.buildAgent();
+    return this.supportAgent;
+  }
+
+  private async buildAgent(): Promise<ToolLoopAgent<never, ToolSet>> {
+    return new ToolLoopAgent<never, ToolSet>({
+      id: 'support',
+      model: this.model,
+      instructions: AGENT_SYSTEM_PROMPT,
+      tools: await this.tools.buildAll(),
+      stopWhen: isStepCount(MAX_AGENT_STEPS),
+      ...this.settings(),
+    });
+  }
+
+  /**
+   * The agent's loop, run to completion. Identical to {@link runAgent} from the model's point of
+   * view — what differs is who holds the loop, and that the profile says so.
+   */
+  async runAgentLoop(prompt: string): Promise<AssistantAnswer> {
+    const agent = await this.agent();
+    const result = await agent.generate({ prompt });
+
+    return this.toAnswer(result.text, result.finishReason, result.usage);
+  }
+
+  /** One user turn, in the shape `createAgentUIStream` and its transports expect. */
+  static uiMessages(prompt: string): UIMessage[] {
+    return [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: prompt }] }];
+  }
 
   /** Non-streaming baseline: the whole answer arrives at once, like any other JSON endpoint. */
   async ask(prompt: string): Promise<AssistantAnswer> {

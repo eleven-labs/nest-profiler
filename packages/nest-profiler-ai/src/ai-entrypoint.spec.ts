@@ -85,10 +85,10 @@ describe('ai entrypoint type', () => {
     expect(type.detailTabs.map((tab) => tab.name)).toEqual(['request', 'response']);
   });
 
-  it('offers its own list section and model filter', () => {
+  it('offers its own list section, and a filter per facet', () => {
     expect(type.listSection.title).toBe('AI');
     expect(type.listSection.templatePath).toMatch(/templates[/\\]ai-section\.ejs$/);
-    expect(type.listFilters?.map((f) => f.key)).toEqual(['aiModel']);
+    expect(type.listFilters?.map((f) => f.key)).toEqual(['aiModel', 'aiAgent']);
   });
 
   it('parses the model filter and turns it into a criterion', () => {
@@ -111,5 +111,48 @@ describe('ai entrypoint type', () => {
 
     expect(strict.isError?.(profile)).toBe(true);
     expect(type.isError?.(profile)).toBe(false);
+  });
+  describe('an agent run', () => {
+    /** The same profile, with the entries an agent-driven loop leaves behind. */
+    const withAgent = (agent: { id?: string; name?: string; framework?: string }): Profile => {
+      const profile = newProfile();
+      profile.collectors['ai'] = {
+        ...data,
+        entries: data.entries.map((entry) => ({ ...entry, agent })),
+      } satisfies AiCollectorData;
+      return profile;
+    };
+
+    it('indexes the agent, so the list can be filtered by it', () => {
+      expect(type.indexAttributes?.(withAgent({ id: 'support', name: 'Support' }))).toMatchObject({
+        aiAgent: 'Support',
+      });
+    });
+
+    it('falls back to the framework for an agent nobody named', () => {
+      expect(type.indexAttributes?.(withAgent({ framework: 'tool-loop' }))).toMatchObject({
+        aiAgent: 'tool-loop',
+      });
+    });
+
+    it('indexes no agent at all when none ran', () => {
+      expect(type.indexAttributes?.(newProfile())).not.toHaveProperty('aiAgent');
+    });
+
+    it('names the agent ahead of the models in the breadcrumb', () => {
+      expect(type.summary(withAgent({ name: 'Support' })).text).toBe('@Support, gpt-test · /chat');
+    });
+
+    it('turns the agent filter into a criterion', () => {
+      const filter = type.listFilters?.find((f) => f.key === 'aiAgent');
+
+      expect(filter?.parse('Support')).toBe('Support');
+      expect(filter?.parse('')).toBeUndefined();
+      expect(filter?.toCriterion('Support')).toEqual({
+        field: 'attributes.aiAgent',
+        op: 'eq',
+        value: 'Support',
+      });
+    });
   });
 });

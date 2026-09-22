@@ -270,6 +270,111 @@ describe('AI assistant (e2e)', () => {
     });
   });
 
+  describe('AI SDK agents', () => {
+    /**
+     * What every entry of an agent run carries. The name is the agent's own `id` — the demo
+     * declares it as an AI SDK setting and imports nothing from the profiler to get it recorded.
+     */
+    const SUPPORT = { id: 'support', name: 'support', framework: 'tool-loop' };
+
+    describe('POST /ai/agent/run — ToolLoopAgent.generate', () => {
+      it('records the loop the agent held, step by step', async () => {
+        const { res, profile } = await profileOf(app, 'post', '/api/v1/ai/agent/run', {
+          prompt: 'Summarise article 1.',
+        });
+
+        expect(res.status).toBe(201);
+        const calls = callsOf(aiPanel(profile));
+        expect(calls.map((call) => call.step)).toEqual([0, 1]);
+        expect(calls[0]?.finishReason).toBe('tool-calls');
+      });
+
+      it('attributes every call and tool execution to the agent that ran them', async () => {
+        const { profile } = await profileOf(app, 'post', '/api/v1/ai/agent/run', {
+          prompt: 'Summarise article 1.',
+        });
+        const panel = aiPanel(profile);
+
+        expect(panel.entries.length).toBeGreaterThan(1);
+        for (const entry of panel.entries) expect(entry.agent).toEqual(SUPPORT);
+      });
+
+      it('indexes the agent, so the AI list can be narrowed to it', async () => {
+        const agentRun = await profileOf(app, 'post', '/api/v1/ai/agent/run', {
+          prompt: 'Summarise article 1.',
+        });
+        const plainCall = await profileOf(app, 'post', '/api/v1/ai/ask', { prompt: 'Hello there' });
+
+        const list = await request(server(app))
+          .get('/_profiler')
+          .query({ view: 'ai', ai_aiAgent: 'support' });
+
+        expect(list.status).toBe(200);
+        expect(list.text).toContain(tokenOf(agentRun.res));
+        expect(list.text).not.toContain(tokenOf(plainCall.res));
+      });
+
+      it('names the agent on the panel and on the list row', async () => {
+        const { res } = await profileOf(app, 'post', '/api/v1/ai/agent/run', {
+          prompt: 'Summarise article 1.',
+        });
+
+        const panel = await request(server(app))
+          .get(`/_profiler/${tokenOf(res)}`)
+          .query({ tab: 'ai' });
+        const list = await request(server(app)).get('/_profiler').query({ view: 'ai' });
+
+        expect(panel.status).toBe(200);
+        // The badge in the panel, the badge on the list row, and the breadcrumb.
+        expect(panel.text).toContain('agent · support');
+        expect(panel.text).toContain('@support');
+        expect(list.text).toContain('agent · support');
+      });
+
+      it('leaves a plain generateText call unattributed', async () => {
+        const { profile } = await profileOf(app, 'post', '/api/v1/ai/ask', {
+          prompt: 'Hello there',
+        });
+
+        expect(callsOf(aiPanel(profile))[0]?.agent).toBeUndefined();
+      });
+    });
+
+    describe.each([
+      ['POST /ai/agent/stream — pipeAgentUIStreamToResponse', '/api/v1/ai/agent/stream'],
+      ['POST /ai/agent/ui — createAgentUIStreamResponse', '/api/v1/ai/agent/ui'],
+    ])('%s', (_label, url) => {
+      it('delivers a UI message stream and measures it to its last chunk', async () => {
+        const res = await request(server(app))
+          .post(url)
+          .send({ prompt: 'What is a web profiler?' });
+        const profile = await getProfile(app, tokenOf(res));
+
+        expect(res.headers['content-type']).toContain('text/event-stream');
+        // The UI protocol carries the answer as text deltas, not as one body.
+        const deltas = [...res.text.matchAll(/"delta":"([^"]*)"/g)].map(([, d]) => d).join('');
+        expect(deltas).toBe(ANSWER);
+        const stream = profile.response?.stream as ResponseStreamData;
+        expect(stream.aborted).toBe(false);
+        expect(profile.performance.duration).toBeGreaterThanOrEqual(
+          CHUNK_DELAY_MS * TOKENS.length * 0.5,
+        );
+      });
+
+      it('keeps the model call the agent made after the handler returned, named', async () => {
+        const res = await request(server(app))
+          .post(url)
+          .send({ prompt: 'What is a web profiler?' });
+        const profile = await getProfile(app, tokenOf(res));
+
+        const [call] = callsOf(aiPanel(profile));
+        expect(call?.operation).toBe('ai.streamText');
+        expect(call?.completion).toBe(ANSWER);
+        expect(call?.agent).toEqual(SUPPORT);
+      });
+    });
+  });
+
   describe('POST /ai/object — structured output', () => {
     it('answers with an object that satisfies the schema', async () => {
       const { res } = await profileOf(app, 'post', '/api/v1/ai/object', {

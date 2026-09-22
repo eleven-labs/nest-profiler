@@ -26,7 +26,7 @@
 > `pnpm add @eleven-labs/nest-profiler-ai` will not pick it up — ask for it explicitly:
 > `pnpm add @eleven-labs/nest-profiler-ai@alpha`. Expect breaking changes before `1.0.0`.
 
-`@eleven-labs/nest-profiler-ai` records every [AI SDK](https://ai-sdk.dev) call made during a profiled execution — `generateText`, `streamText`, `generateObject`, and the tools the SDK runs between them — and displays them in an **AI** panel.
+`@eleven-labs/nest-profiler-ai` records every [AI SDK](https://ai-sdk.dev) call made during a profiled execution — `generateText`, `streamText`, `generateObject`, the agents built on top of them, and the tools the SDK runs between them — and displays them in an **AI** panel.
 
 Nothing in the application changes: no model is wrapped and no call site is touched. The module registers one AI SDK telemetry integration at startup, and every call made while a request is being profiled lands in that request's profile.
 
@@ -58,6 +58,7 @@ That is the whole integration. Your services keep calling the AI SDK exactly as 
 
 One section per `generateText` / `streamText` / `generateObject` invocation:
 
+- the **agent** that ran it, when one did (see [Agents](#agents))
 - the **model** and provider, and the sampling settings the call was made with
 - the **system prompt**, kept apart from the conversation
 - the **tools declared**, each tagged `local` (declared in your code), `mcp` (discovered on an MCP server at runtime) or `provider` (built into the model, like a hosted web search), with the JSON Schema the model had to fill
@@ -66,6 +67,40 @@ One section per `generateText` / `streamText` / `generateObject` invocation:
 - **structured output** beside the schema it had to satisfy, **attachments** as their media type and size or URL (never the bytes), and any **human approval** with its decision
 
 Model calls and tool executions also land on the execution trace, so the model's share of a request is visible against everything else it did.
+
+## Agents
+
+An AI SDK [`Agent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent) — `ToolLoopAgent`, and everything built on it such as [`createAgentUIStream`](https://ai-sdk.dev/docs/reference/ai-sdk-core/create-agent-ui-stream), `createAgentUIStreamResponse` and `pipeAgentUIStreamToResponse` — runs its loop through `generateText` / `streamText`, so its calls, steps and tool executions are recorded like any other, streamed answers included.
+
+Give your agent the `id` the SDK already offers, and every entry it produces is named after it:
+
+```ts title="support.agent.ts"
+import { ToolLoopAgent } from 'ai';
+
+export const supportAgent = new ToolLoopAgent({ id: 'support', model, instructions, tools });
+```
+
+That is the whole integration — this file imports nothing from the profiler. The panel badges each section with the agent that ran it, the trace labels its spans with it, and the AI list gains an **Agent** filter beside the **Model** one, so a support agent and a summarizer are no longer two identical-looking loops.
+
+It works because the module instruments the `ToolLoopAgent` class once at startup, the same bargain `registerTelemetry` makes: the SDK drops an agent's `id` before any telemetry event carries it, so the class is asked instead. The wrapper only reads `id` and opens an async frame around the call — no argument, result or error changes, and agents built before startup are covered too.
+
+An agent with no `id` is still recognised as an agent run, just an anonymous one: the SDK tags every request an agent makes with an `ai-sdk-agent/tool-loop` user-agent, which the collector reads.
+
+Agents nest — an agent called from inside another's tool is attributed to the one that made the call.
+
+### Naming what the class cannot name
+
+`profileAgent` is the escape hatch, for the two cases the class instrumentation cannot reach: an agent that implements the `Agent` interface itself rather than extending `ToolLoopAgent`, and an agent whose panel name should differ from its `id`.
+
+```ts
+import { profileAgent } from '@eleven-labs/nest-profiler-ai';
+
+const support = profileAgent(myCustomAgent, { id: 'support', name: 'Support agent' });
+```
+
+The wrapper is the same agent to every caller — same `id`, same `tools`, same results — so it can be provided in place of the original and handed to the SDK's own helpers unchanged. When both apply, the wrapper's name wins.
+
+> Unlike the `id` route, this puts an import of this package in application code, so the file that calls it cannot be part of an app that keeps the profiler in [`devDependencies` only](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split).
 
 ## The AI list
 
@@ -76,6 +111,8 @@ Set `entrypoint: false` to leave them among the plain HTTP requests; the panel i
 ## Streamed answers
 
 A streaming handler returns long before the transport stops writing. `@eleven-labs/nest-profiler` measures such a response until its last chunk, which is what lets the model call made _during_ the stream reach this panel at all — and the Response tab then reports the delivery: time to first chunk, how long the stream ran, chunks and bytes.
+
+That holds whatever the handler streams: raw tokens through `pipeTextStreamToResponse`, a NestJS `@Sse()` observable, or an agent's UI message stream through `pipeAgentUIStreamToResponse` / `createAgentUIStreamResponse`. The profiler measures what the transport wrote, not how the handler produced it.
 
 ## Options
 

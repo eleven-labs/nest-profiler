@@ -200,6 +200,7 @@ void bootstrap();
 - The **HTTP** collector's `AxiosInstrumentation` finds axios instances by scanning DI providers (duck-typing `axiosRef`) via `DiscoveryService`; because `AppDevModule` imports `AppModule`, it patches your feature modules' `HttpService` automatically. `FetchInstrumentation` patches the global `fetch`.
 - **TypeORM** self-resolves the `DataSource` by connection token; **cache** proxy-wraps the global `CACHE_MANAGER`; **Mongoose** patches `Query`/`Aggregate` execution.
 - **GraphQL** only needs your `GraphQLModule` `context` to expose the request (`context: ({ req }) => ({ req })`) — that's plain application config, not a profiler import, so it can stay in the production module.
+- The **AI** collector registers one AI SDK telemetry integration and instruments the `ToolLoopAgent` class, both process-wide from the bundle; an agent is named in the panel from its own `id` setting and an MCP tool is recognised from the tool the client built, so no service imports the profiler to be attributed. Two opt-in helpers would break the rule if you called them — `profileAgent` (to name an agent that is not a `ToolLoopAgent`) and `markMcpTools` (for MCP tools built without `@ai-sdk/mcp`'s client) — so keep them out of production code paths.
 - **Validation** stays app-owned: production `main.ts` uses a plain `ValidationPipe`; `main-dev.ts` swaps in `createProfilerValidationPipe(createClassValidatorPipe(...))` with the same options, and the panel module (`ValidatorCollectorModule.forRoot()`) goes in the bundle.
 
 **Run and build:**

@@ -27,6 +27,32 @@ const modelFilter: ProfilerListFilter<string> = {
   toCriterion: (value) => ({ field: 'attributes.aiModel', op: 'eq', value }),
 };
 
+/**
+ * The AI list is also narrowed by agent, once an application runs more than one: a support agent
+ * and a summarizer share a model and an endpoint, and nothing else tells their profiles apart.
+ * The option list is filled from what has actually been recorded, so it stays empty — and the
+ * control hidden — for an application that runs no agent at all.
+ */
+const agentFilter: ProfilerListFilter<string> = {
+  key: 'aiAgent',
+  label: 'Agent',
+  control: 'select',
+  order: 21,
+  distinctField: 'attributes.aiAgent',
+  options: [{ value: '', label: 'All' }],
+  parse: (raw) => (typeof raw === 'string' && raw.length > 0 ? raw : undefined),
+  toCriterion: (value) => ({ field: 'attributes.aiAgent', op: 'eq', value }),
+};
+
+/** How an agent is named in the list and its filter: its name, else its id, else its framework. */
+const agentLabelOf = (data: AiCollectorData): string | undefined => {
+  for (const entry of data.entries) {
+    const label = entry.agent?.name ?? entry.agent?.id ?? entry.agent?.framework;
+    if (label !== undefined) return label;
+  }
+  return undefined;
+};
+
 const emptyData: AiCollectorData = {
   entries: [],
   callCount: 0,
@@ -69,11 +95,15 @@ export function buildAiEntrypointType(error?: ProfilerErrorOptions): ProfilerEnt
       templatePath,
     },
     detailTabs: HTTP_ENTRYPOINT_TYPE_DEF.detailTabs,
-    listFilters: [modelFilter],
+    listFilters: [modelFilter, agentFilter],
     indexAttributes: (profile: Profile) => {
       const data = aiDataOf(profile);
       const models = [...new Set(data.entries.filter(isAiCall).map((call) => call.model))];
+      const agent = agentLabelOf(data);
       return {
+        // Left out rather than defaulted when no agent ran: the filter's options are the distinct
+        // values of this attribute, and a placeholder would become an option nobody can act on.
+        ...(agent !== undefined && { aiAgent: agent }),
         aiModel: models[0] ?? 'unknown',
         aiCalls: data.callCount,
         aiTools: data.toolCount,
@@ -82,19 +112,16 @@ export function buildAiEntrypointType(error?: ProfilerErrorOptions): ProfilerEnt
       };
     },
     summary(profile: Profile<HttpRequestData>): EntrypointSummary {
-      const models = [
-        ...new Set(
-          aiDataOf(profile)
-            .entries.filter(isAiCall)
-            .map((c) => c.model),
-        ),
-      ];
+      const data = aiDataOf(profile);
+      const models = [...new Set(data.entries.filter(isAiCall).map((c) => c.model))];
+      const agent = agentLabelOf(data);
+      const parts = [...(agent !== undefined ? [`@${agent}`] : []), ...models];
       return {
         badge: 'AI',
         badgeClass: 'badge-tag-info',
         text:
-          models.length > 0
-            ? `${models.join(', ')} · ${profile.entrypoint.data.url}`
+          parts.length > 0
+            ? `${parts.join(', ')} · ${profile.entrypoint.data.url}`
             : profile.entrypoint.data.url,
       };
     },

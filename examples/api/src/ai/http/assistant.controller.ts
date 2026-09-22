@@ -1,18 +1,36 @@
-import { Body, Controller, NotFoundException, Param, Post, Query, Res, Sse } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Res,
+  Sse,
+} from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { pipeTextStreamToResponse, toTextStream } from 'ai';
+import {
+  createAgentUIStreamResponse,
+  pipeAgentUIStreamToResponse,
+  pipeTextStreamToResponse,
+  toTextStream,
+} from 'ai';
 import { Observable, from, map } from 'rxjs';
 import { AssistantService } from '../application/assistant.service.js';
 import { AskDto } from './dto/ask.dto.js';
 import { ApprovalDecisionDto } from './dto/approval.dto.js';
 import { DescribeDto } from './dto/describe.dto.js';
 import type { ApprovalOutcome, ArticleDigest, AssistantAnswer } from '../domain/assistant.js';
+import { writeWebResponse } from '../../shared/platform-response.js';
 import type { PlatformResponse } from '../../shared/platform-response.js';
 
 @ApiTags('ai')
 @Controller('ai')
 export class AssistantController {
+  private readonly logger = new Logger(AssistantController.name);
+
   constructor(private readonly assistant: AssistantService) {}
 
   @Post('ask')
@@ -38,6 +56,65 @@ export class AssistantController {
   @ApiResponse({ status: 201, description: 'Answer — check the AI panel in /_profiler' })
   runAgent(@Body() dto: AskDto): Promise<AssistantAnswer> {
     return this.assistant.runAgent(dto.prompt);
+  }
+
+  @Post('agent/run')
+  @ApiOperation({
+    summary: 'Run an AI SDK agent — the same loop, held by a `ToolLoopAgent`',
+    description:
+      'The SDK tags every request an agent makes, so the AI panel marks the whole section as an ' +
+      'agent run on its own. Wrapping the agent with `profileAgent` adds its name to every call, ' +
+      'step and tool execution, and the AI list gains an `Agent` filter.',
+  })
+  @ApiResponse({ status: 201, description: 'Answer — check the AI panel in /_profiler' })
+  runAgentLoop(@Body() dto: AskDto): Promise<AssistantAnswer> {
+    return this.assistant.runAgentLoop(dto.prompt);
+  }
+
+  @Post('agent/stream')
+  @ApiOperation({
+    summary: 'Stream the agent as a UI message stream (`pipeAgentUIStreamToResponse`)',
+    description:
+      'The protocol `useChat` consumes: tool calls, tool results and text deltas as SSE, rather ' +
+      'than raw tokens. Every step of the loop runs after the handler returned, and all of it ' +
+      'still lands in the profile of this request — attributed to the agent that produced it.',
+  })
+  @ApiResponse({ status: 200, description: 'text/event-stream of UI message chunks' })
+  async streamAgent(@Body() dto: AskDto, @Res() response: PlatformResponse): Promise<void> {
+    // Resolves once the stream is open, not once it is over — the shape the profiler has to cope
+    // with, and why the Response tab keeps measuring after the handler is done.
+    await pipeAgentUIStreamToResponse({
+      agent: await this.assistant.agent(),
+      uiMessages: AssistantService.uiMessages(dto.prompt),
+      response,
+      onError: (error) => {
+        // The UI message stream swallows errors so a failing model cannot crash the server.
+        this.logger.error(`agent UI stream failed: ${String(error)}`);
+        return 'The agent failed.';
+      },
+    });
+  }
+
+  @Post('agent/ui')
+  @ApiOperation({
+    summary: 'The same stream as a web `Response` (`createAgentUIStreamResponse`)',
+    description:
+      'What an edge runtime returns as-is; Express is handed the body instead. Profiled exactly ' +
+      'like the endpoint above — the profiler measures what the transport wrote, not how the ' +
+      'handler produced it.',
+  })
+  @ApiResponse({ status: 200, description: 'text/event-stream of UI message chunks' })
+  async streamAgentResponse(@Body() dto: AskDto, @Res() response: PlatformResponse): Promise<void> {
+    const stream = await createAgentUIStreamResponse({
+      agent: await this.assistant.agent(),
+      uiMessages: AssistantService.uiMessages(dto.prompt),
+      onError: (error) => {
+        this.logger.error(`agent UI stream failed: ${String(error)}`);
+        return 'The agent failed.';
+      },
+    });
+
+    await writeWebResponse(stream, response);
   }
 
   @Post('object')
