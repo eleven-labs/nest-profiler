@@ -1,4 +1,5 @@
 import type { ProfilerTag } from '@eleven-labs/nest-profiler';
+import type { AiAgentInfo } from './ai-agent';
 import type { AiCaptureField, AiCaptureLevel } from './ai-capture';
 
 /** Key the raw entries are accumulated under, before {@link AiCollector} shapes them. */
@@ -97,6 +98,12 @@ interface AiEntryBase {
   duration: number;
   startedAt: number;
   error?: string;
+  /**
+   * The agent this entry belongs to, when an AI SDK `Agent` drove the generation rather than a
+   * bare `generateText` / `streamText` call. Named only where the application wrapped its agent
+   * with `profileAgent`; otherwise it carries the loop's framework alone.
+   */
+  agent?: AiAgentInfo;
   /** Stamped by `appendCollectorEntry` so the entry nests under the span that issued it. */
   parentSpanId?: string;
   fingerprint?: string;

@@ -12,6 +12,8 @@ import { AI_ENTRIES_KEY } from './ai-call.interface';
 import { estimateCost } from './ai-pricing';
 import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
 import { isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
+import { agentFrameworkOf, currentAiAgent } from './ai-agent';
+import type { AiAgentInfo } from './ai-agent';
 import {
   captureDiagnostic,
   type AiCaptureField,
@@ -53,6 +55,8 @@ interface Operation {
    * event carries — the last point at which a tool still says where it came from.
    */
   mcpTools?: Set<string>;
+  /** The agent that drove this operation, when one did. */
+  agent?: AiAgentInfo;
   provider?: string;
   model?: string;
   instructions?: string;
@@ -478,6 +482,24 @@ function contentOf(
   };
 }
 
+/**
+ * Who ran this generation, from the two things that can say so: the frame `profileAgent` opened
+ * around the call, which knows the agent's name, and the marker the SDK writes into the outgoing
+ * user-agent, which knows an agent ran at all. Either alone is worth recording — an unwrapped
+ * `ToolLoopAgent` still reads as a tool loop, and a hand-rolled loop the host named still reads
+ * as itself.
+ */
+function agentOf(headers: unknown): AiAgentInfo | undefined {
+  const named = currentAiAgent();
+  const framework = agentFrameworkOf(headers);
+  if (named === undefined && framework === undefined) return undefined;
+  return {
+    ...(named?.id !== undefined && { id: named.id }),
+    ...(named?.name !== undefined && { name: named.name }),
+    ...(framework !== undefined && { framework }),
+  };
+}
+
 /** Folds the operation's tool choice into the call's own settings, which do not carry it. */
 function withToolChoice(
   settings: AiCallSettings | undefined,
@@ -513,12 +535,14 @@ export class AiProfilerTelemetry implements Telemetry {
     // Read here and nowhere else: the start event is the only one carrying the tool objects
     // themselves, and a tool object is the only thing that still knows it came from a server.
     const mcpTools = mcpToolNamesOf(raw['tools']);
+    const agent = agentOf(raw['headers']);
     this.operations.set(event.callId, {
       id: event.operationId,
       startedAt: Date.now(),
       steps: 0,
       ...(context !== undefined && { context }),
       ...(mcpTools.size > 0 && { mcpTools }),
+      ...(agent !== undefined && { agent }),
       ...(typeof raw['provider'] === 'string' && { provider: raw['provider'] }),
       ...(typeof raw['modelId'] === 'string' && { model: raw['modelId'] }),
       ...(instructions !== undefined && { instructions }),
@@ -582,6 +606,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(operation.messages !== undefined && { messages: operation.messages }),
       ...(operation.settings !== undefined && { settings: operation.settings }),
       ...(operation.context !== undefined && { context: operation.context }),
+      ...(operation.agent !== undefined && { agent: operation.agent }),
       ...(operation.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation.schemaName !== undefined && { schemaName: operation.schemaName }),
@@ -654,6 +679,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(pending?.tools !== undefined && { tools: pending.tools }),
       ...(settings !== undefined && { settings }),
       ...(operation?.context !== undefined && { context: operation.context }),
+      ...(operation?.agent !== undefined && { agent: operation.agent }),
       ...contentOf(event, operation?.mcpTools),
       ...(operation?.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation?.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
@@ -670,7 +696,7 @@ export class AiProfilerTelemetry implements Telemetry {
     const { toolCall, toolOutput } = event;
     const startedAt = this.pendingTools.get(toolCall.toolCallId);
     this.pendingTools.delete(toolCall.toolCallId);
-    const mcpTools = this.operations.get(event.callId)?.mcpTools;
+    const operation = this.operations.get(event.callId);
     // What the application handed its tools for this run — off unless the host asked for it.
     const context = captureValue(event.toolContext, 'runtimeContext', {
       tool: toolCall.toolName,
@@ -684,8 +710,9 @@ export class AiProfilerTelemetry implements Telemetry {
       duration: Math.round(event.toolExecutionMs * 1000) / 1000,
       startedAt: startedAt ?? Date.now() - event.toolExecutionMs,
       input: captureValue(toolCall.input, 'toolArguments', { tool: toolCall.toolName }),
-      origin: originOf(toolCall.toolName, toolCall.providerExecuted === true, mcpTools),
+      origin: originOf(toolCall.toolName, toolCall.providerExecuted === true, operation?.mcpTools),
       ...(context !== undefined && { context }),
+      ...(operation?.agent !== undefined && { agent: operation.agent }),
       fingerprint: `tool:${toolCall.toolName}`,
       ...(toolOutput.type === 'tool-error'
         ? { error: captureDiagnostic(String((toolOutput as { error?: unknown }).error)) }
@@ -728,6 +755,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(pending?.tools !== undefined && { tools: pending.tools }),
       ...(settings !== undefined && { settings }),
       ...(operation?.context !== undefined && { context: operation.context }),
+      ...(operation?.agent !== undefined && { agent: operation.agent }),
       error: captureDiagnostic(describeError(cause)),
     });
   };

@@ -30,6 +30,9 @@
           const tools = (ai.entries || []).filter((e) => e.kind === 'tool');
           const models = [...new Set(calls.map((c) => c.model))];
           const operations = [...new Set(calls.map((c) => c.operation))];
+          const agents = [...new Set((ai.entries || [])
+            .map((e) => e.agent && (e.agent.name || e.agent.id || e.agent.framework))
+            .filter(Boolean))];
           const dur = p.performance.duration;
           const durClass = dur === undefined ? 'dur-none'
             : dur < 100  ? 'dur-fast'
@@ -50,6 +53,13 @@
           </td>
           <td class="py-2.5 px-4 text-foreground-secondary text-xs font-mono max-w-xs">
             <div class="truncate" title="<%= models.join(', ') %>"><%= models.length ? models.join(', ') : '—' %></div>
+            <% if (agents.length) { %>
+              <div class="mt-1 flex flex-wrap gap-1">
+                <% for (const a of agents) { %>
+                  <span class="text-2xs px-1.5 py-0.5 rounded badge-tag-info">agent · <%= a %></span>
+                <% } %>
+              </div>
+            <% } %>
             <% if (operations.length) { %>
               <span class="text-foreground-faint text-2xs"><%= operations.join(', ') %><%= calls.length > 1 ? ' · ' + calls.length + ' steps' : '' %></span>
             <% } %>

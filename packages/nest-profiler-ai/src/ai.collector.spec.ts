@@ -185,6 +185,27 @@ describe('AiCollector', () => {
     expect(toolSpan?.meta).toEqual({ tool: 'shout' });
   });
 
+  it('names the agent on every span it produced, so a multi-agent trace can be read', () => {
+    const profile = newProfile();
+    const agent = { id: 'support', name: 'Support', framework: 'tool-loop' };
+    profile.collectors[collector.name] = {
+      entries: [call({ agent }), tool({ agent })],
+      callCount: 1,
+      toolCount: 1,
+      totalTokens: 40,
+      totalCost: 0,
+      costKnown: false,
+      costEstimated: false,
+      totalDuration: 100,
+      toolDuration: 12,
+    } satisfies AiCollectorData;
+
+    const [callSpan, toolSpan] = collector.getTraceSpans(profile);
+
+    expect(callSpan?.meta).toMatchObject({ agent: 'Support', model: 'gpt-test' });
+    expect(toolSpan?.meta).toMatchObject({ agent: 'Support', tool: 'shout' });
+  });
+
   it('omits the optional call meta when the figures are absent', () => {
     const profile = newProfile();
     profile.collectors[collector.name] = {

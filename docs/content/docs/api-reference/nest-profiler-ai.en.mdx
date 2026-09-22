@@ -97,6 +97,67 @@ One tool the SDK ran between two model calls — real time, spent outside the mo
   name="AiToolExecutionEntry"
 />
 
+## instrumentAgentClass
+
+```ts
+function instrumentAgentClass(agentClass: unknown): boolean;
+```
+
+Teaches every AI SDK agent in the process to name itself in the profiles it produces, by wrapping
+`generate` and `stream` on the agent class's prototype. `AiCollectorModule` calls it at startup
+with the SDK's `ToolLoopAgent`, so an application never has to — it is exported for a host that
+drives the collector itself.
+
+This is what keeps agent attribution free of any call-site change: the application declares its
+agent's identity the way the SDK already asks it to, with the `id` setting, and never imports the
+profiler to get it recorded. The wrapper only reads `id` and opens an async frame around the
+original call; it changes no argument, no result and no error, and agents built before it ran are
+covered too since a method is looked up on the prototype at call time.
+
+Returns whether this call instrumented the class — `false` if it was already done, or if the
+installed `ai` exposes no such class.
+
+## profileAgent
+
+```ts
+function profileAgent<A extends AiAgentLike>(agent: A, options?: ProfileAgentOptions): A;
+```
+
+The escape hatch, for the two cases `instrumentAgentClass` cannot reach: an agent that implements
+the SDK's `Agent` interface itself rather than extending `ToolLoopAgent`, and an agent whose panel
+name should differ from its `id`. A `ToolLoopAgent` with an `id` needs none of this.
+
+```ts
+const support = profileAgent(myCustomAgent, { id: 'support', name: 'Support agent' });
+
+await support.generate({ prompt });
+await pipeAgentUIStreamToResponse({ agent: support, uiMessages, response });
+```
+
+The returned agent is the same object to every caller, so it can be provided in place of the
+original and handed to `createAgentUIStream`, `createAgentUIStreamResponse` or
+`pipeAgentUIStreamToResponse` unchanged. When both apply, the wrapper's name wins over the id the
+class instrumentation would have used.
+
+Unlike the `id` route, this puts an import of this package in application code, which rules out
+keeping the profiler in `devDependencies` for the file that calls it.
+
+## AiAgentInfo
+
+Which agent drove a generation, as recorded on every entry it produced.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-agent.ts" name="AiAgentInfo" />
+
+## ProfileAgentOptions
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-agent.ts" name="ProfileAgentOptions" />
+
+## AiAgentLike
+
+What `profileAgent` needs of an agent — the AI SDK's `Agent`, and anything shaped like it.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-agent.ts" name="AiAgentLike" />
+
 ## AiToolDefinition
 
 A tool as it was declared to the model, with the schema the model had to fill.
@@ -243,6 +304,7 @@ The `Profile.entrypoint.type` a profiled HTTP request is promoted to once it has
 import { AiCollectorModule } from '@eleven-labs/nest-profiler-ai';
 import { AiCollector } from '@eleven-labs/nest-profiler-ai';
 import { markMcpTools, isMcpTool, mcpToolNamesOf } from '@eleven-labs/nest-profiler-ai';
+import { profileAgent, instrumentAgentClass } from '@eleven-labs/nest-profiler-ai';
 import {
   configureAiPricing,
   loadAiPricing,
@@ -267,6 +329,9 @@ import {
 import type {
   AiCollectorModuleOptions,
   AiCollectorModuleAsyncOptions,
+  AiAgentInfo,
+  AiAgentLike,
+  ProfileAgentOptions,
   AiEntry,
   AiCallEntry,
   AiToolExecutionEntry,

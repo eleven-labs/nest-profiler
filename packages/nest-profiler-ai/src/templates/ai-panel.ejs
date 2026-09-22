@@ -21,12 +21,13 @@
   for (const entry of entries) {
     let group = byCallId[entry.callId];
     if (!group) {
-      group = { callId: entry.callId, entries: [], head: null };
+      group = { callId: entry.callId, entries: [], head: null, agent: null };
       byCallId[entry.callId] = group;
       groups.push(group);
     }
     group.entries.push(entry);
     if (!group.head && entry.kind === 'call') group.head = entry;
+    if (!group.agent && entry.agent) group.agent = entry.agent;
   }
 
   const roleClass = {
@@ -118,6 +119,9 @@
     <% const head = group.head; %>
     <section class="mb-6 rounded-lg border border-line overflow-hidden">
       <header class="bg-surface-muted border-b border-line px-4 py-2.5 flex flex-wrap items-center gap-2">
+        <% if (group.agent) { %>
+          <span class="text-2xs px-1.5 py-0.5 rounded badge-tag-info" title="<%= group.agent.framework ? 'Run by an AI SDK agent (' + group.agent.framework + ')' : 'Run by an agent' %>">agent<%= group.agent.name || group.agent.id ? ' · ' + (group.agent.name || group.agent.id) : '' %></span>
+        <% } %>
         <% if (head) { %>
           <span class="text-foreground text-xs font-mono font-semibold"><%= head.model %></span>
           <span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint"><%= head.provider %></span>
