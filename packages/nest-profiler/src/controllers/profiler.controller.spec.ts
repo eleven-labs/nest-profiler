@@ -122,6 +122,10 @@ type RenderedSection = {
 };
 
 describe('ProfilerController (unit)', () => {
+  it('opts out of the host Swagger document (@nestjs/swagger exclude metadata)', () => {
+    expect(Reflect.getMetadata('swagger/apiExcludeController', ProfilerController)).toEqual([true]);
+  });
+
   it('renders with the profiler path /_profiler', async () => {
     const { controller, rendered } = setup();
     await controller.listProfiles({}, mockReq());
