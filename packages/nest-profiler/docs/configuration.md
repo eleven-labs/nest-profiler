@@ -534,6 +534,8 @@ Listing `_profiler` in `exclude` yourself is therefore unnecessary — though ha
 > });
 > ```
 
+**Swagger** leaves it out too. The controller carries the metadata `@ApiExcludeController()` sets, so `SwaggerModule.createDocument()` skips every `/_profiler` route — no `@nestjs/swagger` dependency on the profiler's side, and nothing to filter out of your OpenAPI document.
+
 ## Securing the UI
 
 The profiler ships **open** — no authentication by default (intended for local development). To lock `/_profiler/*` down, provide your own strategy through the `security` option. You bring the authentication; the profiler just enforces it. Two building blocks, usable alone or together (when both are set, **all must pass**):

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  SetMetadata,
   Header,
   Inject,
   NotFoundException,
@@ -103,11 +104,18 @@ function groupGlobalViews(views: GlobalView[]): GlobalViewGroup[] {
 }
 
 /**
+ * Metadata key `@nestjs/swagger`'s `@ApiExcludeController()` sets, written directly so the
+ * profiler's routes stay out of the host's OpenAPI document without depending on that package.
+ */
+const SWAGGER_EXCLUDE_CONTROLLER = 'swagger/apiExcludeController';
+
+/**
  * `VERSION_NEUTRAL` keeps the profiler out of the host's API versioning. As a plain `@Controller()`
  * it inherited the app's `defaultVersion`, so URI versioning moved the whole UI to `/v1/_profiler`
  * and `/_profiler` 404'd. The profiler is tooling, not a versioned API surface.
  */
 @UseGuards(ProfilerGuard)
+@SetMetadata(SWAGGER_EXCLUDE_CONTROLLER, [true])
 @Controller({ version: VERSION_NEUTRAL })
 export class ProfilerController {
   private static readonly assetCache = new Map<string, string>();
