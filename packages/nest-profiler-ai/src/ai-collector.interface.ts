@@ -34,7 +34,8 @@ export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSev
    *
    * `runtimeContext` (the AI SDK's `toolContext`: the user, the tenant, a token a tool needs) is
    * the exception — it is the application's own state rather than what was said, so no blanket
-   * level pulls it in and it is recorded only when named.
+   * level pulls it in and it is recorded only when named. So is `providerPayload`, the raw bodies
+   * exchanged with the provider, which restate the whole prompt at every step.
    */
   capture?: AiCaptureOptions;
   /**
@@ -52,6 +53,11 @@ export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSev
   maxTextLength?: number;
   /** Messages kept per call, counted from the most recent. Default: `40`. */
   maxMessages?: number;
+  /**
+   * Characters of JSON kept of one provider request or response body, once each of its strings
+   * has been cut to `maxTextLength`. Default: `65536`.
+   */
+  maxPayloadLength?: number;
   /**
    * Promote a profiled HTTP request that called a model to its own `ai` entrypoint kind, which
    * gives those profiles their own list with the models, tokens and cost. Default: `true`.

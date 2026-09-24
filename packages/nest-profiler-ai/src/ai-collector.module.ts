@@ -67,6 +67,9 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
         maxTextLength: this.options.maxTextLength,
       }),
       ...(this.options.maxMessages !== undefined && { maxMessages: this.options.maxMessages }),
+      ...(this.options.maxPayloadLength !== undefined && {
+        maxPayloadLength: this.options.maxPayloadLength,
+      }),
     });
     this.warnOnVerbatimCapture();
 

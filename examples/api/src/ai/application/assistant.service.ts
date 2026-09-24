@@ -1,14 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ToolLoopAgent,
-  generateObject,
-  generateText,
-  isStepCount,
-  jsonSchema,
-  streamText,
-} from 'ai';
+import { Output, ToolLoopAgent, generateText, isStepCount, jsonSchema, streamText } from 'ai';
 import type { LanguageModel, ModelMessage, ToolSet, UIMessage } from 'ai';
 import { LANGUAGE_MODEL } from '../domain/assistant.js';
 import type { ApprovalOutcome, ArticleDigest, AssistantAnswer } from '../domain/assistant.js';
@@ -131,17 +124,19 @@ export class AssistantService {
    * the schema it had to satisfy next to the object that came back.
    */
   async digest(text: string): Promise<ArticleDigest> {
-    const result = await generateObject({
+    const result = await generateText({
       model: this.model,
       system: SYSTEM_PROMPT,
-      schema: DIGEST_SCHEMA,
-      schemaName: 'ArticleDigest',
-      schemaDescription: 'A short, structured digest of a piece of text.',
+      output: Output.object({
+        schema: DIGEST_SCHEMA,
+        name: 'ArticleDigest',
+        description: 'A short, structured digest of a piece of text.',
+      }),
       prompt: text,
       ...this.settings(),
     });
 
-    return result.object;
+    return result.output;
   }
 
   /**

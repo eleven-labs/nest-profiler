@@ -46,9 +46,10 @@
    * whenever anything was masked or withheld, and stays quiet when everything is there.
    */
   const capture = (data && data.capture) || null;
-  /* The runtime context is opt-in, so leaving it out is the normal state and not worth reporting. */
+  /* The opt-in fields are left out by default, which is the normal state and not worth reporting. */
+  const optInFields = ['runtimeContext', 'providerPayload'];
   const captureFields = capture
-    ? Object.keys(capture).filter(function (field) { return field !== 'runtimeContext' || capture[field] !== 'none'; })
+    ? Object.keys(capture).filter(function (field) { return optInFields.indexOf(field) === -1 || capture[field] !== 'none'; })
     : [];
   const captureCounts = {};
   for (const field of captureFields) captureCounts[capture[field]] = (captureCounts[capture[field]] || 0) + 1;
@@ -310,6 +311,39 @@
                   <p class="text-xs font-mono text-foreground-secondary break-all"><%= toolCall.name %><% if (toolCall.origin && toolCall.origin !== 'local') { %><span class="text-2xs px-1.5 py-0.5 rounded <%= originClass[toolCall.origin] %> ml-1"><%= originLabel[toolCall.origin] %></span><% } %>(<%= toJson(toolCall.input) %>)</p>
                 <% } %>
               <% } %>
+            <% } %>
+
+            <% if (entry.payload) { %>
+              <% const payload = entry.payload; %>
+              <details class="group mt-3 rounded-lg border border-line overflow-hidden">
+                <summary class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none bg-surface-muted hover:bg-surface-active transition-colors list-none">
+                  <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                  <span class="text-2xs uppercase tracking-widest text-foreground-muted font-semibold">Provider payload</span>
+                  <% if (payload.statusCode !== undefined) { %>
+                    <span class="text-2xs px-1.5 py-0.5 rounded <%= payload.statusCode < 400 ? 'badge-2xx' : payload.statusCode < 500 ? 'badge-4xx' : 'badge-5xx' %>"><%= payload.statusCode %></span>
+                  <% } %>
+                  <% if (payload.streamed) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-foreground-faint">streamed</span><% } %>
+                  <% if (payload.url) { %><span class="text-2xs text-foreground-faint font-mono truncate"><%= payload.url %></span><% } %>
+                </summary>
+                <div class="px-3 py-2">
+                  <% if (payload.requestBody !== undefined) { %>
+                    <p class="text-2xs text-foreground-faint mb-1">Request body</p>
+                    <pre class="bg-surface-muted border border-line rounded p-3 mb-2 text-xs overflow-x-auto"><code class="language-json"><%= toJson(payload.requestBody) %></code></pre>
+                  <% } %>
+                  <% if (payload.responseHeaders) { %>
+                    <p class="text-2xs text-foreground-faint mb-1">Response headers</p>
+                    <pre class="bg-surface-muted border border-line rounded p-3 mb-2 text-xs overflow-x-auto"><code class="language-json"><%= toJson(payload.responseHeaders) %></code></pre>
+                  <% } %>
+                  <% if (payload.responseBody !== undefined) { %>
+                    <p class="text-2xs text-foreground-faint mb-1">Response body</p>
+                    <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto"><code class="language-json"><%= toJson(payload.responseBody) %></code></pre>
+                  <% } else if (payload.streamed) { %>
+                    <p class="text-2xs text-foreground-faint">The response was streamed: its body is read chunk by chunk by the AI SDK and is not recorded here. <code>nest-profiler-http</code>'s fetch adapter records the HTTP exchange under this call in the trace.</p>
+                  <% } %>
+                </div>
+              </details>
             <% } %>
           </div>
         <% } else { %>

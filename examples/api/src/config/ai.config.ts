@@ -29,7 +29,7 @@ export default registerAs('ai', () => ({
   apiKey: process.env['OPENROUTER_API_KEY'] ?? '',
   model: process.env['AI_MODEL'] ?? DEFAULT_MODEL,
   // Room for a small free model to finish a structured answer: below ~512 it truncates its JSON
-  // mid-object and `generateObject` fails to parse it.
+  // mid-object and the structured output fails to parse.
   maxOutputTokens: parseInt(process.env['AI_MAX_OUTPUT_TOKENS'] ?? '512', 10),
   temperature: parseFloat(process.env['AI_TEMPERATURE'] ?? '0.7'),
   // Free models are best-effort: some queue for minutes or never answer. Without a cap a demo

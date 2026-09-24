@@ -51,4 +51,5 @@ export type {
   AiMessageRole,
   AiCallSettings,
   AiTokenUsage,
+  AiProviderPayload,
 } from './ai-call.interface';

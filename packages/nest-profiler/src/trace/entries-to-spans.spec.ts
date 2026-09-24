@@ -24,6 +24,19 @@ describe('entriesToSpans', () => {
     ]);
   });
 
+  it('uses the span id an entry reserved, when the collector reads one', () => {
+    const spans = entriesToSpans<Entry & { spanId?: string }>(
+      [
+        { label: 'call', startedAt: 1000, duration: 12, spanId: 's7' },
+        { label: 'other', startedAt: 1020, duration: 3 },
+      ],
+      { ...base, id: (entry) => entry.spanId },
+    );
+
+    expect(spans[0]?.id).toBe('s7');
+    expect(spans[1]).not.toHaveProperty('id');
+  });
+
   it('carries the stamped parent through, which is what nests the call under its caller', () => {
     const spans = entriesToSpans<Entry>(
       [{ label: 'GET /a', startedAt: 1000, duration: 12, parentSpanId: 's3' }],

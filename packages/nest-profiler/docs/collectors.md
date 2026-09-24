@@ -283,6 +283,8 @@ automatic — `appendCollectorEntry()` is the funnel every instrumentation goes 
 the active span from the async context — so a custom collector inherits correct nesting without
 knowing the trace exists. An entry with no `startedAt` is skipped rather than drawn at the origin.
 
+When your entry wraps work that other collectors record — a model call whose provider request the HTTP client collector captures — run that work inside `runAsSpanParent(cls, (spanId) => …)`, store the `spanId` on the entry, and hand it back through the `id` option of `entriesToSpans`: the entries captured inside then nest under your bar, and no extra span is recorded.
+
 `getTraceSpans` runs **after** the rule engine, so `entry.tags` is already populated and the bars
 carry their tags. A contributor that throws is isolated and logged: one bad source cannot drop the
 whole trace.

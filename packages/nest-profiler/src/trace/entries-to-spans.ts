@@ -20,6 +20,11 @@ export interface EntrySpanOptions<TEntry> {
   meta?: (entry: TEntry) => Record<string, string | number | boolean> | undefined;
   /** Whether the entry represents a failure. Defaults to "it carries an `error`". */
   isError?: (entry: TEntry) => boolean;
+  /**
+   * The span id the entry reserved while it ran (see `runAsSpanParent`), so the entries captured
+   * inside it can name it as their parent.
+   */
+  id?: (entry: TEntry) => string | undefined;
 }
 
 /**
@@ -44,7 +49,9 @@ export function entriesToSpans<TEntry extends TaggableEntry>(
   entries.forEach((entry, index) => {
     if (typeof entry.startedAt !== 'number') return;
     const meta = options.meta?.(entry);
+    const id = options.id?.(entry);
     spans.push({
+      ...(id !== undefined && { id }),
       kind: options.kind,
       label: options.label(entry),
       startedAt: entry.startedAt,

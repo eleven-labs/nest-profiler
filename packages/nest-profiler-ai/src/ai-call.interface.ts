@@ -91,6 +91,22 @@ export interface AiTokenUsage {
   total?: number;
 }
 
+/**
+ * The call as the provider saw it — the body the SDK sent and what came back before it was
+ * normalised. Recorded only where `capture.providerPayload` asks for it.
+ */
+export interface AiProviderPayload {
+  /** The endpoint called. The SDK reports it only for a failed call. */
+  url?: string;
+  /** The HTTP status. The SDK reports it only for a failed call. */
+  statusCode?: number;
+  requestBody?: unknown;
+  responseHeaders?: Record<string, string>;
+  /** Absent for a streamed call, whose body the SDK reads chunk by chunk. */
+  responseBody?: unknown;
+  streamed?: boolean;
+}
+
 /** What both entry kinds share, so the trace and the rule engine read them alike. */
 interface AiEntryBase {
   /** Correlates every entry produced by one `generateText` / `streamText` invocation. */
@@ -159,6 +175,13 @@ export interface AiCallEntry extends AiEntryBase {
   schemaName?: string;
   outputStrategy?: string;
   warnings?: string[];
+  /** The request and response bodies exchanged with the provider. */
+  payload?: AiProviderPayload;
+  /**
+   * The trace span id this call reserved while the provider request ran, so an outgoing HTTP call
+   * recorded by another collector (`nest-profiler-http`'s fetch adapter) nests under it.
+   */
+  spanId?: string;
 }
 
 /** One tool the SDK ran between two model calls — real time, spent outside the model. */
