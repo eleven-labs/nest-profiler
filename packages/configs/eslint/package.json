@@ -26,13 +26,13 @@
   },
   "dependencies": {
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "^16.3.4",
+    "@next/eslint-plugin-next": "^16.3.5",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-better-tailwindcss": "^4.7.0",
     "eslint-plugin-check-file": "^3.3.2",
-    "eslint-plugin-perfectionist": "^5.11.0",
+    "eslint-plugin-perfectionist": "^5.11.1",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-turbo": "^2.10.12",
+    "eslint-plugin-turbo": "^2.10.13",
     "globals": "^17.12.0",
     "typescript-eslint": "^8.70.0"
   }
