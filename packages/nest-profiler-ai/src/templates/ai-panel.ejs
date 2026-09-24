@@ -144,7 +144,7 @@
       <% if (head && head.instructions) { %>
         <div class="px-4 py-3 border-b border-line-subtle">
           <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">System prompt</p>
-          <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= head.instructions %></code></pre>
+          <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code class="nohighlight"><%= head.instructions %></code></pre>
         </div>
       <% } %>
 
@@ -231,7 +231,7 @@
                       <div class="mb-2">
                         <span class="text-2xs px-1.5 py-0.5 rounded <%= roleClass[message.role] || 'badge-default' %>"><%= message.role %></span>
                         <% if (message.text) { %>
-                          <pre class="bg-surface-muted border border-line rounded p-3 mt-1 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= message.text %></code></pre>
+                          <pre class="bg-surface-muted border border-line rounded p-3 mt-1 text-xs overflow-x-auto whitespace-pre-wrap"><code class="nohighlight"><%= message.text %></code></pre>
                         <% } %>
                         <% for (const part of (message.parts || [])) { %>
                           <% if (part.type === 'file') { %>
@@ -252,16 +252,16 @@
 
               <% if (entry.reasoning) { %>
                 <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Reasoning</p>
-                <pre class="bg-surface-muted border border-line rounded p-3 mb-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= entry.reasoning %></code></pre>
+                <pre class="bg-surface-muted border border-line rounded p-3 mb-3 text-xs overflow-x-auto whitespace-pre-wrap"><code class="nohighlight"><%= entry.reasoning %></code></pre>
               <% } %>
 
               <% if (entry.completion) { %>
                 <p class="text-foreground-muted text-2xs uppercase tracking-widest mb-2">Completion</p>
-                <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code><%= entry.completion %></code></pre>
+                <pre class="bg-surface-muted border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"><code class="nohighlight"><%= entry.completion %></code></pre>
               <% } %>
 
               <% if (entry.outputSchema || entry.output !== undefined) { %>
-                <div class="mb-3">
+                <div class="mt-3 mb-3">
                   <div class="flex flex-wrap items-center gap-2 mb-2">
                     <p class="text-foreground-muted text-2xs uppercase tracking-widest">Structured output</p>
                     <% if (entry.outputStrategy) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint"><%= entry.outputStrategy %></span><% } %>

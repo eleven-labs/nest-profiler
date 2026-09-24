@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { AiCollector } from './ai.collector';
@@ -263,5 +264,17 @@ describe('AiCollector', () => {
 
   it('points at the panel template shipped with the package', () => {
     expect(collector.getTemplatePath()).toMatch(/templates[/\\]ai-panel\.ejs$/);
+  });
+
+  it('never lets highlight.js guess a language for a code block', () => {
+    // A bare `<pre><code>` makes highlight.js auto-detect a language, which colours
+    // words like `is` or `in` inside prompts and completions as keywords.
+    const template = readFileSync(collector.getTemplatePath(), 'utf8');
+    const codeBlocks = template.match(/<pre[^>]*>\s*<code[^>]*>/g) ?? [];
+
+    expect(codeBlocks.length).toBeGreaterThan(0);
+    for (const block of codeBlocks) {
+      expect(block).toMatch(/<code class="(?:nohighlight|language-[\w-]+)"/);
+    }
   });
 });
