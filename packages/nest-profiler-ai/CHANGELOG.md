@@ -1,5 +1,17 @@
 # @eleven-labs/nest-profiler-ai
 
+## 1.0.0-alpha.2
+
+### Minor Changes
+
+- 189b70d: Record AI SDK agents. A `ToolLoopAgent` run — and everything built on it, including `createAgentUIStream`, `createAgentUIStreamResponse` and `pipeAgentUIStreamToResponse` — is now marked as an agent run in the AI panel, and named after the agent's own `id` setting: the module instruments the agent class once at startup, so no application code imports the profiler to be attributed. Every call, step and tool execution carries its agent, the trace labels its spans with it, and the AI list gains an `Agent` filter. `profileAgent` is exported as an escape hatch for a custom `Agent` implementation or a name that should differ from the id.
+- c7c78e3: Record what each model call exchanged with its provider. The new opt-in `providerPayload` capture field stores the request body the AI SDK sent and the response headers and body the provider answered before the SDK normalised them — plus the endpoint, status and error body of a refused call — read from the provider's own result inside the registered telemetry integration, so no call site needs `include`. The HTTP request a model call makes now nests under that call in the trace when `@eleven-labs/nest-profiler-http`'s fetch adapter is installed. `generateText`'s `output` setting (`Output.object()`…), which replaces the deprecated `generateObject`, now records its strategy, schema, name and parsed object like `generateObject` did. The core gains `runAsSpanParent`, an `id` option on `entriesToSpans`, and exports `DEFAULT_SECRET_KEY_RE`.
+- 2cfd5f6: Label MCP tools without the application declaring them. The collector now recognises the tools `@ai-sdk/mcp`'s client builds from the tool set the AI SDK hands over when an operation starts, so calling `markMcpTools` is no longer needed — which keeps the import out of application code, and out of the way of a `devDependencies`-only install. Detection is scoped to the operation, so a local tool sharing a name with a remote one is no longer mislabelled. `markMcpTools` stays for integrations that build their MCP tools themselves.
+
+### Patch Changes
+
+- 9b4c22b: Stop colouring words inside prompts in the AI panel. The system prompt, the messages sent, the reasoning and the completion are prose, so they now opt out of highlight.js, which used to guess a programming language for them and paint words like `is` or `in` as keywords. The structured output section also gets the top spacing its sibling sections have, instead of sitting against the completion above it.
+
 ## 1.0.0-alpha.1
 
 ### Major Changes
