@@ -100,6 +100,7 @@ export class AiCollector implements IProfilerCollector, TraceContributor, Taggab
     return entriesToSpans(this.data(profile).entries, {
       kind: 'ai',
       collector: this.name,
+      id: (entry) => (isAiCall(entry) ? entry.spanId : undefined),
       label: (entry) =>
         isAiCall(entry) ? `${entry.operation} ${entry.model}` : `tool ${entry.name}`,
       meta: (entry): Record<string, string | number | boolean> => ({

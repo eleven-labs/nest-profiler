@@ -71,10 +71,17 @@ const mockModel = new MockLanguageModelV4({
       finishReason: wantsTool ? { unified: 'tool-calls' as const, raw: 'tool_calls' } : FINISH,
       usage: USAGE,
       warnings: [],
+      // What an HTTP provider reports of its own round-trip, which the AI SDK drops afterwards.
+      request: { body: { model: 'mock-model-id', max_tokens: options.maxOutputTokens } },
+      response: {
+        headers: { 'x-request-id': 'mock-request' },
+        body: { id: 'mock-response', usage: { prompt_tokens: 12, completion_tokens: 7 } },
+      },
     });
   },
   doStream: () =>
     Promise.resolve({
+      request: { body: { model: 'mock-model-id', stream: true } },
       stream: simulateReadableStream({
         chunkDelayInMs: CHUNK_DELAY_MS,
         chunks: [
@@ -146,6 +153,29 @@ describe('AI assistant (e2e)', () => {
 
       expect(call?.settings?.temperature).toBe(0.7);
       expect(call?.settings?.maxOutputTokens).toBe(512);
+    });
+
+    it('records the raw bodies exchanged with the provider', async () => {
+      const { profile } = await profileOf(app, 'post', '/api/v1/ai/ask', { prompt: 'Hello there' });
+      const [call] = callsOf(aiPanel(profile));
+
+      expect(call?.payload).toEqual({
+        requestBody: { model: 'mock-model-id', max_tokens: 512 },
+        responseHeaders: { 'x-request-id': 'mock-request' },
+        responseBody: { id: 'mock-response', usage: { prompt_tokens: 12, completion_tokens: 7 } },
+      });
+      expect(call?.spanId).toBeDefined();
+    });
+
+    it('shows the provider payload on the panel', async () => {
+      const { res } = await profileOf(app, 'post', '/api/v1/ai/ask', { prompt: 'Hello there' });
+      const panel = await request(server(app))
+        .get(`/_profiler/${tokenOf(res)}`)
+        .query({ tab: 'ai' });
+
+      expect(panel.status).toBe(200);
+      expect(panel.text).toContain('Provider payload');
+      expect(panel.text).toContain('mock-response');
     });
 
     it('is not reported as a streamed response', async () => {
@@ -391,13 +421,25 @@ describe('AI assistant (e2e)', () => {
       });
       const [call] = callsOf(aiPanel(profile));
 
-      expect(call?.operation).toBe('ai.generateObject');
+      expect(call?.operation).toBe('ai.generateText');
       expect(call?.outputStrategy).toBe('object');
       expect(call?.schemaName).toBe('ArticleDigest');
       expect((call?.outputSchema as { required?: string[] } | undefined)?.required).toContain(
         'summary',
       );
       expect(call?.output).toMatchObject({ title: 'Web profilers' });
+    });
+
+    it('records the raw bodies the structured call exchanged', async () => {
+      const { profile } = await profileOf(app, 'post', '/api/v1/ai/object', {
+        prompt: 'Digest this: web profilers show what a request did.',
+      });
+      const [call] = callsOf(aiPanel(profile));
+
+      expect(call?.payload).toMatchObject({
+        requestBody: { model: 'mock-model-id', max_tokens: 512 },
+        responseBody: { id: 'mock-response' },
+      });
     });
   });
 
@@ -588,6 +630,19 @@ describe('AI assistant (e2e)', () => {
       expect(call?.operation).toBe('ai.streamText');
       expect(call?.timeToFirstOutput).toBeGreaterThan(0);
       expect(call?.completion).toBe(ANSWER);
+    });
+
+    it('records the request sent, and that the answer came back streamed', async () => {
+      const res = await request(server(app))
+        .post('/api/v1/ai/stream')
+        .send({ prompt: 'What is a web profiler?' });
+      const profile = await getProfile(app, tokenOf(res));
+
+      const [call] = callsOf(aiPanel(profile));
+      expect(call?.payload).toEqual({
+        requestBody: { model: 'mock-model-id', stream: true },
+        streamed: true,
+      });
     });
   });
 

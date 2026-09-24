@@ -21,7 +21,7 @@ export { Span } from './trace/span.decorator';
 export { createProfilerInstrument } from './instrument/profiler-instrument';
 export { markInternal, isInternal } from './instrument/internal-marker';
 export type { ProfilerInstrumentOptions } from './instrument/profiler-instrument';
-export { runInSpan } from './trace/run-in-span';
+export { runInSpan, runAsSpanParent } from './trace/run-in-span';
 export { entriesToSpans } from './trace/entries-to-spans';
 export type { EntrySpanOptions } from './trace/entries-to-spans';
 export {
@@ -152,7 +152,13 @@ export type {
 } from './runtime/runtime-metrics.interface';
 export { toSafeData, safeStringify, normalizeBody } from './utils/safe-data.utils';
 export type { SafeDataOptions } from './utils/safe-data.utils';
-export { redact, redactString, isSecretKey, REDACTED } from './utils/redact.utils';
+export {
+  redact,
+  redactString,
+  isSecretKey,
+  REDACTED,
+  DEFAULT_SECRET_KEY_RE,
+} from './utils/redact.utils';
 export type { RedactOptions, RedactStringOptions } from './utils/redact.utils';
 export type {
   ProfilerRedactionOptions,

@@ -296,7 +296,7 @@ profiler's own providers are; `isInternal(target)` reads that mark back.
 Implemented by a collector that projects its already-collected entries onto the trace, so its
 queries or outgoing calls appear as spans in the waterfall alongside the ones you opened by hand.
 `entriesToSpans(entries, options)` turns a collector's already-timed entries into the `RawSpan[]`
-`getTraceSpans()` must return, without re-timing anything.
+`getTraceSpans()` must return, without re-timing anything. `runAsSpanParent(cls, work)` reserves a span id for an entry that wraps work other collectors record; passed back through the `id` option of `entriesToSpans`, it nests those entries under the entry's bar.
 
 <AutoTypeTable path="packages/nest-profiler/src/trace/build-trace.ts" name="TraceContributor" />
 
@@ -410,6 +410,7 @@ import {
   markInternal,
   entriesToSpans,
   runInSpan,
+  runAsSpanParent,
   ProfilerStorageService,
   CollectorRegistry,
   ProfilerCollector,

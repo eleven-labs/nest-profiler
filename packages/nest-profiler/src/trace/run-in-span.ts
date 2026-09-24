@@ -104,6 +104,26 @@ export function runInSpan<T>(
   });
 }
 
+/**
+ * Runs `work` with a fresh span id active, without recording a span: every entry captured inside
+ * names that id as its parent. For a collector whose own entry is drawn as the span — it stores
+ * the id on the entry and hands it back through `entriesToSpans`' `id` option.
+ *
+ * @returns Whatever `work` returns; `work` receives `undefined` when nothing is being profiled.
+ */
+export function runAsSpanParent<T>(
+  cls: ClsService | undefined,
+  work: (spanId: string | undefined) => T,
+): T {
+  const profile = readProfile(cls);
+  if (!profile || !cls) return work(undefined);
+  const spanId = nextSpanId(profile);
+  return cls.run({ ifNested: 'inherit' }, () => {
+    setActiveSpanId(cls, spanId);
+    return work(spanId);
+  });
+}
+
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return typeof (value as PromiseLike<unknown> | undefined)?.then === 'function';
 }

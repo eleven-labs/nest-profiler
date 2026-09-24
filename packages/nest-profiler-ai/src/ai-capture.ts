@@ -1,7 +1,10 @@
 import {
+  DEFAULT_MASK_HEADERS,
   DEFAULT_MASK_QUERY_PARAMS,
+  DEFAULT_SECRET_KEY_RE,
   REDACTED,
   buildMaskedQueryParams,
+  extractHeaders,
   redact,
   redactQueryString,
   redactString,
@@ -36,6 +39,7 @@ export const AI_CAPTURE_FIELDS = [
   'toolResults',
   'output',
   'runtimeContext',
+  'providerPayload',
 ] as const;
 
 export type AiCaptureField = (typeof AI_CAPTURE_FIELDS)[number];
@@ -82,7 +86,7 @@ export interface AiCaptureFieldLevels {
   toolArguments?: AiCaptureLevel;
   /** What a tool answered — the field that carries whatever the application's data sources hold. */
   toolResults?: AiCaptureLevel;
-  /** `generateObject`'s parsed object and the schema it had to satisfy. */
+  /** The structured output (`Output.object()`, `generateObject`) and the schema it had to satisfy. */
   output?: AiCaptureLevel;
   /**
    * The context the application threads through a generation: the AI SDK's `runtimeContext` on
@@ -92,6 +96,13 @@ export interface AiCaptureFieldLevels {
    * Default: `'none'`.
    */
   runtimeContext?: AiCaptureLevel;
+  /**
+   * What went over the wire to the provider and came back, before the AI SDK normalised it: the
+   * request body, the response headers and — for a call that is not streamed — the response body.
+   * It restates the whole prompt at every step, so like `runtimeContext` it is **not captured
+   * unless it is named here**. Default: `'none'`.
+   */
+  providerPayload?: AiCaptureLevel;
 }
 
 /** One level for every field, or a level per field and per group. */
@@ -167,11 +178,14 @@ export interface AiCaptureSettings {
   maxTextLength?: number;
   /** Messages kept per call, counted from the most recent. */
   maxMessages?: number;
+  /** Characters of JSON kept of one provider request or response body. */
+  maxPayloadLength?: number;
 }
 
 /** Defaults for the bounds applied before anything reaches a stored profile. */
 const DEFAULT_MAX_TEXT_LENGTH = 2000;
 const DEFAULT_MAX_MESSAGES = 40;
+const DEFAULT_MAX_PAYLOAD_LENGTH = 65536;
 
 /** A captured URL is a pointer, not a payload: 200 characters place it and no more. */
 const MAX_URL_LENGTH = 200;
@@ -189,6 +203,16 @@ const REDACTION_MARGIN = 12288;
 
 /** Matches nothing: how the built-in sensitive-key pattern is switched off. */
 const NEVER = /(?!)/;
+
+/**
+ * The built-in sensitive-key pattern, minus the token *counts* a provider body is full of
+ * (`max_tokens`, `prompt_tokens`, `maxOutputTokens`): a `token` key is a credential, a `tokens`
+ * one is a number.
+ */
+const PAYLOAD_KEY_PATTERN = new RegExp(
+  DEFAULT_SECRET_KEY_RE.source.replace('|token|', '|token(?!s)|'),
+  DEFAULT_SECRET_KEY_RE.flags,
+);
 
 /**
  * Personal data the credential detectors miss. Quantifiers are upper-bounded, like the core's own
@@ -211,12 +235,15 @@ interface ResolvedCapture {
   levels: Record<AiCaptureField, AiCaptureLevel>;
   maxTextLength: number;
   maxMessages: number;
+  maxPayloadLength: number;
   /** Options for {@link redactString} over free text. */
   stringOptions: RedactStringOptions;
   /** Options for {@link redact} over payloads: keys masked, string values scanned. */
   valueOptions: RedactOptions;
   /** Same, for a JSON Schema: a schema's keys are field *names*, so only its strings are scanned. */
   schemaOptions: RedactOptions;
+  /** Same, for a provider body: its token counts are not credentials. */
+  payloadOptions: RedactOptions;
   maskedQueryParams: ReadonlySet<string>;
   sanitize?: AiSanitizer;
   /**
@@ -251,6 +278,7 @@ function resolveLevels(settings: AiCaptureSettings): Record<AiCaptureField, AiCa
   // The runtime context is the application's own state, not what was said, so no blanket level
   // pulls it in: it is recorded only when it is asked for by name.
   levels.runtimeContext = perField?.runtimeContext ?? 'none';
+  levels.providerPayload = perField?.providerPayload ?? 'none';
   return levels;
 }
 
@@ -273,16 +301,21 @@ function resolve(settings: AiCaptureSettings): ResolvedCapture {
     levels,
     maxTextLength: settings.maxTextLength ?? DEFAULT_MAX_TEXT_LENGTH,
     maxMessages: settings.maxMessages ?? DEFAULT_MAX_MESSAGES,
+    maxPayloadLength: settings.maxPayloadLength ?? DEFAULT_MAX_PAYLOAD_LENGTH,
     stringOptions: { patterns, replacement },
     valueOptions,
     schemaOptions: { ...valueOptions, keyPattern: NEVER },
+    payloadOptions: {
+      ...valueOptions,
+      keyPattern: redaction.useDefaults === false ? NEVER : PAYLOAD_KEY_PATTERN,
+    },
     maskedQueryParams: buildMaskedQueryParams(DEFAULT_MASK_QUERY_PARAMS),
     ...(redaction.sanitize !== undefined && { sanitize: redaction.sanitize }),
-    // The runtime context is out of this: it is forced to `none` by default, and a host that
-    // asked for everything verbatim must not find its error messages masked because of it.
-    redactDiagnostics: AI_CAPTURE_FIELDS.filter((field) => field !== 'runtimeContext').some(
-      (field) => levels[field] !== 'full',
-    ),
+    // The opt-in fields are out of this: they are forced to `none` by default, and a host that
+    // asked for everything verbatim must not find its error messages masked because of them.
+    redactDiagnostics: AI_CAPTURE_FIELDS.filter(
+      (field) => field !== 'runtimeContext' && field !== 'providerPayload',
+    ).some((field) => levels[field] !== 'full'),
   };
 }
 
@@ -460,4 +493,68 @@ export function captureUrl(url: string, field: AiCaptureField): string | undefin
 export function captureDiagnostic(text: string): string {
   const masked = resolved.redactDiagnostics ? redactString(text, resolved.stringOptions) : text;
   return boundText(scrub(masked, { field: 'error' }));
+}
+
+/** Every string of a payload cut to `max` characters — an inline file is a base64 string. */
+function truncateStrings(value: unknown, max: number, depth = 0): unknown {
+  if (typeof value === 'string') return value.length <= max ? value : `${value.slice(0, max)}…`;
+  if (depth >= 16) return value;
+  if (Array.isArray(value)) return value.map((item) => truncateStrings(item, max, depth + 1));
+  if (isRecord(value) && Object.getPrototypeOf(value) === Object.prototype) {
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      result[key] = truncateStrings(entry, max, depth + 1);
+    }
+    return result;
+  }
+  return value;
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * A provider request or response body, as it went over the wire. A body restates the whole prompt,
+ * so each of its strings is bounded like any captured text — cut before it is masked, since an
+ * inline attachment would cost more to scan than the call — and the whole by `maxPayloadLength`.
+ */
+export function capturePayload(value: unknown): unknown {
+  const level = resolved.levels.providerPayload;
+  if (level === 'none' || value === undefined || value === null || value === '') return undefined;
+  const parsed = typeof value === 'string' ? parseJson(value) : value;
+  if (typeof parsed === 'string') return captureText(parsed, 'providerPayload');
+  if (level === 'metadata') return describeShape(parsed);
+  const { maxTextLength, maxPayloadLength } = resolved;
+  const masked =
+    level === 'full'
+      ? parsed
+      : redact(truncateStrings(parsed, maxTextLength + REDACTION_MARGIN), resolved.payloadOptions);
+  const bounded = truncateStrings(
+    sanitizeDeep(masked, { field: 'providerPayload' }),
+    maxTextLength,
+  );
+  try {
+    const json = JSON.stringify(bounded);
+    return json !== undefined && json.length > maxPayloadLength
+      ? `${json.slice(0, maxPayloadLength)}…`
+      : bounded;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+/** The provider's response headers — metadata rather than content, but a cookie is a cookie. */
+export function capturePayloadHeaders(headers: unknown): Record<string, string> | undefined {
+  const level = resolved.levels.providerPayload;
+  if (level === 'none' || !isRecord(headers)) return undefined;
+  const replacement = resolved.stringOptions.replacement;
+  const captured = extractHeaders(headers, level === 'full' ? [] : DEFAULT_MASK_HEADERS, {
+    ...(replacement !== undefined && { replacement }),
+  });
+  return Object.keys(captured).length > 0 ? captured : undefined;
 }

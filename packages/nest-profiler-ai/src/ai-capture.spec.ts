@@ -33,14 +33,17 @@ describe('ai capture levels', () => {
       output: 'redacted',
       // The application's own runtime state is never pulled in by a blanket level.
       runtimeContext: 'none',
+      // Nor are the raw provider bodies, which restate the whole prompt at every step.
+      providerPayload: 'none',
     });
   });
 
-  it('applies one level to every field, the runtime context aside', () => {
+  it('applies one level to every field, the opt-in fields aside', () => {
     configureAiCapture({ capture: 'metadata' });
 
     for (const field of AI_CAPTURE_FIELDS) {
-      expect(captureLevelOf(field)).toBe(field === 'runtimeContext' ? 'none' : 'metadata');
+      const optIn = field === 'runtimeContext' || field === 'providerPayload';
+      expect(captureLevelOf(field)).toBe(optIn ? 'none' : 'metadata');
     }
   });
 

@@ -7,6 +7,7 @@ import { createProfilerLogger } from '../services/profiler-logger-adapter';
 import { manualSpansOf } from '../utils/profile-runtime-state';
 import { buildTrace, TRACE_ROOT_ID } from './build-trace';
 import { entriesToSpans } from './entries-to-spans';
+import { runAsSpanParent } from './run-in-span';
 import type { TraceContributor } from './build-trace';
 import type { Profile, TraceSpan } from '../interfaces/profile.interface';
 import type { TaggableEntry } from '../analysis/taggable-collector.interface';
@@ -93,6 +94,45 @@ describe('trace assembly, end to end', () => {
     // is the only thing that connected them.
     expect(query?.parentId).toBe(span?.id);
     expect(query?.source).toEqual({ collector: 'typeorm', index: 0, tab: 'database' });
+  });
+
+  it('nests a query under an entry that reserved its own span id', async () => {
+    interface CallLike extends TaggableEntry {
+      spanId?: string;
+    }
+    const calls: CallLike[] = [];
+    await profiled(async () => {
+      const startedAt = Date.now();
+      await runAsSpanParent(cls, async (spanId) => {
+        recordQuery('SELECT inner', Date.now(), 1);
+        await Promise.resolve();
+        calls.push({ startedAt, duration: 10, ...(spanId !== undefined && { spanId }) });
+      });
+      recordQuery('SELECT after', Date.now(), 1);
+    });
+    profile.performance.duration = 50;
+    const callCollector: TraceContributor = {
+      getTraceSpans: () =>
+        entriesToSpans(calls, {
+          kind: 'ai',
+          collector: 'ai',
+          label: () => 'model call',
+          id: (entry) => entry.spanId,
+        }),
+    };
+    buildTrace(profile, [queryCollector, callCollector]);
+
+    const call = find('model call');
+    expect(call?.id).toBe(calls[0]?.spanId);
+    expect(find('SELECT inner')?.parentId).toBe(call?.id);
+    // The id is active only inside the scope: nothing that follows is reparented under it.
+    expect(find('SELECT after')?.parentId).toBe(TRACE_ROOT_ID);
+    // No span is recorded for the scope itself — the entry is the span.
+    expect(manualSpansOf(profile)).toHaveLength(0);
+  });
+
+  it('runs the work unchanged outside a profile', () => {
+    expect(runAsSpanParent(cls, (spanId) => spanId ?? 'none')).toBe('none');
   });
 
   it('files a query issued outside any span at the trace root', () => {

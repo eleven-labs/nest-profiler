@@ -12,9 +12,11 @@ import { ApprovalStore } from './application/approval.store.js';
 import { languageModelProvider } from './infrastructure/openrouter/language-model.provider.js';
 import { McpToolsProvider } from './infrastructure/mcp/mcp-tools.provider.js';
 
-/** A bare level covers the runtime context too, which is opt-in for everyone but this demo. */
-const withRuntimeContext = (capture: AiCaptureOptions): AiCaptureOptions =>
-  typeof capture === 'string' ? { default: capture, runtimeContext: capture } : capture;
+/** A bare level covers the opt-in fields too — the runtime context and the raw provider bodies. */
+const withOptInFields = (capture: AiCaptureOptions): AiCaptureOptions =>
+  typeof capture === 'string'
+    ? { default: capture, runtimeContext: capture, providerPayload: capture }
+    : capture;
 
 /**
  * AI bounded context — an OpenRouter-backed assistant exposed several ways: one blocking answer,
@@ -36,10 +38,11 @@ const withRuntimeContext = (capture: AiCaptureOptions): AiCaptureOptions =>
           // `AI_CAPTURE=metadata`/`none` to store less still, down to one field at a time
           // (`AI_CAPTURE=default:redacted,prompt:metadata,toolResults:none`).
           //
-          // A bare level opts the runtime context in along with it, which the collector never
-          // does on its own: the assistant threads a tenant through every generation, and the
-          // demo is here to show it. Name `runtimeContext` explicitly to decide otherwise.
-          capture: withRuntimeContext(config.get<AiConfig>('ai')?.capture ?? 'full'),
+          // A bare level opts the runtime context and the provider payload in along with it,
+          // which the collector never does on its own: the assistant threads a tenant through
+          // every generation, and the demo is here to show it and the bodies OpenRouter exchanged.
+          // Name `runtimeContext` or `providerPayload` explicitly to decide otherwise.
+          capture: withOptInFields(config.get<AiConfig>('ai')?.capture ?? 'full'),
           // OpenRouter reports what each call cost, so prices are only needed for the providers
           // that do not — set `AI_PRICING=openrouter` to price every model from its public list.
           ...(config.get<AiConfig>('ai')?.pricing === 'openrouter' && {

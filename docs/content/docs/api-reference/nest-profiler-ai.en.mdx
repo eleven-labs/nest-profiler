@@ -31,7 +31,7 @@ Resolution runs from the narrowest: a field, then the group it belongs to (`prom
 `instructions` and `messages`, `tools` covers the three tool fields), then `default`.
 `runtimeContext` is outside that chain — the AI SDK's `runtimeContext` on a call and each tool's
 `toolContext` hold the application's own state rather than what was said, so they are recorded
-only when the field is named, not even by `capture: 'full'`.
+only when the field is named, not even by `capture: 'full'`. `providerPayload`, the raw bodies exchanged with the provider, is outside it for the same reason.
 
 <AutoTypeTable path="packages/nest-profiler-ai/src/ai-capture.ts" name="AiCaptureFieldLevels" />
 
@@ -87,6 +87,12 @@ can see exactly what is matched, and extend it through `redaction.patterns`.
 One provider round-trip. A tool loop records several, distinguished by `step`.
 
 <AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiCallEntry" />
+
+## AiProviderPayload
+
+The call as the provider saw it, recorded only where `capture.providerPayload` asks for it.
+
+<AutoTypeTable path="packages/nest-profiler-ai/src/ai-call.interface.ts" name="AiProviderPayload" />
 
 ## AiToolExecutionEntry
 
@@ -345,6 +351,7 @@ import type {
   AiMessageRole,
   AiCallSettings,
   AiTokenUsage,
+  AiProviderPayload,
   AiCaptureLevel,
   AiCaptureField,
   AiCaptureFieldLevels,

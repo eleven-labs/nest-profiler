@@ -65,8 +65,9 @@ One section per `generateText` / `streamText` / `generateObject` invocation:
 - every **step** in order — token usage, cost, finish reason, time to first token, throughput, the messages sent, the model's reasoning, the completion and the tool calls it asked for
 - each **tool execution** interleaved where it happened, with its input, output and duration
 - **structured output** beside the schema it had to satisfy, **attachments** as their media type and size or URL (never the bytes), and any **human approval** with its decision
+- the **provider payload**, when asked for: the request body sent to the provider and what it answered before the AI SDK normalised it (see [The provider payload is opt-in](#the-provider-payload-is-opt-in))
 
-Model calls and tool executions also land on the execution trace, so the model's share of a request is visible against everything else it did.
+Model calls and tool executions also land on the execution trace, so the model's share of a request is visible against everything else it did. With [`@eleven-labs/nest-profiler-http`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-http)'s fetch adapter installed, the HTTP request each model call made to its provider nests under that call.
 
 ## Agents
 
@@ -123,6 +124,7 @@ That holds whatever the handler streams: raw tokens through `pipeTextStreamToRes
 | `redaction`         | —            | What the `redacted` level masks, on top of the built-in detectors                                                  |
 | `maxTextLength`     | `2000`       | Characters kept of any one captured text                                                                           |
 | `maxMessages`       | `40`         | Messages kept per call, counted from the most recent                                                               |
+| `maxPayloadLength`  | `65536`      | Characters of JSON kept of one provider request or response body                                                   |
 | `pricing`           | —            | Token prices by model, so calls are costed (see [Cost](#cost))                                                     |
 | `pricingSource`     | —            | Loads those prices from an API or a database, once at startup, cached                                              |
 | `pricingTtl`        | `0`          | ms before a loaded price table is reloaded in the background                                                       |
@@ -171,8 +173,9 @@ AiCollectorModule.forRoot({
 | `toolDefinitions` | The tools declared to the model: descriptions and input schemas             |
 | `toolArguments`   | What a tool was called with, and the reason of an approval on it            |
 | `toolResults`     | What a tool answered                                                        |
-| `output`          | `generateObject`'s parsed object and the schema it had to satisfy           |
+| `output`          | The structured output (`Output.object()`…) and the schema it had to satisfy |
 | `runtimeContext`  | The context the application threads through the run — **opt-in**, see below |
+| `providerPayload` | The raw bodies exchanged with the provider — **opt-in**, see below          |
 
 Two shorthands set several at once: `prompt` covers `instructions` and `messages`, `tools` covers the three tool fields. A field named on its own always wins over its group, and a group over `default`:
 
@@ -195,6 +198,22 @@ AiCollectorModule.forRoot({
 ```
 
 The call's context then shows with the generation, and each tool's own beside its input and output.
+
+### The provider payload is opt-in
+
+The panel shows the call as the AI SDK understood it. When that is not enough — a provider option that did not reach the wire, a provider-specific field the SDK does not map, a refusal to read — `providerPayload` records the call as the provider saw it: the request body the SDK sent, the response headers, and the response body before the SDK normalised it. Nothing changes at the call site, and `include: { requestBody, responseBody }` is not needed: the bodies are read from the provider's own result, inside the telemetry integration the module already registers.
+
+A body restates the whole prompt at every step of a tool loop, so no blanket level pulls it in, not even `capture: 'full'`. It is recorded only when named:
+
+```ts
+AiCollectorModule.forRoot({
+  capture: { default: 'redacted', providerPayload: 'redacted' },
+});
+```
+
+At `redacted`, the body is masked like any other payload, token counts (`max_tokens`, `prompt_tokens`) aside, and so are cookies in the response headers. Each string is cut to `maxTextLength` — an inline attachment is a base64 string — and the whole body to `maxPayloadLength`.
+
+A call the provider refused also records the endpoint, the HTTP status and the error body it answered with. A streamed call records its request body and response headers; its response body is read chunk by chunk by the SDK and is not recorded here. For the HTTP exchange itself — URL, status, timings and, for a streamed call, the raw events — install `@eleven-labs/nest-profiler-http` with its fetch adapter: the request each model call makes nests under that call in the trace. `generateObject` and `streamObject` record their payload too, but the SDK runs their provider request outside the hook that scopes it, so their HTTP request stays beside the call rather than under it.
 
 ### What `redacted` masks
 

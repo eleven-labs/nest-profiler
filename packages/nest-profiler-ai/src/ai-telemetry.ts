@@ -1,5 +1,5 @@
 import { ClsServiceManager } from 'nestjs-cls';
-import { appendCollectorEntry, readProfile } from '@eleven-labs/nest-profiler';
+import { appendCollectorEntry, readProfile, runAsSpanParent } from '@eleven-labs/nest-profiler';
 import type {
   LanguageModelCallEndEvent,
   LanguageModelCallStartEvent,
@@ -18,6 +18,8 @@ import {
   captureDiagnostic,
   type AiCaptureField,
   captureLevelOf,
+  capturePayload,
+  capturePayloadHeaders,
   captureSchema,
   captureText,
   captureUrl,
@@ -32,6 +34,7 @@ import type {
   AiEntry,
   AiMessage,
   AiMessagePart,
+  AiProviderPayload,
   AiTokenUsage,
   AiToolCall,
   AiToolDefinition,
@@ -67,6 +70,8 @@ interface Operation {
   outputStrategy?: string;
   outputSchema?: unknown;
   schemaName?: string;
+  /** `generateObject` / `streamObject` only: what the provider exchanged, from the step-end event. */
+  payload?: AiProviderPayload;
   /** Model calls seen so far, which is the step number of the next one. */
   steps: number;
   /** The last call recorded for this operation, so the operation's result can be folded into it. */
@@ -79,6 +84,8 @@ interface PendingCall {
   messages?: AiMessage[];
   tools?: AiToolDefinition[];
   settings?: AiCallSettings;
+  payload?: AiProviderPayload;
+  spanId?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -500,6 +507,75 @@ function agentOf(headers: unknown): AiAgentInfo | undefined {
   };
 }
 
+/**
+ * `generateText`'s `output` setting (`Output.object()`, `Output.array()`…): its mode, and a
+ * promise of the response format carrying the JSON Schema and its name. Plain text is no
+ * structured output at all.
+ */
+function outputSpecOf(value: unknown): { mode: string; format: PromiseLike<unknown> } | undefined {
+  if (!isRecord(value) || typeof value['name'] !== 'string' || value['name'] === 'text') {
+    return undefined;
+  }
+  const format = value['responseFormat'];
+  if (!isRecord(format) || typeof format['then'] !== 'function') return undefined;
+  return { mode: value['name'], format: format as unknown as PromiseLike<unknown> };
+}
+
+/** The object a structured `generateText` answered with: the JSON of its final text. */
+function parsedOutputOf(text: unknown): unknown {
+  if (typeof text !== 'string' || text === '') return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Drops the fields a capture level left empty, and the payload itself when nothing is left. */
+function compactPayload(payload: AiProviderPayload): AiProviderPayload | undefined {
+  const entries = Object.entries(payload).filter(([, value]) => value !== undefined);
+  const compacted = Object.fromEntries(entries) as AiProviderPayload;
+  const content = entries.filter(([key]) => key !== 'streamed');
+  return content.length > 0 ? compacted : undefined;
+}
+
+/**
+ * What the provider was sent and answered, read off the raw `doGenerate` / `doStream` result — the
+ * last point at which it still exists: the SDK keeps a step's bodies only where the call site
+ * passed `include`, which is exactly the call-site change this package exists to avoid.
+ */
+function payloadOf(
+  result: unknown,
+  streamed = isRecord(result) && 'stream' in result,
+): AiProviderPayload | undefined {
+  if (!isRecord(result)) return undefined;
+  const request = isRecord(result['request']) ? result['request'] : {};
+  const response = isRecord(result['response']) ? result['response'] : {};
+  return compactPayload({
+    requestBody: capturePayload(request['body']),
+    responseHeaders: capturePayloadHeaders(response['headers']),
+    ...(!streamed && { responseBody: capturePayload(response['body']) }),
+    ...(streamed && { streamed: true }),
+  });
+}
+
+/**
+ * What a failed provider call exchanged. The SDK's `APICallError` carries the whole round-trip —
+ * endpoint, status, the body sent and the one that came back — which is often the only way to
+ * read why a provider refused a request.
+ */
+function payloadOfError(error: unknown): AiProviderPayload | undefined {
+  if (!isRecord(error) || typeof error['url'] !== 'string') return undefined;
+  if (captureLevelOf('providerPayload') === 'none') return undefined;
+  return compactPayload({
+    url: captureUrl(error['url'], 'providerPayload'),
+    ...(typeof error['statusCode'] === 'number' && { statusCode: error['statusCode'] }),
+    requestBody: capturePayload(error['requestBodyValues']),
+    responseHeaders: capturePayloadHeaders(error['responseHeaders']),
+    responseBody: capturePayload(error['responseBody']),
+  });
+}
+
 /** Folds the operation's tool choice into the call's own settings, which do not carry it. */
 function withToolChoice(
   settings: AiCallSettings | undefined,
@@ -536,7 +612,8 @@ export class AiProfilerTelemetry implements Telemetry {
     // themselves, and a tool object is the only thing that still knows it came from a server.
     const mcpTools = mcpToolNamesOf(raw['tools']);
     const agent = agentOf(raw['headers']);
-    this.operations.set(event.callId, {
+    const outputSpec = outputSpecOf(raw['output']);
+    const operation: Operation = {
       id: event.operationId,
       startedAt: Date.now(),
       steps: 0,
@@ -552,8 +629,30 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(typeof raw['output'] === 'string' && { outputStrategy: raw['output'] }),
       ...(outputSchema !== undefined && { outputSchema }),
       ...(typeof raw['schemaName'] === 'string' && { schemaName: raw['schemaName'] }),
-    });
+      ...(outputSpec !== undefined && { outputStrategy: outputSpec.mode }),
+    };
+    this.operations.set(event.callId, operation);
+    // The SDK resolves the same promise before it calls the model, so it has settled long before
+    // any call of this operation is recorded.
+    void Promise.resolve(outputSpec?.format).then(
+      (format) => {
+        if (!isRecord(format)) return;
+        const schema = captureSchema(format['schema'], 'output');
+        if (schema !== undefined) operation.outputSchema = schema;
+        if (typeof format['name'] === 'string') operation.schemaName = format['name'];
+        this.foldOutputSpec(operation);
+      },
+      () => undefined,
+    );
   };
+
+  /** A call recorded before the output spec settled still gets its schema. */
+  private foldOutputSpec(operation: Operation): void {
+    const call = operation.lastCall;
+    if (call === undefined) return;
+    if (operation.outputSchema !== undefined) call.outputSchema ??= operation.outputSchema;
+    if (operation.schemaName !== undefined) call.schemaName ??= operation.schemaName;
+  }
 
   /**
    * Folds what only the finished operation knows into its last model call: the object
@@ -570,8 +669,12 @@ export class AiProfilerTelemetry implements Telemetry {
     const call = operation.lastCall ?? this.synthesize(operation, raw);
     if (!call) return;
 
-    if (raw['object'] !== undefined) {
-      const output = captureValue(raw['object'], 'output');
+    // `generateObject` hands over the object it parsed; a structured `generateText` only its text.
+    const object =
+      raw['object'] ??
+      (operation.outputStrategy !== undefined ? parsedOutputOf(raw['text']) : undefined);
+    if (object !== undefined) {
+      const output = captureValue(object, 'output');
       if (output !== undefined) call.output = output;
     }
     const approvals = approvalsOf(raw['content']);
@@ -585,6 +688,17 @@ export class AiProfilerTelemetry implements Telemetry {
     if (warnings.length > 0) {
       call.warnings = warnings.map((warning) => captureDiagnostic(describeWarning(warning)));
     }
+  };
+
+  /**
+   * `generateObject` and `streamObject` run the provider outside `executeLanguageModelCall`, but
+   * their step-end event still carries the bodies the SDK strips from a text step.
+   */
+  onObjectStepEnd: Telemetry['onObjectStepEnd'] = (event) => {
+    const operation = this.operations.get(event.callId);
+    if (!operation) return;
+    const payload = payloadOf(event, operation.id === 'ai.streamObject');
+    if (payload !== undefined) operation.payload = payload;
   };
 
   /** Builds the call entry an operation without model-call events never produced, and records it. */
@@ -610,6 +724,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(operation.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation.schemaName !== undefined && { schemaName: operation.schemaName }),
+      ...(operation.payload !== undefined && { payload: operation.payload }),
       ...(flat !== undefined && { usage: flat }),
       ...priceOf(
         isRecord(raw['providerMetadata'])
@@ -639,6 +754,26 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(settings !== undefined && { settings }),
     });
   };
+
+  /**
+   * Wraps the provider request itself. Two things only exist here: the raw bodies, and the scope
+   * the request runs in — a span id is reserved for the call so an HTTP client collector nests the
+   * outgoing request under it instead of beside it.
+   */
+  executeLanguageModelCall: Telemetry['executeLanguageModelCall'] = ({ callId, execute }) =>
+    runAsSpanParent(ClsServiceManager.getClsService(), async (spanId) => {
+      const pending = this.pendingCalls.get(callId);
+      if (pending !== undefined && spanId !== undefined) pending.spanId = spanId;
+      try {
+        const result = await execute();
+        // A retried call runs this once per attempt: the attempt that answered is the one kept.
+        if (pending !== undefined) pending.payload = payloadOf(result);
+        return result;
+      } catch (error) {
+        if (pending !== undefined) pending.payload = payloadOfError(error);
+        throw error;
+      }
+    });
 
   onLanguageModelCallEnd: Telemetry['onLanguageModelCallEnd'] = (event) => {
     const pending = this.pendingCalls.get(event.callId);
@@ -684,6 +819,8 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(operation?.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation?.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation?.schemaName !== undefined && { schemaName: operation.schemaName }),
+      ...(pending?.payload !== undefined && { payload: pending.payload }),
+      ...(pending?.spanId !== undefined && { spanId: pending.spanId }),
       fingerprint: `${event.provider}:${event.modelId}`,
     });
   };
@@ -741,6 +878,8 @@ export class AiProfilerTelemetry implements Telemetry {
     const instructions = pending?.instructions ?? operation?.instructions;
     const messages = pending?.messages ?? operation?.messages;
     const settings = pending?.settings ?? operation?.settings;
+    // An operation without `executeLanguageModelCall` (`generateObject`) reaches here unwrapped.
+    const payload = pending?.payload ?? payloadOfError(cause);
     this.record({
       kind: 'call',
       callId,
@@ -756,6 +895,8 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(settings !== undefined && { settings }),
       ...(operation?.context !== undefined && { context: operation.context }),
       ...(operation?.agent !== undefined && { agent: operation.agent }),
+      ...(payload !== undefined && { payload }),
+      ...(pending?.spanId !== undefined && { spanId: pending.spanId }),
       error: captureDiagnostic(describeError(cause)),
     });
   };

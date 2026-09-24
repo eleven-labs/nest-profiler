@@ -13,7 +13,7 @@ export interface AssistantAnswer {
   };
 }
 
-/** What `generateObject` is asked to produce — a small, schema-checked digest of an article. */
+/** What the structured `generateText` is asked to produce — a small, schema-checked digest of an article. */
 export interface ArticleDigest {
   title: string;
   summary: string;
