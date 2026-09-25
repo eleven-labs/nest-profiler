@@ -69,7 +69,7 @@ POST /api/v1/products                                 19.29 ms
     ProductService.create                             14.28 ms
       TypeOrmProductRepository.create                 14.07 ms
         Repository.save                               14.05 ms
-          INSERT INTO "products" …                     2.00 ms
+          INSERT INTO "typeorm_products" …             2.00 ms
           COMMIT                                       4.00 ms
 ```
 

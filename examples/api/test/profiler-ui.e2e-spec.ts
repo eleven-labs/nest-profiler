@@ -115,6 +115,8 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       const isMikro = activeSqlOrm() === 'mikro-orm';
       const label = isMikro ? 'MikroORM' : 'TypeORM';
       const viewKey = isMikro ? 'mikro-orm-schema' : 'typeorm-schema';
+      // Each adapter owns its table, so switching SQL_ORM never reshapes the other ORM's rows.
+      const tableName = isMikro ? 'products' : 'typeorm_products';
 
       // The sidebar on the home page groups the ORM views under a Schemas heading.
       const home = await request(server(app)).get('/_profiler');
@@ -126,7 +128,7 @@ describe('Profiler UI (e2e) — list page, filters and detail tabs', () => {
       const res = await request(server(app)).get('/_profiler').query({ view: viewKey });
       expect(res.text).toContain(label);
       expect(res.text).toContain('Product');
-      expect(res.text).toContain('products');
+      expect(res.text).toContain(tableName);
     });
 
     // Each list has its own filter bar, so filter params are namespaced by the

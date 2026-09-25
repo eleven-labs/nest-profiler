@@ -6,7 +6,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('products')
+// Not `products`: that table belongs to the MikroORM adapter, whose mapping is incompatible.
+@Entity('typeorm_products')
 export class ProductEntity {
   @PrimaryGeneratedColumn()
   id!: number;
