@@ -51,35 +51,36 @@ import type {
 
 ## Setup
 
-```ts
-// In AppModule (alongside ConfigModule):
-import { ConditionalModule } from '@nestjs/config';
+`ConfigModule` stays in your production `AppModule`; the collector goes in the dev-only profiling bundle:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 
-ConditionalModule.registerWhen(
-  ConfigCollectorModule.forRoot({ maskKeys: ['database.password', 'jwt.secret'] }),
-  isProfilerEnabled,
-);
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ConfigCollectorModule.forRoot({ maskKeys: ['database.password', 'jwt.secret'] }),
+  ],
+})
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Async setup
 
-Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, added to the dev-only bundle's `imports` in place of `forRoot()`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-ConditionalModule.registerWhen(
-  ConfigCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
-    }),
+ConfigCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
   }),
-  isProfilerEnabled,
-);
+});
 ```

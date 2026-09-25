@@ -10,7 +10,7 @@ This tutorial shows how to profile the SQL queries of a NestJS application backe
 
 ## Prerequisites
 
-- `@eleven-labs/nest-profiler` installed and configured
+- `@eleven-labs/nest-profiler` [installed and configured](/docs/getting-started)
 - **TypeORM** — `@nestjs/typeorm` and `typeorm` installed with a working `DataSource`, or
 - **MikroORM** — `@mikro-orm/core`, `@mikro-orm/nestjs` and a driver (e.g. `@mikro-orm/postgresql`) installed with a working `MikroOrmModule.forRoot()`
 
@@ -18,64 +18,51 @@ This tutorial shows how to profile the SQL queries of a NestJS application backe
 
 ```bash
 # TypeORM
-pnpm add @eleven-labs/nest-profiler-typeorm
+pnpm add -D @eleven-labs/nest-profiler-typeorm
 
 # MikroORM
-pnpm add @eleven-labs/nest-profiler-mikro-orm
+pnpm add -D @eleven-labs/nest-profiler-mikro-orm
 ```
 
 ## Step 2 - Register the collector
 
-Add the collector module **after** the ORM module in your root module:
+Keep the ORM module in your application's `AppModule`, and add the collector to the dev-only profiling bundle:
 
-```ts title="app.module.ts (TypeORM)"
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts (TypeORM)"
+import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    TypeOrmModule.forRootAsync({ ... }),
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      TypeOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    TypeOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-```ts title="app.module.ts (MikroORM)"
-import { MikroOrmModule } from '@mikro-orm/nestjs';
-import { ConditionalModule } from '@nestjs/config';
-import { PostgreSqlDriver } from '@mikro-orm/postgresql';
+```ts title="profiling/profiling.module.ts (MikroORM)"
+import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    MikroOrmModule.forRoot({ driver: PostgreSqlDriver /* ... */ }),
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    MikroOrmCollectorModule.forRoot({ slowThreshold: 100 }), // queries > 100ms highlighted
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-No other configuration is needed: the TypeORM collector injects the `DataSource` automatically via `@InjectDataSource()`, and the MikroORM one wraps the ORM logger automatically and requires no `debug` flag.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+No other configuration is needed: `AppDevModule` imports the bundle after `AppModule`, so the ORM connection already exists when the collector starts. The TypeORM collector resolves the `DataSource` by its injection token, and the MikroORM one wraps the ORM logger automatically and requires no `debug` flag. Pass `connectionName` to either one to instrument a named connection.
 
 ## Step 3 - Instrument your services with spans
 
-Wrap your repository calls in `span()` so the Performance tab's execution trace labels them, and so the SQL queries they issue are nested underneath rather than listed flat against the request:
+Wrap your repository calls in `span()` so the Performance tab's execution trace labels them, and so the SQL queries they issue are nested underneath rather than listed flat against the request. This step is optional: keeping `TracerService` calls in production code requires installing the profiler as a regular dependency with the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a dev-dependency install is absent in production.
 
 ```ts title="products.service.ts (TypeORM)"
 import { TracerService } from '@eleven-labs/nest-profiler';
@@ -116,7 +103,7 @@ export class ProductsService {
 
 ## Step 4 - Test it
 
-Start your application and make a request that triggers a database query:
+Start your application through its dev entry (`main-dev.ts`) and make a request that triggers a database query:
 
 ```bash
 curl -i http://localhost:3000/api/v1/products
@@ -135,21 +122,18 @@ The **Execution Trace** shows the `db.products.findAll` span with the SQL it iss
 
 ## Driving options from ConfigService
 
-Use `forRootAsync()` to resolve the options from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+Use `forRootAsync()` in the profiling bundle to resolve the options from `ConfigService` (or any provider) — for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler):
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
-ConditionalModule.registerWhen(
-  // …or MikroOrmCollectorModule.forRootAsync, same options
-  TypeOrmCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
-    }),
+// …or MikroOrmCollectorModule.forRootAsync, same options
+TypeOrmCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
   }),
-  isProfilerEnabled,
-);
+});
 ```
 
 ## How it works
@@ -167,7 +151,7 @@ Each query in the Database panel has an **Explain** button. Click it and the pro
 
 It runs **on demand only** — nothing happens until you click, so the profiled request is never slowed. `EXPLAIN` alone does not execute the statement; the opt-in `analyze` variant (`EXPLAIN ANALYZE`) _does_ run the query and is therefore restricted to `SELECT`.
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 TypeOrmCollectorModule.forRoot({
   // …or MikroOrmCollectorModule.forRoot, same options
   explain: { enabled: true }, // default; set `enabled: false` to hide the button
@@ -187,13 +171,13 @@ TypeOrmCollectorModule.forRoot({
 
 Alongside the per-request Database panel, each package ships a schema collector — `TypeOrmSchemaCollectorModule` / `MikroOrmSchemaCollectorModule` — a global collector that adds a **Schemas / TypeORM** (resp. **Schemas / MikroORM**) view to the profiler home page. It introspects the DataSource or the ORM metadata **once** at startup and lists every registered entity with its columns, relations and indexes, so you can recall an entity's shape without leaving the profiler.
 
-Register it next to the query collector, gated the same way:
+Register it next to the query collector, in the profiling bundle's `imports`:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 // …or import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
-ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+TypeOrmSchemaCollectorModule.forRoot(),
 ```
 
 Open `/_profiler` and select the view:

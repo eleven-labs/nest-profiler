@@ -12,7 +12,7 @@ This page collects the symptoms people hit most often and the fix for each. If n
 
 The list at `/_profiler` stays empty even after making requests.
 
-- **The profiler is disabled.** With the recommended wiring, the active `ProfilerModule` is only loaded when `isProfilerEnabled` is true (e.g. `PROFILER_ENABLED` is not `false`). Check the environment the app actually booted with.
+- **The app booted without the profiler.** With the dev-dependency install, only the dev entrypoint loads it: start the app with `main-dev.ts` (`nest start --entryFile main-dev -p tsconfig.dev.json`), not `main.ts` or `node dist/main`. With the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), the active `ProfilerModule` is only loaded when `isProfilerEnabled` is true (e.g. `PROFILER_ENABLED=true`) — check the environment the app actually booted with.
 - **The path is ignored.** Requests matching `ignorePaths` or the built-in defaults (favicon, robots.txt, the Chrome DevTools probe, apple-touch-icon) are skipped. Set `useDefaultIgnorePaths: false` to profile those too, or verify your `ignorePaths` / `ignoreRequest` predicate isn't matching your route.
 - **Sampling is on.** A `sampleRate` below `1.0` profiles only a fraction of requests. Set it to `1.0` while debugging.
 - **In-memory storage was cleared.** The default `memory` backend is emptied on every restart. Use `storageType: 'file'` (or the SQLite adapter) to keep profiles across restarts. See [Storage backends](/docs/packages/nest-profiler/storage).
@@ -21,8 +21,9 @@ The list at `/_profiler` stays empty even after making requests.
 
 Logs are written to the console but never show up in the profile.
 
-- Wrap the logger in `main.ts`: `app.useLogger(createProfilerLogger(new ConsoleLogger()))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler`), and create the app with `{ bufferLogs: true }`. See [Set up the profiler](/docs/tutorials/setup-profiler#step-3---enable-log-capture).
-- `app.useLogger()` only captures logs that flow through NestJS's `Logger`. A logger injected directly into a service (e.g. `nestjs-pino`'s `PinoLogger`) must be wrapped explicitly with `createProfilerLogger(...)` at the injection point. See [Log capture](/docs/packages/nest-profiler/logs).
+- Wrap the logger in the entrypoint that loads the profiler (`main-dev.ts` with the dev-dependency install): `app.useLogger(createProfilerLogger(new ConsoleLogger()))` (import `createProfilerLogger` from `@eleven-labs/nest-profiler`), and create the app with `{ bufferLogs: true }`. See [Set up the profiler](/docs/tutorials/setup-profiler#step-3---add-a-dev-entrypoint).
+- `app.useLogger()` only captures logs that flow through NestJS's `Logger`: in services, use `new Logger(MyService.name)` rather than a `ConsoleLogger` instance. A logger injected directly into a service (e.g. `nestjs-pino`'s `PinoLogger`) must be wrapped explicitly — through an optional `LOGGER_WRAP` token filled by the dev bundle, or with `createProfilerLogger(...)` at the injection point under the runtime gate. See [Log capture](/docs/packages/nest-profiler/logs).
+- A CLI (`nest-commander`) app passes the wrapped logger to `CommandFactory.run(CliDevModule, { logger: createProfilerLogger(...) })`.
 
 ## GraphQL operations are not profiled
 
@@ -58,7 +59,7 @@ Access to the UI is protected.
 
 After installing the profiler, a CLI command logs `Starting Nest application...` (or nothing at all) and the process exits `0` without ever running — no result, no error.
 
-- **The CLI root module doesn't import `ConfigModule.forRoot()`.** The recommended gating (`ConditionalModule.registerWhen`) `await`s `ConfigModule.envVariablesLoaded` from `@nestjs/config`, and that promise only resolves once `@nestjs/config`'s `ConfigModule.forRoot()` has run. A CLI bootstrapped with `CommandFactory` whose root module never imports it never resolves the promise, so registration hangs — and because the internal 5s timeout timer is `unref`'d, the event loop just drains and the process exits `0` silently instead of throwing. **Fix:** import `ConfigModule.forRoot()` from `@nestjs/config` in your CLI root module. This applies to every module the CLI loads that gates something with `registerWhen` (core, database, RabbitMQ collectors…). HTTP apps rarely hit this because their root module already imports `ConfigModule.forRoot()`. See [Command profiling](/docs/tutorials/commander-collector) and [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+- **The CLI root module doesn't import `ConfigModule.forRoot()`** (runtime gate only — a dev-dependency install has no gate). `ConditionalModule.registerWhen` `await`s `ConfigModule.envVariablesLoaded` from `@nestjs/config`, and that promise only resolves once `@nestjs/config`'s `ConfigModule.forRoot()` has run. A CLI bootstrapped with `CommandFactory` whose root module never imports it never resolves the promise, so registration hangs — and because the internal 5s timeout timer is `unref`'d, the event loop just drains and the process exits `0` silently instead of throwing. **Fix:** import `ConfigModule.forRoot()` from `@nestjs/config` in your CLI root module. This applies to every module the CLI loads that gates something with `registerWhen` (core, database, RabbitMQ collectors…). HTTP apps rarely hit this because their root module already imports `ConfigModule.forRoot()`. See [Command profiling](/docs/tutorials/commander-collector) and [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ## CLI command profiles don't appear next to HTTP requests
 

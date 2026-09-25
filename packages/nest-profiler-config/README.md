@@ -29,32 +29,45 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-config @nestjs/config
+pnpm add -D @eleven-labs/nest-profiler-config
+pnpm add @nestjs/config
 ```
 
 **Peer dependencies:** `@nestjs/config ^4.0.0`
 
+`@nestjs/config` is your application's own configuration library, so it stays a regular dependency; only the collector is profiler-only.
+
 ## Setup
 
-```ts title="app.module.ts"
-import { ConfigModule, ConditionalModule } from '@nestjs/config';
-import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+Your `ConfigModule` stays in the production `AppModule`, unchanged:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    ConditionalModule.registerWhen(
-      ConfigCollectorModule.forRoot({ maskKeys: ['DATABASE_URL', 'JWT_SECRET'] }),
-      isProfilerEnabled,
-    ),
-  ],
+  imports: [ConfigModule.forRoot({ isGlobal: true })],
 })
 export class AppModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+The collector goes in the dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ConfigCollectorModule.forRoot({ maskKeys: ['DATABASE_URL', 'JWT_SECRET'] }),
+  ],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## What it collects
 

@@ -16,33 +16,30 @@ This tutorial shows how to add the auth collector to capture authentication cont
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-auth
+pnpm add -D @eleven-labs/nest-profiler-auth
 ```
 
 ## Step 2 - Register the module
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Step 3 - Set up authentication
 
-The auth collector reads `request.user` automatically. Any guard or middleware that sets `request.user` will work - Passport, JWT guards, API key guards, etc.
+The auth collector reads `request.user` automatically. Any guard or middleware that sets `request.user` will work - Passport, JWT guards, API key guards, etc. The guard is part of your application, so it lives in your production modules, not in the profiling bundle.
 
 **Example with a minimal JWT guard:**
 
@@ -116,23 +113,17 @@ AuthCollectorModule.forRoot({
 
 ## Driving options from ConfigService
 
-Use `forRootAsync()` to resolve `maskUserFields` from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+Use `forRootAsync()` to resolve `maskUserFields` from `ConfigService` (or any provider). Add it to the bundle's `imports` in place of `forRoot()`:
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
-ConditionalModule.registerWhen(
-  AuthCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      maskUserFields: config.get<string[]>('profiler.maskUserFields') ?? [
-        'password',
-        'refreshToken',
-      ],
-    }),
+AuthCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    maskUserFields: config.get<string[]>('profiler.maskUserFields') ?? ['password', 'refreshToken'],
   }),
-  isProfilerEnabled,
-);
+});
 ```
 
 ## How it works

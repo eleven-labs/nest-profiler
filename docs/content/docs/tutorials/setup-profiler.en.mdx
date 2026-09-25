@@ -10,62 +10,114 @@ This tutorial shows how to add `@eleven-labs/nest-profiler` to a NestJS applicat
 
 ## Step 1 - Install the package
 
+Install the profiler as a dev dependency, so it never reaches your production install:
+
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
 `nestjs-cls` is required for per-request context propagation.
 
-> Want the profiler in `devDependencies` only, with no production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler nestjs-cls` and follow the [dev-entry split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate used below.
+> Install them as regular dependencies instead only if your production code calls the profiler — a service that injects `TracerService` for custom spans, for instance — and gate them with the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
-## Step 2 - Register the module
+## Step 2 - Bundle the profiler
 
-Import `ProfilerModule` in your root module. The recommended way is to gate it with `ConditionalModule.registerWhen`, so the profiler loads only when you want it:
+Create a module that holds the profiler — and, later, every collector you add:
 
-```ts title="app.module.ts"
+```ts title="src/profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConditionalModule } from '@nestjs/config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true })],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-> If a service injects `TracerService` directly (`span()`, `captureError()`, attributes…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so it still resolves when off. Log capture never needs it. See [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+## Step 3 - Add a dev entrypoint
 
-## Step 3 - Enable log capture
+Production must not import a package it does not install, so `main.ts` and `AppModule` stay as they are. A dev-only root module composes your application with the profiler bundle:
 
-Wrap your existing logger in `main.ts` so log entries appear in the profiler's **Logs** tab:
-
-```ts title="main.ts"
-import { ConsoleLogger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+```ts title="src/app.dev.module.ts"
+import { Module } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { ProfilingModule } from './profiling/profiling.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+@Module({ imports: [AppModule, ProfilingModule] })
+export class AppDevModule {}
+```
 
-  // createProfilerLogger is DI-free — no TracerService, and a pass-through when the profiler is off.
-  app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
+Move your bootstrap code into a function both entrypoints share, with a hook to wrap the logger:
 
+```ts title="src/bootstrap.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import type { LoggerService, Type } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+
+export async function bootstrap(
+  rootModule: Type<unknown>,
+  wrapLogger: (logger: LoggerService) => LoggerService = (logger) => logger,
+): Promise<void> {
+  const app = await NestFactory.create(rootModule, { bufferLogs: true });
+  app.useLogger(wrapLogger(new ConsoleLogger('MyApplication')));
   await app.listen(3000);
 }
+```
 
-void bootstrap();
+```ts title="src/main.ts"
+import { AppModule } from './app.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppModule);
+```
+
+The dev entry boots `AppDevModule` and wraps the logger with `createProfilerLogger`, so log entries appear in the profiler's **Logs** tab:
+
+```ts title="src/main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppDevModule, (logger) => createProfilerLogger(logger));
 ```
 
 The capture is logger-agnostic and keeps structured context - message, context name and payload all land in the **Logs** tab whichever logger the app uses. The [Log capture with context](/docs/tutorials/log-capture) tutorial and the [Log capture](/docs/packages/nest-profiler/logs) page cover the supported conventions in detail.
 
+Finally, keep the dev files out of the production build and run the dev entry from a TypeScript config that includes them:
+
+```jsonc title="tsconfig.build.json"
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "src/main-dev.ts",
+    "src/app.dev.module.ts",
+    "src/profiling/**",
+  ],
+}
+```
+
+```jsonc title="tsconfig.dev.json"
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"],
+}
+```
+
+```jsonc title="package.json"
+{
+  "scripts": {
+    "start:dev": "nest start --watch --entryFile main-dev -p tsconfig.dev.json",
+  },
+}
+```
+
 ## Step 4 - Make a request and inspect the profile
 
-Start the application, then make any HTTP request:
+Start the application with `pnpm start:dev`, then make any HTTP request:
 
 ```bash
 curl -i http://localhost:3000/health
@@ -90,8 +142,9 @@ Open `http://localhost:3000/_profiler` in your browser to see the list of recent
 
 The profiler is open by default. Restrict `/_profiler/*` by providing your own `security` strategy — an `authorize` predicate and/or NestJS `guards`. A minimal bearer-token check:
 
-```ts title="app.module.ts"
+```ts title="src/profiling/profiling.module.ts"
 ProfilerModule.forRoot({
+  isGlobal: true,
   security: {
     authorize: ({ request }) =>
       request.headers['authorization'] === `Bearer ${process.env.PROFILER_TOKEN}`,
@@ -108,26 +161,13 @@ See [Securing the UI](/docs/packages/nest-profiler/configuration#securing-the-ui
 
 <Callout type="warn" title="Production warning">
   Never enable the profiler in production. It exposes internal request data including headers, query
-  parameters, and logs. Disable it in non-development environments.
+  parameters, and logs. With the dev-dependency install above it cannot be: production runs `main.ts`,
+  which never imports it, and a production install (`pnpm install --prod`, `npm ci --omit=dev`) does
+  not even contain it. Check it once — build, install production dependencies only, run `node
+  dist/main` and confirm `/_profiler` returns `404`.
 
-The **recommended** way is to gate `ProfilerModule` with `ConditionalModule.registerWhen`, so the
-active module is never loaded when profiling is off:
-
-```ts title="app.module.ts"
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConditionalModule } from '@nestjs/config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
-
-ConditionalModule.registerWhen(
-  ProfilerModule.forRootAsync({ isGlobal: true, useFactory: () => ({ maxProfiles: 100 }) }),
-  isProfilerEnabled,
-),
-```
-
-Log capture keeps working when off because `createProfilerLogger` is DI-free. Only if a service
-injects `TracerService` directly do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`
-gated on `(env) => !isProfilerEnabled(env)` — it supplies a zero-dependency no-op so the injection
-still resolves (every method a no-op; no controller, interceptor, middleware, storage or collector).
+If your production code calls the profiler and you installed it as a regular dependency, gate it
+with `ConditionalModule` and keep it off unless `PROFILER_ENABLED=true` — see [the runtime
+gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
 </Callout>

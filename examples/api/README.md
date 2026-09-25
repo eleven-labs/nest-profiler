@@ -264,7 +264,7 @@ Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander co
         / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, default)
 ```
 
-The profiler is toggled with `ConditionalModule.registerWhen` — the recommended pattern (see below). The root-level profiler modules are bundled into one `ProfilingModule`, so `AppModule` keeps just two gates. Infra-scoped collectors stay co-located in their bounded context.
+The profiler is toggled with `ConditionalModule.registerWhen` (see below). The root-level profiler modules are bundled into one `ProfilingModule`, so `AppModule` keeps just two gates. Infra-scoped collectors stay co-located in their bounded context.
 
 ### The port + adapter pattern
 
@@ -305,7 +305,9 @@ The TypeORM adapter is identical in shape: same port, its own connection, its ow
 
 ### Toggling the profiler: one bundle + `ProfilerNoopModule`
 
-`AppModule` toggles the profiler the recommended way, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `TracerService` (injected in `ProductService`, the CLI commands, the content service…) therefore stays resolvable even when profiling is off, at no runtime cost.
+This app keeps the profiler in its production `dependencies`, behind a runtime gate, because its own code calls the profiler: `ProductService`, the content service and others inject `TracerService` for custom spans, and the app is deployed as a live demo. An application that only wants request, log and query profiling while it develops installs the profiler as a dev dependency and loads it from a dev-only entrypoint instead — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+`AppModule` toggles the profiler with `ConditionalModule`, mirroring the port/adapter idiom above. The root-level profiler modules — the core `ProfilerModule` plus the global collectors (config, validator, commander) — are grouped into a single local `ProfilingModule`, so the composition root keeps just **two** gates: one loads the active bundle when `PROFILER_ENABLED` is on, the other loads `ProfilerNoopModule` otherwise. `TracerService` (injected in `ProductService`, the CLI commands, the content service…) therefore stays resolvable even when profiling is off, at no runtime cost.
 
 ```ts title="app.module.ts"
 ConditionalModule.registerWhen(ProfilingModule.forWeb(), isProfilerEnabled),

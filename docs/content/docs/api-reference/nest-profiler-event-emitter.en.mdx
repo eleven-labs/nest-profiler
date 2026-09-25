@@ -80,28 +80,25 @@ import type {
 
 ## Setup
 
-```ts
-// In the module that registers EventEmitterModule:
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { EventEmitterCollectorModule } from '@eleven-labs/nest-profiler-event-emitter';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
-    ConditionalModule.registerWhen(
-      EventEmitterCollectorModule.forRoot({ ignoreEvents: [/^internal\./] }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    EventEmitterCollectorModule.forRoot({ ignoreEvents: [/^internal\./] }),
   ],
 })
-export class NotificationsModule {}
+export class ProfilingModule {}
 ```
 
-`forRootAsync` resolves the option **values** from DI (thresholds from `ConfigService`, for instance); `enabled` stays a synchronous build-time decision, so gate per environment with `ConditionalModule.registerWhen(...)`.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+`EventEmitterModule.forRoot()` stays in your own application module; the collector resolves `EventEmitter2` and discovers the `@OnEvent` handlers across the application.
+
+`forRootAsync` resolves the option **values** from DI (thresholds from `ConfigService`, for instance); `enabled` stays a synchronous build-time decision, so behind the runtime gate wrap it in `ConditionalModule.registerWhen(...)`.
 
 ```ts
 EventEmitterCollectorModule.forRootAsync({

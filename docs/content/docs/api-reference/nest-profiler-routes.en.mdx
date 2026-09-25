@@ -68,15 +68,18 @@ import type {
 
 ## Setup
 
-```ts
-// In AppModule:
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-ConditionalModule.registerWhen(RoutesCollectorModule.forRoot(), isProfilerEnabled);
+@Module({
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), RoutesCollectorModule.forRoot()],
+})
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Contributing a custom discover source
 

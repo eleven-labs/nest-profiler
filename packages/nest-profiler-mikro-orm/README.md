@@ -29,45 +29,36 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-mikro-orm
+pnpm add -D @eleven-labs/nest-profiler-mikro-orm
 ```
 
-**Peer dependencies:** `@mikro-orm/core ^7.0.0`, `@mikro-orm/nestjs ^7.0.0`
+**Peer dependencies:** `@mikro-orm/core ^7.0.0`, `@mikro-orm/nestjs ^7.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 
-Register `MikroOrmCollectorModule` **after** `MikroOrmModule` in your root module. No extra MikroORM
-configuration is required — the collector wraps the ORM logger automatically:
+Keep `MikroOrmModule.forRoot({ ... })` in your application module and register `MikroOrmCollectorModule` in the dev-only profiling bundle. No extra MikroORM configuration is required — the collector wraps the ORM logger automatically:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { MikroOrmModule } from '@mikro-orm/nestjs';
-import { PostgreSqlDriver } from '@mikro-orm/postgresql';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    MikroOrmModule.forRoot({
-      driver: PostgreSqlDriver,
-      // ...your connection options
-    }),
-    ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({
-        slowThreshold: 100,
-        nPlusOneThreshold: 2,
-        slowSeverity: 'warning',
-      }), // slow/N+1 tagging + severity
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    MikroOrmCollectorModule.forRoot({
+      slowThreshold: 100,
+      nPlusOneThreshold: 2,
+      slowSeverity: 'warning',
+    }), // slow/N+1 tagging + severity
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+The collector resolves the `MikroORM` instance by its injection token (pass `connectionName` for a named context), and `AppDevModule` imports the bundle after `AppModule`, so the ORM already exists when the collector wraps its logger.
 
 ## What it collects
 
@@ -111,10 +102,12 @@ This captures all queries issued through the `EntityManager`, repositories and t
 
 `MikroOrmSchemaCollectorModule` adds a global **Schemas / MikroORM** view to the profiler home page, listing every registered entity with its columns (type, nullable, primary key, generated, default), relations (kind → target) and indexes (name, columns, unique). Unlike the per-request Database panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
-```ts title="app.module.ts"
+Add it to the profiling bundle's `imports`:
+
+```ts title="profiling/profiling.module.ts"
 import { MikroOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
-ConditionalModule.registerWhen(MikroOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+MikroOrmSchemaCollectorModule.forRoot(),
 ```
 
 Pass `connectionName` to introspect a named MikroORM context (omit it for the default), and `enabled: false` to disable per environment. The panel reads `orm.getMetadata()` and never touches data; column defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no MikroORM context is wired.

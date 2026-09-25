@@ -23,7 +23,9 @@ This tutorial shows how to profile CLI commands built with [nest-commander](http
 ## Step 1 - Install the packages
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-commander nest-commander
+pnpm add -D @eleven-labs/nest-profiler-commander
+# your app already owns this one (regular dependency):
+pnpm add nest-commander
 ```
 
 ## Step 2 - Write a command
@@ -61,52 +63,71 @@ export class SyncPostsCommand extends CommandRunner {
 }
 ```
 
-## Step 3 - Register the CLI module
+## Step 3 - Register the CLI modules
 
-Create a dedicated module for the CLI. Use **file** storage with the same `storagePath` as your HTTP app so the two processes share profiles:
+Create a dedicated module for the CLI. It stays profiler-free — it is what `cli.ts` runs in production:
 
 ```ts title="cli.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
 import { HttpModule } from '@nestjs/axios';
-import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
-import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 import { SyncPostsCommand } from './sync-posts.command';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    ConditionalModule.registerWhen(
-      ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
-      isProfilerEnabled,
-    ),
-    ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
-    HttpModule, // provides HttpService for the bundled axios adapter
-    ConditionalModule.registerWhen(HttpCollectorModule.forRoot(), isProfilerEnabled),
-    CacheModule.register({ isGlobal: true }),
-    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
-  ],
+  imports: [HttpModule, CacheModule.register({ isGlobal: true })],
   providers: [SyncPostsCommand],
 })
 export class CliModule {}
 ```
 
+Profile it from a dev-only CLI bundle. Use **file** storage with the same `storagePath` as your HTTP app so the two processes share profiles:
+
+```ts title="profiling/profiling-cli.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
+import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
+import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file', storagePath: '.profiler' }),
+    CommanderCollectorModule.forRoot(),
+    HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
+    CacheCollectorModule.forRoot(),
+  ],
+})
+export class ProfilingCliModule {}
+```
+
+> `ProfilingCliModule` is a dev-only bundle loaded by `cli-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same calls in `ConditionalModule.registerWhen(..., isProfilerEnabled)` in `CliModule`.
+
+A dev-only root module composes the two:
+
+```ts title="cli.dev.module.ts"
+import { Module } from '@nestjs/common';
+import { CliModule } from './cli.module';
+import { ProfilingCliModule } from './profiling/profiling-cli.module';
+
+@Module({ imports: [CliModule, ProfilingCliModule] })
+export class CliDevModule {}
+```
+
 <Callout type="warn">
-  Your CLI root module **must** import `ConfigModule.forRoot()` from `@nestjs/config`. The
-  recommended gating (`ConditionalModule.registerWhen`) `await`s `ConfigModule.envVariablesLoaded`,
-  which only resolves once `ConfigModule.forRoot()` has run. A `CommandFactory` CLI that never
-  imports it never resolves that promise, so registration hangs and the process exits `0`
-  **silently** - no logs, no error (the internal timeout is `unref`'d). HTTP apps rarely hit this
-  because their root module already imports `ConfigModule.forRoot()`. This applies to every module
-  the CLI loads that gates something with `registerWhen` (core, database, RabbitMQ collectors…).
+  Runtime gate only: if you gate the profiler modules with `ConditionalModule.registerWhen` inside
+  `CliModule` instead, that module **must** import `ConfigModule.forRoot()` from `@nestjs/config`.
+  `registerWhen` `await`s `ConfigModule.envVariablesLoaded`, which only resolves once
+  `ConfigModule.forRoot()` has run. A `CommandFactory` CLI that never imports it never resolves that
+  promise, so registration hangs and the process exits `0` **silently** - no logs, no error (the
+  internal timeout is `unref`'d). HTTP apps rarely hit this because their root module already
+  imports `ConfigModule.forRoot()`. The dev-only bundle above uses no `registerWhen` and is not
+  affected.
 </Callout>
 
 ## Step 4 - Bootstrap the CLI
+
+Production keeps a profiler-free entry:
 
 ```ts title="cli.ts"
 import 'reflect-metadata';
@@ -120,6 +141,30 @@ async function bootstrap(): Promise<void> {
 void bootstrap();
 ```
 
+The dev entry runs `CliDevModule` and wraps the logger, so whatever your commands log through `new Logger(SyncPostsCommand.name)` lands in the profile's **Logs** tab:
+
+```ts title="cli-dev.ts"
+import 'reflect-metadata';
+import { ConsoleLogger } from '@nestjs/common';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { CommandFactory } from 'nest-commander';
+import { CliDevModule } from './cli.dev.module';
+
+void CommandFactory.run(CliDevModule, {
+  logger: createProfilerLogger(new ConsoleLogger('Cli', { logLevels: ['log', 'warn', 'error'] })),
+});
+```
+
+```jsonc title="package.json"
+{
+  "scripts": {
+    "cli:dev": "nest start --entryFile cli-dev -p tsconfig.dev.json --",
+  },
+}
+```
+
+Keep `cli-dev.ts`, `cli.dev.module.ts` and `src/profiling/**` out of `tsconfig.build.json`, as for the web dev entry.
+
 <Callout type="warn">
   Bootstrap the CLI with a compiler that emits decorator metadata (`tsc` / `nest start`), **not** a
   plain esbuild/`tsx` runner - otherwise NestJS cannot resolve your command's injected dependencies.
@@ -128,8 +173,8 @@ void bootstrap();
 ## Step 5 - Run a command
 
 ```bash
-# build first, then run the compiled entry
-node dist/cli.js sync:posts --limit 3
+# compiles with tsconfig.dev.json, then runs cli-dev with these arguments
+pnpm cli:dev sync:posts --limit 3
 ```
 
 ## Step 6 - Inspect the profile
@@ -144,4 +189,4 @@ A command that throws is captured too: its profile is marked failed (status `500
 
 ## How it works
 
-At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list view and **Command** detail tab) - so import it in the HTTP app too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.
+At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list view and **Command** detail tab) - so add it to the HTTP app's profiling bundle too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.

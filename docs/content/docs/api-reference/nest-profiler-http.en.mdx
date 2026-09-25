@@ -25,13 +25,13 @@ Options passed to `HttpCollectorModule.forRoot()`. They extend the shared `HttpC
 
 - `instrumentations` (default `[]`) - the adapters to install, imported from their subpaths (`AxiosInstrumentation`, `FetchInstrumentation`) or your own `HttpInstrumentation`. Nothing is instrumented unless it appears here.
 
-Gate the module with `ConditionalModule.registerWhen(HttpCollectorModule.forRoot({ … }), isProfilerEnabled)` so it loads only when the profiler is on — the same pattern used for every profiler module.
+Register it in the dev-only profiling bundle, like every collector — or, behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap it in `ConditionalModule.registerWhen(HttpCollectorModule.forRoot({ … }), isProfilerEnabled)`.
 
 ## Recorder
 
 ### HttpProfilerRecorder
 
-Injectable façade for recording outgoing HTTP requests into the active profile. This is the API to reach for from application code or a custom instrumentation: inject it and call `capture` with the raw request/response material. Its `maskHeaders` property exposes the built-in mask list merged with the configured `maskHeaders`.
+Injectable façade for recording outgoing HTTP requests into the active profile. This is the API to reach for from application code or a custom instrumentation: inject it and call `capture` with the raw request/response material. Injecting it from application code that ships to production requires the profiler as a regular dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule); `HttpCollectorModule` is not global, so import it where the recorder is injected. Its `maskHeaders` property exposes the built-in mask list merged with the configured `maskHeaders`.
 
 <AutoTypeTable
   path="packages/nest-profiler-http/src/http-profiler-recorder.service.ts"
@@ -232,8 +232,8 @@ import { NodeHttpPhases, UndiciPhases } from '@eleven-labs/nest-profiler-http/ph
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-http
-# only if you select the axios adapter — your app already owns these:
+pnpm add -D @eleven-labs/nest-profiler-http
+# only if you select the axios adapter — your app already owns these (regular dependencies):
 pnpm add @nestjs/axios axios
 ```
 
@@ -241,27 +241,26 @@ pnpm add @nestjs/axios axios
 
 ## Setup
 
-Select the client(s) to instrument via `instrumentations`, importing each adapter from its subpath:
+Select the client(s) to instrument via `instrumentations`, importing each adapter from its subpath, in your dev-only profiling bundle:
 
-```ts
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({
-        instrumentations: [AxiosInstrumentation, FetchInstrumentation],
-      }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    HttpCollectorModule.forRoot({
+      instrumentations: [AxiosInstrumentation, FetchInstrumentation],
+    }),
   ],
 })
-export class PostsModule {}
+export class ProfilingModule {}
 ```
 
-The axios adapter auto-discovers your `HttpService` instances, so injecting `HttpService` as usual is enough — no `axiosRef` wiring. At bootstrap each selected instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+The axios adapter auto-discovers your `HttpService` instances wherever `HttpModule` is imported, so your feature modules keep importing `HttpModule` and injecting `HttpService` as usual — no `axiosRef` wiring. At bootstrap each selected instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.

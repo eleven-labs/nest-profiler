@@ -1,7 +1,7 @@
 [
   {
-    "query": "The profiler is set up with Approach A. The app added @nestjs/graphql + @nestjs/apollo + graphql with GraphQLModule.forRoot() (context not customized).\n\nUser: Add the GraphQL collector.",
-    "expected_behavior": "Must read collectors-simple.md. Register GraphQLCollectorModule.forRoot() (the module is GraphQLCollectorModule, NOT ProfilerGraphQLModule) alongside GraphQLModule, gated the same way as the core. Apply the gotcha: the GraphQLModule context must expose the request \u2014 for Apollo, context: ({ req }) => ({ req }); without it, GraphQL operations are not profiled."
+    "query": "The profiler is installed as a dev dependency and bundled in ProfilingModule. The app added @nestjs/graphql + @nestjs/apollo + graphql with GraphQLModule.forRoot() (context not customized).\n\nUser: Add the GraphQL collector.",
+    "expected_behavior": "Must read collectors-simple.md. Install '<pm> add -D @eleven-labs/nest-profiler-graphql' and register GraphQLCollectorModule.forRoot() (the module is GraphQLCollectorModule, NOT ProfilerGraphQLModule) in the ProfilingModule bundle, no gate. Apply the gotcha: the app's GraphQLModule context must expose the request — for Apollo, context: ({ req }) => ({ req }) — plain app config that stays in the production module; without it, GraphQL operations are not profiled."
   },
   {
     "query": "Which collector is ESM-only and what does that imply for wiring it?",
@@ -9,15 +9,15 @@
   },
   {
     "query": "I installed the HTTP collector but nothing shows up in the HTTP Client panel. Why?",
-    "expected_behavior": "Must read collectors-http.md. Answer: nothing is captured unless an instrumentation is listed \u2014 HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }) (from '@eleven-labs/nest-profiler-http/axios'), with HttpModule imported in the SAME module. For fetch use FetchInstrumentation (from '/fetch'); for undici/got inject HttpProfilerRecorder and call .capture(...) or provide a custom HttpInstrumentation."
+    "expected_behavior": "Must read collectors-http.md. Answer: nothing is captured unless an instrumentation is listed — HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }) (from '@eleven-labs/nest-profiler-http/axios'), with HttpModule imported in the SAME module. For fetch use FetchInstrumentation (from '/fetch'); for undici/got inject HttpProfilerRecorder and call .capture(...) or provide a custom HttpInstrumentation."
   },
   {
     "query": "Can I keep my existing global ValidationPipe when I add the validator collector?",
-    "expected_behavior": "Must read collectors-validator.md. Answer: Yes \u2014 keep it app-owned in main.ts, just wrap it: app.useGlobalPipes(createProfilerValidationPipe(yourPipe)). For class-validator wrap createClassValidatorPipe(options) instead of a bare ValidationPipe so per-property violations reach the panel. Then register the panel with ValidatorCollectorModule.forRoot(). Only one global validation pipe; use value imports (not 'import type') for DTOs."
+    "expected_behavior": "Must read collectors-validator.md. Answer: Yes — validation stays app-owned, just wrap the existing pipe with createProfilerValidationPipe(yourPipe) where the profiler is loaded: with the dev-dependency install, through a validationPipe hook of the shared bootstrap passed by main-dev.ts only (production keeps the plain pipe); with the ConditionalModule install, in main.ts. For class-validator wrap createClassValidatorPipe(options) instead of a bare ValidationPipe so per-property violations reach the panel. Then register the panel with ValidatorCollectorModule.forRoot() in the ProfilingModule bundle. Only one global validation pipe; use value imports (not 'import type') for DTOs."
   },
   {
     "query": "The app just added TypeORM. Do I need forRootAsync with inject: [DataSource] to add the collector?",
-    "expected_behavior": "Must read collectors-orm.md. Answer: No \u2014 TypeOrmCollectorModule self-resolves the DataSource via getDataSourceToken(connectionName), so forRoot() is enough (use forRootAsync only to read options like slowThreshold from ConfigService). Place it after TypeOrmModule and match the app's existing gate; optionally add TypeOrmSchemaCollectorModule for the entity panel."
+    "expected_behavior": "Must read collectors-orm.md. Answer: No — TypeOrmCollectorModule self-resolves the DataSource via getDataSourceToken(connectionName), so forRoot() is enough (use forRootAsync only to read options like slowThreshold from ConfigService). Register it in the ProfilingModule bundle, matching the app's existing install; optionally add TypeOrmSchemaCollectorModule for the entity panel."
   },
   {
     "query": "package.json includes @nestjs/config and @nestjs/event-emitter. The app emits domain events with emitAsync and reacts to them with @OnEvent.\n\nUser: I want to see what my domain events actually do.",

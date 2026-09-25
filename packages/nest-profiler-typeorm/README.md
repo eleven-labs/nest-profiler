@@ -29,51 +29,45 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-typeorm
+pnpm add -D @eleven-labs/nest-profiler-typeorm
 ```
 
-**Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0`
+**Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
-import { DataSource } from 'typeorm';
+Keep `TypeOrmModule.forRoot({ ... })` in your application module, and register the collector in the dev-only profiling bundle:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({ ... }),
-    ConditionalModule.registerWhen(
-      TypeOrmCollectorModule.forRoot({
-        dataSource, // your DataSource instance
-        slowThreshold: 100, // ms — queries at/above this are tagged `slow` (default: 100)
-        nPlusOneThreshold: 2, // identical queries repeated ≥ N are tagged `n-plus-one` / N+1 (default: 2)
-        slowSeverity: 'warning', // severity of the `slow` tag — 'info' | 'warning' | 'danger' (default: warning)
-      }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    TypeOrmCollectorModule.forRoot({
+      slowThreshold: 100, // ms — queries at/above this are tagged `slow` (default: 100)
+      nPlusOneThreshold: 2, // identical queries repeated ≥ N are tagged `n-plus-one` / N+1 (default: 2)
+      slowSeverity: 'warning', // severity of the `slow` tag — 'info' | 'warning' | 'danger' (default: warning)
+    }),
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-Since `DataSource` is not available at module declaration time, use `forRootAsync`:
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+The collector resolves the TypeORM `DataSource` by its injection token, so it needs no wiring next to `TypeOrmModule`; pass `connectionName` to instrument a named DataSource (omit it for the default connection). `AppDevModule` imports the bundle after `AppModule`, so the DataSource is already initialized when the collector patches it. To resolve the options from a provider such as `ConfigService`, use `forRootAsync`:
 
 ```ts
-ConditionalModule.registerWhen(
-  TypeOrmCollectorModule.forRootAsync({
-    inject: [DataSource],
-    useFactory: (dataSource: DataSource) => ({ dataSource, slowThreshold: 50 }),
+TypeOrmCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
   }),
-  isProfilerEnabled,
-),
+}),
 ```
-
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## What it collects
 
@@ -114,10 +108,12 @@ The collector patches `dataSource.createQueryRunner()` at module initialization 
 
 ![Schemas / TypeORM view — the registered entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-typeorm.png)
 
-```ts title="app.module.ts"
+Add it to the profiling bundle's `imports`:
+
+```ts title="profiling/profiling.module.ts"
 import { TypeOrmSchemaCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
-ConditionalModule.registerWhen(TypeOrmSchemaCollectorModule.forRoot(), isProfilerEnabled),
+TypeOrmSchemaCollectorModule.forRoot(),
 ```
 
 Pass `connectionName` to introspect a named DataSource (omit it for the default connection), and `enabled: false` to disable per environment. The panel reads `dataSource.entityMetadatas` and never touches data; column defaults are passed through the profiler's `redactString`, so a default embedding a secret (e.g. a DSN) is masked. The panel no-ops (does not appear) when no DataSource is wired or none is initialized.

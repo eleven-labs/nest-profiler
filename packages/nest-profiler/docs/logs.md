@@ -4,30 +4,34 @@
 
 ## Enable log capture
 
-Wrap the application logger with the standalone `createProfilerLogger()` in `main.ts`. It is **DI-free** — it reads the active profile from the CLS store, so it needs no `TracerService` and there is no `app.get(...)` to make. When the profiler is off (or a log happens outside a request) it is a transparent pass-through, so no line is lost:
+Wrap the application logger with the standalone `createProfilerLogger()` where the app is bootstrapped. It is **DI-free** — it reads the active profile from the CLS store, so it needs no `TracerService` and there is no `app.get(...)` to make. When the profiler is off (or a log happens outside a request) it is a transparent pass-through, so no line is lost.
+
+With the recommended [dev-dependency install](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency), this happens in `main-dev.ts` only, through the shared bootstrap's logger hook — production `main.ts` never references the profiler:
+
+```ts title="src/main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppDevModule, { wrapLogger: (logger) => createProfilerLogger(logger) });
+```
+
+Which boils down to:
 
 ```ts
-import { ConsoleLogger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { createProfilerLogger } from '@eleven-labs/nest-profiler';
-import { AppModule } from './app.module';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
-
-  app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
-
-  await app.listen(3000);
-}
-
-void bootstrap();
+const app = await NestFactory.create(AppDevModule, { bufferLogs: true });
+app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
 ```
+
+With the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule) (profiler in production `dependencies`), make the same `app.useLogger(createProfilerLogger(...))` call in `main.ts`, unconditionally.
 
 The wrapper returns the **same type** as the logger you pass in: it captures the level methods and forwards everything else, so the original logger keeps working exactly as before.
 
-### Capturing a directly-injected logger
+### Loggers that bypass `app.useLogger()`
 
-`app.useLogger()` only routes logs that go through NestJS's `Logger`. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`) bypasses it — wrap that instance too. Still no `TracerService` needed:
+`app.useLogger()` only routes logs that go through NestJS's `Logger` — so in services, prefer `new Logger(MyService.name)` over instantiating a `ConsoleLogger` directly. A logger **injected directly** (e.g. `nestjs-pino`'s `PinoLogger`, or your own `LoggerService` provider) bypasses it too, and needs wrapping itself.
+
+With the dev-dependency install, production code cannot import `createProfilerLogger`, so leave an optional seam that the dev bundle fills — see [Logs](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) in the install guide for the `LOGGER_WRAP` token pattern. With the runtime gate, wrap the instance where it is injected:
 
 ```ts
 constructor(@InjectPinoLogger(MyService.name) pinoLogger: PinoLogger) {

@@ -33,56 +33,51 @@ import type { CommanderCollectorModuleOptions } from '@eleven-labs/nest-profiler
 import type { CommandInfo, CommandProfileMeta } from '@eleven-labs/nest-profiler-commander';
 ```
 
-## Enabling and disabling
-
-`CommanderCollectorModule.forRoot()` takes no required options. Gate it per environment with Nest's `ConditionalModule` so it loads only when the profiler is on — the same pattern used for every profiler module:
-
-```ts
-import { ConditionalModule } from '@nestjs/config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
-
-ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled),
-```
-
 ## Setup
 
-Register the module in the module you bootstrap with `CommandFactory`:
+`CommanderCollectorModule.forRoot()` takes no required options. Your `CliModule` (what `cli.ts` bootstraps with `CommandFactory`) stays profiler-free; register the collector in a dev-only CLI bundle, with the core on `file` storage so the CLI and the HTTP server share profiles:
 
-```ts title="cli.module.ts"
+```ts title="profiling/profiling-cli.module.ts"
 import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConditionalModule } from '@nestjs/config';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
-import { AppCommand } from './app.command';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
-  imports: [ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled)],
-  providers: [AppCommand],
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file' }),
+    CommanderCollectorModule.forRoot(),
+  ],
 })
-export class CliModule {}
+export class ProfilingCliModule {}
 ```
 
-Wire the core `ProfilerModule` (with `storageType: 'file'` so the CLI and HTTP server share profiles) once at the CLI root — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler). If a command injects `TracerService` directly, also register its `ProfilerNoopModule` fallback.
+> `ProfilingCliModule` is a dev-only bundle loaded by `cli-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same calls in `ConditionalModule.registerWhen(..., isProfilerEnabled)` in `CliModule`, which must then import `ConfigModule.forRoot()`. If a command injects `TracerService` directly, that runtime gate is required, with its `ProfilerNoopModule` fallback.
 
-```ts title="cli.ts"
+A dev-only `CliDevModule` composes the two, and `cli-dev.ts` runs it with the profiler logger:
+
+```ts title="cli.dev.module.ts"
+@Module({ imports: [CliModule, ProfilingCliModule] })
+export class CliDevModule {}
+```
+
+```ts title="cli-dev.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import { CommandFactory } from 'nest-commander';
-import { CliModule } from './cli.module';
+import { CliDevModule } from './cli.dev.module';
 
-async function bootstrap(): Promise<void> {
-  await CommandFactory.run(CliModule, { logger: ['error', 'warn'] });
-}
-
-void bootstrap();
+void CommandFactory.run(CliDevModule, {
+  logger: createProfilerLogger(new ConsoleLogger('Cli', { logLevels: ['log', 'warn', 'error'] })),
+});
 ```
+
+Production keeps running `CliModule` from `cli.ts`. Add `CommanderCollectorModule.forRoot()` to the HTTP app's profiling bundle too, so the web profiler renders command profiles.
 
 Every provider that extends nest-commander's `CommandRunner` is wrapped automatically - you do not change your command classes.
 
-There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so it is registered as is in the CLI bundle — or, behind the runtime gate, wrapped in `ConditionalModule.registerWhen(...)`.
 
-**Prerequisite:** `nest-commander` installed, and a **cross-process storage adapter** if you want to inspect command profiles from the HTTP app's web profiler at `/_profiler`. The CLI and the server are separate processes, so they must share the backing store - use `storageType: 'file'` (or a Redis/DB adapter). In-memory storage is per-process and can never surface command profiles in a separate web server; the profiler logs a warning when you profile a command against an in-memory store.
+**Prerequisite:** `nest-commander` installed (a regular dependency of your app), and a **cross-process storage adapter** if you want to inspect command profiles from the HTTP app's web profiler at `/_profiler`. The CLI and the server are separate processes, so they must share the backing store - use `storageType: 'file'` (or a Redis/DB adapter). In-memory storage is per-process and can never surface command profiles in a separate web server; the profiler logs a warning when you profile a command against an in-memory store.
 
 ## How a command profile is shaped
 

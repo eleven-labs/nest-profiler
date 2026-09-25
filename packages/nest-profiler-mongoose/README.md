@@ -29,39 +29,36 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-mongoose
+pnpm add -D @eleven-labs/nest-profiler-mongoose
 ```
 
-**Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0`
+**Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 
-```ts title="reviews.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
-import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
+Keep `MongooseModule.forRoot()` (or `forRootAsync`) and your `MongooseModule.forFeature([...])` calls in your application modules, and register the collector in the dev-only profiling bundle:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-    ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({
-        slowThreshold: 100,
-        nPlusOneThreshold: 2,
-        slowSeverity: 'warning',
-      }), // slow/N+1 tagging + severity
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    MongooseCollectorModule.forRoot({
+      slowThreshold: 100,
+      nPlusOneThreshold: 2,
+      slowSeverity: 'warning',
+    }), // slow/N+1 tagging + severity
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-`MongooseModule.forRoot()` (or `forRootAsync`) must be registered in `AppModule` before using `MongooseCollectorModule`.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+The collector resolves the Mongoose connection by its injection token (pass `connectionName` for a named connection) and patches `Query` / `Aggregate` process-wide, so it needs no wiring in the feature modules that declare your schemas.
 
 ## What it collects
 
@@ -120,10 +117,12 @@ At module initialization, the collector patches `mongoose.Query.prototype.exec` 
 
 `MongooseSchemaCollectorModule` adds a global **Schemas / Mongoose** view to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, columns, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
-```ts title="app.module.ts"
+Add it to the profiling bundle's `imports`:
+
+```ts title="profiling/profiling.module.ts"
 import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 
-ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
+MongooseSchemaCollectorModule.forRoot(),
 ```
 
 Pass `connectionName` to introspect a named connection (omit it for the default), and `enabled: false` to disable per environment. The panel reads each model's `schema.paths` and `schema.indexes()` and never touches data; path defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no Mongoose connection is wired.

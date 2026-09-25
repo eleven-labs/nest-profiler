@@ -23,7 +23,7 @@ This tutorial shows how to add the config collector to display resolved configur
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-config
+pnpm add -D @eleven-labs/nest-profiler-config
 ```
 
 ## Step 2 - Define config factories with registerAs
@@ -54,15 +54,13 @@ export const appConfig = registerAs('app', () => ({
 
 ## Step 3 - Register the modules
 
+`ConfigModule` is your application's configuration, so it stays in the production `AppModule`:
+
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConditionalModule } from '@nestjs/config';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+import { ConfigModule } from '@nestjs/config';
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
@@ -70,15 +68,28 @@ const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] ==
       isGlobal: true,
       load: [appConfig, databaseConfig],
     }),
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
-      isProfilerEnabled,
-    ),
   ],
 })
 export class AppModule {}
 ```
+
+The collector goes in the dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+
+@Module({
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+  ],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 The `maskKeys` option accepts dot-notation paths. Matched values are replaced with `***` in the profiler UI.
 
@@ -134,20 +145,17 @@ Values matching `/password|secret|key|token|credential/i` are also masked automa
 
 ## Driving options from ConfigService
 
-Use `forRootAsync()` to resolve `maskKeys` from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+Use `forRootAsync()` to resolve `maskKeys` from `ConfigService` (or any provider). Add it to the bundle's `imports` in place of `forRoot()`:
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
-ConditionalModule.registerWhen(
-  ConfigCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
-    }),
+ConfigCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    maskKeys: config.get<string[]>('profiler.maskKeys') ?? ['database.password', 'jwt.secret'],
   }),
-  isProfilerEnabled,
-);
+});
 ```
 
 ## How it works

@@ -23,6 +23,8 @@ export class UserService {
 
 The span is closed however the callback ends — returned value, thrown error, rejected promise — and an error marks it red on the waterfall before being re-thrown, so a failing branch is visible instead of simply missing. The callback's value is returned unchanged, so wrapping a method never changes what it returns.
 
+`span()`, `@Span()` and the other `TracerService` calls on this page live in application code: keeping them in production code requires installing the profiler as a regular dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a [dev-dependency install](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) is absent in production.
+
 ### Measuring a whole method: `@Span()`
 
 When what you want to time _is_ the method, the decorator is the shorter and safer form:
@@ -52,11 +54,14 @@ method call instead, turning the waterfall into the full call tree — which con
 service, which called which repository, and what each cost:
 
 ```ts
-// main.ts
-const app = await NestFactory.create(AppModule, {
+// main-dev.ts
+void bootstrap(AppDevModule, {
   instrument: createProfilerInstrument(),
+  wrapLogger: (logger) => createProfilerLogger(logger),
 });
 ```
+
+It belongs in the dev-only entry `main-dev.ts`, which passes it to the shared `bootstrap()` (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)); production's `main.ts` never sets it.
 
 ```
 POST /api/v1/products                                 19.29 ms
@@ -96,8 +101,8 @@ hundred times a request, a `getRequestId` called from every layer: each one is
 a row, and together they bury the dozen spans the trace was opened for. `exclude` takes them off
 it, by name:
 
-```ts
-const app = await NestFactory.create(AppModule, {
+```ts title="main-dev.ts"
+void bootstrap(AppDevModule, {
   instrument: createProfilerInstrument({
     exclude: [
       'ConfigService', // the whole class
@@ -228,7 +233,7 @@ const current = this.tracer.getAttribute('tenant');
 
 ### Nothing throws outside a profiled request
 
-Every method above is a no-op when there is no active profile — during bootstrap, in a background task, or simply because the profiler is disabled, which is how it should be deployed in production. `span()` still runs its callback and returns its value; the others return `undefined` or do nothing. A method annotated with a span behaves identically whether the debugging tool is plugged in or not, which is the point: this is deliberately unlike an APM agent, which is expected to run everywhere and throws when it cannot.
+Every method above is a no-op when there is no active profile — during bootstrap, in a background task, or simply because the profiler is disabled behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), which is how it should be deployed in production. `span()` still runs its callback and returns its value; the others return `undefined` or do nothing. A method annotated with a span behaves identically whether the debugging tool is plugged in or not, which is the point: this is deliberately unlike an APM agent, which is expected to run everywhere and throws when it cannot.
 
 ### What else lands on the trace
 
@@ -369,7 +374,7 @@ export class MyCollector implements IProfilerCollector {
 }
 ```
 
-Register the collector as a provider in your module — the profiler discovers it automatically at startup.
+Register the collector as a provider in a module of the dev-only profiling bundle — the profiler discovers it automatically at startup. The collector imports the profiler, so it follows the same dev-only rule as the official collectors (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)).
 
 ## Global-scope collectors
 

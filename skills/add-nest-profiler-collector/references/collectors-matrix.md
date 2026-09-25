@@ -26,15 +26,13 @@ Detection confidence:
 | `@nestjs/event-emitter`                     | hard                                           | `@eleven-labs/nest-profiler-event-emitter` | `collectors-simple.md`      |
 | _(any REST/GraphQL/microservice/CLI app)_   | always available (opt-in panel)                | `@eleven-labs/nest-profiler-routes`        | `collectors-simple.md`      |
 
-## Gating
+## Install and placement
 
-Every collector is gated the same way as the core module. The per-collector snippets in the family files show **Approach A** — wrap the `forRoot(...)` / `forRootAsync(...)` in `ConditionalModule.registerWhen(..., isProfilerEnabled)`. For **Approach B** (the core `enabled` flag), **drop the `ConditionalModule.registerWhen(...)` wrapper and import the module directly** (`imports: [HttpCollectorModule.forRoot(...)]`) — it is a cheap no-op when the core is inert. Match whichever strategy the core uses; collectors need **no** no-op counterpart: they self-register through discovery and simply do nothing when the active profiler is absent.
-
-## Placement rule
-
-- **Root / global collectors** — `config`, `validator`, `routes`, `commander` contribute global panels (bootstrap snapshot, discovery panels). They belong at the composition root; bundle them with the core into a single `ProfilingModule` (see `enable-strategies.md`) to keep the root tidy. `validator`'s pipe is app-owned in `main.ts` (`createProfilerValidationPipe`), so its panel gates like the others (see `collectors-validator.md`).
-- **Infra-scoped collectors** — database (typeorm/mikro-orm/mongoose incl. their Schema companion), `http`, `cache`, `rabbitmq`, `event-emitter`, and the GraphQL transport stay co-located in the feature module that owns their infrastructure, each with its own gate.
+- **Install** every collector with the **same flag as the core**: `-D` for the dev-dependency install, a plain `add` for the `dependencies` + `ConditionalModule` install. The host library it instruments (`@nestjs/typeorm`, `@nestjs/axios`, `@nestjs/cache-manager`…) is the app's own production dependency — never move it to `-D`.
+- **Register** it in the `ProfilingModule` bundle (see `enable-strategies.md`). Collectors resolve what they instrument across the whole DI container — `DiscoveryService` scans, connection tokens resolved through `ModuleRef`, global patches — so none of them has to sit in a feature module. The per-collector snippets in the family files show the **bare** registration to add to the bundle's `imports`.
+- **Gating** — dev-dependency install: none, the bundle is only loaded by `main-dev.ts`. `ConditionalModule` install: the single `ConditionalModule.registerWhen(ProfilingModule, isProfilerEnabled)` gate covers every collector in the bundle; a collector kept next to the module it instruments gets its own `ConditionalModule.registerWhen(..., isProfilerEnabled)`; with the `enabled` flag fallback, import it directly (a cheap no-op when the core is inert). Collectors need **no** no-op counterpart.
+- The **app-side** configuration a collector relies on stays in the app, in production code: the ORM / `HttpModule` / `RabbitMQModule` / `EventEmitterModule` registrations, `CacheModule.register({ isGlobal: true })`, the GraphQL `context` exposing the request, and the validation pipe installed by the bootstrap.
 
 ## Asking which to add
 
-Cross-reference `package.json` against the matrix, then **ask the user (multi-select)** which detected collectors to add — do not assume all. Same `AskUserQuestion` rules as the enable strategy: `header` ≤ 12 characters, technical and concrete option descriptions. Then, per chosen collector, ask its family-specific key question(s) before wiring.
+Cross-reference `package.json` against the matrix, then **ask the user (multi-select)** which detected collectors to add — do not assume all. Same `AskUserQuestion` rules as the install choice: `header` ≤ 12 characters, technical and concrete option descriptions. Then, per chosen collector, ask its family-specific key question(s) before wiring.

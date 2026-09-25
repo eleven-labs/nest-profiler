@@ -16,28 +16,36 @@ This tutorial shows how to add GraphQL profiling to a NestJS application that us
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-graphql
+pnpm add -D @eleven-labs/nest-profiler-graphql
 ```
 
 ## Step 2 - Register GraphQLCollectorModule
 
-Import `GraphQLCollectorModule` alongside `ProfilerModule` in your application module. The module must be registered **before** `GraphQLModule` in the imports array so the adapter is ready when the GraphQL context is created.
+Register `GraphQLCollectorModule` next to `ProfilerModule` in your dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
+
+@Module({
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), GraphQLCollectorModule.forRoot()],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+Your `GraphQLModule` stays in your own application module, free of any profiler import:
 
 ```ts title="app.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver } from '@nestjs/apollo';
 import type { ApolloDriverConfig } from '@nestjs/apollo';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -50,7 +58,7 @@ export class AppModule {}
 
 ## Step 3 - Configure the `context` factory
 
-The profiler retrieves the active HTTP profile through the GraphQL execution context. You must expose the HTTP request object in that context - the exact key depends on your driver:
+The profiler retrieves the active HTTP profile through the GraphQL execution context. You must expose the HTTP request object in that context - the exact key depends on your driver. This is plain application config, so it ships in production unchanged:
 
 | Driver                           | Key to expose | `context` factory                         |
 | -------------------------------- | ------------- | ----------------------------------------- |
@@ -148,7 +156,7 @@ That shape is also where GraphQL's classic N+1 lives: one query per product, the
 
 By default, Apollo Sandbox (`GET /graphql`) and introspection queries are profiled. Use the pre-built filters to exclude them:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';
 import {
   GraphQLCollectorModule,
@@ -173,18 +181,6 @@ GraphQLCollectorModule.forRoot(),
 GraphQL-level errors - schema validation failures and resolver errors returned in `response.body.errors` - appear in the **Exceptions** tab with an amber **GraphQLError** badge. They are visually distinct from NestJS runtime exceptions, which use a red badge.
 
 This means you can inspect them even when Apollo returns an HTTP 200 with an `errors` array (the standard GraphQL error behaviour).
-
-## Disabling GraphQL profiling
-
-Gate the collector with `ConditionalModule` so it loads only when the profiler is on — the same pattern used for every profiler module:
-
-```ts
-import { ConditionalModule } from '@nestjs/config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true'
-
-ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
-```
 
 ## How it works
 

@@ -31,26 +31,25 @@ A transport that discovered nothing gets no view at all, so the sidebar only eve
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-routes
+pnpm add -D @eleven-labs/nest-profiler-routes
 ```
 
 **Peer dependencies:** `@eleven-labs/nest-profiler`. `class-validator` is an **optional** peer — install it to surface DTO properties and validation rules; without it, a body DTO shows only its class name.
 
 ## Setup
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RoutesCollectorModule } from '@eleven-labs/nest-profiler-routes';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [ConditionalModule.registerWhen(RoutesCollectorModule.forRoot(), isProfilerEnabled)],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), RoutesCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` so it loads only when the profiler is on, or pass `RoutesCollectorModule.forRoot({ enabled: false })`. Wire the core `ProfilerModule` **once at the root** (add its `ProfilerNoopModule` fallback only if you inject `TracerService` directly) — see the [example app](https://nest-profiler.eleven-labs.com/docs/example-api).
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## What it collects
 

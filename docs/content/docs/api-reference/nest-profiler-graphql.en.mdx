@@ -117,6 +117,6 @@ import type {
 } from '@eleven-labs/nest-profiler-graphql';
 ```
 
-Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, registered in the dev-only profiling bundle like `forRoot()` — or, behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrapped in `ConditionalModule.registerWhen(...)`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.

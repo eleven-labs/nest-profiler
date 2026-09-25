@@ -31,24 +31,33 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-graphql
+pnpm add -D @eleven-labs/nest-profiler-graphql
 ```
 
 ## Setup
 
-Import `GraphQLCollectorModule` alongside `ProfilerModule` in your application module.
+Register `GraphQLCollectorModule` next to `ProfilerModule` in your dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
+
+@Module({
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), GraphQLCollectorModule.forRoot()],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+Your `GraphQLModule` stays in your own application module. The only requirement is that its `context` exposes the HTTP request — plain application config, so it ships in production unchanged.
 
 ### Apollo Server (Express or Fastify)
 
-```ts
-import { ConditionalModule } from '@nestjs/config';
-import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
+```ts title="app.module.ts"
 @Module({
   imports: [
-    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -64,35 +73,29 @@ export class AppModule {}
 ### Mercurius (Fastify)
 
 ```ts
-(GraphQLCollectorModule.forRoot(),
-  GraphQLModule.forRoot<MercuriusDriverConfig>({
-    driver: MercuriusDriver,
-    autoSchemaFile: true,
-    // Mercurius uses `request` instead of `req`
-    context: ({ request }) => ({ request }),
-  }));
+GraphQLModule.forRoot<MercuriusDriverConfig>({
+  driver: MercuriusDriver,
+  autoSchemaFile: true,
+  // Mercurius uses `request` instead of `req`
+  context: ({ request }) => ({ request }),
+});
 ```
 
 ### graphql-yoga (Express or Fastify)
 
 ```ts
-(GraphQLCollectorModule.forRoot(),
-  GraphQLModule.forRoot<YogaDriverConfig>({
-    driver: YogaDriver,
-    autoSchemaFile: true,
-    context: ({ req }) => ({ req }),
-  }));
+GraphQLModule.forRoot<YogaDriverConfig>({
+  driver: YogaDriver,
+  autoSchemaFile: true,
+  context: ({ req }) => ({ req }),
+});
 ```
-
-## Enabling and disabling
-
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
 
 ## Ignoring playground and introspection requests
 
 The playground and introspection requests are profiled by default. Use the
 `ignoreRequest` option of `ProfilerModule` together with the pre-built filters
-from this package to exclude them:
+from this package to exclude them (both calls live in the profiling bundle):
 
 ```ts
 import { ProfilerModule, combineFilters } from '@eleven-labs/nest-profiler';

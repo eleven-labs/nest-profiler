@@ -31,31 +31,55 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-commander nest-commander
+pnpm add -D @eleven-labs/nest-profiler-commander
+# your app already owns this one (regular dependency):
+pnpm add nest-commander
 ```
 
 **Peer dependencies:** `nest-commander ^3.20.0`
 
 ## Setup
 
-The collector wraps every discovered command automatically — you do not change your command classes. Register it in the module you bootstrap with `CommandFactory`:
+The collector wraps every discovered command automatically — you do not change your command classes. The CLI follows the same split as the web app: `cli.ts` runs your profiler-free `CliModule` in production, and a dev-only `cli-dev.ts` runs a `CliDevModule` that adds a CLI profiling bundle on top:
 
-```ts title="cli.module.ts"
+```ts title="profiling/profiling-cli.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { CommanderCollectorModule } from '@eleven-labs/nest-profiler-commander';
-import { AppCommand } from './app.command';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
-  imports: [ConditionalModule.registerWhen(CommanderCollectorModule.forRoot(), isProfilerEnabled)],
-  providers: [AppCommand],
+  imports: [
+    // File storage, so the web server reads the profiles this process writes.
+    ProfilerModule.forRoot({ isGlobal: true, storageType: 'file' }),
+    CommanderCollectorModule.forRoot(),
+  ],
 })
-export class CliModule {}
+export class ProfilingCliModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the CLI root** — use `storageType: 'file'` so the CLI process and the HTTP server share the same profiles. The recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind two `ConditionalModule` gates (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+> `ProfilingCliModule` is a dev-only bundle loaded by `cli-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same calls in `ConditionalModule.registerWhen(..., isProfilerEnabled)` in your `CliModule` — and import `ConfigModule.forRoot()` there, or registration hangs and the CLI exits silently.
+
+```ts title="cli.dev.module.ts"
+import { Module } from '@nestjs/common';
+import { CliModule } from './cli.module';
+import { ProfilingCliModule } from './profiling/profiling-cli.module';
+
+@Module({ imports: [CliModule, ProfilingCliModule] })
+export class CliDevModule {}
+```
+
+```ts title="cli-dev.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { CommandFactory } from 'nest-commander';
+import { CliDevModule } from './cli.dev.module';
+
+void CommandFactory.run(CliDevModule, {
+  logger: createProfilerLogger(new ConsoleLogger('Cli', { logLevels: ['log', 'warn', 'error'] })),
+});
+```
+
+The wrapped logger captures what your commands log through `new Logger(MyCommand.name)`. Production keeps its profiler-free entry:
 
 ```ts title="cli.ts"
 import { CommandFactory } from 'nest-commander';
@@ -67,6 +91,8 @@ async function bootstrap(): Promise<void> {
 
 void bootstrap();
 ```
+
+Run the dev entry with a script such as `"cli:dev": "nest start --entryFile cli-dev -p tsconfig.dev.json --"`. Add `CommanderCollectorModule.forRoot()` to your web app's `ProfilingModule` too, so the web UI renders command profiles.
 
 Run a command, then open `/_profiler` on your HTTP app (pointed at the same `storagePath`) to inspect it.
 
@@ -93,7 +119,7 @@ No exit code is collected: the profiler wraps `run()` from inside the process, s
 
 ## How it works
 
-At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method, plus the value parser of each of its `@Option()` flags (they run earlier, during commander's parse phase, and a throwing parser would otherwise abort the run without producing any profile — a parse failure is persisted through the profiler core's deferred queue, drained at application shutdown, since commander's parse phase is synchronous and cannot await a save). The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — import the module in your HTTP app too so cross-process command profiles render there.
+At application bootstrap the module discovers every provider that is an instance of nest-commander's `CommandRunner` and wraps its `run()` method, plus the value parser of each of its `@Option()` flags (they run earlier, during commander's parse phase, and a throwing parser would otherwise abort the run without producing any profile — a parse failure is persisted through the profiler core's deferred queue, drained at application shutdown, since commander's parse phase is synchronous and cannot await a save). The wrapper synthesises a profile with a `command` entrypoint (`entrypoint.type = 'command'`, the command details on `entrypoint.data`), opens a CLS context, runs the original command, then runs all collectors and saves the profile through the profiler's shared storage. The module registers the `command` entrypoint type with the profiler core, which renders command profiles in a dedicated Commands table and a built-in Command tab — register the module in your HTTP app's profiling bundle too so cross-process command profiles render there.
 
 It also contributes the **Discover / Commands** view (`@eleven-labs/nest-profiler-routes`), listing every `@Command()` class with its description and, per command, its positional **Arguments** (from `@Command({ arguments, argsDescription })`) and its **Options** (from `@Option({ flags, description, defaultValue, required })`) — so the view documents the CLI the same way `--help` does. `nest-commander` is a required peer dependency of this package (it imports `CommandRunner` statically).
 
