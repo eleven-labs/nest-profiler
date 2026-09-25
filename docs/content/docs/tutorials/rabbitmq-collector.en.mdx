@@ -114,18 +114,6 @@ RabbitMqCollectorModule.forRootAsync({
 
 ## Profiling what you publish, too
 
-## See the whole RabbitMQ surface, not just the traffic
-
-With [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes) installed, the same
-module contributes a **Discover / RabbitMQ** view: the topology your `RabbitMQModule` declared —
-connections (credentials masked), exchanges, queues with the binding and `x-…` arguments that feed
-them, exchange bindings — then every consumer, each expanding to its full subscription: queue,
-exchange, routing keys, connection, `queueOptions` and error behaviour.
-
-It is read from the resolved configuration, so it also answers the questions traffic cannot: which
-dead-letter and retry queues exist, which handler runs on which connection, and whether a handler
-referencing a module-level `handlers` entry is registered at all.
-
 The same package ships `RabbitMqPublishCollectorModule`, which lists the messages a profiled request **published** in a **RabbitMQ** panel. It is independent of the module above — add it to the bundle on its own in a publish-only API, or alongside it to also see the messages your consumers republish:
 
 ```ts title="profiling/profiling.module.ts"
@@ -143,6 +131,18 @@ RabbitMqPublishCollectorModule.forRoot({
   slowThreshold: 50, // ms before a publish is tagged `slow`
 });
 ```
+
+## See the whole RabbitMQ surface, not just the traffic
+
+With [`@eleven-labs/nest-profiler-routes`](/docs/packages/nest-profiler-routes) installed, the same
+module contributes a **Discover / RabbitMQ** view: the topology your `RabbitMQModule` declared —
+connections (credentials masked), exchanges, queues with the binding and `x-…` arguments that feed
+them, exchange bindings — then every consumer, each expanding to its full subscription: queue,
+exchange, routing keys, connection, `queueOptions` and error behaviour.
+
+It is read from the resolved configuration, so it also answers the questions traffic cannot: which
+dead-letter and retry queues exist, which handler runs on which connection, and whether a handler
+referencing a module-level `handlers` entry is registered at all.
 
 ## How it works
 

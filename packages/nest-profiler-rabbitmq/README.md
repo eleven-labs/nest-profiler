@@ -175,10 +175,6 @@ see the messages a consumer republishes.
 
 Only the caller's publish options are captured, not the connection's `defaultPublishOptions`.
 
----
-
-Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
-
 ## The Discover / RabbitMQ view
 
 Registering `RabbitMqCollectorModule` alongside
@@ -214,3 +210,7 @@ Two golevelup behaviours the view makes visible: a handler with no `connection` 
 asserts a queue on the wrong vhost — and a handler whose `name` matches no entry in that
 connection's `handlers` map is **not registered** at all, which the entry says in place of its
 description.
+
+---
+
+Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)
