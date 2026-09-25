@@ -38,29 +38,27 @@ The two are independent: register the one that matches what your application doe
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-rabbitmq
+pnpm add -D @eleven-labs/nest-profiler-rabbitmq
 ```
 
 **Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to talk to the broker). They are optional — when no RabbitMQ traffic runs, the modules simply never produce a profile or a panel entry.
 
 ## Consuming messages — `RabbitMqCollectorModule`
 
-Register the module in the application that consumes your messages (the same process that hosts the profiler), alongside your RabbitMQ module:
+Register the module in the dev-only profiling bundle of the application that consumes your messages (the same process that hosts the profiler). Your `RabbitMQModule.forRoot(...)` stays in your own application module — the collector discovers the `@RabbitSubscribe` handlers wherever they are declared:
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RabbitMqCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
-    // your RabbitMQModule.forRoot(...) with @RabbitSubscribe handlers
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), RabbitMqCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 Your `@RabbitSubscribe` handlers need no changes:
 
@@ -86,8 +84,6 @@ RabbitMqCollectorModule.forRoot({
 
 `error` decides what earns the `error` tag and what the list's **Errors** filter keeps. See [What counts as an error](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/error-classification). Use `forRootAsync` to resolve any of these from `ConfigService`.
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
-
 ### What it collects
 
 Each consumed message becomes a profile with a `rabbitmq` entrypoint (`entrypoint.type = 'rabbitmq'`, with this payload on `entrypoint.data`):
@@ -111,21 +107,17 @@ A consumed message has no HTTP request/response, so the module registers an `ICo
 
 ## Publishing messages — `RabbitMqPublishCollectorModule`
 
-Register it wherever the profiler runs — a publish-only API needs nothing else from this package:
+Register it in the profiling bundle wherever the profiler runs — a publish-only API needs nothing else from this package, and your `RabbitMQModule.forRoot(...)` stays in your own application module:
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { RabbitMqPublishCollectorModule } from '@eleven-labs/nest-profiler-rabbitmq';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled),
-    // your RabbitMQModule.forRoot(...)
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), RabbitMqPublishCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
 Your publishers need no changes — keep injecting `AmqpConnection`:
@@ -148,9 +140,7 @@ RabbitMqPublishCollectorModule.forRoot({
 });
 ```
 
-Use `forRootAsync` to resolve any of these from `ConfigService`, and the same
-`ConditionalModule.registerWhen(..., isProfilerEnabled)` gate as above to keep the panel out of
-production.
+Use `forRootAsync` to resolve any of these from `ConfigService`. Behind the runtime gate, wrap it in the same `ConditionalModule.registerWhen(..., isProfilerEnabled)` to keep the panel out of production.
 
 ### What it collects
 

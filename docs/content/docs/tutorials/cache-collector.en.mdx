@@ -10,34 +10,47 @@ This tutorial shows how to add the cache collector to profile `@nestjs/cache-man
 
 ## Prerequisites
 
-- `@eleven-labs/nest-profiler` installed and configured
+- `@eleven-labs/nest-profiler` [installed and configured](/docs/getting-started)
 - `@nestjs/cache-manager` and `cache-manager` installed
 
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-cache @nestjs/cache-manager cache-manager
+pnpm add -D @eleven-labs/nest-profiler-cache
 ```
+
+`@nestjs/cache-manager` and `cache-manager` are your app's own dependencies — if they are not installed yet, add them with a plain `pnpm add @nestjs/cache-manager cache-manager`.
 
 ## Step 2 - Register the modules
 
-```ts title="app.module.ts"
-import { CacheModule } from '@nestjs/cache-manager';
-import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+Register `CacheModule` with `isGlobal: true` in your application module, so the collector can inject the `CACHE_MANAGER`:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     CacheModule.register({ isGlobal: true, ttl: 30000 }), // 30s TTL
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
   ],
 })
 export class AppModule {}
 ```
+
+Then add the collector to the dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), CacheCollectorModule.forRoot()],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Step 3 - Use the cache in a service or controller
 
@@ -69,6 +82,8 @@ export class PostsController {
 ```
 
 ## Step 4 - Test it
+
+Start your application through its dev entry (`main-dev.ts`), then call the endpoint twice:
 
 ```bash
 # First call - MISS + SET

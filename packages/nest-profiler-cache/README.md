@@ -29,30 +29,39 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-cache @nestjs/cache-manager
+pnpm add -D @eleven-labs/nest-profiler-cache
 ```
 
-**Peer dependencies:** `@nestjs/cache-manager ^3.0.0`
+**Peer dependencies:** `@nestjs/cache-manager ^3.0.0` — your app's own dependency, installed with a plain `pnpm add @nestjs/cache-manager`.
 
 ## Setup
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { CacheModule } from '@nestjs/cache-manager';
-import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+Register `CacheModule` with `isGlobal: true` in your application module, so the collector can inject the `CACHE_MANAGER`:
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+```ts title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
-  imports: [
-    CacheModule.register({ isGlobal: true }),
-    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
-  ],
+  imports: [CacheModule.register({ isGlobal: true })],
 })
 export class AppModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+Then register the collector in the dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+
+@Module({
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), CacheCollectorModule.forRoot()],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## What it collects
 

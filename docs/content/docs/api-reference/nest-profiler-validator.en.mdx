@@ -133,22 +133,32 @@ import type {
 
 ## Setup
 
-Install the pipe in `main.ts` and register the panel with `forRoot()` — validation runs independently of the profiler's gate:
+Validation stays app-owned: production keeps its own pipe, the dev entry `main-dev.ts` swaps in the profiler's pipe through the shared `bootstrap()` hook, and the panel is registered with `forRoot()` in the dev-only bundle:
 
 ```ts
-// main.ts — class-validator (wrap createClassValidatorPipe to keep per-property violations)
-app.useGlobalPipes(
-  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
-);
+// main.ts — class-validator: bootstrap() builds a plain new ValidationPipe(options)
+void bootstrap(AppModule);
 
-// main.ts — nestjs-zod
-app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
+// main-dev.ts — class-validator (wrap createClassValidatorPipe to keep per-property violations)
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: (options) => createProfilerValidationPipe(createClassValidatorPipe(options)),
+});
 
-// app.module.ts — panel only, gated like every other collector
-ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled);
+// main.ts / main-dev.ts — nestjs-zod
+void bootstrap(AppModule, { validationPipe: () => new ZodValidationPipe() });
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: () => createProfilerValidationPipe(new ZodValidationPipe()),
+});
+
+// profiling/profiling.module.ts — panel only, next to ProfilerModule.forRoot({ isGlobal: true })
+ValidatorCollectorModule.forRoot();
 ```
 
-Since the pipe lives in `main.ts`, mirror the same `useGlobalPipes(...)` call when you boot the app manually in e2e tests. A NestJS app uses a single global validation strategy, so use one validator at a time.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+Since the pipe is set in the bootstrap rather than a module, mirror the dev entry's `useGlobalPipes(...)` call when you boot the app manually in e2e tests. A NestJS app uses a single global validation strategy, so use one validator at a time.
 
 **Important:** Use value imports (not `import type`) for DTO classes in controllers so that TypeScript emits `reflect-metadata` for the parameter type:
 
@@ -160,6 +170,6 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import type { CreateArticleDto } from './dto/create-article.dto';
 ```
 
-**Prerequisite:** install the validator you use (`class-validator` + `class-transformer`, or `nestjs-zod` + `zod`). For class-validator, `emitDecoratorMetadata: true` must be set in `tsconfig.json`.
+**Prerequisite:** install the validator you use (`class-validator` + `class-transformer`, or `nestjs-zod` + `zod`) as a regular dependency of your app. For class-validator, `emitDecoratorMetadata: true` must be set in `tsconfig.json`.
 
-The panel gates like every other collector: `forRoot()` / `forRootAsync()` register only the `ValidatorCollector`, wrapped in `ConditionalModule.registerWhen(..., isProfilerEnabled)` (or toggled with the top-level `enabled` flag).
+The panel registers like every other collector: `forRoot()` / `forRootAsync()` register only the `ValidatorCollector`, so it goes in the dev-only bundle (or, with the runtime gate, is wrapped in `ConditionalModule.registerWhen(..., isProfilerEnabled)` or toggled with the top-level `enabled` flag).

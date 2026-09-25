@@ -51,46 +51,36 @@ import type {
 
 ## Setup
 
-```ts
-// In AuthModule (or any module that sets request.user):
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    ConditionalModule.registerWhen(
-      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
   ],
 })
-export class AuthModule {}
+export class ProfilingModule {}
 ```
 
-**Prerequisite:** A guard or middleware that sets `request.user` (Passport, custom JWT guard, etc.). The collector reads `request.user` and the `Authorization` header from the per-request CLS context.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+**Prerequisite:** A guard or middleware that sets `request.user` (Passport, custom JWT guard, etc.), which stays in your production modules. The collector reads `request.user` and the `Authorization` header from the per-request CLS context.
 
 ## Async setup
 
-Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, added to the dev-only bundle's `imports` in place of `forRoot()`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-ConditionalModule.registerWhen(
-  AuthCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      maskUserFields: config.get<string[]>('profiler.maskUserFields') ?? [
-        'password',
-        'refreshToken',
-      ],
-    }),
+AuthCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    maskUserFields: config.get<string[]>('profiler.maskUserFields') ?? ['password', 'refreshToken'],
   }),
-  isProfilerEnabled,
-);
+});
 ```

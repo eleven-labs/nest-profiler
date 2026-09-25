@@ -14,54 +14,53 @@ This tutorial shows how to add the validator collector to a NestJS application. 
 - A validation library. This tutorial uses `class-validator` + `class-transformer`, which are required **only** for the default class-validator pipe - they are not dependencies of `@eleven-labs/nest-profiler-validator` itself. For the nestjs-zod variant, install `nestjs-zod` + `zod` instead.
 
 <Callout type="info" title="Validation stays app-owned">
-  You install the validation pipe in `main.ts` with `createProfilerValidationPipe(...)`, and
-  `ValidatorCollectorModule.forRoot()` contributes only the panel. Validation runs independently of
-  the profiler, so the panel can be gated on/off per environment while validation always runs.
+  Production keeps its own validation pipe; the dev entry `main-dev.ts` swaps in
+  `createProfilerValidationPipe(...)` through the shared `bootstrap()` hook, and
+  `ValidatorCollectorModule.forRoot()` contributes only the panel. Validation always runs, with or
+  without the profiler.
 </Callout>
 
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-validator
-# this tutorial uses the default class-validator pipe:
+pnpm add -D @eleven-labs/nest-profiler-validator
+# this tutorial uses the default class-validator pipe (a regular dependency of your app):
 pnpm add class-validator class-transformer
 ```
 
 ## Step 2 - Install the pipe and register the panel
 
-Install the validation pipe in your bootstrap. `createClassValidatorPipe` (rather than a bare `new ValidationPipe()`) attaches the raw `ValidationError[]` the panel reads, so violations show per property:
+Both entrypoints share a `bootstrap(rootModule, options)` function (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)). Production calls `bootstrap(AppModule)` and gets a plain `new ValidationPipe(options)`. The dev entry swaps in the profiler's pipe with the same options — `createClassValidatorPipe` (rather than a bare `new ValidationPipe()`) attaches the raw `ValidationError[]` the panel reads, so violations show per property:
 
-```ts title="main.ts"
+```ts title="main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import {
-  createProfilerValidationPipe,
   createClassValidatorPipe,
+  createProfilerValidationPipe,
 } from '@eleven-labs/nest-profiler-validator';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
 
-const app = await NestFactory.create(AppModule);
-
-app.useGlobalPipes(
-  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
-);
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: (options) => createProfilerValidationPipe(createClassValidatorPipe(options)),
+});
 ```
 
-Then register the Validator panel — `forRoot()` adds only the collector (no `APP_PIPE`), so it gates like every other collector:
+Then register the Validator panel — `forRoot()` adds only the collector (no `APP_PIPE`), so it goes in the dev-only bundle like every other collector:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), ValidatorCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Step 3 - Create a DTO with validation constraints
 
@@ -158,13 +157,22 @@ The collector records every validation that passes through the pipe - both succe
 
 ## Using a different validator (nestjs-zod)
 
-The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, wrap its pipe — `class-validator` is never loaded:
+The collector is validator-agnostic. To profile a [nestjs-zod](https://github.com/BenLorantfy/nestjs-zod) app instead, production uses its pipe directly and the dev entry wraps it — `class-validator` is never loaded:
 
 ```ts title="main.ts"
 import { ZodValidationPipe } from 'nestjs-zod';
+
+void bootstrap(AppModule, { validationPipe: () => new ZodValidationPipe() });
+```
+
+```ts title="main-dev.ts"
+import { ZodValidationPipe } from 'nestjs-zod';
 import { createProfilerValidationPipe } from '@eleven-labs/nest-profiler-validator';
 
-app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: () => createProfilerValidationPipe(new ZodValidationPipe()),
+});
 ```
 
 ```ts title="dto/create-article.dto.ts"
@@ -183,8 +191,9 @@ export class CreateArticleDto extends createZodDto(ArticleSchema) {}
 The Validator panel renders zod violations exactly the same way - one entry per failing property with its messages. A NestJS app uses a single global validation strategy, so use one validator at a time. `createProfilerValidationPipe(inner, extractors?)` also takes a custom extractor chain as its second argument.
 
 <Callout type="info" title="Testing the app manually">
-  Since the pipe lives in `main.ts`, mirror the same `useGlobalPipes(...)` call when you boot the
-  app yourself in e2e tests (`Test.createTestingModule(...).createNestApplication()`).
+  Since the pipe is set in the bootstrap rather than a module, mirror the dev entry's
+  `useGlobalPipes(...)` call when you boot the app yourself in e2e tests
+  (`Test.createTestingModule(...).createNestApplication()`).
 </Callout>
 
 ## How it works

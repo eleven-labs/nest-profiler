@@ -17,82 +17,144 @@ description: Install and configure @eleven-labs/nest-profiler in a NestJS 11 app
 
 ## Installation
 
+Install the profiler as a **dev dependency** — it is a development tool, and this keeps it out of your production install entirely:
+
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
 The core package declares `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `reflect-metadata`, and `rxjs` as peer dependencies - a NestJS application already provides all of them except `nestjs-cls`, which is why it is installed explicitly above.
 
-<Callout type="info" title="Want it in devDependencies only?">
-  If you never want the profiler in production — zero footprint, never installed there — install it
-  with `pnpm add -D @eleven-labs/nest-profiler nestjs-cls` and use the [dev-entry
-  split](/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead
-  of the runtime gate below.
+<Callout type="info" title="Does your production code call the profiler?">
+  Install it as a regular dependency instead only if a service injects `TracerService` (custom
+  spans, `captureError()`, `currentToken()`), uses the `@Span()` decorator or calls a collector
+  helper, and you want to keep that code. Those imports must resolve in production, so the profiler
+  is installed there and switched off with a [runtime
+  gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 </Callout>
 
-## Configure the core module
+## Add a dev entrypoint
 
-The profiler is a development tool — keep it off in production. The **recommended** way to wire it is to gate the active `ProfilerModule` with `ConditionalModule.registerWhen`. When profiling is off, the active module is never loaded, at no runtime cost.
+Since production does not install the profiler, it must never import it. The entrypoint is the switch: production keeps running `main.ts` + `AppModule`, untouched, and a dev-only `main-dev.ts` boots the same app with the profiler on top.
 
-```ts title="app.module.ts"
+Start with the module that bundles the profiler. Every collector you add later goes here too:
+
+```ts title="src/profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(
-      ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 }),
-      isProfilerEnabled,
-    ),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 })],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-Log capture keeps working when off with nothing extra (`createProfilerLogger` is DI-free — see below). Only if a service injects `TracerService` **directly** (`span()`, `captureError()`, attributes…) do you also register `ProfilerNoopModule.forRoot({ isGlobal: true })`, gated on `(env) => !isProfilerEnabled(env)`, so that injection still resolves — see [Enabling and disabling](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+A dev-only root module composes it with your application:
+
+```ts title="src/app.dev.module.ts"
+import { Module } from '@nestjs/common';
+import { AppModule } from './app.module';
+import { ProfilingModule } from './profiling/profiling.module';
+
+@Module({ imports: [AppModule, ProfilingModule] })
+export class AppDevModule {}
+```
+
+Move the bootstrap code of `main.ts` into a function both entrypoints share, with a hook for the logger (more hooks can follow, e.g. for the validation pipe):
+
+```ts title="src/bootstrap.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import type { LoggerService, Type } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+
+export interface BootstrapOptions {
+  wrapLogger?: (logger: LoggerService) => LoggerService;
+}
+
+export async function bootstrap(
+  rootModule: Type<unknown>,
+  { wrapLogger = (logger) => logger }: BootstrapOptions = {},
+): Promise<void> {
+  const app = await NestFactory.create(rootModule, { bufferLogs: true });
+  app.useLogger(wrapLogger(new ConsoleLogger('App')));
+  await app.listen(process.env.PORT ?? 3000);
+}
+```
+
+```ts title="src/main.ts"
+import { AppModule } from './app.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppModule);
+```
+
+The dev entry boots `AppDevModule` and wraps the logger with `createProfilerLogger`, so that every log entry is captured in the active profile:
+
+```ts title="src/main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppDevModule, { wrapLogger: (logger) => createProfilerLogger(logger) });
+```
+
+## Build and run
+
+Keep the dev files out of the production build, and give the dev script a TypeScript config that includes them:
+
+```jsonc title="tsconfig.build.json"
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "src/main-dev.ts",
+    "src/app.dev.module.ts",
+    "src/profiling/**",
+  ],
+}
+```
+
+```jsonc title="tsconfig.dev.json"
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"],
+}
+```
+
+```jsonc title="package.json"
+{
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main",
+    "start:dev": "nest start --watch --entryFile main-dev -p tsconfig.dev.json",
+  },
+}
+```
+
+`pnpm start:dev` now serves the profiler at `/_profiler`, while `pnpm build && pnpm start` runs the application without it. Deploy as usual: the build runs with the dev dependencies installed, and the production install (`pnpm install --prod`, `npm ci --omit=dev`, `yarn install --production`) leaves the profiler out.
+
+No production file may import a profiler package at runtime (`import type` is fine). The [install guide](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) covers the lint rule and CI smoke test that enforce it, loggers injected through DI, and the CLI entrypoint.
 
 ## Async configuration
 
-Use `forRootAsync` when your options depend on injected providers such as `ConfigService` — gate it the same way:
+Use `forRootAsync` when your options depend on injected providers such as `ConfigService`:
 
-```ts title="app.module.ts"
-ConditionalModule.registerWhen(
-  ProfilerModule.forRootAsync({
-    isGlobal: true,
-    useFactory: (config: ConfigService) => ({
-      storageType: config.get('PROFILER_STORAGE_TYPE', 'memory'),
-    }),
-    inject: [ConfigService],
+```ts title="src/profiling/profiling.module.ts"
+ProfilerModule.forRootAsync({
+  isGlobal: true,
+  useFactory: (config: ConfigService) => ({
+    storageType: config.get('PROFILER_STORAGE_TYPE', 'memory'),
   }),
-  isProfilerEnabled,
-),
-```
-
-## Turn the profiler on and off
-
-The wiring shown above is the recommended toggle: the `isProfilerEnabled` predicate (here reading `PROFILER_ENABLED`) decides whether the active `ProfilerModule` is loaded, so the profiler is off in production.
-
-Gate each optional collector package the same way. When several profiler modules sit at the root, group them into a single module (the [example app](/docs/example-api) bundles the core plus its global collectors into one `ProfilingModule`) so the composition root keeps a single gate for the active bundle — plus the no-op fallback only if the app injects `TracerService` directly. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
-
-## Enable log capture
-
-Wrap the NestJS logger in `main.ts` so that every log entry is captured in the active request profile:
-
-```ts title="main.ts"
-import { ConsoleLogger } from '@nestjs/common';
-import { createProfilerLogger } from '@eleven-labs/nest-profiler';
-
-const app = await NestFactory.create(AppModule, { bufferLogs: true });
-app.useLogger(createProfilerLogger(new ConsoleLogger('MyApp')));
-await app.listen(3000);
+  inject: [ConfigService],
+}),
 ```
 
 ## Optional collector packages
 
-Each collector is a separate package installed alongside the core. Import each one in the feature module it instruments - **not** in the root module - so the dependency is co-located with the code it observes.
+Each collector is a separate package, installed as a dev dependency next to the core and registered in `ProfilingModule`. A collector finds what it instruments across the whole application — the `DataSource`, every `HttpService`, the global cache manager… — so nothing changes in your feature modules.
 
 | Package                                    | Panel       | Prerequisite                                                            |
 | ------------------------------------------ | ----------- | ----------------------------------------------------------------------- |
@@ -110,126 +172,60 @@ Each collector is a separate package installed alongside the core. Import each o
 | `@eleven-labs/nest-profiler-event-emitter` | Events      | `@nestjs/event-emitter`                                                 |
 | `@eleven-labs/nest-profiler-routes`        | Discover    | None — lists the routing table of every transport it finds              |
 
-### Module-per-collector pattern
+```bash
+pnpm add -D @eleven-labs/nest-profiler-typeorm @eleven-labs/nest-profiler-http @eleven-labs/nest-profiler-config @eleven-labs/nest-profiler-validator
+```
 
-Each optional collector is registered in the feature module it instruments, gated with `ConditionalModule.registerWhen` using the same `isProfilerEnabled` predicate as above:
-
-```ts title="products/products.module.ts - with TypeORM"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="src/profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
-
-@Module({
-  imports: [
-    TypeOrmModule.forFeature([Product]),
-    ConditionalModule.registerWhen(
-      TypeOrmCollectorModule.forRoot({ slowThreshold: 50 }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class ProductsModule {}
-```
-
-```ts title="products/products.module.ts - with MikroORM"
-import { ConditionalModule } from '@nestjs/config';
-import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
-
-@Module({
-  imports: [
-    MikroOrmModule.forFeature([Product]),
-    ConditionalModule.registerWhen(
-      MikroOrmCollectorModule.forRoot({ slowThreshold: 50 }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class ProductsModule {}
-```
-
-```ts title="content/content.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
-import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
+import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
+import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 
 @Module({
   imports: [
-    HttpModule, // provides HttpService
+    ProfilerModule.forRoot({ isGlobal: true }),
+    TypeOrmCollectorModule.forRoot({ slowThreshold: 50 }),
     // Nothing is instrumented unless you list it. The axios adapter auto-discovers every
-    // HttpService through DiscoveryService, so there is nothing else to hand it.
-    ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
-      isProfilerEnabled,
-    ),
-    ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled),
+    // HttpService through DiscoveryService, wherever HttpModule is imported.
+    HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
+    ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
+    ValidatorCollectorModule.forRoot(),
   ],
 })
-export class ContentModule {}
+export class ProfilingModule {}
 ```
 
 Calling `fetch` instead of (or alongside) axios? Add `FetchInstrumentation` from the `/fetch` subpath to the same list, and a phases provider from `/phases` to break each call into DNS, handshake, time-to-first-byte and download. See [HTTP client profiling](/docs/tutorials/http-collector).
 
-```ts title="auth/auth.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
+The Validator panel needs the profiler's validation pipe, which your bootstrap installs. Add a `validationPipe` hook to the shared `bootstrap` so production keeps a plain `ValidationPipe` while the dev entry swaps in the instrumented one with the same options:
 
-@Module({
-  imports: [
-    ConditionalModule.registerWhen(
-      AuthCollectorModule.forRoot({ maskUserFields: ['password'] }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class AuthModule {}
+```ts title="src/bootstrap.ts"
+import { ValidationPipe } from '@nestjs/common';
+import type { PipeTransform, ValidationPipeOptions } from '@nestjs/common';
+
+export interface BootstrapOptions {
+  wrapLogger?: (logger: LoggerService) => LoggerService;
+  validationPipe?: (options: ValidationPipeOptions) => PipeTransform;
+}
+
+// in bootstrap(), with `validationPipe = (options) => new ValidationPipe(options)` as the default:
+app.useGlobalPipes(validationPipe({ whitelist: true, transform: true }));
 ```
 
-Collectors that read global providers or contribute a global panel should remain in the root module:
-
-```ts title="app.module.ts"
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
-import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
-import { ConditionalModule } from '@nestjs/config';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-@Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [appConfig, dbConfig] }),
-    CacheModule.register({ isGlobal: true }),
-
-    // Profiler + root-level collectors, gated with ConditionalModule.
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(
-      ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
-      isProfilerEnabled,
-    ),
-    // Validator panel only — the pipe is app-owned in main.ts (below), so validation runs
-    // regardless of the profiler's gate.
-    ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled),
-
-    // feature modules:
-    ProductsModule,
-    ContentModule,
-    AuthModule,
-  ],
-})
-export class AppModule {}
-```
-
-The Validator panel above needs its validation pipe installed in your bootstrap. This keeps validation independent of the profiler's gate — it runs whether profiling is on or off:
-
-```ts title="main.ts"
+```ts title="src/main-dev.ts"
 import {
-  createProfilerValidationPipe,
   createClassValidatorPipe,
+  createProfilerValidationPipe,
 } from '@eleven-labs/nest-profiler-validator';
 
-app.useGlobalPipes(
-  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
-);
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: (options) => createProfilerValidationPipe(createClassValidatorPipe(options)),
+});
 ```
 
 ## GraphQL support
@@ -237,30 +233,26 @@ app.useGlobalPipes(
 GraphQL profiling is opt-in via the dedicated `@eleven-labs/nest-profiler-graphql` package. The core `ProfilerModule` is HTTP-only - without this package, GraphQL requests pass through without profiling and without errors.
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-graphql
+pnpm add -D @eleven-labs/nest-profiler-graphql
 ```
 
-Import `GraphQLCollectorModule` alongside `ProfilerModule`, then configure the `context` factory for your driver so the profiler can access the underlying HTTP request:
+Add `GraphQLCollectorModule` to `ProfilingModule`, then configure the `context` factory of your application's `GraphQLModule` so the profiler can access the underlying HTTP request. The `context` is plain application config, with no profiler import, so it stays in your production module:
 
-```ts title="app.module.ts - Apollo (Express / Fastify) or graphql-yoga"
-import { ConditionalModule } from '@nestjs/config';
-import { ProfilerModule } from '@eleven-labs/nest-profiler';
+```ts title="src/profiling/profiling.module.ts"
 import { GraphQLCollectorModule } from '@eleven-labs/nest-profiler-graphql';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
-    ConditionalModule.registerWhen(GraphQLCollectorModule.forRoot(), isProfilerEnabled),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: true,
-      context: ({ req }) => ({ req }), // required - exposes the request to the profiler
-    }),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), GraphQLCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
+```
+
+```ts title="app.module.ts - Apollo (Express / Fastify) or graphql-yoga"
+GraphQLModule.forRoot<ApolloDriverConfig>({
+  driver: ApolloDriver,
+  autoSchemaFile: true,
+  context: ({ req }) => ({ req }), // required - exposes the request to the profiler
+}),
 ```
 
 ```ts title="app.module.ts - Mercurius (Fastify)"
@@ -291,7 +283,7 @@ ProfilerModule.forRoot({ storageType: 'file', storagePath: '.profiler' });
 
 Add `.profiler/` to `.gitignore` when using file storage.
 
-For a persistent store that filters and paginates **in the database** — useful once you keep many profiles — a first-party SQLite adapter ships under the `@eleven-labs/nest-profiler/sqlite` subpath (opt-in: `@libsql/client` is an optional peer dependency). One adapter targets a local file, `:memory:`, or a remote SQLite database. Pass it through the `storage` option:
+For a persistent store that filters and paginates **in the database** — useful once you keep many profiles — a first-party SQLite adapter ships under the `@eleven-labs/nest-profiler/sqlite` subpath (opt-in: `@libsql/client` is an optional peer dependency, installed like the profiler with `pnpm add -D @libsql/client`). One adapter targets a local file, `:memory:`, or a remote SQLite database. Pass it through the `storage` option:
 
 ```ts
 import { SqliteStorageAdapter } from '@eleven-labs/nest-profiler/sqlite';

@@ -16,29 +16,25 @@ This tutorial shows how to profile the domain events an application dispatches w
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-event-emitter
+pnpm add -D @eleven-labs/nest-profiler-event-emitter
 ```
 
 ## Step 2 - Register the module
 
-Add `EventEmitterCollectorModule` next to the `EventEmitterModule` registration, gated like every other profiler module:
+`EventEmitterModule.forRoot()` stays in your own application module. Add `EventEmitterCollectorModule` to the dev-only profiling bundle — it resolves the app's `EventEmitter2` and discovers every `@OnEvent` handler across the application:
 
-```ts title="notifications.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { EventEmitterCollectorModule } from '@eleven-labs/nest-profiler-event-emitter';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    EventEmitterModule.forRoot(),
-    ConditionalModule.registerWhen(EventEmitterCollectorModule.forRoot(), isProfilerEnabled),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), EventEmitterCollectorModule.forRoot()],
 })
-export class NotificationsModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Step 3 - Keep your emitters and listeners unchanged
 
@@ -115,21 +111,18 @@ Set `profileListeners: false` to keep only the per-request Events panel — ligh
 
 ## Driving options from ConfigService
 
-Use `forRootAsync()` to resolve the values from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+Use `forRootAsync()` in the bundle to resolve the values from `ConfigService` (or any provider). It resolves option values only: behind the runtime gate, wrap it in `ConditionalModule.registerWhen(..., isProfilerEnabled)` as usual (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)).
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
-ConditionalModule.registerWhen(
-  EventEmitterCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      capturePayload: config.get<boolean>('profiler.capturePayload') ?? true,
-      slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
-    }),
+EventEmitterCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    capturePayload: config.get<boolean>('profiler.capturePayload') ?? true,
+    slowThreshold: config.get<number>('profiler.performance.slowThreshold'),
   }),
-  isProfilerEnabled,
-);
+});
 ```
 
 ## Performance tags

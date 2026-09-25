@@ -4,16 +4,16 @@ Profiles outbound HTTP calls and tags them `slow` / `n-plus-one` / `chatty` / `l
 
 - **Peers:** `nestjs-cls@^6` (required); `axios@^1` **optional** (only if you use the axios instrumentation).
 - **Module:** `HttpCollectorModule` (`forRoot` + `forRootAsync`).
-- **Placement:** the feature module that owns the HTTP client. For axios, `@nestjs/axios`'s `HttpModule` must be imported in the **same** module.
+- **Placement:** the `ProfilingModule` bundle. The app keeps importing `@nestjs/axios`'s `HttpModule` wherever it injects `HttpService`; `AxiosInstrumentation` discovers every instance across the app.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-http> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/http-collector>
 
 ## ⚠️ Central gotcha: nothing is captured without an instrumentation
 
 `HttpCollectorModule` is "bring your own client". **Nothing is instrumented unless you list an instrumentation** in `instrumentations`:
 
-- **axios** → `import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';` — auto-discovers the `@nestjs/axios` `HttpService`, so calls are captured with no per-instance wiring. `HttpModule` must be imported alongside.
+- **axios** → `import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';` — auto-discovers every `@nestjs/axios` `HttpService` (via `DiscoveryService`), so calls are captured with no per-instance wiring.
 - **native `fetch`** → `import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';` — patches `globalThis.fetch`; needs no HTTP-client dependency.
-- **undici / got / other** → inject `HttpProfilerRecorder` and call `.capture({...})` at the call site, or implement `HttpInstrumentation` and pass it via `instrumentations`.
+- **undici / got / other** → implement `HttpInstrumentation` and pass it via `instrumentations` (it lives in the bundle, so it suits the dev-dependency install). Injecting `HttpProfilerRecorder` and calling `.capture({...})` at the call site puts profiler code in the app — `ConditionalModule` install only, and `HttpCollectorModule` must then be visible to that module (it is not global).
 
 **Key questions to ask:** (1) which client(s) to instrument — axios, fetch, or both? (2) capture request/response bodies?
 
@@ -31,29 +31,11 @@ Profiles outbound HTTP calls and tags them `slow` / `n-plus-one` / `chatty` / `l
 
 ## Snippets
 
-```ts title="axios adapter module"
-import { HttpModule } from '@nestjs/axios';
+```ts title="profiling/profiling.module.ts — axios and/or fetch"
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
-
-@Module({
-  imports: [
-    HttpModule,
-    ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class HttpClientModule {}
-```
-
-```ts title="native fetch"
-import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 
-ConditionalModule.registerWhen(
-  HttpCollectorModule.forRoot({ instrumentations: [FetchInstrumentation] }),
-  isProfilerEnabled,
-),
+// in ProfilingModule's imports (the app keeps HttpModule in its own feature modules):
+HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation, FetchInstrumentation] }),
 ```

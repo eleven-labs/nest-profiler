@@ -190,18 +190,24 @@ import { EventPatchService } from './event-patch.service';
 export class EventsProfilerModule {}
 ```
 
-```ts title="app.module.ts"
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
+Register it in the dev-only profiling bundle, next to the core module and the official collectors. The collector imports the profiler, so if it lives in your application it follows the same dev-only rule: keep its files out of production code (for example under `src/profiling/`).
+
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
+import { EventsProfilerModule } from './events-profiler.module';
 
 @Module({
   imports: [
-    ConditionalModule.registerWhen(ProfilerModule.forRoot({ isGlobal: true }), isProfilerEnabled),
+    ProfilerModule.forRoot({ isGlobal: true }),
     EventsProfilerModule,
     // ...
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Step 5 - Test it
 

@@ -145,8 +145,7 @@ original and handed to `createAgentUIStream`, `createAgentUIStreamResponse` or
 `pipeAgentUIStreamToResponse` unchanged. When both apply, the wrapper's name wins over the id the
 class instrumentation would have used.
 
-Unlike the `id` route, this puts an import of this package in application code, which rules out
-keeping the profiler in `devDependencies` for the file that calls it.
+Unlike the `id` route, this puts an import of this package in application code. With the [dev-dependency install](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) that file must stay out of production code; to keep the call there, install the profiler as a regular dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
 ## AiAgentInfo
 
@@ -293,8 +292,7 @@ Declares tool names as coming from an MCP server. Only needed for an integration
 MCP tools itself rather than through `@ai-sdk/mcp`'s client, which `mcpToolNamesOf` recognises on
 its own. Call it once after loading a server's tools.
 
-Unlike the automatic path, this puts an import of this package in application code, which rules out
-keeping the profiler in `devDependencies` for the file that calls it.
+Unlike the automatic path, this puts an import of this package in application code. With the [dev-dependency install](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) that file must stay out of production code; to keep the call there, install the profiler as a regular dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
 ## AI_ENTRYPOINT_TYPE
 
@@ -369,4 +367,4 @@ import type {
 } from '@eleven-labs/nest-profiler-ai';
 ```
 
-Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, added to the dev-only bundle's `imports` in place of `forRoot()`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).

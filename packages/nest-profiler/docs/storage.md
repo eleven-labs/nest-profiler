@@ -33,10 +33,10 @@ For fast repeated reads, parsed profiles are also cached in memory and validated
 
 ## SQLite (local file, `:memory:` or remote)
 
-For a persistent store that filters and paginates **in the database** — ideal once you keep many profiles — the package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath, backed by `@libsql/client`. It is opt-in: `@libsql/client` is an **optional peer dependency**, so memory/file users pull nothing extra.
+For a persistent store that filters and paginates **in the database** — ideal once you keep many profiles — the package ships a SQLite adapter under the `@eleven-labs/nest-profiler/sqlite` subpath, backed by `@libsql/client`. It is opt-in: `@libsql/client` is an **optional peer dependency**, so memory/file users pull nothing extra. Only the profiler uses it, so install it as a dev dependency alongside the profiler packages (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)):
 
 ```bash
-pnpm add @libsql/client
+pnpm add -D @libsql/client
 ```
 
 The same adapter targets three backends via one option set:

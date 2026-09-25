@@ -15,12 +15,12 @@ Each eval file is a JSON array:
 ]
 ```
 
-| File                     | Maps to                                                                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `skill.json`             | `../SKILL.md` — introspect-first, setup vs add-collector routing, non-Nest guard, multi-select                                      |
-| `enable-strategies.json` | `../references/enable-strategies.md` — Approach A always first (even without @nestjs/config), AskUserQuestion rules, no-op fallback |
-| `collectors.json`        | the `../references/collectors-*.md` family — detection, placement, per-collector gotchas (feed the family file matching each query) |
-| `core-options.json`      | `../references/core-options.md` — options, storage backends (incl. sqlite), env vars, headers                                       |
+| File                     | Maps to                                                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skill.json`             | `../SKILL.md` — introspect-first, setup vs add-collector routing, non-Nest guard, multi-select                                                                                                                |
+| `enable-strategies.json` | `../references/enable-strategies.md` — dev-dependency install first, `dependencies` + `ConditionalModule` only when production code calls the profiler, AskUserQuestion rules, no-op fallback, boundary guard |
+| `collectors.json`        | the `../references/collectors-*.md` family — detection, placement, per-collector gotchas (feed the family file matching each query)                                                                           |
+| `core-options.json`      | `../references/core-options.md` — options, storage backends (incl. sqlite), env vars, headers                                                                                                                 |
 
 ## Running Evals
 

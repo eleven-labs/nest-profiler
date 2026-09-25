@@ -16,34 +16,42 @@ This tutorial shows how to profile outgoing HTTP requests in a NestJS applicatio
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-http
-# only if you select the axios adapter:
+pnpm add -D @eleven-labs/nest-profiler-http
+# only if you select the axios adapter — your app owns these (regular dependencies):
 pnpm add @nestjs/axios axios
 ```
 
 ## Step 2 - Register the module and select your client(s)
 
-Import each adapter from its subpath and list it in `instrumentations`. The axios adapter **auto-discovers** every `HttpService` in your app (via `DiscoveryService`), so there is no `axiosRef` to wire — even across several feature modules that each create their own `HttpService`.
+Import each adapter from its subpath and list it in `instrumentations`, in your dev-only profiling bundle. The axios adapter **auto-discovers** every `HttpService` in your app (via `DiscoveryService`), so there is no `axiosRef` to wire — even across several feature modules that each create their own `HttpService`.
 
-```ts title="posts.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
-import { PostsController } from './posts.controller';
-import { PostsService } from './posts.service';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    HttpModule,
-    ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    HttpCollectorModule.forRoot({ instrumentations: [AxiosInstrumentation] }),
   ],
+})
+export class ProfilingModule {}
+```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+Your feature module keeps importing `HttpModule` as usual, with no profiler import:
+
+```ts title="posts.module.ts"
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { PostsController } from './posts.controller';
+import { PostsService } from './posts.service';
+
+@Module({
+  imports: [HttpModule],
   controllers: [PostsController],
   providers: [PostsService],
 })
@@ -104,7 +112,7 @@ A duration tells you the call took 180ms. A breakdown tells you whether that was
 
 Phases are opt-in and selected exactly like an adapter. Which provider you need depends on the transport, not on the client's name:
 
-```ts title="posts.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 import { NodeHttpPhases } from '@eleven-labs/nest-profiler-http/phases';
 
@@ -144,6 +152,8 @@ curl http://localhost:3000/posts
 ## Wire your own HTTP client
 
 Using a client without a bundled adapter (undici, got…)? Feed the panel yourself by injecting `HttpProfilerRecorder` - exported and provided by `HttpCollectorModule`. Time your call and pass the raw request/response material to `recorder.capture(...)`: it applies your capture options (request/response headers + body) and masks sensitive headers for you, so a custom client shows the same detail in the panel as the bundled adapters. The collector registered by `HttpCollectorModule` renders the panel, so no other import is needed.
+
+Keeping such a call in production code requires installing the profiler as a regular dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a dev-dependency install is absent in production; the recorder is exported by `HttpCollectorModule`, which is not global, so import the gated module where the service is declared. To stay dev-only, prefer a reusable `HttpInstrumentation` registered in the bundle (below).
 
 ```ts title="weather.service.ts"
 import { Injectable } from '@nestjs/common';

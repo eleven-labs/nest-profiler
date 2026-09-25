@@ -53,33 +53,29 @@ import type {
 
 ## Setup
 
-```ts
-// In any module that uses MikroORM:
+```ts title="profiling/profiling.module.ts"
+// In the dev-only profiling bundle's imports:
 MikroOrmCollectorModule.forRoot({
   slowThreshold: 50, // ms — queries at/above this are tagged 'slow'
 });
 ```
 
-**Prerequisite:** `MikroOrmModule.forRoot()` must be registered in the application (provides the
-`MikroORM` instance whose logger the collector wraps).
+**Prerequisite:** `MikroOrmModule.forRoot()` must be registered in the application (provides the `MikroORM` instance whose logger the collector wraps). The collector resolves it by token, so it needs no wiring in the module that uses MikroORM; pass `connectionName` for a named context.
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ## Async setup
 
-Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, gated per environment with `ConditionalModule` (recommended). It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, registered in the same bundle. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { MikroOrmCollectorModule } from '@eleven-labs/nest-profiler-mikro-orm';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] !== 'false';
-
-ConditionalModule.registerWhen(
-  MikroOrmCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
-    }),
+MikroOrmCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
   }),
-  isProfilerEnabled,
-);
+});
 ```

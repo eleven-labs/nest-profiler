@@ -29,38 +29,47 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
-`nestjs-cls` is a required peer dependency used for per-execution context propagation.
+`nestjs-cls` is a required peer dependency used for per-execution context propagation. Both are **dev dependencies**: the profiler is a development tool, loaded from a dev-only entrypoint, so production never installs it.
 
-> Want the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D @eleven-labs/nest-profiler nestjs-cls` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of the runtime gate below.
+> Keep them as regular dependencies only if your production code calls the profiler (a service injecting `TracerService`, the `@Span()` decorator…) — then gate it with [`ConditionalModule`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule) so it can be switched off in production.
 
 ## Quick start
 
-The recommended way to wire the profiler is to gate it with Nest's `ConditionalModule.registerWhen`, so it loads only when you want it:
+Bundle the profiler in its own module, and compose it with your application in a dev-only root module:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
-import { ConditionalModule } from '@nestjs/config';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
-@Module({
-  imports: [
-    ConditionalModule.registerWhen(
-      ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 }),
-      isProfilerEnabled,
-    ),
-  ],
-})
-export class AppModule {}
+@Module({ imports: [ProfilerModule.forRoot({ isGlobal: true, maxProfiles: 100 })] })
+export class ProfilingModule {}
 ```
 
-Start the application, make a few requests, and open `http://localhost:3000/_profiler`. Every non-profiler response also carries an `X-Debug-Token-Link` header pointing straight to its profile.
+```ts title="app.dev.module.ts"
+@Module({ imports: [AppModule, ProfilingModule] })
+export class AppDevModule {}
+```
 
-> If a service injects `TracerService` **directly** (`span()`, `captureError()`, attributes…), also register `ProfilerNoopModule.forRoot({ isGlobal: true })` gated on `(env) => !isProfilerEnabled(env)` so that injection still resolves when off. Log capture never needs it — `createProfilerLogger` is DI-free. A top-level `enabled` option is also supported as an alternative, documented once in [Configuration → Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+A `main-dev.ts` boots `AppDevModule` with the profiler's logger, while `main.ts` keeps booting `AppModule` untouched:
+
+```ts title="main-dev.ts"
+import { ConsoleLogger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { AppDevModule } from './app.dev.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppDevModule, { bufferLogs: true });
+  app.useLogger(createProfilerLogger(new ConsoleLogger('App')));
+  await app.listen(3000);
+}
+void bootstrap();
+```
+
+Run it with `nest start --watch --entryFile main-dev`, make a few requests, and open `http://localhost:3000/_profiler`. Every non-profiler response also carries an `X-Debug-Token-Link` header pointing straight to its profile. [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) covers the shared bootstrap, the build configuration that keeps these files out of production, and the runtime gate for apps whose production code calls the profiler.
 
 ## Documentation
 

@@ -31,10 +31,10 @@ It is **validator-agnostic**: instead of being tied to `class-validator`, it wra
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-validator
+pnpm add -D @eleven-labs/nest-profiler-validator
 ```
 
-Then install the validator **you** use:
+Then install the validator **you** use, as a regular dependency — it is part of your application, not of the profiler:
 
 ```bash
 # class-validator (default)
@@ -48,56 +48,77 @@ pnpm add nestjs-zod zod
 
 ## Setup
 
-Own the validation pipe in your bootstrap with `createProfilerValidationPipe()`, and register the panel with `ValidatorCollectorModule.forRoot()`. Validation runs independently of the profiler, so the panel can be gated like every other collector while validation always runs.
+Validation stays app-owned: production keeps its own pipe, and the dev entry swaps in the profiler's pipe through the shared `bootstrap()` hook (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)). The panel is registered with `ValidatorCollectorModule.forRoot()` in the dev-only bundle.
 
 ### With class-validator (default)
 
+Production gets the plain `new ValidationPipe(options)` that `bootstrap()` builds by default:
+
 ```ts title="main.ts"
+import { AppModule } from './app.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppModule);
+```
+
+`main-dev.ts` wraps the class-validator pipe with the same options:
+
+```ts title="main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
 import {
-  createProfilerValidationPipe,
   createClassValidatorPipe,
+  createProfilerValidationPipe,
 } from '@eleven-labs/nest-profiler-validator';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
 
-const app = await NestFactory.create(AppModule);
-
-app.useGlobalPipes(
-  createProfilerValidationPipe(createClassValidatorPipe({ whitelist: true, transform: true })),
-);
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: (options) => createProfilerValidationPipe(createClassValidatorPipe(options)),
+});
 ```
 
 Wrap `createClassValidatorPipe` (rather than a bare `new ValidationPipe()`) so the raw `ValidationError[]` reaches the panel and violations show per property.
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { ValidatorCollectorModule } from '@eleven-labs/nest-profiler-validator';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [ConditionalModule.registerWhen(ValidatorCollectorModule.forRoot(), isProfilerEnabled)],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), ValidatorCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ### With nestjs-zod
 
-Pass your own pipe; class-validator is never loaded:
+Pass your own pipe; class-validator is never loaded. Production uses `ZodValidationPipe` directly, and `main-dev.ts` wraps it:
 
 ```ts title="main.ts"
 import { ZodValidationPipe } from 'nestjs-zod';
 
-app.useGlobalPipes(createProfilerValidationPipe(new ZodValidationPipe()));
+void bootstrap(AppModule, { validationPipe: () => new ZodValidationPipe() });
+```
+
+```ts title="main-dev.ts"
+import { ZodValidationPipe } from 'nestjs-zod';
+
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+  validationPipe: () => createProfilerValidationPipe(new ZodValidationPipe()),
+});
 ```
 
 > A NestJS app uses a single global validation strategy, so use **one** validator at a time. `createProfilerValidationPipe(inner, extractors?)` also accepts a custom extractor chain as its second argument.
 
-The pipe writes outcomes to CLS; the gated panel reads them only when the profiler is on. When the profiler is off the pipe validates and records nothing (transparent pass-through).
+The pipe writes outcomes to CLS and the panel reads them. With the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), where the wrapped pipe also runs in production, it validates and records nothing while the profiler is off (transparent pass-through).
 
-> **e2e / manual bootstrap** — when you boot the app yourself in tests (`Test.createTestingModule(...).createNestApplication()`), mirror this `useGlobalPipes(...)` call there too, since it lives in `main.ts` rather than a module.
+> **e2e / manual bootstrap** — when you boot the app yourself in tests (`Test.createTestingModule(...).createNestApplication()`), mirror the dev entry's `useGlobalPipes(...)` call there too, since the pipe is set in the bootstrap rather than a module.
 
 The extractor chain (`[classValidator, zod, generic]`) rarely needs changing; pass a custom one as the second argument of `createProfilerValidationPipe(inner, extractors)`.
-
-> **Enabling / disabling** — gate the panel with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on (a top-level `enabled` option is also supported). Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)).
 
 ## Prerequisite: value import for DTO types
 

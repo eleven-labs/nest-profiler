@@ -23,8 +23,8 @@
 </p>
 
 > **Alpha.** This package is published under the `alpha` dist-tag while its API settles, so
-> `pnpm add @eleven-labs/nest-profiler-ai` will not pick it up — ask for it explicitly:
-> `pnpm add @eleven-labs/nest-profiler-ai@alpha`. Expect breaking changes before `1.0.0`.
+> `pnpm add -D @eleven-labs/nest-profiler-ai` will not pick it up — ask for it explicitly:
+> `pnpm add -D @eleven-labs/nest-profiler-ai@alpha`. Expect breaking changes before `1.0.0`.
 
 `@eleven-labs/nest-profiler-ai` records every [AI SDK](https://ai-sdk.dev) call made during a profiled execution — `generateText`, `streamText`, `generateObject`, the agents built on top of them, and the tools the SDK runs between them — and displays them in an **AI** panel.
 
@@ -33,24 +33,25 @@ Nothing in the application changes: no model is wrapped and no call site is touc
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-ai
+pnpm add -D @eleven-labs/nest-profiler-ai
 ```
 
 **Peer dependencies:** `ai ^7.0.0`
 
 ## Setup
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { AiCollectorModule } from '@eleven-labs/nest-profiler-ai';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [ConditionalModule.registerWhen(AiCollectorModule.forRoot(), isProfilerEnabled)],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), AiCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 That is the whole integration. Your services keep calling the AI SDK exactly as they did.
 
@@ -101,7 +102,7 @@ const support = profileAgent(myCustomAgent, { id: 'support', name: 'Support agen
 
 The wrapper is the same agent to every caller — same `id`, same `tools`, same results — so it can be provided in place of the original and handed to the SDK's own helpers unchanged. When both apply, the wrapper's name wins.
 
-> Unlike the `id` route, this puts an import of this package in application code, so the file that calls it cannot be part of an app that keeps the profiler in [`devDependencies` only](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split).
+> Unlike the `id` route, this puts an import of this package in application code. With the [dev-dependency install](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) that file must stay out of production code; to keep the call there, install the profiler as a regular dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
 ## The AI list
 
@@ -315,7 +316,7 @@ import { markMcpTools } from '@eleven-labs/nest-profiler-ai';
 markMcpTools(Object.keys(tools));
 ```
 
-> That import lives in application code, so the file that calls it cannot be part of an app that keeps the profiler in [`devDependencies` only](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split). The automatic path has no such constraint.
+> That import lives in application code. With the [dev-dependency install](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) that file must stay out of production code; to keep the call there, install the profiler as a regular dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule). The automatic path has no such constraint.
 
 ## Documentation
 

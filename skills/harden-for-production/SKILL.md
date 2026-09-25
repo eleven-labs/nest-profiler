@@ -10,7 +10,9 @@ description: |
 
 The profiler exposes request headers, query params, bodies and logs through the `/_profiler` UI. Off in local dev that is a feature; anywhere reachable by others it is a data-exposure risk. This skill makes an **already-configured** profiler safe to run outside dev.
 
-**Core profiler not set up yet?** → use `setup-nest-profiler` first (it wires the enable strategy and collectors). This skill assumes a working `ProfilerModule` and only hardens it.
+**Core profiler not set up yet?** → use `setup-nest-profiler` first (it picks the install and wires the collectors). This skill assumes a working `ProfilerModule` and only hardens it.
+
+**Installed as a dev dependency (loaded by a `main-dev.ts` entrypoint)?** Then production never installs it, and there is nothing to harden there. To run it on an environment beyond local dev, the app must switch to the `dependencies` + `ConditionalModule` install first (see `setup-nest-profiler`, `references/enable-strategies.md`): move the profiler packages to `dependencies`, gate the `ProfilingModule` bundle with `ConditionalModule.registerWhen(..., isProfilerEnabled)`, and wrap the logger / validation pipe in `main.ts`. A shared dev environment that runs the dev entry is covered by the access-control step below.
 
 First, state the stance plainly: **keep the profiler off in production by default.** Enabling it is legitimate when the API is not publicly reachable (internal, behind a VPN) or the user has accepted the exposure — don't refuse, harden it. Confirm the user's intent before changing anything.
 
@@ -23,7 +25,7 @@ Apply each, driven from `ConfigService`/env where the app already does so:
    - **`authorize` predicate** — `(ctx) => boolean | Promise<boolean>` over `ctx.request` / `ctx.response`. For HTTP Basic, set `ctx.response.setHeader('WWW-Authenticate', 'Basic realm="Profiler"')` before returning `false` so the browser prompts; the browser then re-sends the credential on every link.
    - **Bearer / `?token=`** — check the header or query in `authorize`, and add `security.linkQuery` to thread `?token=` across UI links (a bare Bearer header can't ride a browser link click). Compare secrets with `timingSafeEqual`.
    - Several strategies ⇒ **all must pass**. Never commit the credential — read it from the deploy environment via your own `security` code (the profiler defines no auth env var).
-2. **Keep gating explicit.** Confirm the enable predicate is off-by-default (`enabled('PROFILER_ENABLED')`, unset ⇒ off) so a forgotten variable means off. Prefer Approach A (`ConditionalModule`) so the profiler module never even loads when off.
+2. **Keep gating explicit.** Confirm the enable predicate is off-by-default (`enabled('PROFILER_ENABLED')`, unset ⇒ off) so a forgotten variable means off. Prefer `ConditionalModule` over the `enabled` flag so the profiler module never even loads when off.
 3. **Don't capture bodies.** `collectBody: false` (the default). If some bodies are needed, cap with a small `maxBodySize` and rely on masking.
 4. **Mask sensitive data.** Extend the core's `redaction` block (`headers`, `cookies`, `queryParams`, `keys`, `patterns`) — every list is additive over the built-ins — and the per-collector masks: `maskKeys` (config), `maskUserFields` (auth), `maskHeaders` (http, rabbitmq). Verify auth/JWT fields and DB credentials are covered.
 5. **Cap what the AI panel stores.** `@eleven-labs/nest-profiler-ai` records prompts, completions, reasoning and tool payloads — the one capture path that holds free-form user data, retrieved documents and the credentials a tool was handed. It masks them by default (`capture: 'redacted'`); confirm nothing has set `capture: 'full'` (the module logs a warning at startup when something has), and go further where the prompts carry regulated data: `capture: 'metadata'` keeps the shape only, `capture: 'none'` keeps just the figures, and a per-field object narrows one at a time — `instructions`, `messages`, `completion`, `reasoning`, `toolDefinitions`, `toolArguments`, `toolResults`, `output`, with `prompt` and `tools` as shorthands (`{ default: 'redacted', prompt: 'metadata', toolResults: 'none' }`). Leave `runtimeContext` alone unless the tool context is needed: it is opt-in and holds the user, the tenant and whatever token the tools were handed. Likewise `providerPayload`, the raw provider bodies: opt-in, and it restates the whole prompt at every step. Extend the masking with `redaction` (`keys`, `patterns`, `pii`, or a `sanitize` scrubber of your own).
@@ -33,7 +35,7 @@ Apply each, driven from `ConfigService`/env where the app already does so:
 
 ## Verify
 
-- With `PROFILER_ENABLED` unset (production default), confirm the app boots and `/_profiler` is **not** served (Approach A) or is inert (Approach B).
+- With `PROFILER_ENABLED` unset (production default), confirm the app boots and `/_profiler` is **not** served (`ConditionalModule`) or is inert (`enabled` flag).
 - With the profiler on **and** a `security` strategy configured, confirm `curl -i /_profiler` with no credential is `401`, and that a valid credential renders (`curl -u user:pass` for Basic, `Authorization: Bearer <token>` or `?token=` for a token, the app cookie for a reused guard). Static assets under `__assets/*` stay reachable.
 - With the AI collector on, send a prompt carrying an email address or a token and confirm the AI panel shows it masked (and says which capture level the profile was taken at).
 - Trigger a request with a secret header/cookie and confirm the captured profile shows it masked (`[REDACTED]`, or whatever `redaction.replacement` you set), and that no body is captured when `collectBody: false`.

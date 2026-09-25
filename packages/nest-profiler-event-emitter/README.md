@@ -27,33 +27,31 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-event-emitter @nestjs/event-emitter
+pnpm add -D @eleven-labs/nest-profiler-event-emitter
+# your app already owns this one (regular dependency):
+pnpm add @nestjs/event-emitter
 ```
 
 **Peer dependencies:** `@nestjs/event-emitter ^3.0.0`, `nestjs-cls ^6.0.0`
 
 ## Setup
 
-```ts title="app.module.ts"
+`EventEmitterModule.forRoot()` stays in your own application module; register the collector in the dev-only profiling bundle:
+
+```ts title="profiling/profiling.module.ts"
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { EventEmitterCollectorModule } from '@eleven-labs/nest-profiler-event-emitter';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [
-    EventEmitterModule.forRoot(),
-    ConditionalModule.registerWhen(EventEmitterCollectorModule.forRoot(), isProfilerEnabled),
-  ],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), EventEmitterCollectorModule.forRoot()],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
-Place the collector wherever `EventEmitterModule` is registered — it is infra-scoped, like the cache and messaging collectors, not a root-level panel.
+The collector resolves the app's `EventEmitter2` and discovers every `@OnEvent` handler across the application, so nothing goes in your feature modules.
 
 ## What it collects
 

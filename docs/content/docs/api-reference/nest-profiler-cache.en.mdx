@@ -41,21 +41,21 @@ import type {
 
 ## Setup
 
-```ts
-// In the module that uses CACHE_MANAGER:
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { CacheCollectorModule } from '@eleven-labs/nest-profiler-cache';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
-  imports: [ConditionalModule.registerWhen(CacheCollectorModule.forRoot(), isProfilerEnabled)],
+  imports: [ProfilerModule.forRoot({ isGlobal: true }), CacheCollectorModule.forRoot()],
 })
-export class PostsModule {}
+export class ProfilingModule {}
 ```
+
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 `CacheCollectorModule.forRoot()` takes no configuration options. The collector patches the `CACHE_MANAGER`'s `get`, `set`, and `del` methods with a proxy at module initialization.
 
-There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision), so toggle it per environment with `ConditionalModule.registerWhen(...)`.
+There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision). It lives in the dev-only bundle, or is gated with `ConditionalModule.registerWhen(...)` under the runtime gate.
 
-**Prerequisite:** `CacheModule.register({ isGlobal: true })` from `@nestjs/cache-manager` must be registered in the application (provides `CACHE_MANAGER` globally).
+**Prerequisite:** `CacheModule.register({ isGlobal: true })` from `@nestjs/cache-manager` must be registered in the application (provides `CACHE_MANAGER` globally, so the collector can inject it from the bundle).

@@ -10,7 +10,7 @@ Snapshots the resolved configuration at bootstrap into a panel, with secret auto
 
 - **Peers (required):** `@nestjs/config@^4`. **Does not** peer on `nestjs-cls`.
 - **Module:** `ConfigCollectorModule` (`forRoot` + `forRootAsync`).
-- **Placement:** the composition root, **after** `ConfigModule`. Bundle into `ProfilingModule`.
+- **Placement:** the `ProfilingModule` bundle. The app keeps `ConfigModule.forRoot({ load: [...] })` in `AppModule`.
 - **Behaviour:** snapshots via `configService.internalConfig`; auto-masks keys matching `password|secret|key|token|credential|api_key`. `maskKeys` adds extra key names or fully-qualified paths (e.g. `database.password`).
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-config> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/config-collector>
 
@@ -24,10 +24,8 @@ Snapshots the resolved configuration at bootstrap into a panel, with secret auto
 ```ts
 import { ConfigCollectorModule } from '@eleven-labs/nest-profiler-config';
 
-ConditionalModule.registerWhen(
-  ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
-  isProfilerEnabled,
-),
+// in ProfilingModule's imports:
+ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
 ```
 
 ---
@@ -38,7 +36,7 @@ Shows the authenticated user and decoded JWT for each request in an Auth panel.
 
 - **Peers (required):** `nestjs-cls@^6`. **No** auth-library peer — it is dependency-free (heuristic detection via `@nestjs/passport` / `@nestjs/jwt`).
 - **Module:** `AuthCollectorModule` (`forRoot` + `forRootAsync`).
-- **Placement:** the auth or app module.
+- **Placement:** the `ProfilingModule` bundle. The app's guard or middleware keeps setting `request.user`.
 - **Behaviour:** reads `request.user` and the `Authorization` header from CLS and **decodes the JWT without verifying it** (display only). Built-in mask covers `password|secret|key|token|credential`; `maskUserFields` adds more.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-auth> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/auth-collector>
 
@@ -52,8 +50,6 @@ Shows the authenticated user and decoded JWT for each request in an Auth panel.
 ```ts
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
 
-ConditionalModule.registerWhen(
-  AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
-  isProfilerEnabled,
-),
+// in ProfilingModule's imports:
+AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
 ```

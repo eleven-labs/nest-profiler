@@ -78,7 +78,7 @@ Two things that are **not** obvious follow from that:
 - **Internal plumbing is not exported.** The entry point deliberately exposes only what a host application or a collector package needs. Helpers the profiler uses on itself — the list-page pagination, the in-memory query engine, option resolvers — are kept out of it precisely so they can be reworked in a minor release.
 
 <Callout type="warn" title="Development only">
-  The profiler is designed for development environments. Disable it in production to avoid exposing
-  internal request data — gate it with `ConditionalModule.registerWhen`. See [Getting
-  started](/docs/getting-started#turn-the-profiler-on-and-off).
+  The profiler is designed for development environments. Install it as a dev dependency and load it
+  from a dev-only entrypoint, so production never ships it and cannot expose internal request data.
+  See [Getting started](/docs/getting-started#add-a-dev-entrypoint).
 </Callout>

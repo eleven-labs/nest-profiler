@@ -29,8 +29,8 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-http
-# only if you select the axios adapter — your app already owns these:
+pnpm add -D @eleven-labs/nest-profiler-http
+# only if you select the axios adapter — your app already owns these (regular dependencies):
 pnpm add @nestjs/axios axios
 ```
 
@@ -40,35 +40,32 @@ pnpm add @nestjs/axios axios
 
 Import each adapter from its own subpath and list it in `instrumentations`. **Nothing is instrumented unless it appears in the list.**
 
-```ts title="app.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { HttpCollectorModule } from '@eleven-labs/nest-profiler-http';
 import { AxiosInstrumentation } from '@eleven-labs/nest-profiler-http/axios';
 import { FetchInstrumentation } from '@eleven-labs/nest-profiler-http/fetch';
 
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
-
 @Module({
   imports: [
-    ConditionalModule.registerWhen(
-      HttpCollectorModule.forRoot({
-        instrumentations: [AxiosInstrumentation, FetchInstrumentation],
-        captureResponseBody: true,
-      }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    HttpCollectorModule.forRoot({
+      instrumentations: [AxiosInstrumentation, FetchInstrumentation],
+      captureResponseBody: true,
+    }),
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
 Each adapter lives on its own subpath (`/axios`, `/fetch`), so importing one never loads another's dependency. The root barrel exports only the client-agnostic API.
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 ### How each adapter finds requests
 
-- **`AxiosInstrumentation`** (`/axios`) — **auto-discovers** every axios instance in the DI container via `DiscoveryService`: `@nestjs/axios` `HttpService` (including each per-feature `HttpModule` / `HttpModule.register()`, which build distinct instances) and bare axios instances provided directly. No `axiosRef` wiring, no `@nestjs/axios` import. Just inject `HttpService` in your services as usual — requests are captured automatically. Axios instances created outside DI (a bare `axios.create()` held in a private field, a third-party library's internal client) aren't discoverable — record those with a custom instrumentation (below).
+- **`AxiosInstrumentation`** (`/axios`) — **auto-discovers** every axios instance in the DI container via `DiscoveryService`: `@nestjs/axios` `HttpService` (including each per-feature `HttpModule` / `HttpModule.register()`, which build distinct instances) and bare axios instances provided directly. No `axiosRef` wiring, no `@nestjs/axios` import: `HttpModule` stays imported by your own feature modules and the collector in the bundle finds it. Just inject `HttpService` in your services as usual — requests are captured automatically. Axios instances created outside DI (a bare `axios.create()` held in a private field, a third-party library's internal client) aren't discoverable — record those with a custom instrumentation (below).
 - **`FetchInstrumentation`** (`/fetch`) — patches `globalThis.fetch` once. A single global hook covers every caller.
 
 > **Other clients (got, undici, superagent…)?** There is no `node:http` catch-all **for recording**: instrument them with a small custom `HttpInstrumentation` using the client's own hooks (see [Bring your own HTTP client](#bring-your-own-http-client)). Going through the client's native API captures full request **and** response bodies safely — which a generic `node:http` hook cannot do for response bodies. Phase _timings_ are a different matter: those do have a `node:http` catch-all, because a timer reads nothing (see below).
@@ -111,7 +108,7 @@ Not covered: a request built by hand with `new http.ClientRequest(...)`, and any
 
 ## Bring your own HTTP client
 
-For an ad-hoc call, inject `HttpProfilerRecorder` and call `capture()` — it applies your capture options (headers/body) and masks sensitive headers, so a custom client shows the same detail in the panel:
+For an ad-hoc call, inject `HttpProfilerRecorder` and call `capture()` — it applies your capture options (headers/body) and masks sensitive headers, so a custom client shows the same detail in the panel. Keeping such a call in production code requires installing the profiler as a regular dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a dev-dependency install is absent in production — and `HttpCollectorModule`, which exports the recorder, is not global, so import the gated module where the service is declared. To stay dev-only, prefer a reusable `HttpInstrumentation` registered in the bundle (below):
 
 ```ts
 import { HttpProfilerRecorder } from '@eleven-labs/nest-profiler-http';

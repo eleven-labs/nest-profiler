@@ -94,42 +94,28 @@ pnpm example:dev
 
 ## Installation
 
-Packages are published to the public **npm** registry — install them like any other dependency, no authentication required:
+Packages are published to the public **npm** registry, no authentication required. The profiler is a development tool: install it as a **dev dependency**, so production never installs it:
 
 ```bash
-pnpm add @eleven-labs/nest-profiler nestjs-cls
+pnpm add -D @eleven-labs/nest-profiler nestjs-cls
 ```
 
-> Prefer the profiler in `devDependencies` only, with zero production footprint? Install it with `pnpm add -D` and use the [dev-entry split](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#devdependency-only-the-dev-entry-split) instead of a runtime gate.
+Bundle it — with every collector you add — in one module, and load that module from a dev-only entrypoint (`main-dev.ts` booting an `AppDevModule` that imports `AppModule` and `ProfilingModule`); production keeps running `main.ts`, untouched:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
-
-@Module({
-  imports: [
-    ProfilerModule.forRoot({
-      isGlobal: true,
-      enabled: process.env.NODE_ENV !== 'production',
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-Add optional collectors in their respective feature modules:
-
-```bash
-pnpm add @eleven-labs/nest-profiler-typeorm
-```
-
-```ts title="products/products.module.ts"
 import { TypeOrmCollectorModule } from '@eleven-labs/nest-profiler-typeorm';
 
 @Module({
-  imports: [TypeOrmCollectorModule.forRoot({ slowThreshold: 50 })],
+  imports: [
+    ProfilerModule.forRoot({ isGlobal: true }),
+    TypeOrmCollectorModule.forRoot({ slowThreshold: 50 }),
+  ],
 })
-export class ProductsModule {}
+export class ProfilingModule {}
 ```
+
+The [Getting started](https://nest-profiler.eleven-labs.com/docs/getting-started) guide walks through the dev entrypoint and the build setup. Does your production code call the profiler — a service injecting `TracerService` for custom spans, say? Then install it as a regular dependency and gate it with [`ConditionalModule`](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule) instead.
 
 ## Agent skills
 

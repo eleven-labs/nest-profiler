@@ -14,26 +14,24 @@ In a busy console, the logs of concurrent requests interleave. The profiler stor
 
 ## Step 1 - Wrap the application logger
 
-In `main.ts`, wrap the logger with the standalone `createProfilerLogger()` and register it with `app.useLogger()`. It is DI-free — no `TracerService`, and a transparent pass-through when the profiler is off:
+The production `main.ts` and the dev-only `main-dev.ts` share a `bootstrap(rootModule, options)` function that registers the app logger with `app.useLogger()` (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)). Production keeps the plain logger; in `main-dev.ts`, the `wrapLogger` hook wraps it with the standalone `createProfilerLogger()`. It is DI-free — no `TracerService`, and a transparent pass-through when no request is being profiled:
 
-```ts title="main.ts"
-import { ConsoleLogger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { createProfilerLogger } from '@eleven-labs/nest-profiler';
-import { AppModule } from './app.module';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
-
-  app.useLogger(createProfilerLogger(new ConsoleLogger('MyApplication')));
-
-  await app.listen(3000);
-}
-
-void bootstrap();
+```ts title="bootstrap.ts"
+const app = await NestFactory.create(rootModule, { bufferLogs: true, instrument });
+app.useLogger(wrapLogger(new ConsoleLogger('MyApplication')));
 ```
 
-`bufferLogs: true` holds startup logs until the custom logger is registered, so nothing is lost.
+```ts title="main-dev.ts"
+import { createProfilerLogger } from '@eleven-labs/nest-profiler';
+import { AppDevModule } from './app.dev.module';
+import { bootstrap } from './bootstrap';
+
+void bootstrap(AppDevModule, {
+  wrapLogger: (logger) => createProfilerLogger(logger),
+});
+```
+
+`bufferLogs: true` holds startup logs until the custom logger is registered, so nothing is lost. With the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule) instead, `main.ts` wraps the logger unconditionally, since the wrapper passes through when the profiler is off.
 
 ## Step 2 - Log with context in a service
 
@@ -69,12 +67,12 @@ The **Logs** tab lists each entry with its time, level badge, message - with the
 
 ## Step 4 - Use nestjs-pino instead
 
-The same wrapper works with `nestjs-pino`. Register its `Logger` through `app.useLogger()`:
+The same wrapper works with `nestjs-pino`. Have the shared bootstrap register its `Logger` through `app.useLogger()`, and the dev entry's `wrapLogger` hook wraps it unchanged:
 
-```ts title="main.ts"
+```ts title="bootstrap.ts"
 import { Logger as PinoLogger } from 'nestjs-pino';
 
-app.useLogger(createProfilerLogger(app.get(PinoLogger)));
+app.useLogger(wrapLogger(app.get(PinoLogger)));
 ```
 
 For a `PinoLogger` **injected directly** into a provider (which bypasses `app.useLogger()`), wrap that instance too — still no `TracerService`. pino's object-first convention is understood, and the context name set by `@InjectPinoLogger(...)` is picked up from the logger instance:
@@ -92,6 +90,8 @@ this.logger.info({ postCount: 5, cacheKey: 'external:posts' }, 'Posts cached');
 ```
 
 The captured entry has `message: 'Posts cached'`, `context: 'PostsController'` and the merging object as `data` - and the real pino line is emitted unchanged.
+
+This call lives in application code: keeping it in production code requires installing the profiler as a regular dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a dev-dependency install is absent in production. With the dev-dependency install, leave a seam instead — an optional wrap token the dev bundle fills (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency)).
 
 ## Step 5 - Handle an exotic logger
 

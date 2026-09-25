@@ -10,41 +10,40 @@ This tutorial shows how to add the Mongoose collector to profile MongoDB queries
 
 ## Prerequisites
 
-- `@eleven-labs/nest-profiler` installed and configured
+- `@eleven-labs/nest-profiler` [installed and configured](/docs/getting-started)
 - `@nestjs/mongoose` and `mongoose` installed with a working `MongooseModule` connection
 
 ## Step 1 - Install the package
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-mongoose
+pnpm add -D @eleven-labs/nest-profiler-mongoose
 ```
 
 ## Step 2 - Register the collector
 
-Add `MongooseCollectorModule` in the feature module that performs MongoDB operations:
+Keep `MongooseModule.forFeature([...])` in the feature module that performs MongoDB operations, and add `MongooseCollectorModule` to the dev-only profiling bundle:
 
-```ts title="reviews/reviews.module.ts"
-import { ConditionalModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { MongooseCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-    ConditionalModule.registerWhen(
-      MongooseCollectorModule.forRoot({ slowThreshold: 50 }), // queries > 50ms highlighted
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    MongooseCollectorModule.forRoot({ slowThreshold: 50 }), // queries > 50ms highlighted
   ],
 })
-export class ReviewsModule {}
+export class ProfilingModule {}
 ```
 
-The collector injects the `Connection` automatically via `@InjectConnection()`.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+The collector resolves the Mongoose `Connection` by its injection token (pass `connectionName` for a named connection) and patches `Query` / `Aggregate` process-wide, so it captures the queries of every feature module.
 
 ## Step 3 - Instrument your services with spans
+
+Optionally, wrap your model calls in `span()` so the execution trace labels them. Keeping `TracerService` calls in production code requires installing the profiler as a regular dependency with the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), since a dev-dependency install is absent in production.
 
 ```ts
 import { TracerService } from '@eleven-labs/nest-profiler';
@@ -77,6 +76,8 @@ export class ReviewsService {
 
 ## Step 4 - Test it
 
+Start your application through its dev entry (`main-dev.ts`), then make a request:
+
 ```bash
 curl -i http://localhost:3000/api/v1/reviews
 ```
@@ -95,20 +96,17 @@ You will see:
 
 ## Driving options from ConfigService
 
-Use `forRootAsync()` to resolve the options from `ConfigService` (or any provider), gated per environment with `ConditionalModule` — the recommended way (for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+Use `forRootAsync()` in the profiling bundle to resolve the options from `ConfigService` (or any provider) — for the `enabled` flag, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler):
 
 ```ts
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
-ConditionalModule.registerWhen(
-  MongooseCollectorModule.forRootAsync({
-    inject: [ConfigService],
-    useFactory: (config: ConfigService) => ({
-      slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
-    }),
+MongooseCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    slowThreshold: config.get<number>('PROFILER_SLOW_QUERY_MS') ?? 50,
   }),
-  isProfilerEnabled,
-);
+});
 ```
 
 ## How it works
@@ -124,12 +122,12 @@ The collector patches `mongoose.Query.prototype.exec` and `mongoose.Aggregate.pr
 
 Alongside the per-request MongoDB panel, the package ships `MongooseSchemaCollectorModule` — a global collector that adds a **Schemas / Mongoose** view to the profiler home page. It introspects the connection **once** at startup and lists every registered model with its fields, references and indexes, so you can recall a model's shape without leaving the profiler.
 
-Register it next to the query collector, gated the same way:
+Register it next to the query collector, in the profiling bundle's `imports`:
 
-```ts title="app.module.ts"
+```ts title="profiling/profiling.module.ts"
 import { MongooseSchemaCollectorModule } from '@eleven-labs/nest-profiler-mongoose';
 
-ConditionalModule.registerWhen(MongooseSchemaCollectorModule.forRoot(), isProfilerEnabled),
+MongooseSchemaCollectorModule.forRoot(),
 ```
 
 Open `/_profiler` and select the **Schemas / Mongoose** view — it has the same shape as every ORM's, one disclosure per model over a columns table (see the [SQL walkthrough](/docs/tutorials/sql-collectors) for a shot of it).

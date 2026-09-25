@@ -29,31 +29,30 @@
 ## Installation
 
 ```bash
-pnpm add @eleven-labs/nest-profiler-auth
+pnpm add -D @eleven-labs/nest-profiler-auth
 ```
 
 No additional peer dependencies beyond `nestjs-cls` (already required by `@eleven-labs/nest-profiler`).
 
 ## Setup
 
-```ts title="auth.module.ts"
-import { ConditionalModule } from '@nestjs/config';
+```ts title="profiling/profiling.module.ts"
+import { Module } from '@nestjs/common';
+import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import { AuthCollectorModule } from '@eleven-labs/nest-profiler-auth';
-
-const isProfilerEnabled = (env: NodeJS.ProcessEnv) => env['PROFILER_ENABLED'] === 'true';
 
 @Module({
   imports: [
-    ConditionalModule.registerWhen(
-      AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
-      isProfilerEnabled,
-    ),
+    ProfilerModule.forRoot({ isGlobal: true }),
+    AuthCollectorModule.forRoot({ maskUserFields: ['password', 'refreshToken'] }),
   ],
 })
-export class AppModule {}
+export class ProfilingModule {}
 ```
 
-> **Enabling / disabling** — gate the collector with `ConditionalModule.registerWhen(..., isProfilerEnabled)` as shown, so it loads only when `PROFILER_ENABLED` is on. Wire the core `ProfilerModule` **once at the root** — the recommended setup bundles the root-level profiler modules into a single `ProfilingModule` behind a `ConditionalModule` gate (see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler) and the [example app](https://nest-profiler.eleven-labs.com/docs/example-api)). A top-level `enabled` option is also supported as an alternative.
+> `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
+
+Authentication itself stays in your application: the guard (Passport or your own) that sets `request.user` lives in your production modules, and the collector reads what it leaves on the request.
 
 ## What it collects
 
