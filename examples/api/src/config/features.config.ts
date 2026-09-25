@@ -2,9 +2,10 @@ import { registerAs } from '@nestjs/config';
 import { enabled, labeledCondition, type EnvCondition } from './env-condition.js';
 
 /**
- * Persistence backing the catalog context. Both adapters map the same Postgres `products` table and
- * are mutually exclusive, so the catalog always needs a database — run `docker compose up -d postgres`
- * (or point `DATABASE_*` at a hosted one) before starting the app.
+ * Persistence backing the catalog context. The adapters are mutually exclusive and each maps its own
+ * Postgres table (`products` for MikroORM, `typeorm_products` for TypeORM), so switching never makes
+ * one ORM reshape the other's table. The catalog always needs a database — run
+ * `docker compose up -d postgres` (or point `DATABASE_*` at a hosted one) before starting the app.
  */
 export type SqlOrm = 'typeorm' | 'mikro-orm';
 

@@ -35,8 +35,8 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
         ssl: config.get<boolean>('database.ssl') ? true : undefined,
         entities: [ProductEntity],
         // Schema management is config-driven (see database.config.ts): outside production it
-        // creates + drops-and-recreates the shared `products` table so switching SQL_ORM starts
-        // clean; a hosted deploy sets DATABASE_SYNCHRONIZE=true to create the schema without the drop.
+        // creates + drops-and-recreates the schema; a hosted deploy sets DATABASE_SYNCHRONIZE=true
+        // to create its `typeorm_products` table without the drop.
         synchronize: config.get<boolean>('database.synchronize'),
         dropSchema: config.get<boolean>('database.dropSchema'),
         logging: false,
@@ -56,7 +56,7 @@ import { TypeOrmProductRepository } from './product.typeorm.repository.js';
             'profiler.performance.slowSeverity',
           ),
           // On-demand EXPLAIN: the SQL panel gets an "Explain" button per query. The demo DB is
-          // PostgreSQL; a scan of the unindexed `products` table shows a Seq Scan in the plan.
+          // PostgreSQL; a scan of the unindexed `typeorm_products` table shows a Seq Scan.
           // `analyze: true` (dev only) runs EXPLAIN ANALYZE on SELECTs for real timings/rows.
           explain: { enabled: true, analyze: true },
         }),
