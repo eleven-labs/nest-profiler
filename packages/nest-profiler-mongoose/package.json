@@ -70,7 +70,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.5",
-    "jest": "^30.5.1",
+    "jest": "^30.5.2",
     "mongoose": "^9.9.5",
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
