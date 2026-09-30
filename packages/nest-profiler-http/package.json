@@ -95,7 +95,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.5",
     "axios": "^1.20.0",
-    "jest": "^30.5.1",
+    "jest": "^30.5.2",
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "jest-environment-jsdom": "^30.5.1",
