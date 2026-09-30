@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@ai-sdk/mcp": "^2.0.50",
+    "@ai-sdk/mcp": "^2.0.55",
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@eleven-labs/nest-profiler": "workspace:*",
