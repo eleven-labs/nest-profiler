@@ -36,7 +36,7 @@ Nothing in the application changes: no model is wrapped and no call site is touc
 pnpm add -D @eleven-labs/nest-profiler-ai
 ```
 
-**Peer dependencies:** `ai ^7.0.0`
+**Peer dependencies:** `ai ^7.0.0` — and, only for the `/harness` subpath ([harness agents](#harness-agents)), `@ai-sdk/harness ^1.0.0` (optional: never installed by this package, never loaded by its main entry)
 
 ## Setup
 
@@ -62,7 +62,7 @@ One section per `generateText` / `streamText` / `generateObject` invocation:
 - the **agent** that ran it, when one did (see [Agents](#agents))
 - the **model** and provider, and the sampling settings the call was made with
 - the **system prompt**, kept apart from the conversation
-- the **tools declared**, each tagged `local` (declared in your code), `mcp` (discovered on an MCP server at runtime) or `provider` (built into the model, like a hosted web search), with the JSON Schema the model had to fill
+- the **tools declared**, each tagged `local` (declared in your code), `mcp` (discovered on an MCP server at runtime), `provider` (built into the model, like a hosted web search) or `harness` (built into a coding-agent runtime, like Claude Code's `Bash` — see [Harness agents](#harness-agents)), with the JSON Schema the model had to fill
 - every **step** in order — token usage, cost, finish reason, time to first token, throughput, the messages sent, the model's reasoning, the completion and the tool calls it asked for
 - each **tool execution** interleaved where it happened, with its input, output and duration
 - **structured output** beside the schema it had to satisfy, **attachments** as their media type and size or URL (never the bytes), and any **human approval** with its decision
@@ -104,6 +104,40 @@ The wrapper is the same agent to every caller — same `id`, same `tools`, same 
 
 > Unlike the `id` route, this puts an import of this package in application code. With the [dev-dependency install](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency) that file must stay out of production code; to keep the call there, install the profiler as a regular dependency behind the [runtime gate](https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule).
 
+### Harness agents
+
+A [`HarnessAgent`](https://ai-sdk.dev/docs/ai-sdk-harnesses/harness-agent) (`@ai-sdk/harness/agent`) drives a coding-agent runtime — Claude Code, Codex, OpenCode… — inside a sandbox. Its support lives on its own subpath, so an application that does not use it never loads a line of it: opt in by listing `HarnessInstrumentation` in the collector's `instrumentations`.
+
+```ts title="profiling/profiling.module.ts"
+import { AiCollectorModule } from '@eleven-labs/nest-profiler-ai';
+import { HarnessInstrumentation } from '@eleven-labs/nest-profiler-ai/harness';
+
+AiCollectorModule.forRoot({ instrumentations: [HarnessInstrumentation] });
+```
+
+Each turn is then recorded on the same terms as any other agent run — its steps, token usage and tool executions, named after the agent's `id`:
+
+```ts title="coding.agent.ts"
+import { HarnessAgent } from '@ai-sdk/harness/agent';
+import { createClaudeCode } from '@ai-sdk/harness-claude-code';
+
+export const codingAgent = new HarnessAgent({ id: 'coding-agent', harness: createClaudeCode() });
+```
+
+The agent's own file imports nothing from the profiler. What a harness turn adds:
+
+- the agent is tagged with the harness it drove — `harness:claude-code` — which is also the provider its calls are recorded under
+- the runtime's **built-in tools** (`Bash`, `Read`, `Edit`…), which run in the sandbox rather than in your code, are tagged `harness`; the host tools you hand the agent stay `local`
+- `continueGenerate` / `continueStream`, which resume a suspended turn, are attributed like `generate` / `stream`
+
+A `HarnessAgent` reports to no telemetry integration unless its `telemetry` setting names one — not even to those registered globally with `registerTelemetry`. So the instrumentation hands the profiler's integration to each agent on its first turn: an agent without `telemetry` gets the profiler's integration and no other, one with its own `integrations` gets the profiler's added to them, and one with `isEnabled: false` is left alone. The settings object your code passed in is copied, never modified.
+
+**It costs nothing if you do not use it.** `@ai-sdk/harness` is an optional peer dependency of the `/harness` subpath only: this package never installs it, and its main entry never imports it.
+
+The class the instrumentation patches is the `HarnessAgent` this package resolves, so it must be the one your application builds its agents from: one installed copy of `@ai-sdk/harness`. With pnpm, a peer resolved differently (its optional `ws`, say) is enough to make two — declare `ws` beside `@ai-sdk/harness` if a dependency of yours pins another version.
+
+> Claude Code reports a turn's cost only once the turn is over, and that figure does not reach the telemetry events, so a harness call is costed from the token prices you [configure](#cost) — keyed by the bare model id (`claude-sonnet-4-6`) or `harness:claude-code:<model>`.
+
 ## The AI list
 
 A profiled request that called a model is promoted to its own `ai` entrypoint kind — the same promotion GraphQL operations get. Those profiles then have a dedicated list with the models used, the operation and step count, the tools run, the tokens, the model time and the cost, plus a `Model` filter. They keep the Request and Response tabs, since they are still HTTP requests.
@@ -118,22 +152,23 @@ That holds whatever the handler streams: raw tokens through `pipeTextStreamToRes
 
 ## Options
 
-| Option              | Default      | Description                                                                                                        |
-| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `enabled`           | `true`       | Register the collector at all                                                                                      |
-| `capture`           | `'redacted'` | How much of what was said is stored (see [Prompts, secrets and personal data](#prompts-secrets-and-personal-data)) |
-| `redaction`         | —            | What the `redacted` level masks, on top of the built-in detectors                                                  |
-| `maxTextLength`     | `2000`       | Characters kept of any one captured text                                                                           |
-| `maxMessages`       | `40`         | Messages kept per call, counted from the most recent                                                               |
-| `maxPayloadLength`  | `65536`      | Characters of JSON kept of one provider request or response body                                                   |
-| `pricing`           | —            | Token prices by model, so calls are costed (see [Cost](#cost))                                                     |
-| `pricingSource`     | —            | Loads those prices from an API or a database, once at startup, cached                                              |
-| `pricingTtl`        | `0`          | ms before a loaded price table is reloaded in the background                                                       |
-| `entrypoint`        | `true`       | Promote a request that called a model to the `ai` kind, with its own list                                          |
-| `error`             | HTTP         | What counts as a failed AI request, for the `ai` kind                                                              |
-| `slowThreshold`     | `5000`       | A model call at or above this duration (ms) is tagged `slow`                                                       |
-| `nPlusOneThreshold` | `3`          | This many identical calls or more are tagged `n-plus-one`                                                          |
-| `chattyThreshold`   | `5`          | At or above this many calls in one profile, the profile is tagged `chatty`                                         |
+| Option              | Default      | Description                                                                                                               |
+| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`           | `true`       | Register the collector at all                                                                                             |
+| `capture`           | `'redacted'` | How much of what was said is stored (see [Prompts, secrets and personal data](#prompts-secrets-and-personal-data))        |
+| `redaction`         | —            | What the `redacted` level masks, on top of the built-in detectors                                                         |
+| `maxTextLength`     | `2000`       | Characters kept of any one captured text                                                                                  |
+| `maxMessages`       | `40`         | Messages kept per call, counted from the most recent                                                                      |
+| `maxPayloadLength`  | `65536`      | Characters of JSON kept of one provider request or response body                                                          |
+| `pricing`           | —            | Token prices by model, so calls are costed (see [Cost](#cost))                                                            |
+| `pricingSource`     | —            | Loads those prices from an API or a database, once at startup, cached                                                     |
+| `pricingTtl`        | `0`          | ms before a loaded price table is reloaded in the background                                                              |
+| `entrypoint`        | `true`       | Promote a request that called a model to the `ai` kind, with its own list                                                 |
+| `instrumentations`  | `[]`         | Optional agent integrations, each from its own subpath — `HarnessInstrumentation` (see [Harness agents](#harness-agents)) |
+| `error`             | HTTP         | What counts as a failed AI request, for the `ai` kind                                                                     |
+| `slowThreshold`     | `5000`       | A model call at or above this duration (ms) is tagged `slow`                                                              |
+| `nPlusOneThreshold` | `3`          | This many identical calls or more are tagged `n-plus-one`                                                                 |
+| `chattyThreshold`   | `5`          | At or above this many calls in one profile, the profile is tagged `chatty`                                                |
 
 ## Prompts, secrets and personal data
 
@@ -269,13 +304,20 @@ A provider that answers as another model prices under the id the call asked for:
 When the prices are not yours to hardcode — they change, or your application already keeps them — load them instead:
 
 ```ts
-import { fetchOpenRouterPricing } from '@eleven-labs/nest-profiler-ai';
+import { fetchLiteLLMPricing } from '@eleven-labs/nest-profiler-ai/pricing';
 
 AiCollectorModule.forRoot({
-  pricingSource: () => fetchOpenRouterPricing(), // every model OpenRouter serves
+  pricingSource: () => fetchLiteLLMPricing(), // every model of every provider LiteLLM tracks
   pricingTtl: 24 * 60 * 60 * 1000, // re-read once a day; omit to load once
 });
 ```
+
+Two public lists ship on the `/pricing` subpath, kept out of the main entry for applications that hardcode their prices. Neither needs a key:
+
+- `fetchLiteLLMPricing()` reads [LiteLLM's price file](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), the one `ccusage` costs Claude Code sessions with. It names a model the way its own provider's API does (`claude-haiku-4-5`, `gpt-4o-mini`) and carries the prompt-cache rates, so it is the one to pick for direct provider calls and for a `HarnessAgent` driving Claude Code, which reports tokens but no cost.
+- `fetchOpenRouterPricing()` reads OpenRouter's model list, keyed as OpenRouter writes model ids (`openai/gpt-4o-mini`) — the one to pick for calls made through OpenRouter.
+
+A variant suffix Claude Code appends to a model id (`claude-sonnet-4-5[1m]`) is dropped when the id itself is priced nowhere.
 
 `pricingSource` is any function returning a table, so it reads a database just as well:
 

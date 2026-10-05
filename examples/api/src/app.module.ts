@@ -12,15 +12,19 @@ import { HealthModule } from './health/health.module.js';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { McpModule } from './mcp/mcp.module.js';
+import { CodingAgentModule } from './coding-agent/coding-agent.module.js';
+import { AiProfilingModule } from './profiling/ai-profiling.module.js';
 import appConfig from './config/app.config.js';
 import aiConfig from './config/ai.config.js';
+import aiHarnessConfig from './config/ai-harness.config.js';
 import profilerConfig, { isProfilerEnabled } from './config/profiler.config.js';
 import featuresConfig, {
   isAiEnabled,
+  isAiHarnessEnabled,
   isMongooseEnabled,
   isPinoLoggerEnabled,
 } from './config/features.config.js';
-import { not } from './config/env-condition.js';
+import { all, any, not } from './config/env-condition.js';
 
 /**
  * Composition root. Holds only cross-cutting infrastructure (`forRoot`/global registrations) and
@@ -38,7 +42,7 @@ import { not } from './config/env-condition.js';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, profilerConfig, featuresConfig, aiConfig],
+      load: [appConfig, profilerConfig, featuresConfig, aiConfig, aiHarnessConfig],
     }),
 
     ConditionalModule.registerWhen(
@@ -62,6 +66,11 @@ import { not } from './config/env-condition.js';
       ProfilerNoopModule.forRoot({ isGlobal: true }),
       not(isProfilerEnabled),
     ),
+    // The AI panel, shared by the two contexts that call a model — loaded when either is on.
+    ConditionalModule.registerWhen(
+      AiProfilingModule,
+      all(isProfilerEnabled, any(isAiEnabled, isAiHarnessEnabled)),
+    ),
 
     // Feature (bounded-context) modules.
     CatalogModule,
@@ -74,6 +83,7 @@ import { not } from './config/env-condition.js';
     // Behind the same flag as the assistant: the endpoint exists so the demo can point
     // `AI_MCP_URL` at itself, and it has no reason to be served where the AI context is off.
     ConditionalModule.registerWhen(McpModule, isAiEnabled),
+    ConditionalModule.registerWhen(CodingAgentModule, isAiHarnessEnabled),
   ],
 })
 export class AppModule {}

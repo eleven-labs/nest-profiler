@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import { isAiHarnessEnabled } from './features.config.js';
 import type { AiCaptureLevel, AiCaptureOptions } from '@eleven-labs/nest-profiler-ai';
 
 const CAPTURE_LEVELS: readonly string[] = ['none', 'metadata', 'redacted', 'full'];
@@ -39,9 +40,10 @@ export default registerAs('ai', () => ({
   reasoning: process.env['AI_REASONING'] ?? 'provider-default',
   // Model Context Protocol server whose tools are merged into the assistant's. Empty: no MCP.
   mcpUrl: process.env['AI_MCP_URL'] ?? '',
-  // `openrouter` prices every model from OpenRouter's public list, so a call is costed even when
-  // the provider reports no cost. Off by default: it is one HTTP call at startup.
-  pricing: process.env['AI_PRICING'] ?? '',
+  // `openrouter` or `litellm` prices every model from that public list, so a call is costed even
+  // when the provider reports no cost. It is one HTTP call at startup, so it is off by default —
+  // except for the coding agent, whose runtimes report no cost at all.
+  pricing: process.env['AI_PRICING'] ?? (isAiHarnessEnabled(process.env) ? 'litellm' : ''),
   // How much of what was said reaches a stored profile: none | metadata | redacted | full, or a
   // level per field. The collector's own default is `redacted`; this demo shows the prompts as
   // they were sent, which is the point of the panel and is only safe because nothing here is

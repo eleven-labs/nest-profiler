@@ -37,8 +37,8 @@
     tool: 'badge-tag-warning',
   };
 
-  const originClass = { mcp: 'badge-tag-info', provider: 'badge-tag-warning', local: 'badge-default' };
-  const originLabel = { mcp: 'mcp', provider: 'provider', local: 'local' };
+  const originClass = { mcp: 'badge-tag-info', provider: 'badge-tag-warning', harness: 'badge-tag-warning', local: 'badge-default' };
+  const originLabel = { mcp: 'mcp', provider: 'provider', harness: 'harness', local: 'local' };
 
   /*
    * How the content was captured, as the profile recorded it. A reader must be able to tell a
@@ -206,6 +206,9 @@
                   <% } %>
                   <% if (entry.usage.cacheRead) { %>
                     <span class="text-foreground-faint">Cached <span class="text-foreground tabular-nums"><%= entry.usage.cacheRead %></span></span>
+                  <% } %>
+                  <% if (entry.usage.cacheWrite) { %>
+                    <span class="text-foreground-faint">Cache write <span class="text-foreground tabular-nums"><%= entry.usage.cacheWrite %></span></span>
                   <% } %>
                 <% } %>
                 <% if (entry.cost !== undefined) { %>

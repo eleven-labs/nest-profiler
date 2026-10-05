@@ -1,0 +1,5 @@
+{
+  "main": "../dist/pricing/index.js",
+  "types": "../dist/pricing/index.d.ts",
+  "sideEffects": false
+}

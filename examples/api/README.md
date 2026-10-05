@@ -56,6 +56,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. Ever
 | `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                         |
 | `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                         |
 | `FEATURE_AI`                  | `false`     | Load the `AiModule`: an OpenRouter-backed assistant — blocking, tool-calling, structured, streamed — plus a custom **AI** profiler panel. Needs `OPENROUTER_API_KEY`; not part of the Vercel deployment |
+| `FEATURE_AI_HARNESS`          | `false`     | Load the `CodingAgentModule`: Claude Code or Codex driven through the AI SDK `HarnessAgent`, in a local sandbox. Needs a `claude` / `codex` login or an API key; independent of `FEATURE_AI`            |
 | `PROFILER_ENABLED`            | `true`      | Enable the profiler UI and all collectors                                                                                                                                                               |
 | `PROFILER_STORAGE_TYPE`       | `file`      | Profiler storage backend: `memory` \| `file` \| `sqlite`                                                                                                                                                |
 | `PROFILER_AUTH`               | `none`      | Access control for `/_profiler`: `none` \| `basic` \| `token` \| `cookie`                                                                                                                               |
@@ -71,6 +72,8 @@ The app uses flags to conditionally load infrastructure-dependent contexts. Ever
 PostgreSQL can be configured with the app-specific `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_NAME` variables. Hosted Vercel Neon integrations also work without aliases: the app falls back to `POSTGRES_*` and `PG*` variables, and enables SSL when `DATABASE_SSL=true` or `PGSSLMODE=require`. The demo ships no migrations, so the active ORM creates its table automatically on boot; the destructive drop-and-recreate only runs outside production, so a deployed database keeps its structure across cold starts.
 
 `FEATURE_AI` loads the **ai** context: an assistant built on the [AI SDK](https://ai-sdk.dev) v7 talking to a free [OpenRouter](https://openrouter.ai) model. It is the app's answer to two questions a profiler has to handle and most demos skip — how a **streamed response** is measured, and what an **LLM call** costs. It covers the shapes a real assistant takes: a blocking answer, a tool loop, structured output, an attachment, a human approval, and tools borrowed from an MCP server. Set `OPENROUTER_API_KEY` (free keys at <https://openrouter.ai/keys>); the default model is free, so the demo costs nothing.
+
+`FEATURE_AI_HARNESS` loads the **coding-agent** context: a real coding-agent runtime — Claude Code or Codex, picked with `AI_HARNESS` — driven through the AI SDK's [`HarnessAgent`](https://ai-sdk.dev/docs/ai-sdk-harnesses/harness-agent), in a sandbox on this machine. It needs no OpenRouter key and no Vercel account: it reuses the login the runtime's own CLI already holds (`claude login`, `codex login`), or takes `AI_HARNESS_API_KEY` instead. See [Coding agent](#coding-agent-codingagentmodule--harnessagent-feature_ai_harnesstrue).
 
 `HTTP_CLIENT` selects which adapter backs the outgoing HTTP ports — the **content** context's `ArticleGateway` and the **reviews** context's `ReviewerGateway` — `axios` (via `@nestjs/axios`, the default) or native `fetch`. The two are interchangeable and profiled the same way; switching only changes which HTTP Client instrumentation captures the calls (`AxiosInstrumentation` vs `FetchInstrumentation`). Same pattern as `SQL_ORM`, applied to the outgoing HTTP client.
 
@@ -92,6 +95,10 @@ FEATURE_GRAPHQL=false pnpm example:dev
 
 # With the streamed AI assistant (needs an OpenRouter key)
 FEATURE_AI=true OPENROUTER_API_KEY=sk-or-... pnpm example:dev
+
+# With the coding agent: Claude Code on your Claude login, or Codex on an OpenAI key
+FEATURE_AI_HARNESS=true pnpm example:dev
+FEATURE_AI_HARNESS=true AI_HARNESS=codex AI_HARNESS_API_KEY=sk-... pnpm example:dev
 ```
 
 Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab.
@@ -249,18 +256,21 @@ AppModule (no controller — only global forRoot + feature modules)
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
 ├── CatalogModule → … also publishes product.created via the EventPublisher port:
 │     └── NotificationsEventEmitterModule [always]           → EventEmitterCollectorModule + @OnEvent listener
-└── ReviewsModule [FEATURE_MONGOOSE]
-      ├── ReviewApplicationModule → ReviewService, shared by the REST and GraphQL entrypoints
-      │     ├── ReviewMongooseModule → MongooseCollectorModule (nest-profiler-mongoose)
-      │     └── publishes review.created via the EventPublisher port:
-      │         ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
-      │         └── NotificationsEventEmitterModule  [default]          → in-process, no broker
-      └── reads the GraphQL fields through the ProductReviewsLoader + ReviewerLoader ports:
-            ├── ReviewLoadersDataLoaderModule [FEATURE_DATALOADER] → one $in query + one GET /users?id=… (request-scoped DataLoaders)
-            └── ReviewLoadersDirectModule     [default]            → one query per product + one GET /users/:id per review (N+1)
-                  └── both bind the ReviewerGateway port: ReviewerAxiosModule [HTTP_CLIENT=axios] | ReviewerFetchModule [HTTP_CLIENT=fetch]
+├── ReviewsModule [FEATURE_MONGOOSE]
+│     ├── ReviewApplicationModule → ReviewService, shared by the REST and GraphQL entrypoints
+│     │     ├── ReviewMongooseModule → MongooseCollectorModule (nest-profiler-mongoose)
+│     │     └── publishes review.created via the EventPublisher port:
+│     │         ├── NotificationsRabbitMqModule      [FEATURE_RABBITMQ] → RabbitMqCollectorModule + RabbitMqPublishCollectorModule + consumer
+│     │         └── NotificationsEventEmitterModule  [default]          → in-process, no broker
+│     └── reads the GraphQL fields through the ProductReviewsLoader + ReviewerLoader ports:
+│           ├── ReviewLoadersDataLoaderModule [FEATURE_DATALOADER] → one $in query + one GET /users?id=… (request-scoped DataLoaders)
+│           └── ReviewLoadersDirectModule     [default]            → one query per product + one GET /users/:id per review (N+1)
+│                 └── both bind the ReviewerGateway port: ReviewerAxiosModule [HTTP_CLIENT=axios] | ReviewerFetchModule [HTTP_CLIENT=fetch]
+├── AiModule + McpModule [FEATURE_AI]           OpenRouter assistant + its own MCP endpoint
+└── CodingAgentModule [FEATURE_AI_HARNESS]      HarnessAgent → Claude Code | Codex, in a local sandbox
 
-Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors)
+Global: ProfilingModule [PROFILER_ENABLED] (core + config/validator/commander collectors),
+        AiProfilingModule [PROFILER_ENABLED && (FEATURE_AI || FEATURE_AI_HARNESS)] → AiCollectorModule (nest-profiler-ai)
         / ProfilerNoopModule [default], CacheModule, LoggerModule (pino, default)
 ```
 
@@ -502,6 +512,40 @@ It also covers what the shape of a call adds: **structured output** shows the sc
 Nothing in the controller or the service knows the profiler exists: `AiProfilingModule` registers one AI SDK telemetry integration with `registerTelemetry()` at startup, and every AI SDK call in the process is captured from there. A custom collector (`src/ai/profiling/`) renders the panel — the pattern documented in [Write a custom collector](https://nest-profiler.eleven-labs.com/docs/tutorials/custom-collector). Model calls and tool executions also land on the **execution trace**, so the model's share of the request is visible against everything else it did.
 
 The **Response** tab of the two streaming endpoints reports the delivery: time to first chunk, how long the stream ran, how many chunks and how many bytes. Compare their total duration with `POST /ai/ask`'s — the profiler measures a stream until its last chunk, not until the handler returned, so the model call made _during_ the stream still lands in the AI panel.
+
+### Coding agent (`CodingAgentModule` → `HarnessAgent`, `FEATURE_AI_HARNESS=true`)
+
+| Endpoint                                                 | What it demonstrates                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------- |
+| `POST /api/v1/coding-agent/sessions`                     | **AI** — starts a Claude Code or Codex conversation: its first turn |
+| `POST /api/v1/coding-agent/sessions/:sessionId/messages` | **AI** — the next turn of that conversation, one profile a turn     |
+| `DELETE /api/v1/coding-agent/sessions/:sessionId`        | Ends the conversation and stops its runtime                         |
+
+```bash
+# requires FEATURE_AI_HARNESS=true and a `claude login` (or AI_HARNESS_API_KEY)
+curl -X POST http://localhost:3000/api/v1/coding-agent/sessions -H "Content-Type: application/json" \
+  -d '{"prompt":"Write a small TypeScript helper that slugifies a title, in slugify.ts."}'
+# → {"sessionId":"seQUcpXYGIR0C26m","model":"claude-haiku-4-5","text":"Done. I created `slugify.ts`…",
+#    "finishReason":"stop","steps":2,"tools":["write"],"usage":{"inputTokens":52867,…}}
+
+# Continue it: the agent remembers the previous turns
+curl -X POST http://localhost:3000/api/v1/coding-agent/sessions/seQUcpXYGIR0C26m/messages \
+  -H "Content-Type: application/json" -d '{"prompt":"Now add a test for it."}'
+
+curl -X DELETE http://localhost:3000/api/v1/coding-agent/sessions/seQUcpXYGIR0C26m
+```
+
+A [`HarnessAgent`](https://ai-sdk.dev/docs/ai-sdk-harnesses/harness-agent) runs a real coding-agent runtime instead of the AI SDK's own tool loop, in a session that stays open between requests — each message is one turn of it, and one profile. Filter the **AI** list by the `coding-agent` agent to read the conversation turn by turn. The **AI** panel names each turn `coding-agent`, tags it with the harness it drove (`harness:claude-code`, `harness:codex`), lists each step with its tokens, and the runtime's built-in tools (`Read`, `Write`, `Bash`…) tagged `harness`. Neither runtime reports a cost, so with this flag on the app prices their calls from LiteLLM's public list (`AI_PRICING=litellm`, the default here). Codex reports no model id, so its calls stay unpriced.
+
+The context imports nothing from the profiler: `AiProfilingModule` lists `HarnessInstrumentation`, from the `@eleven-labs/nest-profiler-ai/harness` subpath, in the collector's `instrumentations`. An application that does not use `@ai-sdk/harness` leaves it out and never loads a line of it.
+
+| Variable             | Default                                       | Description                                                                                                            |
+| -------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `AI_HARNESS`         | `claude-code`                                 | The runtime: `claude-code` \| `codex`                                                                                  |
+| `AI_HARNESS_API_KEY` | —                                             | An Anthropic key for Claude Code, an OpenAI key for Codex. Empty: the CLI's own login (`claude login`, `codex login`)  |
+| `AI_HARNESS_MODEL`   | `claude-haiku-4-5` (Claude Code), Codex's own | Any model id the CLI accepts. Claude Code reports the model it ran only when one is set, which is what prices the turn |
+
+The agent runs on this machine — `LocalSandbox`, a minimal sandbox implemented in the example — in a scratch directory under the system's temp dir, with your user's permissions and no isolation. Nothing approves a command halfway through a request, so both runtimes run with `allow-all`: they edit files and run commands there as they see fit. The first turn installs the runtime under `~/.ai-sdk-harness`, so it takes longer than the next ones. Open conversations live in memory, each holding a runtime process, until they are deleted or the app stops.
 
 ### Auth (`AuthModule` → JWT)
 

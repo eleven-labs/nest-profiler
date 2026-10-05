@@ -659,6 +659,35 @@ describe('AiProfilerTelemetry', () => {
       expect(call?.costSource).toBe('estimated');
     });
 
+    it('bills prompt-cache writes at their own rate', async () => {
+      configureAiPricing({
+        table: { 'claude-test': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 } },
+      });
+      const profile = newProfile();
+      await withProfile(profile, () => {
+        telemetry.onLanguageModelCallEnd?.({
+          callId: 'c1',
+          provider: 'harness:claude-code',
+          modelId: 'claude-test',
+          finishReason: 'stop',
+          usage: {
+            inputTokens: 1000,
+            inputTokenDetails: { noCacheTokens: 100, cacheReadTokens: 600, cacheWriteTokens: 300 },
+            outputTokens: 50,
+            outputTokenDetails: { textTokens: 50, reasoningTokens: undefined },
+            totalTokens: 1050,
+          },
+          content: [],
+          responseId: 'r',
+          performance: PERFORMANCE,
+        } as any);
+      });
+
+      const [call] = callsOf(profile);
+      expect(call?.usage).toMatchObject({ input: 1000, cacheRead: 600, cacheWrite: 300 });
+      expect(call?.cost).toBeCloseTo((100 * 3 + 600 * 0.3 + 300 * 3.75 + 50 * 15) / 1_000_000, 9);
+    });
+
     it('keeps a price set on the resolved model over the one asked for', async () => {
       configureAiPricing({
         table: {

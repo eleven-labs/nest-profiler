@@ -172,12 +172,14 @@ A tool as it was declared to the model, with the schema the model had to fill.
 ## AiToolOrigin
 
 ```ts
-type AiToolOrigin = 'local' | 'mcp' | 'provider';
+type AiToolOrigin = 'local' | 'mcp' | 'provider' | 'harness';
 ```
 
 Where a tool comes from, which decides who runs it: `local` is declared in the application's code,
 `mcp` was discovered on an MCP server at runtime, and `provider` is built into the model itself (a
 provider-run web search, say) and never executes in the application at all.
+
+`harness` is built into the coding-agent runtime a `HarnessAgent` drives (Claude Code's `Bash` or `Read`) and runs in its sandbox rather than in the application.
 
 ## AiMessage
 
@@ -241,21 +243,6 @@ type AiPricingSource = () => AiPricingTable | Promise<AiPricingTable>;
 Loads a price table from wherever the prices live. Called when the module starts and, once
 `pricingTtl` has passed, again in the background — never on the path of a model call.
 
-## fetchOpenRouterPricing
-
-```ts
-function fetchOpenRouterPricing(options?: OpenRouterPricingOptions): Promise<AiPricingTable>;
-```
-
-Reads the prices of every model OpenRouter serves, ready to hand to `pricingSource`. The list is
-public, so no key is needed. Model ids come back as OpenRouter writes them (`openai/gpt-4o-mini`),
-which is what the AI SDK reports for a call that went through OpenRouter.
-
-<AutoTypeTable
-  path="packages/nest-profiler-ai/src/openrouter-pricing.ts"
-  name="OpenRouterPricingOptions"
-/>
-
 ## estimateCost
 
 ```ts
@@ -302,6 +289,86 @@ const AI_ENTRYPOINT_TYPE = 'ai';
 
 The `Profile.entrypoint.type` a profiled HTTP request is promoted to once it has called a model.
 
+## AiInstrumentation
+
+```ts
+interface AiInstrumentation {
+  install(integration: Telemetry): void | Promise<void>;
+}
+```
+
+An optional integration for an agent implementation the AI SDK core does not ship, listed in `AiCollectorModule.forRoot({ instrumentations })`. Implementations are NestJS providers. `install` runs once at startup, after the collector has registered its telemetry `integration`; one that fails is logged and never takes the application down.
+
+## Subpath `/pricing`
+
+Ready-made `pricingSource` loaders for public price lists, kept off the main entry for applications that hardcode their prices or load them from their own store.
+
+```ts
+import { fetchLiteLLMPricing } from '@eleven-labs/nest-profiler-ai/pricing';
+
+AiCollectorModule.forRoot({ pricingSource: () => fetchLiteLLMPricing() });
+```
+
+### fetchOpenRouterPricing
+
+```ts
+function fetchOpenRouterPricing(options?: OpenRouterPricingOptions): Promise<AiPricingTable>;
+```
+
+Reads the prices of every model OpenRouter serves, ready to hand to `pricingSource`. The list is
+public, so no key is needed. Model ids come back as OpenRouter writes them (`openai/gpt-4o-mini`),
+which is what the AI SDK reports for a call that went through OpenRouter.
+
+<AutoTypeTable
+  path="packages/nest-profiler-ai/src/pricing/openrouter-pricing.ts"
+  name="OpenRouterPricingOptions"
+/>
+
+### fetchLiteLLMPricing
+
+```ts
+function fetchLiteLLMPricing(options?: LiteLLMPricingOptions): Promise<AiPricingTable>;
+```
+
+Reads the prices LiteLLM keeps for every model of every provider, ready to hand to `pricingSource`. The file is public, so no key is needed. Model ids come back the way a provider's own API names them (`claude-haiku-4-5`, `gpt-4o-mini`), with the prompt-cache rates — the list to pick for direct provider calls and for a `HarnessAgent` driving Claude Code or Codex, which report tokens but no cost.
+
+<AutoTypeTable
+  path="packages/nest-profiler-ai/src/pricing/litellm-pricing.ts"
+  name="LiteLLMPricingOptions"
+/>
+
+## Subpath `/harness`
+
+Everything specific to `@ai-sdk/harness` lives here, so the package's main entry never imports it. `@ai-sdk/harness` is an optional peer dependency, needed only when this subpath is used.
+
+### HarnessInstrumentation
+
+```ts
+import { HarnessInstrumentation } from '@eleven-labs/nest-profiler-ai/harness';
+
+AiCollectorModule.forRoot({ instrumentations: [HarnessInstrumentation] });
+```
+
+Profiles the turns of every `HarnessAgent` in the process — Claude Code, Codex or any other coding-agent runtime driven through the AI SDK. It imports `@ai-sdk/harness/agent` when installed and hands the class to `instrumentHarnessAgentClass`.
+
+### instrumentHarnessAgentClass
+
+```ts
+function instrumentHarnessAgentClass(agentClass: unknown, integration: Telemetry): boolean;
+```
+
+The `HarnessAgent` counterpart of `instrumentAgentClass`. It wraps `generate`, `stream`, `continueGenerate` and `continueStream` on the class's prototype so each turn is named after the agent's `id`, and completes the agent's `telemetry` setting with `integration` on its first turn — a `HarnessAgent` reports to no integration otherwise, not even the global ones. `HarnessInstrumentation` calls it, so an application never has to.
+
+Returns whether this call instrumented the class — `false` if it was already done, or if what was passed is not a class.
+
+### HARNESS_OPERATION
+
+```ts
+const HARNESS_OPERATION = 'ai.harness';
+```
+
+The `operation` a call recorded from a `HarnessAgent` turn carries, where `generateText` records `ai.generateText`.
+
 ## Public exports
 
 ```ts
@@ -316,7 +383,6 @@ import {
   pricingFor,
   estimateCost,
 } from '@eleven-labs/nest-profiler-ai';
-import { fetchOpenRouterPricing } from '@eleven-labs/nest-profiler-ai';
 import {
   AI_COLLECTOR_OPTIONS,
   AI_ENTRIES_KEY,
@@ -333,6 +399,7 @@ import {
 import type {
   AiCollectorModuleOptions,
   AiCollectorModuleAsyncOptions,
+  AiInstrumentation,
   AiAgentInfo,
   AiAgentLike,
   ProfileAgentOptions,
@@ -363,8 +430,21 @@ import type {
   AiPricingTable,
   AiPricingSource,
   AiPricingConfig,
-  OpenRouterPricingOptions,
 } from '@eleven-labs/nest-profiler-ai';
+
+// Price lists — their own subpath:
+import { fetchOpenRouterPricing, fetchLiteLLMPricing } from '@eleven-labs/nest-profiler-ai/pricing';
+import type {
+  OpenRouterPricingOptions,
+  LiteLLMPricingOptions,
+} from '@eleven-labs/nest-profiler-ai/pricing';
+
+// Harness agents — their own subpath:
+import {
+  HarnessInstrumentation,
+  instrumentHarnessAgentClass,
+  HARNESS_OPERATION,
+} from '@eleven-labs/nest-profiler-ai/harness';
 ```
 
 Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, added to the dev-only bundle's `imports` in place of `forRoot()`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).

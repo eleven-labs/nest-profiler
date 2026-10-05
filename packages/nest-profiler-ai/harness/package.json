@@ -1,0 +1,5 @@
+{
+  "main": "../dist/harness/index.js",
+  "types": "../dist/harness/index.d.ts",
+  "sideEffects": false
+}

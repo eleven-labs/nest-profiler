@@ -27,6 +27,11 @@ process.env['FEATURE_PINO_LOGGER'] = 'true';
 // no request ever reaches OpenRouter and the key below is never used.
 process.env['FEATURE_AI'] = 'true';
 process.env['OPENROUTER_API_KEY'] ??= 'test-key';
+// The coding agent likewise: `coding-agent.e2e-spec` swaps Claude Code for a scripted harness, so
+// no login is ever read and no CLI is ever installed or started.
+process.env['FEATURE_AI_HARNESS'] = 'true';
+process.env['AI_HARNESS'] = 'claude-code';
+process.env['AI_HARNESS_API_KEY'] ??= 'test-key';
 // Mute pino's stdout in tests; the profiler's logger adapter records entries before
 // pino applies its level filter, so `profile.logs` assertions still work.
 process.env['LOG_LEVEL'] = 'silent';

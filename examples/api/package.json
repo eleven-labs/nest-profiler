@@ -25,7 +25,10 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@ai-sdk/mcp": "^2.0.50",
+    "@ai-sdk/harness": "^1.0.138",
+    "@ai-sdk/harness-claude-code": "^1.0.142",
+    "@ai-sdk/harness-codex": "^1.0.140",
+    "@ai-sdk/mcp": "^2.0.66",
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@eleven-labs/nest-profiler": "workspace:*",
@@ -63,7 +66,7 @@
     "@nestjs/swagger": "^11.4.7",
     "@nestjs/typeorm": "^11.0.3",
     "@openrouter/ai-sdk-provider": "^3.0.0",
-    "ai": "^7.0.102",
+    "ai": "^7.0.127",
     "amqplib": "^2.0.1",
     "axios": "^1.20.0",
     "cache-manager": "^7.2.9",
@@ -81,6 +84,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^1.1.0",
+    "ws": "^8.22.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
