@@ -1,4 +1,5 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
+import type { Type } from '@nestjs/common';
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import type {
   CollectorModuleOptions,
@@ -7,6 +8,7 @@ import type {
 } from '@eleven-labs/nest-profiler';
 import type { AiPricingSource, AiPricingTable } from './ai-pricing';
 import type { AiCaptureOptions, AiRedactionOptions } from './ai-capture';
+import type { AiInstrumentation } from './ai-instrumentation.interface';
 
 export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSeverityOptions {
   /**
@@ -66,6 +68,17 @@ export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSev
    */
   entrypoint?: boolean;
   /**
+   * Optional integrations for agent implementations the AI SDK core does not ship. Nothing beyond
+   * `ai` itself is instrumented unless listed here — select each by importing it from its subpath:
+   *
+   * ```ts
+   * import { HarnessInstrumentation } from '@eleven-labs/nest-profiler-ai/harness';
+   *
+   * AiCollectorModule.forRoot({ instrumentations: [HarnessInstrumentation] });
+   * ```
+   */
+  instrumentations?: Type<AiInstrumentation>[];
+  /**
    * Token prices by model, so a call is costed even though its provider reports no cost — which
    * most do not. Keys are `provider:model` or the bare model id:
    *
@@ -83,6 +96,8 @@ export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSev
    * request, and its result is cached; {@link AiCollectorModuleOptions.pricingTtl} reloads it.
    *
    * ```ts
+   * import { fetchOpenRouterPricing } from '@eleven-labs/nest-profiler-ai/pricing';
+   *
    * pricingSource: () => fetchOpenRouterPricing(),
    * ```
    *
@@ -115,8 +130,13 @@ export type AiCollectorModuleAsyncOptions =
   ConfigurableModuleAsyncOptions<AiCollectorModuleOptions> & {
     /** Synchronous enable flag (decided at module-build time, not by the factory). */
     enabled?: boolean;
+    /** The instrumentations to install (selected at module-build time). */
+    instrumentations?: Type<AiInstrumentation>[];
   };
 
 /** DI token holding the resolved {@link AiCollectorModuleOptions}. */
 export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN: AI_COLLECTOR_OPTIONS } =
   new ConfigurableModuleBuilder<AiCollectorModuleOptions>().setClassMethodName('forRoot').build();
+
+/** DI token holding the array of registered {@link AiInstrumentation} instances. */
+export const AI_INSTRUMENTATIONS = Symbol.for('nest_profiler_ai_instrumentations');

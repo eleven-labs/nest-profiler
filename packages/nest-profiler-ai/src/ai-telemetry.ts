@@ -13,6 +13,7 @@ import { estimateCost } from './ai-pricing';
 import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
 import { isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
 import { agentFrameworkOf, currentAiAgent } from './ai-agent';
+import { harnessFrameworkOf } from './ai-harness-operation';
 import type { AiAgentInfo } from './ai-agent';
 import {
   captureDiagnostic,
@@ -60,6 +61,13 @@ interface Operation {
   mcpTools?: Set<string>;
   /** The agent that drove this operation, when one did. */
   agent?: AiAgentInfo;
+  /**
+   * A `HarnessAgent` turn: the tools its runtime executed itself (Claude Code's `Bash`, `Read`…)
+   * are the harness's own rather than a model provider's.
+   */
+  harness?: boolean;
+  /** One of this operation's calls reported tokens of its own. */
+  usageReported?: boolean;
   provider?: string;
   model?: string;
   instructions?: string;
@@ -294,11 +302,17 @@ function instructionsOf(event: LanguageModelCallStartEvent): string | undefined 
 }
 
 /**
- * Where a tool came from. A provider-defined tool runs inside the model (a hosted web search),
- * an MCP one was discovered at runtime, and everything else was declared in this codebase.
+ * Where a tool came from. A provider-defined tool runs inside the model (a hosted web search), a
+ * harness one is built into the coding-agent runtime a `HarnessAgent` drives, an MCP one was
+ * discovered at runtime, and everything else was declared in this codebase.
  */
-function originOf(name: string, providerDefined = false, mcpTools?: Set<string>): AiToolOrigin {
-  if (providerDefined) return 'provider';
+function originOf(
+  name: string,
+  providerDefined = false,
+  mcpTools?: Set<string>,
+  harness = false,
+): AiToolOrigin {
+  if (providerDefined) return harness ? 'harness' : 'provider';
   // What this operation actually declared wins over the process-wide list a host may have filled:
   // it is scoped to the call rather than matched on a name that another tool could share.
   return mcpTools?.has(name) === true || isMcpTool(name) ? 'mcp' : 'local';
@@ -367,6 +381,9 @@ function usageOf(event: LanguageModelCallEndEvent): AiTokenUsage | undefined {
     ...(usage.inputTokenDetails.cacheReadTokens !== undefined && {
       cacheRead: usage.inputTokenDetails.cacheReadTokens,
     }),
+    ...(usage.inputTokenDetails.cacheWriteTokens !== undefined && {
+      cacheWrite: usage.inputTokenDetails.cacheWriteTokens,
+    }),
     ...(usage.outputTokens !== undefined && { output: usage.outputTokens }),
     ...(usage.outputTokenDetails.reasoningTokens !== undefined && {
       reasoning: usage.outputTokenDetails.reasoningTokens,
@@ -417,6 +434,21 @@ function priceOf(
 }
 
 /**
+ * Some harnesses report a turn's tokens for the whole turn only — Codex infers its steps and gives
+ * each of them an empty usage. When no call of the turn reported any, the turn's total goes on its
+ * last call, so the profile still counts and costs the tokens the turn used.
+ */
+function foldTurnUsage(operation: Operation, call: AiCallEntry, totalUsage: unknown): void {
+  if (operation.usageReported === true || !isRecord(totalUsage)) return;
+  const usage = flatUsage(totalUsage);
+  if ((usage.total ?? 0) === 0) return;
+  call.usage = usage;
+  delete call.cost;
+  delete call.costSource;
+  Object.assign(call, priceOf(undefined, usage, call.provider, call.model));
+}
+
+/**
  * Approval requests and responses left in a result's content — the human-in-the-loop trail.
  *
  * Read from the *operation's* content rather than the model call's: the SDK decides an approval
@@ -455,6 +487,7 @@ function approvalsOf(content: unknown): AiApproval[] | undefined {
 function contentOf(
   event: LanguageModelCallEndEvent,
   mcpTools?: Set<string>,
+  harness = false,
 ): {
   completion?: string;
   reasoning?: string;
@@ -476,7 +509,7 @@ function contentOf(
         id: part.toolCallId,
         name: part.toolName,
         ...(input !== undefined && { input }),
-        origin: originOf(part.toolName, part.providerExecuted === true, mcpTools),
+        origin: originOf(part.toolName, part.providerExecuted === true, mcpTools, harness),
       } satisfies AiToolCall;
     });
 
@@ -490,15 +523,15 @@ function contentOf(
 }
 
 /**
- * Who ran this generation, from the two things that can say so: the frame `profileAgent` opened
+ * Who ran this generation, from the things that can say so: the frame `profileAgent` opened
  * around the call, which knows the agent's name, and the marker the SDK writes into the outgoing
- * user-agent, which knows an agent ran at all. Either alone is worth recording — an unwrapped
- * `ToolLoopAgent` still reads as a tool loop, and a hand-rolled loop the host named still reads
- * as itself.
+ * user-agent — or, for a `HarnessAgent` turn, the harness it reports as its provider — which
+ * knows an agent ran at all. Either alone is worth recording — an unwrapped `ToolLoopAgent` still
+ * reads as a tool loop, and a hand-rolled loop the host named still reads as itself.
  */
-function agentOf(headers: unknown): AiAgentInfo | undefined {
+function agentOf(headers: unknown, harnessFramework?: string): AiAgentInfo | undefined {
   const named = currentAiAgent();
-  const framework = agentFrameworkOf(headers);
+  const framework = harnessFramework ?? agentFrameworkOf(headers);
   if (named === undefined && framework === undefined) return undefined;
   return {
     ...(named?.id !== undefined && { id: named.id }),
@@ -611,7 +644,8 @@ export class AiProfilerTelemetry implements Telemetry {
     // Read here and nowhere else: the start event is the only one carrying the tool objects
     // themselves, and a tool object is the only thing that still knows it came from a server.
     const mcpTools = mcpToolNamesOf(raw['tools']);
-    const agent = agentOf(raw['headers']);
+    const harnessFramework = harnessFrameworkOf(raw);
+    const agent = agentOf(raw['headers'], harnessFramework);
     const outputSpec = outputSpecOf(raw['output']);
     const operation: Operation = {
       id: event.operationId,
@@ -620,6 +654,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(context !== undefined && { context }),
       ...(mcpTools.size > 0 && { mcpTools }),
       ...(agent !== undefined && { agent }),
+      ...(harnessFramework !== undefined && { harness: true }),
       ...(typeof raw['provider'] === 'string' && { provider: raw['provider'] }),
       ...(typeof raw['modelId'] === 'string' && { model: raw['modelId'] }),
       ...(instructions !== undefined && { instructions }),
@@ -688,6 +723,7 @@ export class AiProfilerTelemetry implements Telemetry {
     if (warnings.length > 0) {
       call.warnings = warnings.map((warning) => captureDiagnostic(describeWarning(warning)));
     }
+    if (operation.harness === true) foldTurnUsage(operation, call, raw['totalUsage']);
   };
 
   /**
@@ -784,6 +820,7 @@ export class AiProfilerTelemetry implements Telemetry {
     const settings = withToolChoice(pending?.settings, operation?.toolChoice);
 
     const { performance } = event;
+    if (operation && (usageOf(event)?.total ?? 0) > 0) operation.usageReported = true;
     this.record({
       kind: 'call',
       callId: event.callId,
@@ -815,7 +852,7 @@ export class AiProfilerTelemetry implements Telemetry {
       ...(settings !== undefined && { settings }),
       ...(operation?.context !== undefined && { context: operation.context }),
       ...(operation?.agent !== undefined && { agent: operation.agent }),
-      ...contentOf(event, operation?.mcpTools),
+      ...contentOf(event, operation?.mcpTools, operation?.harness),
       ...(operation?.outputStrategy !== undefined && { outputStrategy: operation.outputStrategy }),
       ...(operation?.outputSchema !== undefined && { outputSchema: operation.outputSchema }),
       ...(operation?.schemaName !== undefined && { schemaName: operation.schemaName }),
@@ -847,7 +884,12 @@ export class AiProfilerTelemetry implements Telemetry {
       duration: Math.round(event.toolExecutionMs * 1000) / 1000,
       startedAt: startedAt ?? Date.now() - event.toolExecutionMs,
       input: captureValue(toolCall.input, 'toolArguments', { tool: toolCall.toolName }),
-      origin: originOf(toolCall.toolName, toolCall.providerExecuted === true, operation?.mcpTools),
+      origin: originOf(
+        toolCall.toolName,
+        toolCall.providerExecuted === true,
+        operation?.mcpTools,
+        operation?.harness,
+      ),
       ...(context !== undefined && { context }),
       ...(operation?.agent !== undefined && { agent: operation.agent }),
       fingerprint: `tool:${toolCall.toolName}`,

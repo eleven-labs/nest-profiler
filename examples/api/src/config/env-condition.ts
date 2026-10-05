@@ -25,3 +25,15 @@ export const enabled = (variableName: string, defaultValue = false): EnvConditio
 /** Negates a condition, keeping a readable label (`!LABEL`). */
 export const not = (condition: EnvCondition): EnvCondition =>
   labeledCondition(`!${String(condition)}`, (env) => !condition(env));
+
+/** Holds when every condition does, keeping a readable label (`A && B`). */
+export const all = (...conditions: EnvCondition[]): EnvCondition =>
+  labeledCondition(conditions.map(String).join(' && '), (env) =>
+    conditions.every((condition) => condition(env)),
+  );
+
+/** Holds when at least one condition does, keeping a readable label (`(A || B)`). */
+export const any = (...conditions: EnvCondition[]): EnvCondition =>
+  labeledCondition(`(${conditions.map(String).join(' || ')})`, (env) =>
+    conditions.some((condition) => condition(env)),
+  );

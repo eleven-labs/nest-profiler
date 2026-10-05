@@ -115,17 +115,32 @@ function refreshIfStale(): void {
 }
 
 /**
+ * A model id without the variant suffix Claude Code appends — `claude-sonnet-4-5[1m]` for the 1M
+ * context. Found by plain string search: the id comes from the provider, and a regular expression
+ * here would backtrack on one made of brackets.
+ */
+function withoutVariant(model: string): string {
+  if (!model.endsWith(']')) return model;
+  const start = model.lastIndexOf('[');
+  return start > 0 ? model.slice(0, start) : model;
+}
+
+/**
  * The prices for one model. A provider arrives qualified by its transport (`openai.responses`),
- * so its root is tried too, and the bare model id last.
+ * so its root is tried too, and the bare model id last — then all three again without a variant
+ * suffix, which no price list carries.
  */
 export function pricingFor(provider: string, model: string): AiModelPricing | undefined {
   refreshIfStale();
-  const id = model.toLowerCase();
   const full = provider.toLowerCase();
   const root = full.split('.')[0] ?? full;
-  for (const key of [`${full}:${id}`, `${root}:${id}`, id]) {
-    const price = statics[key] ?? loaded[key];
-    if (price) return price;
+  const exact = model.toLowerCase();
+  const base = withoutVariant(exact);
+  for (const id of base === exact ? [exact] : [exact, base]) {
+    for (const key of [`${full}:${id}`, `${root}:${id}`, id]) {
+      const price = statics[key] ?? loaded[key];
+      if (price) return price;
+    }
   }
   return undefined;
 }

@@ -16,7 +16,8 @@ export interface AiAgentInfo {
   name?: string;
   /**
    * The agent implementation that ran the loop, as the SDK tags its own outgoing requests:
-   * `tool-loop` for `ToolLoopAgent`. Absent for a hand-rolled loop.
+   * `tool-loop` for `ToolLoopAgent`, and the harness it drove for a `HarnessAgent` —
+   * `harness:claude-code`, `harness:codex`. Absent for a hand-rolled loop.
    */
   framework?: string;
 }
@@ -44,6 +45,12 @@ const AGENT_MARKER = /(?:^|\s)ai-sdk-agent\/(\S+)/;
 
 /** The two methods an agent exposes, and the two the instrumentation wraps. */
 const AGENT_METHODS = ['generate', 'stream'] as const;
+
+/**
+ * What `profileAgent` frames: the two methods every agent has, and the two a `HarnessAgent` adds
+ * to resume a turn it suspended — which run model calls just the same.
+ */
+const FRAMED_METHODS: readonly string[] = [...AGENT_METHODS, 'continueGenerate', 'continueStream'];
 
 /** Marks a prototype as already instrumented, so a second application instance does not stack. */
 const INSTRUMENTED = Symbol.for('@eleven-labs/nest-profiler-ai.agent-instrumented');
@@ -111,26 +118,48 @@ function withFrame(info: AiAgentInfo, target: unknown, call: () => unknown): unk
  *   installed `ai` exposes no such class.
  */
 export function instrumentAgentClass(agentClass: unknown): boolean {
+  return instrumentAgentMethods(agentClass, { methods: AGENT_METHODS, marker: INSTRUMENTED });
+}
+
+export interface AgentMethodsInstrumentation {
+  /** The methods to wrap, where the class defines them. */
+  methods: readonly string[];
+  /** Marks the prototype as done, so a second application instance does not stack. */
+  marker: symbol;
+  /** Runs on the agent before each wrapped call, ahead of the original method. */
+  prepare?: (agent: object) => void;
+}
+
+/**
+ * Wraps `methods` on an agent class's prototype so each call runs inside a frame naming the agent
+ * by its `id` — the mechanism behind {@link instrumentAgentClass}, shared with the other agent
+ * implementations the SDK ships.
+ */
+export function instrumentAgentMethods(
+  agentClass: unknown,
+  { methods, marker, prepare }: AgentMethodsInstrumentation,
+): boolean {
   if (typeof agentClass !== 'function') return false;
   const prototype = (agentClass as { prototype?: object }).prototype;
   if (typeof prototype !== 'object' || prototype === null) return false;
   const marked = prototype as Record<PropertyKey, unknown>;
-  if (marked[INSTRUMENTED] === true) return false;
+  if (marked[marker] === true) return false;
 
   let instrumented = false;
-  for (const method of AGENT_METHODS) {
+  for (const method of methods) {
     const original = marked[method];
     if (typeof original !== 'function') continue;
     marked[method] = function (this: { id?: unknown }, ...args: unknown[]): unknown {
+      prepare?.(this);
       const call = (): unknown => (original as AgentMethod).apply(this, args);
       const id = typeof this.id === 'string' && this.id.length > 0 ? this.id : undefined;
-      // An agent that declares no id has nothing to add: the SDK's own user-agent marker already
-      // makes the run recognisable as a tool loop.
+      // An agent that declares no id has nothing to add: what ran is recognisable from the
+      // events themselves.
       return id === undefined ? call() : withFrame({ id, name: id }, this, call);
     };
     instrumented = true;
   }
-  if (instrumented) Object.defineProperty(prototype, INSTRUMENTED, { value: true });
+  if (instrumented) Object.defineProperty(prototype, marker, { value: true });
   return instrumented;
 }
 
@@ -172,7 +201,7 @@ export function profileAgent<A extends AiAgentLike>(
   return new Proxy(agent, {
     get(target, property) {
       const value = Reflect.get(target, property) as unknown;
-      if (!AGENT_METHODS.includes(property as (typeof AGENT_METHODS)[number])) return value;
+      if (typeof property !== 'string' || !FRAMED_METHODS.includes(property)) return value;
       if (typeof value !== 'function') return value;
       // The frame goes around the call, not around the returned promise: `stream` resolves long
       // before the model has finished, and every continuation created inside the call — the

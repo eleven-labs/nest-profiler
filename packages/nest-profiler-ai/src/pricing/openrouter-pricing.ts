@@ -1,4 +1,4 @@
-import type { AiModelPricing, AiPricingTable } from './ai-pricing';
+import type { AiModelPricing, AiPricingTable } from '../ai-pricing';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 

@@ -72,6 +72,10 @@ export const isDataloaderEnabled = enabled('FEATURE_DATALOADER');
 // OpenRouter-backed assistant with streamed answers. Needs OPENROUTER_API_KEY, so it is off by
 // default and excluded from the Vercel deployment.
 export const isAiEnabled = enabled('FEATURE_AI');
+// A coding agent — Claude Code or Codex — driven through the AI SDK's `HarnessAgent`, in a sandbox
+// on this machine. Independent of `FEATURE_AI` and off by default: it runs an agent that writes
+// files here, and needs a Claude / ChatGPT login or an API key.
+export const isAiHarnessEnabled = enabled('FEATURE_AI_HARNESS');
 
 export default registerAs('features', () => ({
   sqlOrm: getSqlOrm(process.env),
@@ -83,4 +87,5 @@ export default registerAs('features', () => ({
   rabbitmq: isRabbitMqEnabled(process.env),
   dataloader: isDataloaderEnabled(process.env),
   ai: isAiEnabled(process.env),
+  aiHarness: isAiHarnessEnabled(process.env),
 }));

@@ -2,12 +2,14 @@
 // module only needs `registerTelemetry` here; the real SDK is exercised by the example's e2e.
 jest.mock('ai', () => ({ registerTelemetry: jest.fn() }));
 
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
 import { AiCollectorModule } from './ai-collector.module';
 import { pricingFor, resetAiPricing } from './ai-pricing';
 import { aiCaptureLevels, resetAiCapture } from './ai-capture';
+import { AiProfilerTelemetry } from './ai-telemetry';
+import type { AiInstrumentation } from './ai-instrumentation.interface';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler core
@@ -140,6 +142,52 @@ describe('AiCollectorModule', () => {
     const second = await boot({});
     expect(aiCaptureLevels().messages).toBe('redacted');
     await second.close();
+  });
+
+  it('installs the instrumentations it is given, with the registered integration', async () => {
+    const installed: unknown[] = [];
+    @Injectable()
+    class RecordingInstrumentation implements AiInstrumentation {
+      install(integration: unknown): void {
+        installed.push(integration);
+      }
+    }
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ProfilerModule.forRoot({ isGlobal: true }),
+        AiCollectorModule.forRoot({ instrumentations: [RecordingInstrumentation] }),
+      ],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    expect(installed).toHaveLength(1);
+    expect(installed[0]).toBeInstanceOf(AiProfilerTelemetry);
+    await app.close();
+  });
+
+  it('warns, and still starts, when an instrumentation fails to install', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    @Injectable()
+    class BrokenInstrumentation implements AiInstrumentation {
+      install(): Promise<void> {
+        return Promise.reject(new Error("Cannot find package '@ai-sdk/harness'"));
+      }
+    }
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ProfilerModule.forRoot({ isGlobal: true }),
+        AiCollectorModule.forRoot({ instrumentations: [BrokenInstrumentation] }),
+      ],
+    }).compile();
+
+    const app = moduleRef.createNestApplication();
+    await expect(app.init()).resolves.toBeDefined();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('BrokenInstrumentation'));
+    await app.close();
+    warn.mockRestore();
   });
 
   it('initialises without a profiler core at all', async () => {

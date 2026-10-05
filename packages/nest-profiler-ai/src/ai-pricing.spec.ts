@@ -5,7 +5,7 @@ import {
   pricingFor,
   resetAiPricing,
 } from './ai-pricing';
-import { fetchOpenRouterPricing } from './openrouter-pricing';
+import { fetchLiteLLMPricing, fetchOpenRouterPricing } from './pricing';
 
 describe('AI pricing registry', () => {
   afterEach(() => {
@@ -37,6 +37,35 @@ describe('AI pricing registry', () => {
     it('ignores the case of both the key and the lookup', () => {
       configureAiPricing({ table: { 'OpenAI:GPT-4o': { input: 1, output: 2 } } });
       expect(pricingFor('openai', 'gpt-4O')).toEqual({ input: 1, output: 2 });
+    });
+
+    it('drops a variant suffix no price list carries', () => {
+      configureAiPricing({ table: { 'claude-sonnet-4-5': { input: 3, output: 15 } } });
+      expect(pricingFor('harness:claude-code', 'claude-sonnet-4-5[1m]')).toEqual({
+        input: 3,
+        output: 15,
+      });
+    });
+
+    it('reads a model id made of brackets in linear time', () => {
+      configureAiPricing({ table: { 'claude-sonnet-4-5': { input: 3, output: 15 } } });
+      const started = Date.now();
+
+      expect(pricingFor('harness:claude-code', `[${'['.repeat(100_000)}`)).toBeUndefined();
+      expect(Date.now() - started).toBeLessThan(500);
+    });
+
+    it('keeps a price set on the variant itself over the base model', () => {
+      configureAiPricing({
+        table: {
+          'claude-sonnet-4-5': { input: 3, output: 15 },
+          'claude-sonnet-4-5[1m]': { input: 6, output: 22.5 },
+        },
+      });
+      expect(pricingFor('harness:claude-code', 'claude-sonnet-4-5[1m]')).toEqual({
+        input: 6,
+        output: 22.5,
+      });
     });
 
     it('has no price for a model nobody configured', () => {
@@ -278,6 +307,86 @@ describe('AI pricing registry', () => {
 
       await expect(
         fetchOpenRouterPricing({ fetch: jest.fn().mockResolvedValue(okResponse({})) }),
+      ).rejects.toThrow('unexpected payload');
+    });
+  });
+
+  describe('LiteLLM source', () => {
+    const okResponse = (body: unknown): Response =>
+      ({ ok: true, status: 200, json: () => Promise.resolve(body) }) as Response;
+
+    const payload = {
+      sample_spec: { input_cost_per_token: 0, output_cost_per_token: 0 },
+      'claude-haiku-4-5': {
+        litellm_provider: 'anthropic',
+        input_cost_per_token: 0.000001,
+        output_cost_per_token: 0.000005,
+        cache_read_input_token_cost: 1e-7,
+        cache_creation_input_token_cost: 0.00000125,
+      },
+      'o3-mini': {
+        input_cost_per_token: 0.0000011,
+        output_cost_per_token: 0.0000044,
+        output_cost_per_reasoning_token: 0.0000044,
+      },
+      'broken-model': { input_cost_per_token: '0.1' },
+      'image-model': { output_cost_per_image: 0.04 },
+    };
+
+    it('turns the price file into a per-token table', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(okResponse(payload));
+
+      const table = await fetchLiteLLMPricing({ fetch: fetchMock });
+
+      expect(table['claude-haiku-4-5']).toEqual({
+        input: 0.000001,
+        output: 0.000005,
+        cacheRead: 1e-7,
+        cacheWrite: 0.00000125,
+        per: 1,
+      });
+      expect(table['o3-mini']).toEqual({
+        input: 0.0000011,
+        output: 0.0000044,
+        reasoning: 0.0000044,
+        per: 1,
+      });
+      expect(Object.keys(table)).toEqual(['claude-haiku-4-5', 'o3-mini']);
+    });
+
+    it('prices a Claude Code call from the loaded file', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(okResponse(payload));
+      configureAiPricing({ source: () => fetchLiteLLMPricing({ fetch: fetchMock }) });
+      await loadAiPricing();
+
+      const cost = estimateCost(
+        { input: 1000, cacheRead: 600, cacheWrite: 300, output: 50 },
+        'harness:claude-code',
+        'claude-haiku-4-5',
+      );
+
+      expect(cost).toBeCloseTo(100 * 0.000001 + 600 * 1e-7 + 300 * 0.00000125 + 50 * 0.000005, 9);
+    });
+
+    it('reads the public file from GitHub by default', async () => {
+      const fetchMock = jest
+        .fn<Promise<Response>, Parameters<typeof fetch>>()
+        .mockResolvedValue(okResponse(payload));
+
+      await fetchLiteLLMPricing({ fetch: fetchMock });
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(
+        'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json',
+      );
+    });
+
+    it('throws on a failed request or an unexpected payload', async () => {
+      await expect(
+        fetchLiteLLMPricing({ fetch: jest.fn().mockResolvedValue({ ok: false, status: 503 }) }),
+      ).rejects.toThrow('HTTP 503');
+
+      await expect(
+        fetchLiteLLMPricing({ fetch: jest.fn().mockResolvedValue(okResponse([])) }),
       ).rejects.toThrow('unexpected payload');
     });
   });

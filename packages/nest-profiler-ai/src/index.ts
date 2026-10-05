@@ -4,6 +4,7 @@ export type {
   AiCollectorModuleAsyncOptions,
 } from './ai-collector.interface';
 export { AI_COLLECTOR_OPTIONS } from './ai-collector.interface';
+export type { AiInstrumentation } from './ai-instrumentation.interface';
 export { AiCollector } from './ai.collector';
 export { AI_ENTRYPOINT_TYPE, buildAiEntrypointType } from './ai-entrypoint';
 export { markMcpTools, isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
@@ -22,8 +23,6 @@ export type {
   AiPricingSource,
   AiPricingConfig,
 } from './ai-pricing';
-export { fetchOpenRouterPricing } from './openrouter-pricing';
-export type { OpenRouterPricingOptions } from './openrouter-pricing';
 export { AI_CAPTURE_FIELDS, AI_CAPTURE_GROUPS, AI_PII_PATTERNS } from './ai-capture';
 export type {
   AiCaptureLevel,

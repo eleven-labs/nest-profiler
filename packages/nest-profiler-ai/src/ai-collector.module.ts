@@ -1,5 +1,5 @@
 import { Inject, Logger, Module, Optional } from '@nestjs/common';
-import type { DynamicModule, OnModuleInit } from '@nestjs/common';
+import type { DynamicModule, OnModuleInit, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
@@ -7,10 +7,12 @@ import { AiCollector } from './ai.collector';
 import { buildAiEntrypointType } from './ai-entrypoint';
 import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
 import { instrumentAgentClass } from './ai-agent';
+import type { AiInstrumentation } from './ai-instrumentation.interface';
 import { aiCaptureLevels, configureAiCapture, resetAiCapture } from './ai-capture';
 import { configureAiPricing, loadAiPricing } from './ai-pricing';
 import {
   AI_COLLECTOR_OPTIONS,
+  AI_INSTRUMENTATIONS,
   ConfigurableModuleClass,
   type AiCollectorModuleAsyncOptions,
   type AiCollectorModuleOptions,
@@ -21,13 +23,28 @@ export type {
   AiCollectorModuleAsyncOptions,
 } from './ai-collector.interface';
 
-const SHAPE: CollectorModuleShape = { providers: [AiCollector] };
+/** Collector-specific wiring for the active path, derived from the selected `instrumentations`. */
+function aiShape(opts: Pick<AiCollectorModuleOptions, 'instrumentations'>): CollectorModuleShape {
+  const instrumentations: Type<AiInstrumentation>[] = opts.instrumentations ?? [];
+  return {
+    providers: [
+      AiCollector,
+      ...instrumentations,
+      {
+        provide: AI_INSTRUMENTATIONS,
+        useFactory: (...instances: AiInstrumentation[]) => instances,
+        inject: instrumentations,
+      },
+    ],
+  };
+}
 
 /**
  * `registerTelemetry` adds to a process-wide list, so registering twice records every call twice.
- * A second application instance in the same process (a test harness, a hot reload) must not.
+ * A second application instance in the same process (a test harness, a hot reload) must not — it
+ * reuses the integration the first one registered.
  */
-let telemetryRegistered = false;
+let telemetry: AiProfilerTelemetry | undefined;
 
 /**
  * Captures every AI SDK call — `generateText`, `streamText`, `generateObject`, and the tools the
@@ -36,7 +53,9 @@ let telemetryRegistered = false;
  * Nothing in the application changes: no model is wrapped and no call site is touched. The module
  * registers one AI SDK telemetry integration at startup, and every call made while a request is
  * being profiled lands in that request's profile. Agents are covered on the same terms — a
- * `ToolLoopAgent` is named in its profiles from the `id` the SDK already asks for.
+ * `ToolLoopAgent` is named in its profiles from the `id` the SDK already asks for. Agents the core
+ * does not ship are opted into through `instrumentations` — `HarnessAgent` from the `/harness`
+ * subpath.
  */
 @Module({})
 export class AiCollectorModule extends ConfigurableModuleClass implements OnModuleInit {
@@ -47,6 +66,9 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
     @Optional()
     @Inject(AI_COLLECTOR_OPTIONS)
     private readonly options: AiCollectorModuleOptions = {},
+    @Optional()
+    @Inject(AI_INSTRUMENTATIONS)
+    private readonly instrumentations: AiInstrumentation[] = [],
   ) {
     super();
   }
@@ -98,17 +120,37 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
       }
     }
 
-    if (telemetryRegistered) return;
-    telemetryRegistered = true;
-    // `ai` is ESM-only and this package ships CommonJS, where a static import compiles to a
-    // `require()` Node refuses for an ES module. A dynamic import is the one form both module
-    // systems accept — and it keeps `ai` unloaded entirely when the collector is disabled.
-    const { registerTelemetry, ToolLoopAgent } = await import('ai');
-    registerTelemetry(new AiProfilerTelemetry());
-    // The same bargain, for the one thing telemetry cannot report: the SDK drops an agent's `id`
-    // before any event carries it, so the class itself is asked instead. Nothing at a call site
-    // changes, which is what lets an application keep this package out of production.
-    instrumentAgentClass(ToolLoopAgent);
+    if (telemetry === undefined) {
+      // `ai` is ESM-only and this package ships CommonJS, where a static import compiles to a
+      // `require()` Node refuses for an ES module. A dynamic import is the one form both module
+      // systems accept — and it keeps `ai` unloaded entirely when the collector is disabled.
+      const { registerTelemetry, ToolLoopAgent } = await import('ai');
+      telemetry = new AiProfilerTelemetry();
+      registerTelemetry(telemetry);
+      // The same bargain, for the one thing telemetry cannot report: the SDK drops an agent's `id`
+      // before any event carries it, so the class itself is asked instead. Nothing at a call site
+      // changes, which is what lets an application keep this package out of production.
+      instrumentAgentClass(ToolLoopAgent);
+    }
+
+    await this.install(telemetry);
+  }
+
+  /**
+   * Installs every selected instrumentation. Each is isolated: one that fails — an optional peer
+   * that is not installed, say — is reported and must never take the application down.
+   */
+  private async install(integration: AiProfilerTelemetry): Promise<void> {
+    for (const instrumentation of this.instrumentations) {
+      try {
+        await instrumentation.install(integration);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        new Logger(AiCollectorModule.name).warn(
+          `AI instrumentation "${instrumentation.constructor.name}" failed to install: ${message}`,
+        );
+      }
+    }
   }
 
   /**
@@ -127,7 +169,7 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
   }
 
   static forRoot(options: AiCollectorModuleOptions = {}): DynamicModule {
-    return buildCollectorModule(super.forRoot(options), options, SHAPE);
+    return buildCollectorModule(super.forRoot(options), options, aiShape(options));
   }
 
   /**
@@ -135,6 +177,6 @@ export class AiCollectorModule extends ConfigurableModuleClass implements OnModu
    * `ConfigService`. Gating stays the host's job via `ConditionalModule.registerWhen`.
    */
   static forRootAsync(options: AiCollectorModuleAsyncOptions): DynamicModule {
-    return buildCollectorModule(super.forRootAsync(options), options, SHAPE);
+    return buildCollectorModule(super.forRootAsync(options), options, aiShape(options));
   }
 }

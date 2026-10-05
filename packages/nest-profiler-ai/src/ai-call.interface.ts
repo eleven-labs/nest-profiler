@@ -44,10 +44,11 @@ export interface AiMessage {
 /**
  * Where a tool comes from, which decides who runs it and what a reader can assume about it:
  * `local` is declared in this application's code, `mcp` was discovered on an MCP server at
- * runtime, and `provider` is built into the model itself (a provider-run web search, say) and
- * never executes here at all.
+ * runtime, `provider` is built into the model itself (a provider-run web search, say) and
+ * never executes here at all, and `harness` is built into the coding-agent runtime a
+ * `HarnessAgent` drives (Claude Code's `Bash` or `Read`), which runs it in its sandbox.
  */
-export type AiToolOrigin = 'local' | 'mcp' | 'provider';
+export type AiToolOrigin = 'local' | 'mcp' | 'provider' | 'harness';
 
 /** A tool as it was declared to the model, with the schema the model had to fill. */
 export interface AiToolDefinition {
