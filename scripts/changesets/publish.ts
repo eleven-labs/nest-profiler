@@ -2,14 +2,17 @@
 /**
  * Publish the packages `changeset version` bumped.
  *
- * Packages pinned to their own dist-tag (`publishConfig.tag`, today only the
- * alpha `@eleven-labs/nest-profiler-ai`) are published first, one by one, under
- * that tag: `changeset publish` applies a single dist-tag to the whole run, so
- * an alpha caught in a stable release would land on `latest` and take over the
- * stable line. Changesets then skips them — it publishes what the registry does
- * not have yet — and ships the rest under the release channel's dist-tag.
+ * `changeset publish` applies a single dist-tag to the whole run, so packages
+ * pinned to their own dist-tag (`publishConfig.tag`, today only the alpha
+ * `@eleven-labs/nest-profiler-ai`) would land on `latest` and take over the
+ * stable line. The release therefore goes through Changesets' publish plan:
+ * the plan is computed once, each pinned package's entry is retagged, and the
+ * packed plan is published in a single pass that also creates the git tags and
+ * reports them to `changesets/action` through `CHANGESETS_OUTPUT`.
  */
-import { appendFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   readActivePrereleaseTag,
@@ -86,69 +89,6 @@ function warn(message: string): void {
   );
 }
 
-/**
- * Registry answers that mean "nothing published under that spec" rather than
- * "the lookup itself failed". A package the registry has never seen and a
- * version missing from a package it does know are reported differently, and the
- * code depends on whether pnpm resolved the spec itself or delegated to npm.
- */
-const NOT_PUBLISHED_ERROR_CODES = [
-  'E404',
-  'ERR_PNPM_FETCH_404',
-  'ERR_PNPM_PACKAGE_NOT_FOUND',
-  'ERR_PNPM_NO_MATCHING_VERSION',
-];
-
-/** Whether this exact version is already on the registry, as Changesets asks it. */
-function isAlreadyPublished(pkg: PinnedChannelPackage): boolean {
-  const { exitCode, stdout, stderr } = capture(
-    'pnpm',
-    ['info', `${pkg.name}@${pkg.version}`, 'version', '--json'],
-    pkg.dir,
-  );
-
-  if (exitCode === 0) {
-    return stdout.trim().length > 0;
-  }
-
-  const output = `${stdout}\n${stderr}`;
-  if (NOT_PUBLISHED_ERROR_CODES.some((code) => output.includes(code))) {
-    return false;
-  }
-
-  throw new Error(`Failed to query the registry for ${pkg.name}@${pkg.version}:\n${output.trim()}`);
-}
-
-/**
- * Tag the release the way Changesets would, and report it to the runner.
- *
- * `changesets/action` reads the NDJSON event stream at `CHANGESETS_OUTPUT` to
- * know what was published: it pushes a git tag and cuts a GitHub release for
- * every `git-tag` event. A package published outside `changeset publish` has to
- * announce itself there, or it silently ends up on npm with no tag and no
- * release notes.
- */
-function tagRelease(pkg: PinnedChannelPackage): number {
-  const tag = `${pkg.name}@${pkg.version}`;
-
-  if (capture('git', ['tag', '-l', tag]).stdout.trim() === '') {
-    const exitCode = run('git', ['tag', tag, '-m', tag]);
-    if (exitCode !== 0) {
-      return exitCode;
-    }
-  }
-
-  const outputPath = process.env.CHANGESETS_OUTPUT;
-  if (outputPath) {
-    appendFileSync(
-      outputPath,
-      `${JSON.stringify({ type: 'git-tag', tag, packageName: pkg.name })}\n`,
-    );
-  }
-
-  return 0;
-}
-
 /** The `versions` and `dist-tags` the registry holds for `pkg`, or `null` when it holds none. */
 function readRegistryManifest(pkg: PinnedChannelPackage): RegistryManifest | null {
   const { exitCode, stdout } = capture('pnpm', ['info', pkg.name, '--json'], pkg.dir);
@@ -214,46 +154,55 @@ function syncLatestDistTag(pkg: PinnedChannelPackage): void {
   }
 }
 
-function publishPinnedChannelPackages(): number {
-  for (const pkg of readPinnedChannelPackages()) {
-    if (isAlreadyPublished(pkg)) {
-      console.log(`${pkg.name}@${pkg.version} is already published, skipping.`);
-    } else {
-      console.log(`Publishing ${pkg.name}@${pkg.version} with dist-tag "${pkg.distTag}".`);
+type PublishPlanRelease = { kind: string; name: string; tag?: string };
 
-      const exitCode = run(
-        'pnpm',
-        ['publish', '--access', pkg.access, '--tag', pkg.distTag, '--no-git-checks'],
-        pkg.dir,
-      );
-      if (exitCode !== 0) {
-        return exitCode;
-      }
+type PublishPlanFile = { version: number; plan: PublishPlanRelease[][] };
 
-      const tagExitCode = tagRelease(pkg);
-      if (tagExitCode !== 0) {
-        return tagExitCode;
-      }
+/** Put every pinned package of the plan on its own dist-tag, whatever tag Changesets chose. */
+function retagPinnedReleases(planPath: string, pinned: PinnedChannelPackage[]): void {
+  const distTags = new Map(pinned.map((pkg) => [pkg.name, pkg.distTag]));
+  const planFile = JSON.parse(readFileSync(planPath, 'utf-8')) as PublishPlanFile;
+
+  for (const release of planFile.plan.flat()) {
+    const distTag = distTags.get(release.name);
+    if (release.kind === 'publish' && distTag) {
+      console.log(`Publishing ${release.name} with dist-tag "${distTag}".`);
+      release.tag = distTag;
     }
-
-    syncLatestDistTag(pkg);
   }
 
-  return 0;
+  writeFileSync(planPath, `${JSON.stringify(planFile, undefined, 2)}\n`);
+}
+
+/** Plan, retag, pack, then publish the packed plan in one `changeset publish` pass. */
+function publishFromPlan(workDir: string): number {
+  const planPath = join(workDir, 'publish-plan.json');
+  const packDir = join(workDir, 'pack');
+
+  let exitCode = run('changeset', ['publish-plan', '--output', planPath]);
+  if (exitCode !== 0) {
+    return exitCode;
+  }
+
+  retagPinnedReleases(planPath, readPinnedChannelPackages());
+
+  exitCode = run('changeset', ['pack', '--from-publish-plan', planPath, '--out-dir', packDir]);
+  if (exitCode !== 0) {
+    return exitCode;
+  }
+
+  return run('changeset', ['publish', '--from-pack-dir', packDir]);
 }
 
 function main(): void {
   const distTag = resolveDistTag();
   assertValidDistTag(distTag);
 
-  // In Changesets prerelease mode, `changeset publish` rejects an explicit
-  // `--tag` ("Releasing under custom tag is not allowed in pre mode") because it
-  // derives the dist-tag per package itself: packages with a prior stable release
-  // (or never published) go to `pre.json`'s tag, while prerelease-only packages
-  // fall back to `latest`. So we only pass `--tag` for stable releases.
-  const inPrereleaseMode = readActivePrereleaseTag() !== null;
-
-  if (inPrereleaseMode) {
+  // Changesets derives the dist-tag itself: `latest` for a stable release, and
+  // in prerelease mode `pre.json`'s tag (or `latest` for a package that only
+  // has prereleases). A plan cannot carry an explicit `--tag`, and neither can
+  // prerelease mode, so the channel resolved here is only validated and logged.
+  if (readActivePrereleaseTag() !== null) {
     console.log(
       `Prerelease mode active: Changesets publishes under the "${distTag}" dist-tag ` +
         `(npm also assigns "latest" on a package's first-ever publish).`,
@@ -262,21 +211,23 @@ function main(): void {
     console.log(`Publishing packages with dist-tag "${distTag}".`);
   }
 
-  const publishArgs = inPrereleaseMode ? ['publish'] : ['publish', '--tag', distTag];
-
+  const workDir = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'changesets-publish-'));
   let exitCode = 0;
 
   try {
     exitCode = run('tsx', ['scripts/absolutize-readme-images.ts']);
 
     if (exitCode === 0) {
-      exitCode = publishPinnedChannelPackages();
+      exitCode = publishFromPlan(workDir);
     }
 
     if (exitCode === 0) {
-      exitCode = run('changeset', publishArgs);
+      for (const pkg of readPinnedChannelPackages()) {
+        syncLatestDistTag(pkg);
+      }
     }
   } finally {
+    rmSync(workDir, { recursive: true, force: true });
     const checkoutExitCode = run('git', ['checkout', '--', 'packages/*/README.md']);
     if (exitCode === 0 && checkoutExitCode !== 0) {
       exitCode = checkoutExitCode;
