@@ -99,7 +99,7 @@
     "nestjs-cls": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "jest-environment-jsdom": "^30.5.1",
-    "ts-jest": "^29.4.12",
+    "ts-jest": "^29.4.14",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3"
   },

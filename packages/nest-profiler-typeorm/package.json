@@ -76,7 +76,7 @@
     "nestjs-cls": "^6.2.1",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
-    "ts-jest": "^29.4.12",
+    "ts-jest": "^29.4.14",
     "typeorm": "^1.1.0",
     "typescript": "^6.0.3"
   },
