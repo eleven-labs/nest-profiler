@@ -51,7 +51,7 @@
     "@mikro-orm/core": "^7.1.5",
     "@mikro-orm/nestjs": "^7.0.2",
     "@mikro-orm/postgresql": "^7.1.14",
-    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@nestjs/apollo": "^13.4.5",
     "@nestjs/axios": "^4.0.0",
