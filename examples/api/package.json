@@ -50,7 +50,7 @@
     "@libsql/client": "^0.17.4",
     "@mikro-orm/core": "^7.1.5",
     "@mikro-orm/nestjs": "^7.0.2",
-    "@mikro-orm/postgresql": "^7.1.14",
+    "@mikro-orm/postgresql": "^7.2.4",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@nestjs/apollo": "^13.4.5",
