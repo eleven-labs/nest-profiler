@@ -71,9 +71,9 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.7",
-    "publint": "^0.3.24",
-    "tsx": "^4.23.13",
-    "turbo": "^2.10.13",
+    "publint": "^0.3.25",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.7",
     "typescript": "^6.0.3"
   },
   "contributors": [
