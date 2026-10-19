@@ -584,6 +584,14 @@ describe('AI assistant (e2e)', () => {
         expect(res.status).toBe(200);
         expect(res.text).toContain('serverInfo');
       });
+
+      it('answers every request, not only the first one', async () => {
+        await request(server(app)).post('/mcp').send(INITIALIZE);
+        const res = await request(server(app)).post('/mcp').send(INITIALIZE);
+
+        expect(res.status).toBe(200);
+        expect(res.text).toContain('serverInfo');
+      });
     });
 
     it('degrades to the local tools when the configured server is unreachable', async () => {
