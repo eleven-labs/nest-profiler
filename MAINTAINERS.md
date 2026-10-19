@@ -125,7 +125,9 @@ Breaking changes ship as a **major** with a `BREAKING:` note in the changeset bo
 
 ### Dependabot
 
-`dependabot.yml` groups npm + GitHub Actions updates; `dependabot-auto-merge.yml` auto-approves and squash-merges patch/minor bumps.
+`dependabot.yml` opens one grouped PR per week for npm minor/patch updates and one for GitHub Actions; security updates get their own group, and npm majors arrive as individual PRs. `dependabot-auto-merge.yml` auto-approves and squash-merges patch/minor bumps — majors are reviewed by hand. When one dependency breaks a grouped PR, comment `@dependabot ignore <name>` on it rather than adding a group.
+
+npm uses `versioning-strategy: increase-if-necessary`: a bump that still satisfies the declared range only touches the lockfile. Dependabot PRs therefore need no changeset and trigger no release — consumers already receive in-range versions of a package's `dependencies` (only `ejs` in the core today) on their next install, since the lockfile is not published. Add a changeset by hand (usually `patch`) only when a published package's range moves: a major of a runtime dependency, or raising its floor to exclude a vulnerable version. Peer ranges are never bumped by Dependabot; widening one (a new NestJS major, say) is a deliberate change with its own changeset.
 
 ## Docs deployment
 
