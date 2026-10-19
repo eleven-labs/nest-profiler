@@ -9,6 +9,8 @@ const MERGED_TUTORIALS = ['typeorm-collector', 'mikro-orm-collector'];
 
 const config: NextConfig = {
   reactStrictMode: true,
+  /** Keep `next dev` from writing its managed block into AGENTS.md. */
+  agentRules: false,
   redirects: () =>
     Promise.resolve(
       MERGED_TUTORIALS.flatMap((slug) => [
