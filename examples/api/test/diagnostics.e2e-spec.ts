@@ -44,12 +44,11 @@ describe('Diagnostics endpoints (e2e)', () => {
       const { profile } = await profileOf(app, 'get', '/api/v1/slow');
       const perf = profile.performance;
 
-      // CPU: /slow mostly waits on timers, so its CPU is a small fraction of its duration —
-      // which is precisely the distinction these figures exist to make.
+      // CPU: `process.cpuUsage` is process-wide and sums every thread (GC helpers, libuv pool,
+      // drivers), so it can exceed the wall-clock duration — only its shape is asserted.
       expect(perf.cpu).toBeDefined();
       expect(perf.cpu!.total).toBeGreaterThanOrEqual(0);
       expect(perf.cpu!.total).toBeCloseTo(perf.cpu!.user + perf.cpu!.system, 3);
-      expect(perf.cpu!.total).toBeLessThan(perf.duration!);
 
       // Memory: absolute values are positive, deltas may legitimately be negative after a GC.
       expect(perf.memory!.heapUsedAfter).toBeGreaterThan(0);
