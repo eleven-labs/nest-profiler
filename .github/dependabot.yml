@@ -1,5 +1,8 @@
 version: 2
 
+# One grouped PR per ecosystem and per week. When a single dependency breaks the
+# group, comment `@dependabot ignore <name>` on the PR to regenerate it without
+# that dependency instead of splitting the group.
 updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
@@ -17,9 +20,6 @@ updates:
       github-actions:
         patterns:
           - '*'
-        update-types:
-          - 'minor'
-          - 'patch'
 
   - package-ecosystem: 'npm'
     directory: '/'
@@ -27,94 +27,36 @@ updates:
       interval: 'weekly'
       time: '08:00'
       timezone: 'Europe/Paris'
+    # Keep the declared ranges (^x.y.z) as long as the new version satisfies them:
+    # minor/patch updates only touch the lockfile. A published range only moves
+    # when it has to, and that change then needs a changeset.
+    versioning-strategy: 'increase-if-necessary'
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    # Supply-chain guard: skip releases younger than a week. Security updates
+    # are not delayed by the cooldown.
     cooldown:
-      semver-minor-days: 7
-      semver-patch-days: 7
+      default-days: 7
     labels:
       - 'dependencies'
     ignore:
-      - dependency-name: '*'
+      # @types/node tracks the lowest supported Node major (engines.node).
+      - dependency-name: '@types/node'
         update-types:
           - 'version-update:semver-major'
     groups:
-      nestjs:
+      # Majors stay out of the group: one PR each, never auto-merged.
+      npm:
+        applies-to: 'version-updates'
         patterns:
-          - '@nestjs/*'
-          - 'reflect-metadata'
-          - 'rxjs'
+          - '*'
         update-types:
           - 'minor'
           - 'patch'
 
-      graphql:
+      security:
+        applies-to: 'security-updates'
         patterns:
-          - '@apollo/server'
-          - '@as-integrations/*'
-          - 'graphql'
-          - 'mercurius'
-          - '@mercuriusjs/*'
-        update-types:
-          - 'minor'
-          - 'patch'
-
-      testing:
-        patterns:
-          - 'jest'
-          - 'ts-jest'
-          - '@types/jest'
-        update-types:
-          - 'minor'
-          - 'patch'
-
-      docs:
-        patterns:
-          - 'next'
-          - 'react'
-          - 'react-dom'
-          - 'fumadocs-*'
-          - '@radix-ui/*'
-          - 'lucide-react'
-          - 'class-variance-authority'
-          - 'tailwind-merge'
-          - '@tailwindcss/*'
-          - 'tailwindcss'
-          - 'postcss'
-        update-types:
-          - 'minor'
-          - 'patch'
-
-      eslint:
-        patterns:
-          - 'eslint'
-          - 'eslint-*'
-          - '@eslint/*'
-          - 'typescript-eslint'
-          - 'eslint-plugin-*'
-          - '@next/eslint-plugin-next'
-          - 'globals'
-        update-types:
-          - 'minor'
-          - 'patch'
-
-      typescript-types:
-        patterns:
-          - '@types/*'
-        update-types:
-          - 'minor'
-          - 'patch'
-
-      tooling:
-        patterns:
-          - 'turbo'
-          - 'typescript'
-          - 'tsx'
-          - '@changesets/*'
-          - 'prettier'
-          - 'publint'
-        update-types:
-          - 'minor'
-          - 'patch'
+          - '*'
