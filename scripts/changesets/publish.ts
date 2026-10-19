@@ -114,12 +114,13 @@ function readRegistryManifest(pkg: PinnedChannelPackage): RegistryManifest | nul
  * prerelease, `latest` follows the pinned channel; as soon as a stable version
  * exists it owns `latest`, and the stable publish moves it on its own.
  *
- * Promotion is best-effort: npm's trusted publishing (OIDC) mints a
- * publish-scoped token, and `npm dist-tag add` is not in its scope
- * (npm/cli#8547), so this cannot succeed on CI today. A failure therefore warns
- * with the command to run by hand instead of failing a release whose packages
- * are already on the registry — and the next release retries it, since this runs
- * for packages that were already published too.
+ * The tag is moved with `npm`, not `pnpm`: npm >= 11.21.0 exchanges the CI's
+ * OIDC token for `dist-tag` too (npm/cli#10038), pnpm only does it for publish.
+ * It also needs dist-tag management enabled on the package's trusted publisher
+ * on npmjs.com. Promotion stays best-effort: a failure warns with the command to
+ * run by hand instead of failing a release whose packages are already on the
+ * registry — and the next release retries it, since this runs for packages that
+ * were already published too.
  */
 function syncLatestDistTag(pkg: PinnedChannelPackage): void {
   const manifest = readRegistryManifest(pkg);
@@ -145,11 +146,12 @@ function syncLatestDistTag(pkg: PinnedChannelPackage): void {
   );
 
   const distTagArgs = ['dist-tag', 'add', `${pkg.name}@${pkg.version}`, 'latest'];
-  if (run('pnpm', distTagArgs, pkg.dir) !== 0) {
+  if (run('npm', distTagArgs, pkg.dir) !== 0) {
     warn(
       `Could not move the "latest" dist-tag of ${pkg.name} to ${pkg.version} — it still ` +
-        `points at ${currentLatest ?? '(unset)'}. Trusted publishing cannot set dist-tags ` +
-        `(npm/cli#8547), so run "pnpm ${distTagArgs.join(' ')}" from an authenticated shell.`,
+        `points at ${currentLatest ?? '(unset)'}. Check that its trusted publisher on ` +
+        `npmjs.com allows dist-tag management, or run "npm ${distTagArgs.join(' ')}" from ` +
+        `an authenticated shell.`,
     );
   }
 }

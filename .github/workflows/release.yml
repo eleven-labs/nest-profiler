@@ -41,7 +41,8 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # Trusted publishing (OIDC) requires npm CLI >= 11.5.1.
+      # Trusted publishing (OIDC) requires npm CLI >= 11.5.1, and >= 11.21.0 for
+      # `npm dist-tag` (the `latest` promotion in scripts/changesets/publish.ts).
       - name: Upgrade npm for trusted publishing
         run: npm install -g npm@latest
 
