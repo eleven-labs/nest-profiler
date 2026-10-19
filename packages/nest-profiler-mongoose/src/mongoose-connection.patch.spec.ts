@@ -41,20 +41,38 @@ function makeMongooseBase(queryResult: unknown, aggregateResult: unknown = []) {
   };
 }
 
+/** What a fake query holds besides its operation and filter. */
+interface FakeQuery {
+  /** What `getUpdate()` returns before `exec` — `undefined` for a read, like mongoose. */
+  update?: unknown;
+  /** What `getUpdate()` returns once `exec` ran: mongoose casts the update in place. */
+  sentUpdate?: unknown;
+  /** What `getOptions()` returns. */
+  options?: Record<string, unknown>;
+  /** What `projection()` returns. */
+  projection?: Record<string, unknown>;
+  /** The field of a `distinct`. */
+  distinct?: string;
+}
+
 /**
  * Installs the patch against a fake connection/CLS pair and runs one `Query.exec()` for the
- * given operation, returning the entry it appended to the profile. `update` is what the query's
- * `getUpdate()` returns — `undefined` for a read, like mongoose.
+ * given operation, returning the entry it appended to the profile.
  */
 async function execEntry(
   operation: string,
   queryResult: unknown,
   options: MongooseCollectorModuleOptions = {},
-  update?: unknown,
+  fake: FakeQuery = {},
 ): Promise<MongooseQueryEntry> {
   const profile = makeProfile();
   const cls = { get: (): Profile => profile } as unknown as ClsService;
   const base = makeMongooseBase(queryResult);
+  const exec = base.Query.prototype.exec;
+  base.Query.prototype.exec = function (this: { _update?: unknown }): Promise<unknown> {
+    if ('sentUpdate' in fake) this._update = fake.sentUpdate;
+    return exec();
+  };
   const connection = { base, host: 'localhost', port: 27017, name: 'test-db' };
   const moduleRef = {
     get: (token: unknown): unknown => (token === ClsServiceToken ? cls : connection),
@@ -66,7 +84,13 @@ async function execEntry(
     op: operation,
     model: { collection: { name: 'users' } },
     getFilter: (): Record<string, unknown> => ({ email: 'a@b.c' }),
-    getUpdate: (): unknown => update,
+    _update: fake.update,
+    _distinct: fake.distinct,
+    getUpdate(): unknown {
+      return this._update;
+    },
+    getOptions: (): Record<string, unknown> => fake.options ?? {},
+    projection: (): Record<string, unknown> | undefined => fake.projection,
     exec: base.Query.prototype.exec,
   };
   await query.exec.call(query);
@@ -179,7 +203,7 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
       { modifiedCount: 1 },
       {},
       {
-        $set: { status: 'RUNNING', startedAt },
+        update: { $set: { status: 'RUNNING', startedAt } },
       },
     );
     expect(entry.update).toEqual({
@@ -193,21 +217,40 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
       null,
       {},
       {
-        status: 'DONE',
-        $inc: { attempts: 1 },
+        update: { status: 'DONE', $inc: { attempts: 1 } },
       },
     );
     expect(entry.update).toEqual({ $set: { status: 'DONE' }, $inc: { attempts: 1 } });
   });
 
+  it('captures the update as sent, once mongoose cast it and added its timestamps', async () => {
+    const entry = await execEntry(
+      'updateOne',
+      { modifiedCount: 1 },
+      {},
+      {
+        update: { age: 37 },
+        sentUpdate: { $set: { age: 37, updatedAt: new Date('2026-01-02T03:04:05.000Z') } },
+      },
+    );
+    expect(entry.update).toEqual({ $set: { age: 37, updatedAt: '2026-01-02T03:04:05.000Z' } });
+  });
+
   it('keeps the top-level fields of a replacement document as they are', async () => {
-    const entry = await execEntry('replaceOne', { modifiedCount: 1 }, {}, { status: 'DONE' });
+    const entry = await execEntry(
+      'replaceOne',
+      { modifiedCount: 1 },
+      {},
+      {
+        update: { status: 'DONE' },
+      },
+    );
     expect(entry.update).toEqual({ status: 'DONE' });
   });
 
   it('keeps an update pipeline as it is', async () => {
     const pipeline = [{ $set: { total: { $add: ['$a', '$b'] } } }];
-    const entry = await execEntry('updateMany', { modifiedCount: 2 }, {}, pipeline);
+    const entry = await execEntry('updateMany', { modifiedCount: 2 }, {}, { update: pipeline });
     expect(entry.update).toEqual(pipeline);
   });
 
@@ -217,7 +260,7 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
       { modifiedCount: 1 },
       {},
       {
-        $set: { password: 'hunter2' },
+        update: { $set: { password: 'hunter2' } },
       },
     );
     expect(entry.update).toEqual({ $set: { password: '[REDACTED]' } });
@@ -225,6 +268,43 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
 
   it('records no update for a read', async () => {
     expect((await execEntry('find', [])).update).toBeUndefined();
+  });
+
+  it('captures the options sent to the driver, leaving the session out', async () => {
+    const entry = await execEntry(
+      'updateOne',
+      { modifiedCount: 1 },
+      {},
+      {
+        update: { $set: { 'items.$[i].qty': 2 } },
+        options: { upsert: true, arrayFilters: [{ 'i.name': 'x' }], session: { id: 'session' } },
+      },
+    );
+    expect(entry.options).toEqual({ upsert: true, arrayFilters: [{ 'i.name': 'x' }] });
+  });
+
+  it('captures the projection of a read', async () => {
+    const entry = await execEntry(
+      'find',
+      [],
+      {},
+      {
+        projection: { name: 1 },
+        options: { sort: { age: -1 }, skip: 5, limit: 10 },
+      },
+    );
+    expect(entry.projection).toEqual({ name: 1 });
+    expect(entry.options).toEqual({ sort: { age: -1 }, skip: 5, limit: 10 });
+  });
+
+  it('records no options nor projection when the query has none', async () => {
+    const entry = await execEntry('find', [], {}, { projection: {} });
+    expect(entry.options).toBeUndefined();
+    expect(entry.projection).toBeUndefined();
+  });
+
+  it('captures the field of a distinct', async () => {
+    expect((await execEntry('distinct', ['ada'], {}, { distinct: 'name' })).field).toBe('name');
   });
 
   it('omits the result payload by default', async () => {
@@ -249,7 +329,11 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
 
 /** Minimal Model surface (statics + prototype) the write patch reaches for. */
 function makeModel() {
-  const save = (): Promise<unknown> => Promise.resolve(undefined);
+  // Like mongoose, saving an existing document computes the delta of its modified paths.
+  const save = function (this: { isNew?: boolean; $__delta?: () => unknown }): Promise<unknown> {
+    if (this.isNew === false) this.$__delta?.();
+    return Promise.resolve(this);
+  };
   return {
     // mongoose aliases `$save` onto `save` at load time — the same function object.
     prototype: { save, $save: save },
@@ -280,10 +364,11 @@ function makeDocument(
 async function writeEntry(
   run: (model: FakeModel) => Promise<unknown>,
   options: MongooseCollectorModuleOptions = {},
+  statics: Partial<Pick<FakeModel, 'insertMany' | 'bulkWrite'>> = {},
 ): Promise<MongooseQueryEntry> {
   const profile = makeProfile();
   const cls = { get: (): Profile => profile } as unknown as ClsService;
-  const base = { ...makeMongooseBase([]), Model: makeModel() };
+  const base = { ...makeMongooseBase([]), Model: { ...makeModel(), ...statics } };
   const connection = { base, host: 'localhost', port: 27017, name: 'test-db' };
   const moduleRef = {
     get: (token: unknown): unknown => (token === ClsServiceToken ? cls : connection),
@@ -306,8 +391,88 @@ describe('MongooseConnectionPatch — write capture', () => {
     ];
     const entry = await writeEntry((model) => model.bulkWrite(operations));
     expect(entry.operations).toEqual(operations);
-    expect(entry.count).toBe(1);
     expect(entry.collection).toBe('users');
+  });
+
+  it('captures the bulkWrite operations as sent, once mongoose cast them in place', async () => {
+    const operations: { updateOne: { filter: object; update: object } }[] = [
+      { updateOne: { filter: { name: 'ada' }, update: { age: 5 } } },
+    ];
+    const entry = await writeEntry((model) => {
+      const promise = model.bulkWrite(operations);
+      operations[0]!.updateOne.update = { $set: { age: 5, updatedAt: '2026-01-02T03:04:05.000Z' } };
+      return promise;
+    });
+    expect(entry.operations).toEqual([
+      {
+        updateOne: {
+          filter: { name: 'ada' },
+          update: { $set: { age: 5, updatedAt: '2026-01-02T03:04:05.000Z' } },
+        },
+      },
+    ]);
+  });
+
+  it('counts the documents a bulkWrite affected, not its operations', async () => {
+    const entry = await writeEntry(
+      (model) => model.bulkWrite([{}, {}, {}]),
+      {},
+      {
+        bulkWrite: () =>
+          Promise.resolve({
+            insertedCount: 1,
+            matchedCount: 3,
+            modifiedCount: 2,
+            deletedCount: 0,
+            upsertedCount: 1,
+          }),
+      },
+    );
+    expect(entry.count).toBe(4);
+  });
+
+  it('counts 0 for a bulkWrite that matched nothing', async () => {
+    const entry = await writeEntry(
+      (model) =>
+        model.bulkWrite([{ updateOne: { filter: { name: 'nobody' }, update: { age: 1 } } }]),
+      {},
+      {
+        bulkWrite: () =>
+          Promise.resolve({
+            insertedCount: 0,
+            matchedCount: 0,
+            modifiedCount: 0,
+            deletedCount: 0,
+            upsertedCount: 0,
+          }),
+      },
+    );
+    expect(entry.count).toBe(0);
+  });
+
+  it('captures the documents an insertMany inserted, as sent', async () => {
+    const entry = await writeEntry(
+      (model) => model.insertMany([{ name: 'ada' }]),
+      {},
+      {
+        insertMany: () => Promise.resolve([{ _id: 'abc', name: 'ada', __v: 0 }]),
+      },
+    );
+    expect(entry.documents).toEqual([{ _id: 'abc', name: 'ada', __v: 0 }]);
+    expect(entry.count).toBe(1);
+  });
+
+  it('counts the documents a failed insertMany inserted all the same', async () => {
+    const failure = Object.assign(new Error('E11000 duplicate key'), { insertedDocs: [{}, {}] });
+    const entry = await writeEntry(
+      (model) =>
+        model.insertMany([{ name: 'a' }, { name: 'b' }, { name: 'c' }]).catch(() => undefined),
+      {},
+      { insertMany: () => Promise.reject(failure) },
+    );
+    expect(entry.count).toBe(2);
+    expect(entry.error).toBe('E11000 duplicate key');
+    expect(entry.documents).toEqual([{ name: 'a' }, { name: 'b' }, { name: 'c' }]);
   });
 
   it('captures the documents passed to insertMany', async () => {
@@ -330,7 +495,7 @@ describe('MongooseConnectionPatch — write capture', () => {
         makeDocument(model, { name: 'ada' }) as unknown as { $save: () => Promise<unknown> }
       ).$save(),
     );
-    expect(entry.operation).toBe('save');
+    expect(entry.operation).toBe('insertOne');
     expect(entry.documents).toEqual([{ name: 'ada' }]);
   });
 
@@ -349,10 +514,78 @@ describe('MongooseConnectionPatch — write capture', () => {
     expect(profile.collectors[MONGOOSE_QUERIES_KEY]).toHaveLength(1);
   });
 
-  it('captures the saved document', async () => {
+  it('records the save of a new document as the insertOne it sends', async () => {
     const entry = await writeEntry((model) => makeDocument(model, { name: 'ada' }).save());
+    expect(entry.operation).toBe('insertOne');
     expect(entry.documents).toEqual([{ name: 'ada' }]);
     expect(entry.count).toBe(1);
+  });
+
+  it('captures a new document as inserted, once the save filled it', async () => {
+    const entry = await writeEntry((model) => {
+      const document = makeDocument(model, { name: 'ada' }) as unknown as Record<
+        string,
+        unknown
+      > & {
+        save: () => Promise<unknown>;
+      };
+      const promise = document.save();
+      // mongoose sets the timestamps and the version key while the save runs.
+      Object.assign(document, { createdAt: '2026-01-02T03:04:05.000Z', __v: 0 });
+      return promise;
+    });
+    expect(entry.documents).toEqual([
+      { name: 'ada', createdAt: '2026-01-02T03:04:05.000Z', __v: 0 },
+    ]);
+  });
+
+  it('records the save of a modified document as the updateOne of its delta', async () => {
+    const delta = [{ __v: 3 }, { $set: { age: 37, updatedAt: '2026-01-02T03:04:05.000Z' } }];
+    const entry = await writeEntry((model) => {
+      const document = makeDocument(model, { _id: 'abc', isNew: false, name: 'ada', age: 37 });
+      Object.defineProperty(document, '$__delta', {
+        value: () => delta,
+        writable: true,
+        configurable: true,
+      });
+      return document.save();
+    });
+    expect(entry.operation).toBe('updateOne');
+    expect(entry.filter).toEqual({ _id: 'abc', __v: 3 });
+    expect(entry.update).toEqual({ $set: { age: 37, updatedAt: '2026-01-02T03:04:05.000Z' } });
+    expect(entry.documents).toBeUndefined();
+    expect(entry.count).toBe(1);
+  });
+
+  it('records the save of an unmodified document as the findOne mongoose checks it with', async () => {
+    const entry = await writeEntry((model) => {
+      const document = makeDocument(model, { _id: 'abc', isNew: false, name: 'ada' });
+      Object.defineProperty(document, '$__delta', {
+        value: () => undefined,
+        writable: true,
+        configurable: true,
+      });
+      return document.save();
+    });
+    expect(entry.operation).toBe('findOne');
+    expect(entry.filter).toEqual({ _id: 'abc' });
+    expect(entry.projection).toEqual({ _id: 1 });
+    expect(entry.update).toBeUndefined();
+  });
+
+  it('leaves the document as it was once the save settled', async () => {
+    const computeDelta = (): undefined => undefined;
+    let document: Record<string, unknown> = {};
+    await writeEntry((model) => {
+      document = makeDocument(model, { _id: 'abc', isNew: false });
+      Object.defineProperty(document, '$__delta', {
+        value: computeDelta,
+        writable: true,
+        configurable: true,
+      });
+      return (document as unknown as { save: () => Promise<unknown> }).save();
+    });
+    expect(document.$__delta).toBe(computeDelta);
   });
 
   it('flattens a saved document through its toJSON projection', async () => {
@@ -379,6 +612,5 @@ describe('MongooseConnectionPatch — write capture', () => {
       resultLimits: { maxItems: 1, maxDepth: 2 },
     });
     expect(entry.operations).toEqual(operations);
-    expect(entry.count).toBe(65);
   });
 });

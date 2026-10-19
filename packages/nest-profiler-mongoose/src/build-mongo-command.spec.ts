@@ -46,10 +46,73 @@ describe('buildMongoCommand', () => {
     expect(cmd).toBe(`db.users.bulkWrite(${JSON.stringify(operations, null, 2)})`);
   });
 
-  it('builds db.<collection>.save(<document>) from the single saved document', () => {
+  it('builds db.<collection>.insertOne(<document>) from the single inserted document', () => {
     const documents = [{ _id: 'abc', name: 'ada' }];
-    const cmd = buildMongoCommand(entry({ operation: 'save', documents }));
-    expect(cmd).toBe(`db.users.save(${JSON.stringify(documents[0], null, 2)})`);
+    const cmd = buildMongoCommand(entry({ operation: 'insertOne', documents }));
+    expect(cmd).toBe(`db.users.insertOne(${JSON.stringify(documents[0], null, 2)})`);
+  });
+
+  it('passes the options last', () => {
+    const update = { $set: { 'items.$[i].qty': 2 } };
+    const options = { upsert: true, arrayFilters: [{ 'i.name': 'x' }] };
+    const cmd = buildMongoCommand(entry({ operation: 'updateOne', filter: {}, update, options }));
+    expect(cmd).toBe(
+      `db.users.updateOne({}, ${JSON.stringify(update, null, 2)}, ${JSON.stringify(options, null, 2)})`,
+    );
+  });
+
+  it('passes the projection of a find second, before its options', () => {
+    const cmd = buildMongoCommand(
+      entry({
+        operation: 'find',
+        filter: { a: 1 },
+        projection: { name: 1 },
+        options: { limit: 2 },
+      }),
+    );
+    expect(cmd).toBe(
+      `db.users.find(${JSON.stringify({ a: 1 }, null, 2)}, ${JSON.stringify({ name: 1 }, null, 2)}, ${JSON.stringify({ limit: 2 }, null, 2)})`,
+    );
+  });
+
+  it('keeps the projection slot of a find that has options only', () => {
+    const cmd = buildMongoCommand(entry({ operation: 'findOne', options: { sort: { a: 1 } } }));
+    expect(cmd).toBe(`db.users.findOne({}, {}, ${JSON.stringify({ sort: { a: 1 } }, null, 2)})`);
+  });
+
+  it('moves the projection into the options of an operation without a projection argument', () => {
+    const cmd = buildMongoCommand(
+      entry({
+        operation: 'findOneAndUpdate',
+        filter: {},
+        update: { $inc: { n: 1 } },
+        projection: { n: 1 },
+        options: { returnDocument: 'after' },
+      }),
+    );
+    expect(cmd).toBe(
+      `db.users.findOneAndUpdate({}, ${JSON.stringify({ $inc: { n: 1 } }, null, 2)}, ${JSON.stringify({ returnDocument: 'after', projection: { n: 1 } }, null, 2)})`,
+    );
+  });
+
+  it('builds db.<collection>.distinct(<field>, <filter>)', () => {
+    const cmd = buildMongoCommand(
+      entry({ operation: 'distinct', field: 'name', filter: { a: 1 } }),
+    );
+    expect(cmd).toBe(`db.users.distinct("name", ${JSON.stringify({ a: 1 }, null, 2)})`);
+  });
+
+  it('passes no filter to estimatedDocumentCount, which only takes options', () => {
+    expect(buildMongoCommand(entry({ operation: 'estimatedDocumentCount', filter: {} }))).toBe(
+      'db.users.estimatedDocumentCount()',
+    );
+  });
+
+  it('passes the options of an aggregation after its pipeline', () => {
+    const cmd = buildMongoCommand(
+      entry({ operation: 'aggregate', pipeline: [], options: { allowDiskUse: true } }),
+    );
+    expect(cmd).toBe(`db.users.aggregate([], ${JSON.stringify({ allowDiskUse: true }, null, 2)})`);
   });
 
   it('builds db.<collection>.insertMany([...]) from the captured documents', () => {
@@ -89,6 +152,13 @@ describe('buildMongoFingerprint', () => {
     expect(buildMongoFingerprint(status)).toBe(buildMongoFingerprint(sameShape));
     expect(buildMongoFingerprint(status)).not.toBe(buildMongoFingerprint(otherField));
     expect(buildMongoFingerprint(status)).toBe('updateOne users {"id":"?"} {"$set":{"a":"?"}}');
+  });
+
+  it('includes the field of a distinct', () => {
+    const fp = buildMongoFingerprint(
+      entry({ operation: 'distinct', field: 'name', filter: { a: 1 } }),
+    );
+    expect(fp).toBe('distinct users name {"a":"?"}');
   });
 
   it('uses the operations shape for a bulkWrite', () => {

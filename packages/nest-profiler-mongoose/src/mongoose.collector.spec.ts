@@ -215,7 +215,10 @@ describe('MongooseConnectionPatch', () => {
             }),
             collection: { name: 'users' },
           },
-          insertMany: jest.fn(() => Promise.resolve([{ _id: 1 }, { _id: 2 }])),
+          // Like mongoose, insertMany resolves to the inserted documents.
+          insertMany: jest.fn((docs: unknown) =>
+            Promise.resolve(Array.isArray(docs) ? docs : [docs]),
+          ),
           bulkWrite: jest.fn(() => Promise.resolve({ ok: 1 })),
           collection: { name: 'users' },
         },
@@ -233,7 +236,7 @@ describe('MongooseConnectionPatch', () => {
       // `this` is the document; its constructor is the model carrying the collection name.
       await model.prototype.save.call({ constructor: { collection: { name: 'users' } } });
       const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
-      expect(entries.map((e) => e.operation)).toContain('save');
+      expect(entries.map((e) => e.operation)).toContain('insertOne');
       expect(entries[0]?.collection).toBe('users');
     });
 
@@ -281,7 +284,7 @@ describe('MongooseConnectionPatch', () => {
         model.prototype.save.call({ constructor: { collection: { name: 'users' } } }),
       ).rejects.toThrow('E11000 duplicate');
       const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
-      expect(entries.find((e) => e.operation === 'save')?.error).toContain('E11000');
+      expect(entries.find((e) => e.operation === 'insertOne')?.error).toContain('E11000');
     });
 
     it('falls back to "unknown" collection for odd call shapes', async () => {
@@ -295,7 +298,7 @@ describe('MongooseConnectionPatch', () => {
       // mongoose also accepts a single document — it counts as one inserted document.
       await model.insertMany.call({}, { a: 1 });
       const entries = (profile.collectors[MONGOOSE_QUERIES_KEY] as MongooseQueryEntry[]) ?? [];
-      const save = entries.find((e) => e.operation === 'save' && e.collection === 'unknown');
+      const save = entries.find((e) => e.operation === 'insertOne' && e.collection === 'unknown');
       expect(save).toBeDefined();
       const insert = entries.find((e) => e.operation === 'insertMany');
       expect(insert?.count).toBe(1);

@@ -18,6 +18,16 @@ export interface MongooseQueryEntry {
    * operation input: captured in full and redacted, never size-capped.
    */
   update?: unknown;
+  /** Field whose values a `distinct` returns. */
+  field?: string;
+  /** Fields a read returns (`select()` / the projection argument), as sent to MongoDB. */
+  projection?: Record<string, unknown>;
+  /**
+   * Options sent along with the operation (`sort`, `skip`, `limit`, `upsert`, `arrayFilters`,
+   * `collation`, `allowDiskUse`…), the session left out. Like {@link MongooseQueryEntry.filter},
+   * they are operation inputs: captured in full and redacted, never size-capped.
+   */
+  options?: Record<string, unknown>;
   /** Aggregation pipeline stages, captured for `aggregate` operations. */
   pipeline?: unknown[];
   /**
@@ -26,7 +36,8 @@ export interface MongooseQueryEntry {
    */
   operations?: unknown[];
   /**
-   * Documents written, captured for `save` (the saved document) and `insertMany`. Like
+   * Documents written, captured for `insertMany` and for the `insertOne` a `save()` of a new
+   * document sends, as inserted (defaults, `_id`, timestamps and version key included). Like
    * {@link MongooseQueryEntry.filter}, they are operation inputs: captured in full and redacted,
    * never size-capped.
    */
