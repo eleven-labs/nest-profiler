@@ -1,6 +1,6 @@
 # Collector detection matrix
 
-Map a dependency found in the consumer's `package.json` to the collector package that instruments it, then open the matching **family reference** for its full options, snippet, gotcha and the question(s) to ask. All collectors are published under the `@eleven-labs/` scope, peer on the core `@eleven-labs/nest-profiler`, `@nestjs/common@^11`, `@nestjs/core@^11`, `reflect-metadata@^0.2`, and (most of them) `nestjs-cls@^6`. Only the **distinguishing** signal is listed below.
+Map a dependency found in the consumer's `package.json` to the collector package that instruments it, then open the matching **family reference** for its full options, snippet, gotcha and the question(s) to ask. All collectors are published under the `@eleven-labs/` scope, peer on the core `@eleven-labs/nest-profiler`, `@nestjs/common@^11`, `@nestjs/core@^11`, `reflect-metadata@^0.2`, and (most of them) `nestjs-cls@^6 || ^7`. Only the **distinguishing** signal is listed below.
 
 Detection confidence:
 

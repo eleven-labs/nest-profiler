@@ -32,7 +32,7 @@ pnpm add -D @eleven-labs/nest-profiler-event-emitter
 pnpm add @nestjs/event-emitter
 ```
 
-**Peer dependencies:** `@nestjs/event-emitter ^3.0.0`, `nestjs-cls ^6.0.0`
+**Peer dependencies:** `@nestjs/event-emitter ^3.0.0`, `nestjs-cls ^6.0.0 || ^7.0.0`
 
 ## Setup
 

@@ -2,7 +2,7 @@
 
 Captures every validation outcome (payload, violations) into a profiler panel by wrapping your validation pipe.
 
-- **Peers:** `nestjs-cls@^6` (required); `class-validator@>=0.14 <1` + `class-transformer@^0.5` **optional** (only for the default class-validator pipe).
+- **Peers:** `nestjs-cls@^6 || ^7` (required); `class-validator@>=0.14 <1` + `class-transformer@^0.5` **optional** (only for the default class-validator pipe).
 - **Module:** `ValidatorCollectorModule` (`forRoot` + `forRootAsync`), option `enabled` only — it registers just the **panel**. The validation pipe is app-owned.
 - **Placement:** the panel goes in the `ProfilingModule` bundle; the pipe is installed by the bootstrap.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-validator> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/validator-collector>

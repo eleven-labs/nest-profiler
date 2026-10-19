@@ -34,7 +34,7 @@ ConfigCollectorModule.forRoot({ maskKeys: ['database.password'] }),
 
 Shows the authenticated user and decoded JWT for each request in an Auth panel.
 
-- **Peers (required):** `nestjs-cls@^6`. **No** auth-library peer — it is dependency-free (heuristic detection via `@nestjs/passport` / `@nestjs/jwt`).
+- **Peers (required):** `nestjs-cls@^6 || ^7`. **No** auth-library peer — it is dependency-free (heuristic detection via `@nestjs/passport` / `@nestjs/jwt`).
 - **Module:** `AuthCollectorModule` (`forRoot` + `forRootAsync`).
 - **Placement:** the `ProfilingModule` bundle. The app's guard or middleware keeps setting `request.user`.
 - **Behaviour:** reads `request.user` and the `Authorization` header from CLS and **decodes the JWT without verifying it** (display only). Built-in mask covers `password|secret|key|token|credential`; `maskUserFields` adds more.

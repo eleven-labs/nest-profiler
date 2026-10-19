@@ -1,7 +1,8 @@
 import * as path from 'path';
 import type { MikroORM, LogContext, Logger } from '@mikro-orm/core';
 import type { ModuleRef } from '@nestjs/core';
-import { ClsService } from 'nestjs-cls';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
 
 // MikroORM v7 is ESM-only; the patch imports `MikroORM` as a runtime DI token. Stub it so the
 // CommonJS jest runtime never parses the real ESM entry (the patch is constructed directly here).
@@ -9,14 +10,19 @@ jest.mock('@mikro-orm/core', () => ({ MikroORM: class MikroORM {} }));
 // @mikro-orm/nestjs is ESM-only too; stub the token helper used by the collector module.
 jest.mock('@mikro-orm/nestjs', () => ({ getMikroORMToken: (name: string) => `MikroORM_${name}` }));
 
+import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile, QueryEntry } from '@eleven-labs/nest-profiler';
 import { MikroOrmCollector } from './mikro-orm.collector.js';
 import { MikroOrmCollectorModule } from './mikro-orm-collector.module.js';
 import { MIKRO_ORM_QUERIES_KEY, MikroOrmLoggerPatch } from './mikro-orm-logger.patch.js';
 
+/** ModuleRef of an app with the profiler core active; `cls` is what the static CLS accessor returns. */
 function mikroModuleRef(cls: unknown, orm: unknown): ModuleRef {
-  return { get: (t: unknown) => (t === ClsService ? cls : orm) } as unknown as ModuleRef;
+  jest.spyOn(ClsServiceManager, 'getClsService').mockReturnValue(cls as ClsService);
+  return { get: (t: unknown) => (t === ProfilerCoreService ? {} : orm) } as unknown as ModuleRef;
 }
+
+afterEach(() => jest.restoreAllMocks());
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -114,12 +120,22 @@ describe('MikroOrmCollectorModule.forRoot', () => {
   });
 
   it('no-ops when the ORM context is absent (MAJ-18/disabled core)', () => {
-    const cls = { get: jest.fn() } as unknown as ClsService;
     const moduleRef = {
-      get: (t: unknown) => (t === ClsService ? cls : undefined),
+      get: (t: unknown) => (t === ProfilerCoreService ? {} : undefined),
     } as unknown as ModuleRef;
     const patch = new MikroOrmLoggerPatch(moduleRef, {});
     expect(() => patch.onModuleInit()).not.toThrow();
+  });
+
+  it('leaves the logger untouched when the profiler core is disabled', () => {
+    const logQuery = jest.fn();
+    const logger = { logQuery, isEnabled: jest.fn() };
+    const orm = { config: { getLogger: () => logger } } as unknown as MikroORM;
+    const moduleRef = {
+      get: (t: unknown) => (t === ProfilerCoreService ? undefined : orm),
+    } as unknown as ModuleRef;
+    new MikroOrmLoggerPatch(moduleRef, {}).onModuleInit();
+    expect(logger.logQuery).toBe(logQuery);
   });
 });
 
