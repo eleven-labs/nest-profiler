@@ -71,7 +71,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.5",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.3",
     "jest": "^30.5.2",
     "nestjs-cls": "^6.2.1",
     "pg": "^8.23.0",
