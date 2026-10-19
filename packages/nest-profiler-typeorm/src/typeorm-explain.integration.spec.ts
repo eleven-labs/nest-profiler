@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import type { ModuleRef } from '@nestjs/core';
 import { ExplainRunnerRegistry, parseExplainPlan } from '@eleven-labs/nest-profiler';
 import { TypeOrmExplainRunner } from './typeorm-explain.runner';

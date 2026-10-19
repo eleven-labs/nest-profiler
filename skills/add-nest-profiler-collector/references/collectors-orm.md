@@ -21,7 +21,7 @@ Both `forRoot(options)` and `forRootAsync({ inject, useFactory })` are available
 
 ## TypeORM — `@eleven-labs/nest-profiler-typeorm`
 
-- **Peers (required):** `@nestjs/typeorm@^11`, `typeorm@>=0.3.20 <2`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@nestjs/typeorm@^11 || ^12`, `typeorm@>=0.3.20 <2`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `TypeOrmCollectorModule` (query) + `TypeOrmSchemaCollectorModule` (schema panel).
 - **Placement:** the `ProfilingModule` bundle; the app keeps `TypeOrmModule` in its own modules (`AppDevModule` imports `AppModule` before the bundle).
 - **Gotcha:** the collector resolves the `DataSource` itself via `getDataSourceToken(connectionName)` — **no `inject: [DataSource]` needed**. For a named DataSource, pass `connectionName`.

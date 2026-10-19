@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
 import type { Profile } from '@eleven-labs/nest-profiler';

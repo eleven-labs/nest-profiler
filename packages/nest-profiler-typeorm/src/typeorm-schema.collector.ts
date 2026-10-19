@@ -1,6 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import type { DataSource } from 'typeorm';
 import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';

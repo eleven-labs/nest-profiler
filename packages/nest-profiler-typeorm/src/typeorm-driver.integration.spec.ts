@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { DataSource } from 'typeorm';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import type { ModuleRef } from '@nestjs/core';
 import { TYPEORM_QUERIES_KEY, TypeOrmDriverPatch } from './typeorm-driver.patch';
 import type { QueryEntry } from './typeorm-collector.interface';

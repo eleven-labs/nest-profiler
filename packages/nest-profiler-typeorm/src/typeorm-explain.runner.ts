@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import type { DataSource } from 'typeorm';
 import type { ExplainDialect, ExplainRawResult, ExplainRunner } from '@eleven-labs/nest-profiler';
 import { ExplainRunnerRegistry, detectQueryType, tryResolve } from '@eleven-labs/nest-profiler';
