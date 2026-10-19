@@ -47,7 +47,7 @@
     "@eleven-labs/nest-profiler-typeorm": "workspace:*",
     "@eleven-labs/nest-profiler-validator": "workspace:*",
     "@golevelup/nestjs-rabbitmq": "^9.0.2",
-    "@libsql/client": "^0.17.4",
+    "@libsql/client": "^0.18.0",
     "@mikro-orm/core": "^7.1.5",
     "@mikro-orm/nestjs": "^7.0.2",
     "@mikro-orm/postgresql": "^7.1.14",

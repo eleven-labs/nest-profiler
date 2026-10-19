@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { McpServer } from '@modelcontextprotocol/server';
 import { NodeStreamableHTTPServerTransport } from '@modelcontextprotocol/node';
@@ -41,28 +40,12 @@ function acceptEventStream(request: McpRequest): void {
  * The MCP server this application exposes, over one Streamable HTTP endpoint.
  *
  * Stateless, which is what the 2026-07-28 protocol is: every request stands on its own, so nothing
- * has to be kept between them and any instance can answer.
+ * has to be kept between them and any instance can answer. A stateless transport answers a single
+ * request, so each one gets its own server and transport, closed with the response.
  */
 @Injectable()
-export class McpServerService implements OnModuleInit, OnApplicationShutdown {
-  private readonly logger = new Logger(McpServerService.name);
-  private readonly mcp = new McpServer({ name: 'nest-profiler-example', version: '1.0.0' });
-  private readonly transport = new NodeStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
+export class McpServerService {
   constructor(private readonly config: ConfigService) {}
-
-  async onModuleInit(): Promise<void> {
-    this.registerTools();
-    await this.mcp.connect(this.transport);
-    this.logger.log('MCP server ready');
-  }
-
-  async onApplicationShutdown(): Promise<void> {
-    await this.transport.close();
-    await this.mcp.close();
-  }
 
   /**
    * Answers one MCP request. The body is already parsed by Nest's body parser, so it is handed over
@@ -70,11 +53,19 @@ export class McpServerService implements OnModuleInit, OnApplicationShutdown {
    */
   async handle(request: McpRequest, response: PlatformResponse): Promise<void> {
     acceptEventStream(request);
-    await this.transport.handleRequest(request, response, request.body);
+    const mcp = new McpServer({ name: 'nest-profiler-example', version: '1.0.0' });
+    this.registerTools(mcp);
+    const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    response.on('close', () => {
+      void transport.close();
+      void mcp.close();
+    });
+    await mcp.connect(transport);
+    await transport.handleRequest(request, response, request.body);
   }
 
-  private registerTools(): void {
-    this.mcp.registerTool(
+  private registerTools(mcp: McpServer): void {
+    mcp.registerTool(
       'shout',
       {
         description: 'Uppercase the given text.',
@@ -83,7 +74,7 @@ export class McpServerService implements OnModuleInit, OnApplicationShutdown {
       ({ text }) => ({ content: [{ type: 'text' as const, text: text.toUpperCase() }] }),
     );
 
-    this.mcp.registerTool(
+    mcp.registerTool(
       'appInfo',
       {
         description: "This demo application's name, environment and enabled features.",
