@@ -61,7 +61,7 @@
     "@libsql/client": "^0.17.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.1.4",
-    "nestjs-cls": "^6.0.0",
+    "nestjs-cls": "^6.0.0 || ^7.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"
   },
@@ -91,7 +91,7 @@
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
     "nest-winston": "^1.10.2",
-    "nestjs-cls": "^6.2.1",
+    "nestjs-cls": "^7.0.1",
     "nestjs-pino": "^5.3.1",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",

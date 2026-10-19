@@ -2,7 +2,7 @@
 
 Profiles outbound HTTP calls and tags them `slow` / `n-plus-one` / `chatty` / `large-payload`.
 
-- **Peers:** `nestjs-cls@^6` (required); `axios@^1` **optional** (only if you use the axios instrumentation).
+- **Peers:** `nestjs-cls@^6 || ^7` (required); `axios@^1` **optional** (only if you use the axios instrumentation).
 - **Module:** `HttpCollectorModule` (`forRoot` + `forRootAsync`).
 - **Placement:** the `ProfilingModule` bundle. The app keeps importing `@nestjs/axios`'s `HttpModule` wherever it injects `HttpService`; `AxiosInstrumentation` discovers every instance across the app.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-http> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/http-collector>

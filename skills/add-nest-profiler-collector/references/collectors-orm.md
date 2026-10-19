@@ -21,7 +21,7 @@ Both `forRoot(options)` and `forRootAsync({ inject, useFactory })` are available
 
 ## TypeORM — `@eleven-labs/nest-profiler-typeorm`
 
-- **Peers (required):** `@nestjs/typeorm@^11`, `typeorm@>=0.3.20 <2`, `nestjs-cls@^6`.
+- **Peers (required):** `@nestjs/typeorm@^11`, `typeorm@>=0.3.20 <2`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `TypeOrmCollectorModule` (query) + `TypeOrmSchemaCollectorModule` (schema panel).
 - **Placement:** the `ProfilingModule` bundle; the app keeps `TypeOrmModule` in its own modules (`AppDevModule` imports `AppModule` before the bundle).
 - **Gotcha:** the collector resolves the `DataSource` itself via `getDataSourceToken(connectionName)` — **no `inject: [DataSource]` needed**. For a named DataSource, pass `connectionName`.
@@ -37,7 +37,7 @@ TypeOrmSchemaCollectorModule.forRoot(),
 
 ## MikroORM — `@eleven-labs/nest-profiler-mikro-orm`
 
-- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7`, `nestjs-cls@^6`.
+- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `MikroOrmCollectorModule` + `MikroOrmSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MikroOrmModule` in its own modules.
 - **Gotcha:** the **only ESM-only collector** — the app must be `"type": "module"` and use `.js` import specifiers. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.
@@ -53,7 +53,7 @@ MikroOrmSchemaCollectorModule.forRoot(),
 
 ## Mongoose — `@eleven-labs/nest-profiler-mongoose`
 
-- **Peers (required):** `@nestjs/mongoose@^11`, `mongoose@^8 || ^9`, `nestjs-cls@^6`.
+- **Peers (required):** `@nestjs/mongoose@^11`, `mongoose@^8 || ^9`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `MongooseCollectorModule` + `MongooseSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MongooseModule.forRoot(...)` in its own modules.
 - **Gotcha:** patches `Query` / `Aggregate` `exec`. `connectionName` selects a non-default connection.

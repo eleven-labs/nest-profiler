@@ -3,8 +3,15 @@ import { ModuleRef } from '@nestjs/core';
 import { MikroORM } from '@mikro-orm/core';
 import type { LogContext, Logger, LoggerNamespace } from '@mikro-orm/core';
 import { getMikroORMToken } from '@mikro-orm/nestjs';
-import { ClsService } from 'nestjs-cls';
-import { appendCollectorEntry, readProfile, redact, tryResolve } from '@eleven-labs/nest-profiler';
+import { ClsServiceManager } from 'nestjs-cls';
+import type { ClsService } from 'nestjs-cls';
+import {
+  appendCollectorEntry,
+  ProfilerCoreService,
+  readProfile,
+  redact,
+  tryResolve,
+} from '@eleven-labs/nest-profiler';
 import type {
   QueryEntry,
   MikroOrmCollectorModuleOptions,
@@ -62,14 +69,19 @@ export class MikroOrmLoggerPatch implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // Resolve lazily via ModuleRef (traverses to the core's global ClsModule and the named
+    // Resolve lazily via ModuleRef (traverses to the core's global providers and the named
     // MikroORM context token); no-op when the core is disabled or the ORM context is absent.
-    this.cls = tryResolve<ClsService>(this.moduleRef, ClsService);
+    const core = tryResolve<ProfilerCoreService>(this.moduleRef, ProfilerCoreService);
     const orm = tryResolve<MikroORM>(
       this.moduleRef,
       this.options.connectionName ? getMikroORMToken(this.options.connectionName) : MikroORM,
     );
-    if (!this.cls || !orm) return;
+    if (!core || !orm) return;
+    // Not `tryResolve(ClsService)`: this package is ESM and nestjs-cls ships an ESM build since
+    // v7, so the `ClsService` imported here is not the class the CommonJS core registered — the
+    // container does not know it. The static accessor reads the same context, as nestjs-cls
+    // shares it between its ESM and CommonJS copies.
+    this.cls = ClsServiceManager.getClsService();
     const logger = orm.config?.getLogger();
     if (!logger) return;
     this.patchLogger(logger, readConnectionMeta(orm));

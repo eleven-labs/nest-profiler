@@ -54,7 +54,7 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/graphql": "^13.0.0",
     "graphql": "^16.0.0",
-    "nestjs-cls": "^6.0.0",
+    "nestjs-cls": "^6.0.0 || ^7.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0"
   },
@@ -87,7 +87,7 @@
     "graphql": "^16.14.2",
     "jest": "^30.5.2",
     "mercurius": "^16.10.0",
-    "nestjs-cls": "^6.2.1",
+    "nestjs-cls": "^7.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "supertest": "^7.1.1",
