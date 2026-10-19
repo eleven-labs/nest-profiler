@@ -11,6 +11,13 @@ export interface MongooseQueryEntry {
   collection: string;
   operation: string;
   filter?: Record<string, unknown>;
+  /**
+   * Update document (or update pipeline) captured for `update*`, `findOneAndUpdate` and
+   * `replace*` operations, as sent to MongoDB: top-level fields of an update are moved under
+   * `$set`, the way mongoose casts them. Like {@link MongooseQueryEntry.filter}, it is an
+   * operation input: captured in full and redacted, never size-capped.
+   */
+  update?: unknown;
   /** Aggregation pipeline stages, captured for `aggregate` operations. */
   pipeline?: unknown[];
   /**

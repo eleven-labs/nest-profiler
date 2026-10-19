@@ -24,6 +24,7 @@ export function commandArgument(entry: MongooseQueryEntry): unknown {
  *
  * - aggregations → `db.<collection>.aggregate([<pipeline>])`
  * - writes → `db.<collection>.<operation>([<documents|operations>])`
+ * - updates → `db.<collection>.<operation>(<filter>, <update>)`
  * - everything else → `db.<collection>.<operation>(<filter>)`
  *
  * The argument is rendered as indented JSON so it pastes cleanly into a shell. `safeStringify`
@@ -31,7 +32,9 @@ export function commandArgument(entry: MongooseQueryEntry): unknown {
  * MongoDB panel.
  */
 export function buildMongoCommand(entry: MongooseQueryEntry): string {
-  return `db.${entry.collection}.${entry.operation}(${safeStringify(commandArgument(entry), 2)})`;
+  const args = [safeStringify(commandArgument(entry), 2)];
+  if (entry.update !== undefined) args.push(safeStringify(entry.update, 2));
+  return `db.${entry.collection}.${entry.operation}(${args.join(', ')})`;
 }
 
 /**
@@ -53,10 +56,12 @@ function shapeOf(value: unknown): unknown {
 
 /**
  * Builds a value-free fingerprint for a Mongo operation — `operation collection <shape>`
- * where `<shape>` is the operation's argument (filter, pipeline, or written payload) with
- * concrete values stripped. Two executions of the same operation with different bound values
+ * where `<shape>` is the operation's argument (filter, pipeline, or written payload) — followed
+ * by the update's shape for an update — with concrete values stripped. Two executions of the same operation with different bound values
  * share a fingerprint, so the engine can flag them as an N+1 pattern.
  */
 export function buildMongoFingerprint(entry: MongooseQueryEntry): string {
-  return `${entry.operation} ${entry.collection} ${JSON.stringify(shapeOf(commandArgument(entry)))}`;
+  const shapes = [JSON.stringify(shapeOf(commandArgument(entry)))];
+  if (entry.update !== undefined) shapes.push(JSON.stringify(shapeOf(entry.update)));
+  return `${entry.operation} ${entry.collection} ${shapes.join(' ')}`;
 }

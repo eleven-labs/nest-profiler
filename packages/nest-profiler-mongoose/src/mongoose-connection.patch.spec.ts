@@ -43,12 +43,14 @@ function makeMongooseBase(queryResult: unknown, aggregateResult: unknown = []) {
 
 /**
  * Installs the patch against a fake connection/CLS pair and runs one `Query.exec()` for the
- * given operation, returning the entry it appended to the profile.
+ * given operation, returning the entry it appended to the profile. `update` is what the query's
+ * `getUpdate()` returns — `undefined` for a read, like mongoose.
  */
 async function execEntry(
   operation: string,
   queryResult: unknown,
   options: MongooseCollectorModuleOptions = {},
+  update?: unknown,
 ): Promise<MongooseQueryEntry> {
   const profile = makeProfile();
   const cls = { get: (): Profile => profile } as unknown as ClsService;
@@ -64,6 +66,7 @@ async function execEntry(
     op: operation,
     model: { collection: { name: 'users' } },
     getFilter: (): Record<string, unknown> => ({ email: 'a@b.c' }),
+    getUpdate: (): unknown => update,
     exec: base.Query.prototype.exec,
   };
   await query.exec.call(query);
@@ -167,6 +170,61 @@ describe('MongooseConnectionPatch — Query.exec capture', () => {
 
   it('still reports the length of a find result', async () => {
     expect((await execEntry('find', [{ _id: 1 }, { _id: 2 }, { _id: 3 }])).count).toBe(3);
+  });
+
+  it('captures the update document of an update operation, dates included', async () => {
+    const startedAt = new Date('2026-01-02T03:04:05.000Z');
+    const entry = await execEntry(
+      'updateOne',
+      { modifiedCount: 1 },
+      {},
+      {
+        $set: { status: 'RUNNING', startedAt },
+      },
+    );
+    expect(entry.update).toEqual({
+      $set: { status: 'RUNNING', startedAt: '2026-01-02T03:04:05.000Z' },
+    });
+  });
+
+  it('wraps top-level fields in $set, as mongoose does before sending the update', async () => {
+    const entry = await execEntry(
+      'findOneAndUpdate',
+      null,
+      {},
+      {
+        status: 'DONE',
+        $inc: { attempts: 1 },
+      },
+    );
+    expect(entry.update).toEqual({ $set: { status: 'DONE' }, $inc: { attempts: 1 } });
+  });
+
+  it('keeps the top-level fields of a replacement document as they are', async () => {
+    const entry = await execEntry('replaceOne', { modifiedCount: 1 }, {}, { status: 'DONE' });
+    expect(entry.update).toEqual({ status: 'DONE' });
+  });
+
+  it('keeps an update pipeline as it is', async () => {
+    const pipeline = [{ $set: { total: { $add: ['$a', '$b'] } } }];
+    const entry = await execEntry('updateMany', { modifiedCount: 2 }, {}, pipeline);
+    expect(entry.update).toEqual(pipeline);
+  });
+
+  it('redacts sensitive fields in the update document', async () => {
+    const entry = await execEntry(
+      'updateOne',
+      { modifiedCount: 1 },
+      {},
+      {
+        $set: { password: 'hunter2' },
+      },
+    );
+    expect(entry.update).toEqual({ $set: { password: '[REDACTED]' } });
+  });
+
+  it('records no update for a read', async () => {
+    expect((await execEntry('find', [])).update).toBeUndefined();
   });
 
   it('omits the result payload by default', async () => {

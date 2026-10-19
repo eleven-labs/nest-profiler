@@ -26,6 +26,7 @@ interface PatchableQuery {
   op?: string;
   model?: { collection?: { name?: string } };
   getFilter(): Record<string, unknown>;
+  getUpdate?(): unknown;
 }
 
 /** Narrow surface of mongoose.Aggregate used during patching. */
@@ -124,6 +125,9 @@ interface WriteAcknowledgement {
 /** Operations whose result is a write acknowledgement rather than documents. */
 const WRITE_OPERATIONS = /^(update|delete|replace)/i;
 
+/** Operations taking a whole replacement document rather than update operators. */
+const REPLACE_OPERATIONS = /replace/i;
+
 /** Operations resolving to a single document, or `null` when nothing matched. */
 const SINGLE_DOCUMENT_OPERATIONS = /^(findOne|findById)/i;
 
@@ -154,6 +158,29 @@ export function resultCount(operation: string, result: unknown): number | undefi
   if (WRITE_OPERATIONS.test(operation)) return acknowledgedCount(result);
   if (SINGLE_DOCUMENT_OPERATIONS.test(operation)) return result == null ? 0 : 1;
   return undefined;
+}
+
+/**
+ * Reshapes an update the way mongoose casts it before sending it: top-level fields are moved
+ * under `$set` (merged with an explicit one), so the panel and the copied `mongosh` command show
+ * the update MongoDB actually received — `mongosh` rejects an update without operators. A
+ * replacement document and an update pipeline are sent as they are.
+ */
+export function normalizeUpdate(operation: string, update: unknown): unknown {
+  if (update === null || typeof update !== 'object' || Array.isArray(update)) return update;
+  if (REPLACE_OPERATIONS.test(operation)) return update;
+  const operators: Record<string, unknown> = {};
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(update)) {
+    if (key.startsWith('$')) operators[key] = value;
+    else fields[key] = value;
+  }
+  if (Object.keys(fields).length === 0) return update;
+  const $set = operators.$set;
+  return {
+    ...operators,
+    $set: $set !== null && typeof $set === 'object' ? { ...$set, ...fields } : fields,
+  };
 }
 
 /**
@@ -355,6 +382,16 @@ export class MongooseConnectionPatch implements OnModuleInit {
       } catch {
         // not all query types support getFilter()
       }
+      // Snapshot the update before the query runs: mongoose casts it in place during `exec`
+      // (and the timestamps plugin adds `updatedAt` to it). `redact` returns a copy, and turns a
+      // `Date` or an `ObjectId` into its string form so it survives persistence.
+      let update: unknown;
+      try {
+        const raw = this.getUpdate?.();
+        if (raw != null) update = redact(normalizeUpdate(operation, raw));
+      } catch {
+        // not all query types support getUpdate()
+      }
       let count: number | undefined;
       let captured: unknown;
       let error: string | undefined;
@@ -377,6 +414,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
               // Redact sensitive keys/values in the query filter (e.g. a lookup on a hashed
               // password or a token field) before persisting/displaying it.
               filter: filter ? redact(filter) : undefined,
+              update,
               duration,
               startedAt,
               count,

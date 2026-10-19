@@ -21,6 +21,15 @@ describe('buildMongoCommand', () => {
     expect(buildMongoCommand(entry({ operation: 'find' }))).toBe('db.users.find({})');
   });
 
+  it('builds db.<collection>.<operation>(<filter>, <update>) for updates', () => {
+    const filter = { id: 'abc' };
+    const update = { $set: { status: 'RUNNING' } };
+    const cmd = buildMongoCommand(entry({ operation: 'updateOne', filter, update }));
+    expect(cmd).toBe(
+      `db.users.updateOne(${JSON.stringify(filter, null, 2)}, ${JSON.stringify(update, null, 2)})`,
+    );
+  });
+
   it('builds db.<collection>.aggregate([...]) for aggregations', () => {
     const pipeline = [{ $match: { active: true } }, { $count: 'n' }];
     const cmd = buildMongoCommand(entry({ operation: 'aggregate', pipeline }));
@@ -63,6 +72,23 @@ describe('buildMongoFingerprint', () => {
     const b = buildMongoFingerprint(entry({ filter: { name: 'alice', age: { $gt: 65 } } }));
     expect(a).toBe(b);
     expect(a).toBe('find users {"age":{"$gt":"?"},"name":"?"}');
+  });
+
+  it('includes the update shape, so updates of different fields do not share a fingerprint', () => {
+    const status = entry({ operation: 'updateOne', filter: { id: 1 }, update: { $set: { a: 1 } } });
+    const sameShape = entry({
+      operation: 'updateOne',
+      filter: { id: 2 },
+      update: { $set: { a: 2 } },
+    });
+    const otherField = entry({
+      operation: 'updateOne',
+      filter: { id: 1 },
+      update: { $set: { b: 1 } },
+    });
+    expect(buildMongoFingerprint(status)).toBe(buildMongoFingerprint(sameShape));
+    expect(buildMongoFingerprint(status)).not.toBe(buildMongoFingerprint(otherField));
+    expect(buildMongoFingerprint(status)).toBe('updateOne users {"id":"?"} {"$set":{"a":"?"}}');
   });
 
   it('uses the operations shape for a bulkWrite', () => {
