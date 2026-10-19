@@ -19,13 +19,22 @@ function makeProfile(startTime = Date.now()): Profile {
   };
 }
 
-/** Enough allocation and arithmetic that CPU time and a heap delta are measurable. */
-function burnCpu(): void {
+/**
+ * Enough allocation and arithmetic that CPU time and a heap delta are measurable. A fixed
+ * iteration count could finish in well under a millisecond on a fast runner — below the noise of
+ * `process.cpuUsage` — so it keeps going until the process has spent `minCpuMs` of CPU.
+ */
+function burnCpu(minCpuMs = 20): void {
+  const start = process.cpuUsage();
   const noise: string[] = [];
   let sink = 0;
-  for (let i = 0; i < 200_000; i++) {
+  for (let i = 0; ; i++) {
     sink += i;
-    if (i % 1000 === 0) noise.push(`row-${i}-${sink}`);
+    if (i % 1000 === 0) {
+      noise.push(`row-${i}-${sink}`);
+      const { user, system } = process.cpuUsage(start);
+      if (i >= 200_000 && (user + system) / 1000 >= minCpuMs) break;
+    }
   }
   if (noise.length === 0) throw new Error('unreachable');
 }
