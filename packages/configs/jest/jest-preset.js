@@ -3,6 +3,12 @@
 // fails here rather than only on a contributor's machine.
 process.env.TZ = 'Europe/Paris';
 
+// content-disposition@3 (pulled in by @fastify/static) ships ESM only, and Jest can only
+// `require()` ESM from Node 24.9 on. Below that, compile it to CJS so suites booting Fastify still
+// run; from 24.9 on Jest loads it as ESM, which a CJS build would break.
+const [major, minor] = process.versions.node.split('.').map(Number);
+const compileEsmOnlyDeps = major < 24 || (major === 24 && minor < 9);
+
 /** @type {import('jest').Config} */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
@@ -11,7 +17,18 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  ...(compileEsmOnlyDeps && {
+    transformIgnorePatterns: [
+      '/node_modules/(?!\\.pnpm/content-disposition@|content-disposition/)',
+    ],
+  }),
   transform: {
+    ...(compileEsmOnlyDeps && {
+      '/content-disposition/.+\\.js$': [
+        'ts-jest',
+        { tsconfig: { allowJs: true, module: 'CommonJS', isolatedModules: true } },
+      ],
+    }),
     '^.+\\.(t|j)s$': [
       'ts-jest',
       {
