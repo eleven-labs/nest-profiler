@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { getDataSourceToken } from './typeorm-data-source.token';
 import { ClsService } from 'nestjs-cls';
 import type { DataSource, QueryRunner } from 'typeorm';
 import { appendCollectorEntry, readProfile, redact, tryResolve } from '@eleven-labs/nest-profiler';

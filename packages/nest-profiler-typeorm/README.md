@@ -32,7 +32,7 @@
 pnpm add -D @eleven-labs/nest-profiler-typeorm
 ```
 
-**Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
+**Peer dependencies:** `typeorm ^1.0.0`, `@nestjs/typeorm ^11.0.0 || ^12.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 
