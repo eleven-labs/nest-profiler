@@ -1,5 +1,13 @@
 # @eleven-labs/nest-profiler-cache
 
+## 1.2.1
+
+### Patch Changes
+
+- 18c1e52: Support `nestjs-cls` 7: the peer dependency now accepts `^6.0.0 || ^7.0.0`.
+
+  With `nestjs-cls` 7, the MikroORM collector captured no queries. `nestjs-cls` now ships an ESM build next to its CommonJS one, so the `ClsService` this ESM package imported was not the class the core registered, and resolving it found nothing. The collector now reads the request context through `ClsServiceManager`, which `nestjs-cls` shares between its two builds.
+
 ## 1.0.0
 
 ### Major Changes
