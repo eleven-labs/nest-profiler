@@ -88,7 +88,19 @@
             <td class="py-2 px-4 align-top">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
-                  <% if (q.filter && Object.keys(q.filter).length > 0) { %>
+                  <% const hasFilter = q.filter && Object.keys(q.filter).length > 0; %>
+                  <%
+                    // Inputs rendered under the main argument, in `mongosh` argument order.
+                    const extras = [
+                      ['Update', q.update],
+                      ['Projection', q.projection],
+                      ['Options', q.options],
+                    ].filter(([, value]) => value != null && Object.keys(value).length > 0);
+                  %>
+                  <% if (q.field !== undefined) { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-1">Field: <code class="text-xs text-code-text"><%= q.field %></code></div>
+                  <% } %>
+                  <% if (hasFilter) { %>
                     <div class="text-2xs text-foreground-muted font-medium mb-0.5">Filter:</div>
                     <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.filter) %></code></pre>
                   <% } else if (q.operation === 'aggregate' && q.pipeline && q.pipeline.length > 0) { %>
@@ -102,9 +114,13 @@
                   <% } else if (q.documents && q.documents.length > 0) { %>
                     <div class="text-2xs text-foreground-muted font-medium mb-0.5">Documents:</div>
                     <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(q.documents) %></code></pre>
-                  <% } else { %>
+                  <% } else if (extras.length === 0 && q.field === undefined) { %>
                     <span class="text-xs text-foreground-faint">—</span>
                   <% } %>
+                  <% extras.forEach(([label, value], i) => { %>
+                    <div class="text-2xs text-foreground-muted font-medium mb-0.5 <%= hasFilter || i > 0 || q.operation === 'aggregate' ? 'mt-1.5' : '' %>"><%= label %>:</div>
+                    <pre class="bg-surface-muted border border-line rounded px-2 py-1 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(value) %></code></pre>
+                  <% }) %>
                 </div>
                 <% if (q.command) { %>
                   <span class="shrink-0"><%- copyBtn(q.command, 'Copy query') %></span>

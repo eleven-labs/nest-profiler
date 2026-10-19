@@ -26,12 +26,18 @@ interface PatchableQuery {
   op?: string;
   model?: { collection?: { name?: string } };
   getFilter(): Record<string, unknown>;
+  getUpdate?(): unknown;
+  getOptions?(): unknown;
+  projection?(): unknown;
+  /** Field of a `distinct` — mongoose exposes no getter for it. */
+  _distinct?: unknown;
 }
 
 /** Narrow surface of mongoose.Aggregate used during patching. */
 interface PatchableAggregate {
   _model?: { collection?: { name?: string } };
   _pipeline?: unknown[];
+  options?: unknown;
 }
 
 interface PatchableExec {
@@ -107,11 +113,35 @@ function collectionNameOf(source: unknown): string {
 }
 
 /**
- * What a patched write contributes to its entry: the documents affected and the payload it was
- * called with — the written documents (`save`, `insertMany`) or the bulk operations
- * (`bulkWrite`).
+ * What a patched write contributes to its entry: the operation it sent, the documents affected,
+ * and its payload — the written documents (`insertOne`, `insertMany`), the bulk operations
+ * (`bulkWrite`), or the filter and update of the `updateOne` a `save()` sends.
  */
-type WrittenPayload = Pick<MongooseQueryEntry, 'count' | 'documents' | 'operations'>;
+type WrittenPayload = Pick<
+  MongooseQueryEntry,
+  'operation' | 'count' | 'documents' | 'operations' | 'filter' | 'update' | 'projection'
+>;
+
+/** How a patched write settled: what it resolved to, or what it threw. */
+interface WriteOutcome {
+  result?: unknown;
+  error?: unknown;
+}
+
+/**
+ * Called before a write runs, with its arguments and receiver; returns how to describe the write
+ * once it settled. mongoose fills a write's payload while it runs — defaults, `_id`, timestamps,
+ * casting — so only then does it describe what MongoDB received.
+ */
+type WriteObserver = (args: unknown[], self: unknown) => (outcome: WriteOutcome) => WrittenPayload;
+
+/** Narrow surface of a mongoose document, as `save()` writes it. */
+interface SavedDocument {
+  _id?: unknown;
+  isNew?: boolean;
+  /** Computes `[where, update]` for the modified paths, or nothing when none was modified. */
+  $__delta?: (...args: unknown[]) => unknown;
+}
 
 /** Write acknowledgement as returned by `update*` / `delete*` / `replace*` operations. */
 interface WriteAcknowledgement {
@@ -123,6 +153,9 @@ interface WriteAcknowledgement {
 
 /** Operations whose result is a write acknowledgement rather than documents. */
 const WRITE_OPERATIONS = /^(update|delete|replace)/i;
+
+/** Operations taking a whole replacement document rather than update operators. */
+const REPLACE_OPERATIONS = /replace/i;
 
 /** Operations resolving to a single document, or `null` when nothing matched. */
 const SINGLE_DOCUMENT_OPERATIONS = /^(findOne|findById)/i;
@@ -157,6 +190,29 @@ export function resultCount(operation: string, result: unknown): number | undefi
 }
 
 /**
+ * Reshapes an update the way mongoose casts it before sending it: top-level fields are moved
+ * under `$set` (merged with an explicit one), so the panel and the copied `mongosh` command show
+ * the update MongoDB actually received — `mongosh` rejects an update without operators. A
+ * replacement document and an update pipeline are sent as they are.
+ */
+export function normalizeUpdate(operation: string, update: unknown): unknown {
+  if (update === null || typeof update !== 'object' || Array.isArray(update)) return update;
+  if (REPLACE_OPERATIONS.test(operation)) return update;
+  const operators: Record<string, unknown> = {};
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(update)) {
+    if (key.startsWith('$')) operators[key] = value;
+    else fields[key] = value;
+  }
+  if (Object.keys(fields).length === 0) return update;
+  const $set = operators.$set;
+  return {
+    ...operators,
+    $set: $set !== null && typeof $set === 'object' ? { ...$set, ...fields } : fields,
+  };
+}
+
+/**
  * Projects an operation result into something safe to persist and display: hydrated documents
  * are flattened through `toSafeData` (which honors their `toJSON`, caps depth/size and keeps the
  * payload JSON-serializable), then run through the shared redaction so a document field holding
@@ -167,7 +223,7 @@ export function safeResult(result: unknown, limits: SafeDataOptions | undefined)
 }
 
 /**
- * Projects the payload a write was called with — the documents of a `save` / `insertMany`, the
+ * Projects the payload a write sent — the documents of an `insertOne` / `insertMany`, the
  * operations of a `bulkWrite` — into a JSON-safe, redacted array. A single value is wrapped so
  * the panel always renders an array, matching how `mongosh` takes these arguments.
  *
@@ -184,6 +240,148 @@ export function safeWritePayload(values: unknown): unknown[] {
     maxStringLength: 0,
   });
   return Array.isArray(safe) ? safe : [safe];
+}
+
+/** An error's message, as recorded on an entry. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Documents a `bulkWrite` affected — inserted, modified, deleted or upserted — read off its
+ * result, or off its error's when it failed part-way. Its operation count says nothing of what it
+ * wrote: a bulk that matched nothing would never trip the zero-rows rule.
+ */
+function bulkWriteCount({ result, error }: WriteOutcome): number | undefined {
+  const failure = error as { result?: unknown } | null | undefined;
+  const source = failure === undefined ? result : failure?.result;
+  if (source === null || typeof source !== 'object') return undefined;
+  const counts = source as Record<string, unknown>;
+  let total: number | undefined;
+  for (const key of ['insertedCount', 'modifiedCount', 'deletedCount', 'upsertedCount']) {
+    const count = counts[key];
+    if (typeof count === 'number') total = (total ?? 0) + count;
+  }
+  return total;
+}
+
+/**
+ * What an `insertMany` wrote. It resolves to the inserted documents as sent — defaults, `_id`,
+ * timestamps and version key included —, to the driver's acknowledgement with `rawResult`, and
+ * when it fails part-way (`ordered: false`) its error lists the documents inserted all the same.
+ * The documents passed in stand in for the payload whenever the inserted ones are unknown.
+ */
+function insertedMany(input: unknown, { result, error }: WriteOutcome): WrittenPayload {
+  if (Array.isArray(result)) {
+    return { operation: 'insertMany', count: result.length, documents: safeWritePayload(result) };
+  }
+  const inserted = (error as { insertedDocs?: unknown } | null | undefined)?.insertedDocs;
+  const acknowledged = (result as { insertedCount?: unknown } | null | undefined)?.insertedCount;
+  let count: number | undefined;
+  if (Array.isArray(inserted)) count = inserted.length;
+  else if (typeof acknowledged === 'number') count = acknowledged;
+  else if (error === undefined) count = Array.isArray(input) ? input.length : 1;
+  return { operation: 'insertMany', count, documents: safeWritePayload(input) };
+}
+
+/**
+ * Observes a `document.save()` to record the operation it sends rather than the call: mongoose
+ * inserts a new document whole (`insertOne`), updates an existing one with the delta of its
+ * modified paths (`updateOne`), and only checks that an unmodified one still exists (`findOne`).
+ *
+ * A new document is read once saved, the pre-save hooks having set its timestamps and version
+ * key. The delta is computed during the save, after those hooks, by the document's internal
+ * `$__delta()` — intercepted on that one instance, so concurrent saves never mix theirs up, and
+ * restored once the save settled.
+ */
+const observeSave: WriteObserver = (_args, self) => {
+  // `save()` only takes options: what it writes is the receiver.
+  const document = self as SavedDocument;
+  if (document.isNew !== false) {
+    return ({ error }) => ({
+      operation: 'insertOne',
+      count: error === undefined ? 1 : undefined,
+      documents: safeWritePayload(document),
+    });
+  }
+  const computeDelta = document.$__delta;
+  const ownDelta = Object.getOwnPropertyDescriptor(document, '$__delta');
+  let computed = false;
+  let delta: unknown;
+  if (typeof computeDelta === 'function') {
+    document.$__delta = function (this: unknown, ...args: unknown[]): unknown {
+      computed = true;
+      delta = computeDelta.apply(this, args);
+      return delta;
+    };
+  }
+  return ({ error }) => {
+    if (ownDelta) Object.defineProperty(document, '$__delta', ownDelta);
+    else delete document.$__delta;
+    const count = error === undefined ? 1 : undefined;
+    const [where, update] = Array.isArray(delta) ? (delta as unknown[]) : [];
+    const filter = redact({
+      _id: document._id,
+      ...(where !== null && typeof where === 'object' ? where : {}),
+    });
+    // Without a delta, mongoose only checks the document exists — unless the save failed before
+    // computing one (validation, a pre-save hook), in which case it sent nothing.
+    if (update == null && computed) {
+      return { operation: 'findOne', count, filter, projection: { _id: 1 } };
+    }
+    return {
+      operation: 'updateOne',
+      count,
+      filter,
+      update: update == null ? undefined : redact(update),
+    };
+  };
+};
+
+/** Options sent to the driver, the session left out — a live client, not an operation input. */
+function driverOptions(options: unknown): Record<string, unknown> | undefined {
+  if (options === null || typeof options !== 'object') return undefined;
+  const { session: _session, ...rest } = options as Record<string, unknown>;
+  return Object.keys(rest).length > 0 ? redact(rest) : undefined;
+}
+
+/**
+ * The inputs of a query besides its filter and update — the field of a `distinct`, its
+ * projection and its options —, read once it ran, as mongoose sent them.
+ */
+function queryInputs(
+  query: PatchableQuery,
+): Pick<MongooseQueryEntry, 'field' | 'projection' | 'options'> {
+  try {
+    const projection = query.projection?.();
+    return {
+      field: typeof query._distinct === 'string' ? query._distinct : undefined,
+      projection:
+        projection !== null && typeof projection === 'object' && Object.keys(projection).length > 0
+          ? redact(projection as Record<string, unknown>)
+          : undefined,
+      options: driverOptions(query.getOptions?.()),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * The update a query sent, read once it ran: mongoose casts it in place during `exec` — wrapping
+ * top-level fields in `$set`, adding the timestamps plugin's `updatedAt` and the upsert defaults —
+ * so reading it before would miss what was actually written. {@link normalizeUpdate} still
+ * reshapes an update the query rejected before casting it. `redact` returns a copy, and turns a
+ * `Date` or an `ObjectId` into its string form so it survives persistence.
+ */
+function sentUpdate(query: PatchableQuery, operation: string): unknown {
+  try {
+    const update = query.getUpdate?.();
+    return update == null ? undefined : redact(normalizeUpdate(operation, update));
+  } catch {
+    // not all query types support getUpdate()
+    return undefined;
+  }
 }
 
 type PatchableConnection = Connection & { base: MongooseBase };
@@ -235,12 +433,10 @@ export class MongooseConnectionPatch implements OnModuleInit {
     const limits = this.options.resultLimits;
 
     const record = (
-      operation: string,
       collection: string,
       startedAt: number,
-      written: WrittenPayload,
-      captured: unknown,
-      error: string | undefined,
+      describe: (outcome: WriteOutcome) => WrittenPayload,
+      outcome: WriteOutcome,
     ): void => {
       try {
         const profile = readProfile(cls);
@@ -248,42 +444,36 @@ export class MongooseConnectionPatch implements OnModuleInit {
         const duration = Date.now() - startedAt;
         appendCollectorEntry<MongooseQueryEntry>(profile, MONGOOSE_QUERIES_KEY, {
           collection,
-          operation,
           duration,
           startedAt,
-          ...written,
-          result: captured,
+          ...describe(outcome),
+          result:
+            capture && outcome.result !== undefined
+              ? safeResult(outcome.result, limits)
+              : undefined,
           connection: meta.connection,
           database: meta.database,
-          error,
+          error: outcome.error === undefined ? undefined : errorMessage(outcome.error),
         });
       } catch {
         // Outside CLS context — ignore
       }
     };
 
-    const wrap = (
-      operation: string,
-      writtenOf: (args: unknown[], self: unknown) => WrittenPayload,
-    ) =>
+    const wrap = (observe: WriteObserver) =>
       async function (this: unknown, original: PatchableExec, args: unknown[]): Promise<unknown> {
         const startedAt = Date.now();
         const collection = collectionNameOf(this);
-        // Snapshot the payload before the write runs: mongoose mutates what it writes (a saved
-        // document gets its `_id` and its dirty state cleared), so capturing afterwards would
-        // no longer describe the operation that was issued.
-        const written = writtenOf(args, this);
-        let captured: unknown;
-        let error: string | undefined;
+        const describe = observe(args, this);
+        const outcome: WriteOutcome = {};
         try {
-          const result = await original.apply(this, args);
-          if (capture && result !== undefined) captured = safeResult(result, limits);
-          return result;
+          outcome.result = await original.apply(this, args);
+          return outcome.result;
         } catch (err) {
-          error = err instanceof Error ? err.message : String(err);
+          outcome.error = err;
           throw err;
         } finally {
-          record(operation, collection, startedAt, written, captured, error);
+          record(collection, startedAt, describe, outcome);
         }
       };
 
@@ -292,16 +482,11 @@ export class MongooseConnectionPatch implements OnModuleInit {
      * replaced, so patching two aliases of the same implementation (`save` / `$save`) still
      * records one entry per call. No-ops when the underlying mongoose build does not expose it.
      */
-    const install = (
-      holder: object,
-      key: string,
-      operation: string,
-      writtenOf: (args: unknown[], self: unknown) => WrittenPayload,
-    ): void => {
+    const install = (holder: object, key: string, observe: WriteObserver): void => {
       const methods = holder as Record<string, PatchableExec | undefined>;
       const original = methods[key];
       if (typeof original !== 'function' || original.__profilerPatched === true) return;
-      const runner = wrap(operation, writtenOf);
+      const runner = wrap(observe);
       const patched: PatchableExec = function (this: unknown, ...args: unknown[]) {
         return runner.call(this, original, args);
       };
@@ -309,29 +494,26 @@ export class MongooseConnectionPatch implements OnModuleInit {
       methods[key] = patched;
     };
 
-    // The document written by a `save` is the receiver, not an argument (`save()` only takes
-    // options).
-    const savedDocument = (_args: unknown[], self: unknown): WrittenPayload => ({
-      count: 1,
-      documents: safeWritePayload(self),
-    });
-
     // `document.save()`, and its `$save` alias: `Model.create()` / `Model.insertOne()` call
     // `$save`, which mongoose copied off `save` at load time, so patching `save` alone would
     // leave the most common write path uninstrumented.
-    install(model.prototype, 'save', 'save', savedDocument);
-    install(model.prototype, '$save', 'save', savedDocument);
+    install(model.prototype, 'save', observeSave);
+    install(model.prototype, '$save', observeSave);
 
     // Static Model.insertMany / Model.bulkWrite. `Model.bulkSave()` routes through bulkWrite.
-    install(model, 'insertMany', 'insertMany', (args) => ({
-      count: Array.isArray(args[0]) ? args[0].length : 1,
-      documents: safeWritePayload(args[0]),
-    }));
-    install(model, 'bulkWrite', 'bulkWrite', (args) =>
-      Array.isArray(args[0])
-        ? { count: args[0].length, operations: safeWritePayload(args[0]) }
-        : {},
-    );
+    install(model, 'insertMany', (args) => (outcome) => insertedMany(args[0], outcome));
+    // mongoose casts the operations in place — timestamps, `$set` — before sending them, so they
+    // are read once the bulk settled.
+    install(model, 'bulkWrite', (args) => (outcome) => {
+      const operations = args[0];
+      return Array.isArray(operations)
+        ? {
+            operation: 'bulkWrite',
+            count: bulkWriteCount(outcome),
+            operations: safeWritePayload(operations),
+          }
+        : { operation: 'bulkWrite' };
+    });
   }
 
   private patchQueryExec(mongoose: MongooseBase): void {
@@ -377,6 +559,8 @@ export class MongooseConnectionPatch implements OnModuleInit {
               // Redact sensitive keys/values in the query filter (e.g. a lookup on a hashed
               // password or a token field) before persisting/displaying it.
               filter: filter ? redact(filter) : undefined,
+              update: sentUpdate(this, operation),
+              ...queryInputs(this),
               duration,
               startedAt,
               count,
@@ -432,6 +616,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
               collection,
               operation: 'aggregate',
               pipeline: pipeline ? redact(pipeline) : undefined,
+              options: driverOptions(this.options),
               duration,
               startedAt,
               count,
@@ -481,6 +666,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         collection,
         operation,
         filter: filter ? redact(filter) : undefined,
+        ...queryInputs(this),
         connection: meta.connection,
         database: meta.database,
       });
@@ -515,6 +701,7 @@ export class MongooseConnectionPatch implements OnModuleInit {
         collection,
         operation: 'aggregate',
         pipeline: pipeline ? redact(pipeline) : undefined,
+        options: driverOptions(this.options),
         connection: meta.connection,
         database: meta.database,
       });
@@ -541,7 +728,15 @@ function recordCursorLifecycle(
   startedAt: number,
   meta: Pick<
     MongooseQueryEntry,
-    'collection' | 'operation' | 'filter' | 'pipeline' | 'connection' | 'database'
+    | 'collection'
+    | 'operation'
+    | 'filter'
+    | 'pipeline'
+    | 'field'
+    | 'projection'
+    | 'options'
+    | 'connection'
+    | 'database'
   >,
 ): void {
   if (!profile) return;
