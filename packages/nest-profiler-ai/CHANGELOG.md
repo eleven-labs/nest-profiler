@@ -1,5 +1,19 @@
 # @eleven-labs/nest-profiler-ai
 
+## 1.0.0-alpha.3
+
+### Minor Changes
+
+- 466f8bb: Profile `HarnessAgent` turns from `@ai-sdk/harness`. A coding-agent runtime driven through the AI SDK — Claude Code, Codex, OpenCode… — now lands in the AI panel like any other agent: each step with its tokens, named after the agent's own `id` and tagged with the harness it drove (`harness:claude-code`), with the runtime's built-in tools labelled `harness` beside the host's `local` ones. A harness that reports its tokens for the whole turn only — Codex — has them counted and costed on the turn's last call. A `HarnessAgent` reports to no telemetry integration unless told to, so the module hands it the profiler's own on its first turn, without touching the settings object the application passed in. It is opted into from a dedicated subpath — `AiCollectorModule.forRoot({ instrumentations: [HarnessInstrumentation] })`, with `HarnessInstrumentation` imported from `@eleven-labs/nest-profiler-ai/harness` — so the main entry never imports `@ai-sdk/harness`, an optional peer dependency needed only by that subpath. `instrumentations` takes any `AiInstrumentation`, the same pattern as `nest-profiler-http`'s client adapters. Prompt-cache writes are now recorded and billed at their own rate, a `[1m]`-style variant suffix falls back to its base model's price, and `fetchLiteLLMPricing()` loads every provider's prices from LiteLLM's public list — the ids Claude Code and Codex report.
+
+  **Breaking:** the price-list loaders move to their own subpath too. Import `fetchOpenRouterPricing` (and the new `fetchLiteLLMPricing`, with their option types) from `@eleven-labs/nest-profiler-ai/pricing` instead of the package root.
+
+### Patch Changes
+
+- 18c1e52: Support `nestjs-cls` 7: the peer dependency now accepts `^6.0.0 || ^7.0.0`.
+
+  With `nestjs-cls` 7, the MikroORM collector captured no queries. `nestjs-cls` now ships an ESM build next to its CommonJS one, so the `ClsService` this ESM package imported was not the class the core registered, and resolving it found nothing. The collector now reads the request context through `ClsServiceManager`, which `nestjs-cls` shares between its two builds.
+
 ## 1.0.0-alpha.2
 
 ### Minor Changes
