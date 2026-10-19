@@ -163,6 +163,14 @@ function retagPinnedReleases(planPath: string, pinned: PinnedChannelPackage[]): 
   const distTags = new Map(pinned.map((pkg) => [pkg.name, pkg.distTag]));
   const planFile = JSON.parse(readFileSync(planPath, 'utf-8')) as PublishPlanFile;
 
+  // `publish-plan --output` is experimental in Changesets: fail loudly on a format
+  // change rather than silently publish a pinned package under the wrong tag.
+  if (planFile.version !== 1 || !Array.isArray(planFile.plan)) {
+    throw new Error(
+      `Unsupported Changesets publish plan (version ${String(planFile.version)}) in ${planPath}.`,
+    );
+  }
+
   for (const release of planFile.plan.flat()) {
     const distTag = distTags.get(release.name);
     if (release.kind === 'publish' && distTag) {

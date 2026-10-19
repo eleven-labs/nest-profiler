@@ -25,7 +25,9 @@ jobs:
   release:
     name: Version or publish packages
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # A timeout cancels the job like any other cancellation: keep enough headroom
+    # for build, pack and publish so a release is never cut off half-published.
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7

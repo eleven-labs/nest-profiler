@@ -101,7 +101,7 @@ Such a package goes through the ordinary flow — `pnpm changeset` lists it, it 
   pnpm dist-tag add <package>@<version> latest
   ```
 
-  The promotion also runs for packages that were already published, so leaving it to the next release fixes the tag on its own. Nothing else is needed once npm allows trusted publishers to set dist-tags.
+  The promotion also runs for packages that were already published, so every release repeats the warning until the tag is fixed by hand. Nothing else is needed once npm allows trusted publishers to set dist-tags.
 
 A pinned package is deliberately outside the `linked` group: it keeps its own version line and is never dragged along by a suite-wide release. Graduating it is a one-off manual step — drop `publishConfig.tag`, set the stable version by hand, and add it to `linked` if it should follow the suite from then on.
 
