@@ -6,7 +6,12 @@ import { toSafeData } from '../utils/safe-data.utils';
 /** Method name to profiler log level; extend with custom entries (e.g. a logger's `silly` or `http` level) to support any logger. */
 export type LogMethodMap = Record<string, LogLevel>;
 
-/** Built-in method→level map: the NestJS `LoggerService` methods plus the widespread `info`/`trace` aliases. Spread and extend to add more. */
+/**
+ * Built-in method→level map: the NestJS `LoggerService` methods, the widespread `info`/`trace`
+ * aliases, and the syslog levels (RFC 5424) that winston's `syslog` preset and many in-house
+ * loggers expose — without them a logger's `warning()` or `critical()` lines went missing from the
+ * profile. Spread and extend to add more.
+ */
 export const DEFAULT_LOG_METHODS: LogMethodMap = {
   log: 'log',
   warn: 'warn',
@@ -16,6 +21,13 @@ export const DEFAULT_LOG_METHODS: LogMethodMap = {
   fatal: 'fatal',
   info: 'log',
   trace: 'verbose',
+  notice: 'log',
+  warning: 'warn',
+  crit: 'fatal',
+  critical: 'fatal',
+  alert: 'fatal',
+  emerg: 'fatal',
+  emergency: 'fatal',
 };
 
 /** A log call decomposed into what the profiler stores on the active profile. */

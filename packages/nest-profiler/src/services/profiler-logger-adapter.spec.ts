@@ -50,6 +50,13 @@ describe('createProfilerLogger', () => {
   it.each([
     ['info', 'log'],
     ['trace', 'verbose'],
+    ['notice', 'log'],
+    ['warning', 'warn'],
+    ['crit', 'fatal'],
+    ['critical', 'fatal'],
+    ['alert', 'fatal'],
+    ['emerg', 'fatal'],
+    ['emergency', 'fatal'],
   ] as const)(
     'captures the third-party alias "%s" as the "%s" profiler level',
     (method, expectedLevel) => {
