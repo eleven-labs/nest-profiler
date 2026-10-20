@@ -22,6 +22,11 @@ interface ProfileRuntimeState {
    */
   deferCollection: boolean;
   /**
+   * The interceptor already pushed the exception escaping this execution. See
+   * {@link markExceptionRecorded}.
+   */
+  exceptionRecorded: boolean;
+  /**
    * Reads back the body the transport actually wrote. See {@link setTransportResponseBody}.
    */
   readTransportBody?: () => unknown;
@@ -45,6 +50,7 @@ function stateOf(profile: Profile): ProfileRuntimeState {
   if (existing) return existing;
   const created: ProfileRuntimeState = {
     deferCollection: false,
+    exceptionRecorded: false,
     manualSpans: [],
     openSpans: new Map(),
     spanCounter: 0,
@@ -67,6 +73,21 @@ export function deferCollectionToFinishHook(profile: Profile): void {
 /** Whether {@link deferCollectionToFinishHook} was called for this profile. */
 export function isCollectionDeferred(profile: Profile): boolean {
   return states.get(profile)?.deferCollection === true;
+}
+
+/**
+ * Marks that the interceptor pushed the exception escaping the handler, so the catch-all exception
+ * filter does not push it a second time. `profile.response` used to be that signal, but a failing
+ * request whose finish hook is armed is no longer finalized by the interceptor: the exception
+ * filters that run afterwards decide its status and body, and that hook reads them back.
+ */
+export function markExceptionRecorded(profile: Profile): void {
+  stateOf(profile).exceptionRecorded = true;
+}
+
+/** Whether {@link markExceptionRecorded} was called for this profile. */
+export function isExceptionRecorded(profile: Profile): boolean {
+  return states.get(profile)?.exceptionRecorded === true;
 }
 
 /**

@@ -5,6 +5,7 @@ import { ClsService } from 'nestjs-cls';
 import { ProfilerInterceptor } from './profiler.interceptor';
 import {
   deferCollectionToFinishHook,
+  isExceptionRecorded,
   setTransportResponseBody,
 } from '../utils/profile-runtime-state';
 import { ProfilerCoreService } from '../services/profiler-core.service';
@@ -696,6 +697,31 @@ describe('ProfilerInterceptor', () => {
 
       expect(profile.exceptions[0]?.name).toBe('Error');
       expect(profile.exceptions[0]?.message).toBe('boom');
+    });
+
+    it('records the exception but leaves finalization to the finish hook when the middleware armed it', async () => {
+      // Exception filters run after this chain: they decide the status (a domain error may be
+      // answered 409, not the 500 guessed here), write the body and often log. The finish hook
+      // runs once they are done, so it is the one that closes the profile.
+      const profile = makeProfile();
+      deferCollectionToFinishHook(profile);
+      const core = makeCore();
+      const interceptor = makeInterceptor(profile, core);
+      const error = new TypeError('conflict');
+
+      await expect(
+        lastValueFrom(
+          interceptor.intercept(
+            makeCtx({ method: 'DELETE', url: '/hello' }, makeRes()),
+            errorHandler(error),
+          ),
+        ),
+      ).rejects.toBe(error);
+
+      expect(profile.exceptions[0]?.message).toBe('conflict');
+      expect(isExceptionRecorded(profile)).toBe(true);
+      expect(profile.response).toBeUndefined();
+      expect(core.schedulePersist).not.toHaveBeenCalled();
     });
 
     it('records a 500 for a non-HttpException error (MAJ-5)', async () => {

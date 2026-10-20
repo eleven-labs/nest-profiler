@@ -3,6 +3,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { PROFILER_REQ_KEY } from '../constants';
 import { readProfile } from '../services/profiler-context';
+import { isExceptionRecorded } from '../utils/profile-runtime-state';
 import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to-exception-entry';
 import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
@@ -56,11 +57,11 @@ export class ProfilerExceptionFilter extends BaseExceptionFilter {
 
   private recordHttpException(exception: unknown, host: ArgumentsHost): void {
     const profile = this.resolveProfile(host);
-    // When the interceptor handled the request it already finalized the profile
-    // (and pushed any handler/pipe exception), so `response` is set by now. Only
-    // capture exceptions that bypassed the interceptor entirely — i.e. those
+    // When the interceptor handled the request it already pushed any handler/pipe
+    // exception — and either finalized the profile or left that to the finish hook.
+    // Only capture exceptions that bypassed the interceptor entirely — i.e. those
     // thrown by guards or anything running before it.
-    if (!profile || profile.response) return;
+    if (!profile || profile.response || isExceptionRecorded(profile)) return;
 
     profile.exceptions.push(toExceptionEntry(exception, this.exceptionCapture));
   }
