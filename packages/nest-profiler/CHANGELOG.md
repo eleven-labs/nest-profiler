@@ -1,5 +1,16 @@
 # @eleven-labs/nest-profiler
 
+## 1.3.0
+
+### Minor Changes
+
+- d8da9ff: List the profiles sharing a trace id on the detail page, and let the Logs tab merge the lines of the whole trace, naming the profile each one comes from.
+
+### Patch Changes
+
+- 1d604a6: Close a failing HTTP profile once the exception filters have answered: the profile now records the status and body the filter wrote (a domain error answered 409 was stored as 500, with no body) and keeps the lines the filter logged.
+- 1d604a6: Capture the syslog levels (`notice`, `warning`, `crit`, `critical`, `alert`, `emerg`, `emergency`) in `DEFAULT_LOG_METHODS`, so a logger exposing them no longer loses those lines from the profile.
+
 ## 1.2.1
 
 ### Patch Changes
