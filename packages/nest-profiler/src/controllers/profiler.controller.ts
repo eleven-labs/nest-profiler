@@ -26,6 +26,7 @@ import { parseExplainPlan } from '../collectors/sql/explain/parse-explain';
 import type { QueryEntry } from '../collectors/sql/sql-query.interface';
 import { MERMAID_SCRIPT_URL } from '../collectors/schema/mermaid-cdn';
 import { ProfilerGuard } from '../guards/profiler.guard';
+import { ResponseContentType } from './response-content-type';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
 import type { LogEntry, Profile } from '../interfaces/profile.interface';
@@ -178,7 +179,7 @@ export class ProfilerController {
   }
 
   @Get(`${PROFILER_BASE_PATH}/__assets/styles/:file`)
-  @Header('Content-Type', 'text/css; charset=utf-8')
+  @ResponseContentType('text/css; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getStyle(@Param('file') file: string): string {
     if (!STYLE_ALLOWLIST.includes(file)) throw new NotFoundException(`Asset "${file}" not found.`);
@@ -186,7 +187,7 @@ export class ProfilerController {
   }
 
   @Get(`${PROFILER_BASE_PATH}/__assets/scripts/:file`)
-  @Header('Content-Type', 'text/javascript; charset=utf-8')
+  @ResponseContentType('text/javascript; charset=utf-8')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   getScript(@Param('file') file: string): string {
     // Registered bundles (core + extensions) resolve to their on-disk path;
@@ -209,7 +210,7 @@ export class ProfilerController {
   }
 
   @Get(PROFILER_BASE_PATH)
-  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ResponseContentType('text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Content-Security-Policy', PROFILER_CSP)
@@ -424,7 +425,7 @@ export class ProfilerController {
   }
 
   @Get(`${PROFILER_BASE_PATH}/:token`)
-  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ResponseContentType('text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Content-Security-Policy', PROFILER_CSP)
@@ -575,7 +576,7 @@ export class ProfilerController {
    * replayed; `EXPLAIN` alone never executes the statement (`ANALYZE`, opt-in, is SELECT-only).
    */
   @Get(`${PROFILER_BASE_PATH}/:token/explain/:collector/:index`)
-  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ResponseContentType('text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
   async explainQuery(

@@ -10,6 +10,7 @@ import {
   HttpCode,
   Injectable,
   InternalServerErrorException,
+  Logger,
   Post,
 } from '@nestjs/common';
 import type { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common';
@@ -522,6 +523,30 @@ describe('ProfilerController (e2e)', () => {
       // `/_profiler/:token` must not swallow the deeper asset route.
       const res = await request(server()).get('/_profiler/__assets/scripts/unknown.js');
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('404 on a route serving a non-JSON Content-Type', () => {
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+      warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => warn.mockRestore());
+
+    // The Content-Type a route declares belongs to its successful body: the JSON error body of a
+    // 404 must not be sent under it (Nest then warns "Content-Type doesn't match Reply body").
+    it.each([
+      ['detail page', '/_profiler/does-not-exist'],
+      ['explain fragment', '/_profiler/does-not-exist/explain/unknown/0'],
+      ['stylesheet', '/_profiler/__assets/styles/secret.css'],
+      ['script', '/_profiler/__assets/scripts/unknown.js'],
+    ])('answers the %s 404 as JSON, with no mismatch warning', async (_label, url) => {
+      const res = await request(server()).get(url);
+      expect(res.status).toBe(404);
+      expect(res.headers['content-type']).toContain('application/json');
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("Content-Type doesn't match"));
     });
   });
 
