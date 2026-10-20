@@ -4,6 +4,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
 import { PROFILER_REQ_KEY } from '../constants';
 import type { Profile } from '../interfaces/profile.interface';
+import { markExceptionRecorded } from '../utils/profile-runtime-state';
 import { ProfilerExceptionFilter } from './profiler-exception.filter';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
@@ -82,6 +83,20 @@ describe('ProfilerExceptionFilter', () => {
     const profile = makeProfile({
       response: { statusCode: 500, headers: {}, body: undefined },
     });
+    const filter = new ProfilerExceptionFilter(makeCls(profile));
+    const host = makeHost('http', { [PROFILER_REQ_KEY]: profile });
+
+    filter.catch(new HttpException('boom', 500), host);
+
+    expect(profile.exceptions).toHaveLength(0);
+    expect(superCatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not double-record when the interceptor recorded the exception and left finalization to the finish hook', () => {
+    // With the finish hook armed the interceptor no longer sets `response` on failure, so the
+    // marker it leaves is the only sign it already pushed this exception.
+    const profile = makeProfile();
+    markExceptionRecorded(profile);
     const filter = new ProfilerExceptionFilter(makeCls(profile));
     const host = makeHost('http', { [PROFILER_REQ_KEY]: profile });
 

@@ -20,7 +20,11 @@ import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to
 import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
 import { finalizeHttpProfile, resolveHttpCaptureConfig } from '../utils/http-capture.util';
 import type { HttpCaptureConfig } from '../utils/http-capture.util';
-import { isCollectionDeferred, readTransportResponseBody } from '../utils/profile-runtime-state';
+import {
+  isCollectionDeferred,
+  markExceptionRecorded,
+  readTransportResponseBody,
+} from '../utils/profile-runtime-state';
 import type { Profile } from '../interfaces/profile.interface';
 import { toolbarSnippet } from '../views/layout.view';
 
@@ -179,8 +183,6 @@ export class ProfilerInterceptor implements NestInterceptor {
     // emits once per chunk: the first emission decides, every later one is forwarded untouched.
     // Without the latch a thousand-token stream would collect and store its profile as many times.
     let settled = false;
-    /** Set when the response-finish hook was left to own the finalization (see below). */
-    let deferred = false;
 
     // No `finish` listener here: the middleware registered the one the profiler needs, and it
     // already covers the case this path cannot see (a framework answering without ever reaching
@@ -201,7 +203,6 @@ export class ProfilerInterceptor implements NestInterceptor {
         // the stream as the request's duration and drain the collectors before it did any work.
         // The middleware's finish hook closes it when the transport is really done.
         if (isCollectionDeferred(capturedProfile) && this.isStreamedResponse(ctx, res, body)) {
-          deferred = true;
           return of(body);
         }
 
@@ -231,14 +232,17 @@ export class ProfilerInterceptor implements NestInterceptor {
       }),
       catchError((err: unknown) => {
         capturedProfile.exceptions.push(toExceptionEntry(err, this.exceptionCapture));
+        markExceptionRecorded(capturedProfile);
         capturedProfile.route =
           this.core.routeCollector.match(req.method, req.path ?? req.url) ?? capturedProfile.route;
-        // A stream that failed mid-flight: the finish hook owns closing and saving the profile,
-        // and the exception is already on it.
-        if (deferred) return throwError(() => err);
-        // Exception filters run after the observable chain, so `res.statusCode` still reads 200
-        // here. The real status comes from the error: an HttpException carries its own, anything
-        // else is a 500 (mirrors processNonHttp).
+        // Exception filters run after the observable chain: they pick the status (a domain error
+        // may be answered 409, not a 500), write the body and usually log the failure. The
+        // finish hook runs once they are done, so it closes and saves the profile — the same
+        // hook that already owns a stream failing mid-flight.
+        if (isCollectionDeferred(capturedProfile)) return throwError(() => err);
+        // No finish hook: `res.statusCode` still reads 200 here, so the status comes from the
+        // error — an HttpException carries its own, anything else is a 500 (mirrors
+        // processNonHttp).
         this.finalize(capturedProfile, res, statusOf(err), undefined);
         // Collectors still run (deferred) so pipes/guards data (e.g. validator) is
         // captured without delaying the error response behind them.
