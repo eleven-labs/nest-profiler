@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { Catch, Controller, Delete, UseFilters } from '@nestjs/common';
+import { Catch, Controller, Put, UseFilters } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -35,10 +35,10 @@ class ConflictFilter implements ExceptionFilter {
 
 @Controller()
 @UseFilters(ConflictFilter)
-class ConflictController {
-  @Delete('/templates/1')
-  remove(): void {
-    throw new ConflictError('The template is in use');
+class WidgetController {
+  @Put('/widgets/1')
+  update(): void {
+    throw new ConflictError('The widget is locked');
   }
 }
 
@@ -49,12 +49,12 @@ describe('a failure answered by an exception filter', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [ProfilerModule.forRoot({ collectBody: true })],
-      controllers: [ConflictController],
+      controllers: [WidgetController],
     }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
 
-    const res = await request(app.getHttpServer() as Server).delete('/templates/1');
+    const res = await request(app.getHttpServer() as Server).put('/widgets/1');
     expect(res.status).toBe(409);
     // Persistence is deferred off the response path — drain it before reading the profile.
     await app.get(TracerService).flush();
@@ -72,7 +72,7 @@ describe('a failure answered by an exception filter', () => {
   });
 
   it('records the body the filter wrote', () => {
-    expect(profile.response?.body).toEqual({ errors: 'The template is in use' });
+    expect(profile.response?.body).toEqual({ errors: 'The widget is locked' });
   });
 
   it('keeps the line the filter logged', () => {
@@ -89,7 +89,7 @@ describe('a failure answered by an exception filter', () => {
     expect(profile.exceptions).toHaveLength(1);
     expect(profile.exceptions[0]).toMatchObject({
       name: 'ConflictError',
-      message: 'The template is in use',
+      message: 'The widget is locked',
     });
   });
 });
