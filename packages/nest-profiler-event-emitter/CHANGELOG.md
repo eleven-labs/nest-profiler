@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-event-emitter
 
+## 1.3.0
+
+### Patch Changes
+
+- 1d604a6: Show the event icon next to the Events entry of the profiler sidebar.
+
 ## 1.2.1
 
 ### Patch Changes
