@@ -138,6 +138,38 @@
             </a>
           <% } %>
 
+          <!-- Trace — the other profiles of the same unit of work (a request and the events it emitted…) -->
+          <% const traceItems = typeof trace !== 'undefined' ? trace : []; %>
+          <% if (traceItems.length > 1) { %>
+            <div class="mt-3 pt-3 border-t border-line px-4 pb-1.5 flex items-center justify-between">
+              <span class="text-2xs text-foreground-faint uppercase tracking-widest font-medium">Trace</span>
+              <span class="text-2xs text-foreground-faint tabular-nums"><%= traceItems.length %></span>
+            </div>
+            <% for (const item of traceItems) { %>
+              <%
+                const keepTab = typeof traceTab !== 'undefined' && traceTab ? '?tab=' + traceTab + (traceTab === 'logs' && logScope === 'trace' ? '&scope=trace' : '') : '';
+              %>
+              <a href="<%= link(profilerPath + '/' + item.token + keepTab) %>"
+                 title="<%= item.badge %> <%= item.text %>"
+                 <% if (item.isCurrent) { %>aria-current="page"<% } %>
+                 class="flex flex-col gap-0.5 pl-3 pr-3 py-1.5 text-xs transition-colors border-l-2
+                   <%= item.isCurrent
+                     ? 'border-nest bg-surface-active'
+                     : 'border-transparent hover:bg-surface-muted' %>">
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <span class="px-1 py-px rounded text-2xs font-bold tracking-wide shrink-0 <%= item.badgeClass || 'badge-default' %>"><%= item.badge %></span>
+                  <span class="truncate <%= item.isCurrent ? 'text-nest font-medium' : 'text-foreground-muted' %>"><%= item.text %></span>
+                </span>
+                <span class="flex items-center gap-1.5 text-2xs text-foreground-faint tabular-nums pl-0.5">
+                  <% if (item.failed) { %><span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="Failed"></span><% } %>
+                  <% if (item.statusCode !== undefined) { %><span><%= item.statusCode %></span><% } %>
+                  <% if (item.duration !== undefined) { %><span><%= formatDuration(item.duration) %>ms</span><% } %>
+                  <% if (item.isCurrent) { %><span class="ml-auto">this profile</span><% } %>
+                </span>
+              </a>
+            <% } %>
+          <% } %>
+
           <!-- Collector tabs -->
           <% if (collectorPanels && collectorPanels.length > 0) { %>
             <div class="mt-3 pt-3 border-t border-line px-4 pb-1.5">
@@ -338,7 +370,27 @@
 
           <% } else if (activeTab === 'logs') { %>
 
-            <% if (profile.logs.length === 0) { %>
+            <%
+              const traceLogItems = typeof traceLogs !== 'undefined' ? traceLogs : [];
+              const showTraceScope = typeof trace !== 'undefined' && trace.length > 1;
+              const isTraceScope = showTraceScope && logScope === 'trace';
+              const logRows = isTraceScope
+                ? traceLogItems
+                : profile.logs.map((entry) => ({ entry, source: undefined }));
+              const traceLogCount = typeof trace !== 'undefined' ? trace.length : 0;
+            %>
+            <% if (showTraceScope) { %>
+              <div class="flex items-center gap-1 mb-4 text-2xs" role="tablist" aria-label="Log scope">
+                <a href="<%= link(profilerPath + '/' + profile.token + '?tab=logs') %>"
+                   role="tab" aria-selected="<%= !isTraceScope %>"
+                   class="px-2.5 py-1 rounded border transition-colors <%= !isTraceScope ? 'border-nest/30 bg-nest/10 text-nest font-medium' : 'border-line text-foreground-muted hover:text-foreground' %>">This profile</a>
+                <a href="<%= link(profilerPath + '/' + profile.token + '?tab=logs&scope=trace') %>"
+                   role="tab" aria-selected="<%= isTraceScope %>"
+                   class="px-2.5 py-1 rounded border transition-colors <%= isTraceScope ? 'border-nest/30 bg-nest/10 text-nest font-medium' : 'border-line text-foreground-muted hover:text-foreground' %>">Whole trace · <%= traceLogCount %> profiles</a>
+              </div>
+            <% } %>
+
+            <% if (logRows.length === 0) { %>
               <div class="py-8 text-center">
                 <p class="text-foreground-muted text-sm mb-2">No log entries captured.</p>
                 <p class="text-foreground-faint text-xs">
@@ -358,13 +410,23 @@
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-line-subtle">
-                    <% for (const entry of profile.logs) { %>
-                      <tr class="hover:bg-surface-muted transition-colors">
+                    <% for (const { entry, source } of logRows) { %>
+                      <tr class="hover:bg-surface-muted transition-colors <%= source && !source.isCurrent ? 'opacity-80' : '' %>">
                         <td class="py-2 px-4 text-foreground-faint text-xs whitespace-nowrap tabular-nums align-top"><%= timeOnly(entry.timestamp) %></td>
                         <td class="py-2 px-4 whitespace-nowrap align-top">
                           <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide <%= logLevelClass(entry.level) %>"><%= entry.level.toUpperCase() %></span>
                         </td>
                         <td class="py-2 px-4 text-foreground text-xs break-all align-top w-full">
+                          <%# Above the message rather than in a column of its own: a wide payload would push a
+                              trailing column out of view. %>
+                          <% if (source) { %>
+                            <a href="<%= link(profilerPath + '/' + source.token + '?tab=logs&scope=trace') %>"
+                               title="<%= source.badge %> <%= source.text %>"
+                               class="flex items-center gap-1.5 mb-1 text-2xs break-normal <%= source.isCurrent ? 'text-nest' : 'text-foreground-muted hover:text-foreground' %>">
+                              <span class="px-1 py-px rounded font-bold tracking-wide shrink-0 <%= source.badgeClass || 'badge-default' %>"><%= source.badge %></span>
+                              <span class="truncate"><%= source.isCurrent ? 'this profile' : source.text %></span>
+                            </a>
+                          <% } %>
                           <%= entry.message %>
                           <% if (entry.data !== undefined) { %>
                             <pre class="bg-surface-muted border border-line rounded px-2 py-1 mt-1.5 text-xs overflow-x-auto m-0"><code class="language-json"><%= toJson(entry.data) %></code></pre>

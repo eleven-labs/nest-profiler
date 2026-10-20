@@ -27,7 +27,8 @@ import type { QueryEntry } from '../collectors/sql/sql-query.interface';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
-import type { Profile } from '../interfaces/profile.interface';
+import type { LogEntry, Profile } from '../interfaces/profile.interface';
+import { unhandledExceptions } from '../analysis/profiler-error';
 import {
   buildCriteria,
   filterAppliesToSection,
@@ -42,6 +43,30 @@ import type { ProfilerListSection } from '../list-sections/profiler-list-section
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];
+
+/**
+ * Most profiles a detail page lists under one trace. A trace is one unit of work — a request and
+ * the events, messages or jobs it set off — so this bounds a runaway fan-out, not a real trace.
+ */
+const TRACE_PROFILES_LIMIT = 50;
+
+/** One profile of the trace the displayed profile belongs to, as the detail page lists it. */
+interface TraceProfileView {
+  token: string;
+  badge: string;
+  badgeClass?: string;
+  text: string;
+  statusCode?: number;
+  duration?: number;
+  failed: boolean;
+  isCurrent: boolean;
+}
+
+/** A log line of the trace, with the profile that wrote it. */
+interface TraceLogView {
+  entry: LogEntry;
+  source: TraceProfileView;
+}
 
 // Home sidebar: each list section (HTTP, GraphQL, Commands, RabbitMQ…) is a view under the
 // **Profiling** group, and each global panel (Discover, Schemas, Config…) is a view too — filed
@@ -404,10 +429,23 @@ export class ProfilerController {
     @Param('token') token: string,
     @Query('tab') tab?: string,
     @Query('subtab') subtab?: string,
+    @Query('scope') scope?: string,
   ): Promise<string> {
     const linkQuery = this.resolveLinkQuery(req);
     const profile = await this.core.storage.findOne(token);
     if (!profile) throw new NotFoundException(`Profile "${token}" not found.`);
+
+    const traceProfiles = await this.findTraceProfiles(profile);
+    const trace = traceProfiles.map((p) => this.toTraceProfileView(p, profile));
+    // The Logs tab can show the lines of the whole trace: a failure raised by an event listener
+    // is logged by the request's exception filter, so it lands on the request's profile.
+    const logScope = scope === 'trace' && trace.length > 1 ? 'trace' : 'profile';
+    const traceLogs: TraceLogView[] =
+      logScope === 'trace'
+        ? traceProfiles
+            .flatMap((p, i) => p.logs.map((entry) => ({ entry, source: trace[i]! })))
+            .sort((a, b) => a.entry.timestamp - b.entry.timestamp)
+        : [];
 
     const collectorPanels = this.core.collectorRegistry.buildPanels(profile);
     const collectorTabNames = collectorPanels.map((p) => p.name);
@@ -484,7 +522,45 @@ export class ProfilerController {
       // Which sub-tab of a grouped collector panel (e.g. `mongoose` within Database)
       // is initially active; honoured server-side so a sub-panel is linkable/screenshot-able.
       activeSubTab: subtab ?? null,
+      // Every profile sharing this one's trace id, oldest first; empty when it is alone.
+      trace,
+      // The tab a trace link keeps, so hopping from profile to profile stays on the same view.
+      traceTab: UNIVERSAL_TAB_NAMES.includes(activeTab) ? activeTab : undefined,
+      logScope,
+      traceLogs,
     });
+  }
+
+  /**
+   * The profiles sharing `profile`'s trace id, oldest first, or an empty list when it is alone.
+   *
+   * Queried through `search` rather than a `traceId` criterion: every adapter folds the trace id
+   * into that haystack, whereas a native store may have no column for the id itself (SQLite). The
+   * exact comparison afterwards drops the profiles that merely mention the id in their URL.
+   */
+  private async findTraceProfiles(profile: Profile): Promise<Profile[]> {
+    const page = await this.core.storage.query({
+      filters: [{ field: 'search', op: 'contains', value: profile.traceId }],
+      sort: { field: 'createdAt', direction: 'asc' },
+      page: 1,
+      pageSize: TRACE_PROFILES_LIMIT,
+    });
+    const related = page.items.filter((p) => p.traceId === profile.traceId);
+    return related.length > 1 ? related : [];
+  }
+
+  private toTraceProfileView(profile: Profile, current: Profile): TraceProfileView {
+    const summary = this.core.getEntrypointType(profile.entrypoint.type).summary(profile);
+    return {
+      token: profile.token,
+      badge: summary.badge,
+      badgeClass: summary.badgeClass,
+      text: summary.text,
+      statusCode: profile.response?.statusCode,
+      duration: profile.performance.duration,
+      failed: unhandledExceptions(profile).length > 0,
+      isCurrent: profile.token === current.token,
+    };
   }
 
   /**
