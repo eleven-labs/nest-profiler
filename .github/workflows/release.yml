@@ -49,8 +49,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Only the published packages: the docs site is deployed by Vercel, not by this workflow.
       - name: Build
-        run: pnpm build
+        run: pnpm turbo run build --filter='!docs'
 
       - name: Create release PR or publish
         uses: changesets/action@v2
