@@ -79,6 +79,7 @@ export function buildEventEntrypointType(error?: ProfilerErrorOptions): Profiler
     hiddenFilters: ['error'],
     listSection: {
       title: 'Events',
+      icon: EVENT_ICON,
       description: 'Event-listener executions profiled via @nestjs/event-emitter',
       order: 30,
       itemLabel: 'event',
