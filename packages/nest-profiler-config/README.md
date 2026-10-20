@@ -33,7 +33,7 @@ pnpm add -D @eleven-labs/nest-profiler-config
 pnpm add @nestjs/config
 ```
 
-**Peer dependencies:** `@nestjs/config ^4.0.0`
+**Peer dependencies:** `@nestjs/config ^4.0.0 || ^12.0.0`
 
 `@nestjs/config` is your application's own configuration library, so it stays a regular dependency; only the collector is profiler-only.
 

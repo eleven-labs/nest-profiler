@@ -32,7 +32,7 @@
 pnpm add -D @eleven-labs/nest-profiler-cache
 ```
 
-**Peer dependencies:** `@nestjs/cache-manager ^3.0.0` — your app's own dependency, installed with a plain `pnpm add @nestjs/cache-manager`.
+**Peer dependencies:** `@nestjs/cache-manager ^3.0.0 || ^12.0.0` — your app's own dependency, installed with a plain `pnpm add @nestjs/cache-manager`.
 
 ## Setup
 

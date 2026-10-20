@@ -53,7 +53,7 @@ MikroOrmSchemaCollectorModule.forRoot(),
 
 ## Mongoose — `@eleven-labs/nest-profiler-mongoose`
 
-- **Peers (required):** `@nestjs/mongoose@^11`, `mongoose@^8 || ^9`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@nestjs/mongoose@^11 || ^12`, `mongoose@^8 || ^9`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `MongooseCollectorModule` + `MongooseSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MongooseModule.forRoot(...)` in its own modules.
 - **Gotcha:** patches `Query` / `Aggregate` `exec`. `connectionName` selects a non-default connection.

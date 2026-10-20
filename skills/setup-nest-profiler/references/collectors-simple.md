@@ -6,7 +6,7 @@ Mostly `enabled`-only collectors: for these the main decision is simply **whethe
 
 ## Cache — `@eleven-labs/nest-profiler-cache`
 
-- **Peers (required):** `@nestjs/cache-manager@^3`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@nestjs/cache-manager@^3 || ^12`, `nestjs-cls@^6 || ^7`.
 - **Module:** `CacheCollectorModule.forRoot()` — **`forRoot` only**, option `enabled` only.
 - **Placement:** the `ProfilingModule` bundle.
 - **Behaviour:** wraps `CACHE_MANAGER` get/set/del via a Proxy.
@@ -22,7 +22,7 @@ CacheCollectorModule.forRoot(),
 
 ## GraphQL — `@eleven-labs/nest-profiler-graphql`
 
-- **Peers:** `graphql@^16`, `nestjs-cls@^6 || ^7`, `rxjs@^7` (required); `@nestjs/graphql@^13` **optional**.
+- **Peers:** `graphql@^16`, `nestjs-cls@^6 || ^7`, `rxjs@^7` (required); `@nestjs/graphql@^13 || ^14` **optional**.
 - **Module:** `GraphQLCollectorModule.forRoot()` — **`forRoot` only**, option `enabled` only. (Note: the module is `GraphQLCollectorModule`.)
 - **Placement:** the `ProfilingModule` bundle. The app's `GraphQLModule` keeps its `context` (plain app config, no profiler import).
 - **⚠️ Gotcha — the `GraphQLModule.forRoot` `context` must expose the request** so the profiler can bridge the async boundary:
@@ -103,7 +103,7 @@ RabbitMqPublishCollectorModule.forRoot(),
 
 ## Event emitter — `@eleven-labs/nest-profiler-event-emitter`
 
-- **Peers (required):** `@nestjs/event-emitter@^3`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@nestjs/event-emitter@^3 || ^12`, `nestjs-cls@^6 || ^7`.
 - **Module:** `EventEmitterCollectorModule` (`forRoot` + `forRootAsync`).
 - **Placement:** the `ProfilingModule` bundle; the app keeps `EventEmitterModule.forRoot()` in its own module.
 - **Behaviour:** patches `EventEmitter2`'s `emit`/`emitAsync` for an **Events** panel on the emitting profile, contributes a **Discover / Events** view listing every `@OnEvent` subscription, and — unless `profileListeners: false` — turns each `@OnEvent` execution into its own `event` profile (list view + **Event** detail tab) carrying the handler's own logs, queries and HTTP calls.
