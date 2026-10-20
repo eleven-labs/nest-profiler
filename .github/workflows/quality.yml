@@ -33,12 +33,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm build
-        env:
-          # Authenticate the GitHub API calls made while prerendering the docs
-          # site (GithubInfo widget) so the build does not hit the anonymous
-          # per-IP rate limit.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The docs site is not packaged: CI's check job already builds it.
+        run: pnpm turbo run build --filter='!docs'
 
       - name: Validate package manifests
         run: pnpm publint
