@@ -84,12 +84,16 @@ jobs:
           set -euo pipefail
           curl -Os https://cli.codecov.io/latest/linux/codecov
           chmod +x codecov
+          # Create the commit and the report once: `upload-process` would redo
+          # both round-trips for every package and push the job past its timeout.
+          ./codecov create-commit --fail-on-error --token "$CODECOV_TOKEN"
+          ./codecov create-report --fail-on-error --token "$CODECOV_TOKEN"
           for dir in packages/*/; do
             name=$(basename "${dir%/}")
             file="${dir}coverage/lcov.info"
             [ -f "$file" ] || continue
             echo "Uploading coverage for $name"
-            ./codecov upload-process \
+            ./codecov do-upload \
               --disable-search \
               --flag "$name" \
               --file "$file" \
