@@ -13,6 +13,13 @@ const compileEsmOnlyDeps = major < 24 || (major === 24 && minor < 9);
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   testMatch: ['<rootDir>/src/**/*.spec.ts'],
+  // Turbo already runs up to 10 packages at once, and Jest's default starts one worker per core but
+  // one in each of them: on a 22-core machine `pnpm test` reached 11-16 GB. Two workers per package
+  // keep it around 4 GB without slowing the run down.
+  maxWorkers: 2,
+  // Recycle a worker that retains more than this between two test files, instead of letting it
+  // grow until the end of the suite.
+  workerIdleMemoryLimit: '800MB',
   // Strip `.js` from relative imports so ESM packages' specifiers resolve to their `.ts` source.
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
