@@ -58,6 +58,7 @@ export class MikroOrmSchemaCollector extends AbstractSchemaCollector {
   readonly label = 'MikroORM';
   readonly group = 'schema';
   readonly groupLabel = 'Schemas';
+  protected readonly erDiagram = true;
 
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -91,6 +92,7 @@ export class MikroOrmSchemaCollector extends AbstractSchemaCollector {
       property: prop.name,
       kind: RELATION_KIND[prop.kind] ?? prop.kind,
       target: prop.targetMeta?.className ?? String(prop.type),
+      inverseProperty: prop.mappedBy || prop.inversedBy || undefined,
     }));
 
     const indexes: IndexInfo[] = [

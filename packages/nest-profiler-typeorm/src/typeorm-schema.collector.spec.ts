@@ -188,4 +188,61 @@ describe('TypeOrmSchemaCollector', () => {
     expect(col('createdAt')?.default).toBe('() => …');
     expect(col('meta')?.default).toBe('{"a":1}');
   });
+
+  it('records the inverse side of a relation and draws it once in the ER diagram', () => {
+    const idColumn = {
+      propertyName: 'id',
+      databaseName: 'id',
+      type: 'int',
+      isNullable: false,
+      isPrimary: true,
+      isGenerated: true,
+      length: '',
+    };
+    const category = {
+      name: 'Category',
+      tableName: 'categories',
+      columns: [idColumn],
+      relations: [
+        {
+          propertyName: 'products',
+          relationType: 'one-to-many',
+          inverseEntityMetadata: { name: 'Product' },
+          inverseRelation: { propertyName: 'category' },
+        },
+      ],
+      indices: [],
+    };
+    const product = {
+      name: 'Product',
+      tableName: 'products',
+      columns: [idColumn],
+      relations: [
+        {
+          propertyName: 'category',
+          relationType: 'many-to-one',
+          inverseEntityMetadata: { name: 'Category' },
+          inverseRelation: { propertyName: 'products' },
+        },
+      ],
+      indices: [],
+    };
+    const collector = new TypeOrmSchemaCollector(moduleRefFor(fakeDataSource([category, product])));
+    collector.onApplicationBootstrap();
+
+    const data = collector.collect(emptyProfile);
+    expect(data.entities[0]?.relations[0]?.inverseProperty).toBe('category');
+    expect(data.mermaid).toBe(
+      [
+        'erDiagram',
+        '  Category {',
+        '    int id PK',
+        '  }',
+        '  Product {',
+        '    int id PK',
+        '  }',
+        '  Product }o--|| Category : "category / products"',
+      ].join('\n'),
+    );
+  });
 });

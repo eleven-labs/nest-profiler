@@ -2,6 +2,8 @@
 
 The profiler UI ships **all of its browser behaviour as compiled, same-origin JavaScript bundles** — theme toggle, syntax highlighting, copy-to-clipboard, filter forms and tab switching. The HTML templates contain **no inline `<script>` blocks and no `on*` attributes**, so a strict Content-Security-Policy such as `script-src 'self'` works out of the box.
 
+The profiler pages send that policy themselves, with a single, exact exception: the Schema panel's entity relationship diagram loads a version-pinned Mermaid file from jsDelivr (integrity-checked, and only once the diagram is opened), so `script-src` also lists that one URL — not the whole CDN.
+
 Each bundle is served from the profiler itself (under `/_profiler/__assets/scripts/…`) and injected into the page `<head>`. The core bundle (`profiler.js`) loads first and exposes a small runtime on `window.NestProfiler`; any additional bundle you register loads after it and can reuse that runtime.
 
 ## The `window.NestProfiler` runtime
