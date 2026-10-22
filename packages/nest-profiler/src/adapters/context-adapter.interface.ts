@@ -1,5 +1,5 @@
 import type { ExecutionContext } from '@nestjs/common';
-import type { Profile } from '../interfaces/profile.interface';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * Contract for teaching the profiler a non-HTTP protocol (GraphQL, gRPC,

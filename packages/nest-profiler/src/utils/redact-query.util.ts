@@ -1,4 +1,4 @@
-import { REDACTED } from './redact.utils';
+import { REDACTED } from './redact.utils.js';
 
 /**
  * Query-parameter names whose value is masked at capture by default.

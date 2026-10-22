@@ -1,4 +1,4 @@
-import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils.js';
 
 export interface SafeDataOptions {
   /** Maximum nesting depth before collapsing to `'[Object]'` / `'[Array]'`. `0` (or negative) disables the cap. */

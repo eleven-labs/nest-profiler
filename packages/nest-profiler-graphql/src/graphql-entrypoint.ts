@@ -9,7 +9,7 @@ import type {
   ProfilerListFilter,
 } from '@eleven-labs/nest-profiler';
 import { resolveErrorSeverity, resolveProfileErrorClassifier } from '@eleven-labs/nest-profiler';
-import { GRAPHQL_ICON } from './icons';
+import { GRAPHQL_ICON } from './icons.js';
 
 /** `Profile.entrypoint.type` value for GraphQL operations (HTTP transport). */
 export const GRAPHQL_ENTRYPOINT_TYPE = 'graphql';

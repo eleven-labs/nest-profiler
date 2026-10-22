@@ -1,8 +1,8 @@
 import * as path from 'path';
-import { AbstractSqlQueryCollector } from './abstract-sql-query.collector';
-import { detectQueryType } from './sql-query.interface';
-import type { QueryEntry } from './sql-query.interface';
-import type { Profile } from '../../interfaces/profile.interface';
+import { AbstractSqlQueryCollector } from './abstract-sql-query.collector.js';
+import { detectQueryType } from './sql-query.interface.js';
+import type { QueryEntry } from './sql-query.interface.js';
+import type { Profile } from '../../interfaces/profile.interface.js';
 
 const QUERIES_KEY = '__test_sql_queries';
 

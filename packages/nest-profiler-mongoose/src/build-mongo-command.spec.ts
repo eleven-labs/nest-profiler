@@ -1,5 +1,5 @@
-import { buildMongoCommand, buildMongoFingerprint } from './build-mongo-command';
-import type { MongooseQueryEntry } from './mongoose-collector.interface';
+import { buildMongoCommand, buildMongoFingerprint } from './build-mongo-command.js';
+import type { MongooseQueryEntry } from './mongoose-collector.interface.js';
 
 function entry(overrides: Partial<MongooseQueryEntry>): MongooseQueryEntry {
   return {

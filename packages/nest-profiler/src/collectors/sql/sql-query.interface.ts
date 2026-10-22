@@ -1,4 +1,4 @@
-import type { ProfilerTag } from '../../analysis/profiler-tag.interface';
+import type { ProfilerTag } from '../../analysis/profiler-tag.interface.js';
 
 export type QueryType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'OTHER';
 

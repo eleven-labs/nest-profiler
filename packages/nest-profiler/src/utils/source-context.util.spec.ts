@@ -6,8 +6,8 @@ import {
   analyzeStack,
   resolveSourceContextOptions,
   resolveStackAnalysisOptions,
-} from './source-context.util';
-import type { SourceCodeFrame } from './source-context.util';
+} from './source-context.util.js';
+import type { SourceCodeFrame } from './source-context.util.js';
 
 /** The excerpt settings every test that wants source uses, unless it tunes them itself. */
 const WITH_SOURCE = { sourceContext: {} };

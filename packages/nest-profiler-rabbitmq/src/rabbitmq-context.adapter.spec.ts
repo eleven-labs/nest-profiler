@@ -1,8 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
-import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
-import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+import { RabbitMqContextAdapter } from './rabbitmq-context.adapter.js';
+import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface.js';
+import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
 
 function makeMessage(overrides: Partial<ConsumeMessage> = {}): ConsumeMessage {
   return {

@@ -1,8 +1,8 @@
 import { ClsService } from 'nestjs-cls';
-import { ProfilerLifecycleGuard } from './profiler-lifecycle.guard';
-import { lifecycleMarks } from '../trace/build-lifecycle';
-import { PROFILER_CLS_KEYS } from '../constants';
-import type { Profile } from '../interfaces/profile.interface';
+import { ProfilerLifecycleGuard } from './profiler-lifecycle.guard.js';
+import { lifecycleMarks } from '../trace/build-lifecycle.js';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

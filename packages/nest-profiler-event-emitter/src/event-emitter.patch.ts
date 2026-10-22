@@ -10,12 +10,12 @@ import {
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { emitterDelimiter, toEventName } from './event-listener-scan';
-import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface';
+import { emitterDelimiter, toEventName } from './event-listener-scan.js';
+import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface.js';
 import type {
   EventEmitterCollectorModuleOptions,
   EventEntry,
-} from './event-emitter-collector.interface';
+} from './event-emitter-collector.interface.js';
 
 /** Key the raw per-request emissions are appended under; the collector reads and clears it. */
 export const EVENT_EMITTER_EVENTS_KEY = '__event_emitter_events';

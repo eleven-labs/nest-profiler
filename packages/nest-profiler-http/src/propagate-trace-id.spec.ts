@@ -1,4 +1,4 @@
-import { hasHeader, outgoingTraceId, resolveTraceIdHeader } from './propagate-trace-id';
+import { hasHeader, outgoingTraceId, resolveTraceIdHeader } from './propagate-trace-id.js';
 import type { ClsService } from 'nestjs-cls';
 
 /** A CLS stand-in returning a fixed trace id, or throwing as it does outside a context. */

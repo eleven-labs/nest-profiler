@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import type { ModuleRef } from '@nestjs/core';
-import { ProfilerGuard } from './profiler.guard';
-import type { ProfilerAuthContext, ProfilerSecurityOptions } from '../nest-profiler.builder';
+import { ProfilerGuard } from './profiler.guard.js';
+import type { ProfilerAuthContext, ProfilerSecurityOptions } from '../nest-profiler.builder.js';
 
 interface CtxParts {
   ctx: ExecutionContext;

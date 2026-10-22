@@ -1,8 +1,8 @@
 import * as path from 'path';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { EventEmitterCollector } from './event-emitter.collector';
-import { EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch';
-import type { EventEntry } from './event-emitter-collector.interface';
+import { EventEmitterCollector } from './event-emitter.collector.js';
+import { EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch.js';
+import type { EventEntry } from './event-emitter-collector.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

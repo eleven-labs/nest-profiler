@@ -5,11 +5,11 @@ jest.mock('ai', () => ({ registerTelemetry: jest.fn() }));
 import { Injectable, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { AiCollectorModule } from './ai-collector.module';
-import { pricingFor, resetAiPricing } from './ai-pricing';
-import { aiCaptureLevels, resetAiCapture } from './ai-capture';
-import { AiProfilerTelemetry } from './ai-telemetry';
-import type { AiInstrumentation } from './ai-instrumentation.interface';
+import { AiCollectorModule } from './ai-collector.module.js';
+import { pricingFor, resetAiPricing } from './ai-pricing.js';
+import { aiCaptureLevels, resetAiCapture } from './ai-capture.js';
+import { AiProfilerTelemetry } from './ai-telemetry.js';
+import type { AiInstrumentation } from './ai-instrumentation.interface.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler core

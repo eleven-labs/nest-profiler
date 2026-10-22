@@ -3,7 +3,7 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import type { ModuleRef } from '@nestjs/core';
 import type { Connection } from 'mongoose';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { MongooseSchemaCollector } from './mongoose-schema.collector';
+import { MongooseSchemaCollector } from './mongoose-schema.collector.js';
 
 const emptyProfile = {} as Profile;
 

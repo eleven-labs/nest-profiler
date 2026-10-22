@@ -1,8 +1,8 @@
 import * as ejs from 'ejs';
-import { RuntimeCollector } from './runtime.collector';
-import { RuntimeMetricsService } from './runtime-metrics.service';
-import { HELPERS } from '../views/template-engine';
-import type { RuntimeCollectorData } from './runtime-metrics.interface';
+import { RuntimeCollector } from './runtime.collector.js';
+import { RuntimeMetricsService } from './runtime-metrics.service.js';
+import { HELPERS } from '../views/template-engine.js';
+import type { RuntimeCollectorData } from './runtime-metrics.interface.js';
 
 /**
  * Renders the panel the way the dashboard does — the locals `list.ejs` passes to a global panel,

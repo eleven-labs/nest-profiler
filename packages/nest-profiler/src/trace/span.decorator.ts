@@ -1,5 +1,5 @@
 import { ClsServiceManager } from 'nestjs-cls';
-import { runInSpan } from './run-in-span';
+import { runInSpan } from './run-in-span.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
 

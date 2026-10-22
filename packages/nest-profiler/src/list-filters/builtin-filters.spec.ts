@@ -1,14 +1,14 @@
-import { BUILTIN_LIST_FILTERS } from './builtin-filters';
-import type { ProfilerListFilter } from './profiler-list-filter.interface';
-import { summarizeProfile } from '../storage/profile-summary';
-import { matchesCriterion } from '../storage/profiler-query';
+import { BUILTIN_LIST_FILTERS } from './builtin-filters.js';
+import type { ProfilerListFilter } from './profiler-list-filter.interface.js';
+import { summarizeProfile } from '../storage/profile-summary.js';
+import { matchesCriterion } from '../storage/profiler-query.js';
 import type {
   GraphQLInfo,
   ExceptionEntry,
   ProfileEntrypoint,
   Profile,
-} from '../interfaces/profile.interface';
-import type { ProfilerTag } from '../analysis/profiler-tag.interface';
+} from '../interfaces/profile.interface.js';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface.js';
 
 /** Shape of the generic `command` entrypoint a protocol package would register. */
 interface CommandData {

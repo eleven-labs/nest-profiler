@@ -1,9 +1,9 @@
 import * as path from 'path';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { HTTP_ICON } from '@eleven-labs/nest-profiler';
-import { HttpClientCollector } from './http-client.collector';
-import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
-import type { HttpRequestEntry } from './http-request.interface';
+import { HttpClientCollector } from './http-client.collector.js';
+import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface.js';
+import type { HttpRequestEntry } from './http-request.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

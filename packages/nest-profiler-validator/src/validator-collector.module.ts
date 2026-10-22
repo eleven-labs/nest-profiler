@@ -2,7 +2,7 @@ import { ConfigurableModuleBuilder, DynamicModule, Module } from '@nestjs/common
 import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ValidatorCollector } from './validator.collector';
+import { ValidatorCollector } from './validator.collector.js';
 
 /** Options for {@link ValidatorCollectorModule}. */
 export interface ValidatorCollectorModuleOptions {

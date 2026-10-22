@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { CacheCollectorModule } from './cache-collector.module';
+import { CacheCollectorModule } from './cache-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler

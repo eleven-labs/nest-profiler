@@ -2,10 +2,10 @@ import type { ArgumentsHost } from '@nestjs/common';
 import { HttpException, UnauthorizedException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
-import { PROFILER_REQ_KEY } from '../constants';
-import type { Profile } from '../interfaces/profile.interface';
-import { markExceptionRecorded } from '../utils/profile-runtime-state';
-import { ProfilerExceptionFilter } from './profiler-exception.filter';
+import { PROFILER_REQ_KEY } from '../constants.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { markExceptionRecorded } from '../utils/profile-runtime-state.js';
+import { ProfilerExceptionFilter } from './profiler-exception.filter.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

@@ -1,18 +1,18 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './typeorm-schema-collector.interface';
+import { ConfigurableModuleClass } from './typeorm-schema-collector.interface.js';
 import type {
   TypeOrmSchemaCollectorModuleAsyncOptions,
   TypeOrmSchemaCollectorModuleOptions,
-} from './typeorm-schema-collector.interface';
-import { TypeOrmSchemaCollector } from './typeorm-schema.collector';
+} from './typeorm-schema-collector.interface.js';
+import { TypeOrmSchemaCollector } from './typeorm-schema.collector.js';
 
-export { TYPEORM_SCHEMA_COLLECTOR_OPTIONS } from './typeorm-schema-collector.interface';
+export { TYPEORM_SCHEMA_COLLECTOR_OPTIONS } from './typeorm-schema-collector.interface.js';
 export type {
   TypeOrmSchemaCollectorModuleOptions,
   TypeOrmSchemaCollectorModuleAsyncOptions,
-} from './typeorm-schema-collector.interface';
+} from './typeorm-schema-collector.interface.js';
 
 // The collector resolves the (optionally named) DataSource lazily via ModuleRef at bootstrap.
 const SHAPE: CollectorModuleShape = { providers: [TypeOrmSchemaCollector] };

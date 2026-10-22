@@ -1,18 +1,18 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './config-collector.interface';
+import { ConfigurableModuleClass } from './config-collector.interface.js';
 import type {
   ConfigCollectorModuleAsyncOptions,
   ConfigCollectorModuleOptions,
-} from './config-collector.interface';
-import { ConfigCollector } from './config.collector';
+} from './config-collector.interface.js';
+import { ConfigCollector } from './config.collector.js';
 
-export { CONFIG_COLLECTOR_OPTIONS } from './config-collector.interface';
+export { CONFIG_COLLECTOR_OPTIONS } from './config-collector.interface.js';
 export type {
   ConfigCollectorModuleOptions,
   ConfigCollectorModuleAsyncOptions,
-} from './config-collector.interface';
+} from './config-collector.interface.js';
 
 const SHAPE: CollectorModuleShape = { providers: [ConfigCollector] };
 

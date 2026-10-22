@@ -1,8 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerCoreService } from '@eleven-labs/nest-profiler';
-import { GraphQLCollectorModule } from './graphql-collector.module';
-import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
+import { GraphQLCollectorModule } from './graphql-collector.module.js';
+import { GraphQLContextAdapter } from './adapters/graphql-context.adapter.js';
 
 @Controller()
 class DummyController {

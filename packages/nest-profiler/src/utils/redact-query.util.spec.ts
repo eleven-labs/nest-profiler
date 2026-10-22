@@ -3,7 +3,7 @@ import {
   DEFAULT_MASK_QUERY_PARAMS,
   redactQueryRecord,
   redactQueryString,
-} from './redact-query.util';
+} from './redact-query.util.js';
 
 const defaults = buildMaskedQueryParams(DEFAULT_MASK_QUERY_PARAMS);
 

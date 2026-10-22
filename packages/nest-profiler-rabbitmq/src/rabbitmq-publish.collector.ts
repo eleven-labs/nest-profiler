@@ -15,16 +15,16 @@ import {
   resolveEntryErrorClassifier,
   resolveErrorSeverity,
 } from '@eleven-labs/nest-profiler';
-import { buildRabbitMqPublish } from './build-rabbitmq-publish';
-import { buildPublishFingerprint } from './rabbitmq-publish.util';
+import { buildRabbitMqPublish } from './build-rabbitmq-publish.js';
+import { buildPublishFingerprint } from './rabbitmq-publish.util.js';
 import {
   RABBITMQ_PUBLISHES_KEY,
   RABBITMQ_PUBLISH_COLLECTOR_OPTIONS,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 import type {
   RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 
 const PUBLISH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 11l18-8-8 18-2.5-7.5L3 11z"/></svg>`;
 

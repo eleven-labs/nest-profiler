@@ -1,9 +1,13 @@
-import { analyzeProfile } from './profiler-analyzer';
-import { BUILTIN_PERFORMANCE_RULES } from './builtin-rules';
-import type { PerformanceRule } from './performance-rule.interface';
-import type { TagConfig, TaggableCollector, TaggableEntry } from './taggable-collector.interface';
-import type { IProfilerCollector } from '../collectors/collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import { analyzeProfile } from './profiler-analyzer.js';
+import { BUILTIN_PERFORMANCE_RULES } from './builtin-rules.js';
+import type { PerformanceRule } from './performance-rule.interface.js';
+import type {
+  TagConfig,
+  TaggableCollector,
+  TaggableEntry,
+} from './taggable-collector.interface.js';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 const CONFIG: TagConfig = {
   slowThreshold: 100,

@@ -1,6 +1,6 @@
 import * as path from 'path';
-import { ClientAssetRegistry, CORE_CLIENT_SCRIPT } from './client-asset-registry.service';
-import { PUBLIC_DIR } from '../views/template-engine';
+import { ClientAssetRegistry, CORE_CLIENT_SCRIPT } from './client-asset-registry.service.js';
+import { PUBLIC_DIR } from '../views/template-engine.js';
 
 describe('ClientAssetRegistry', () => {
   let registry: ClientAssetRegistry;

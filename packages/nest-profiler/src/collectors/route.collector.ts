@@ -1,7 +1,7 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
-import type { RouteInfo } from '../interfaces/profile.interface';
-import { scanHttpRoutes } from '../routes/scan-http-routes';
+import type { RouteInfo } from '../interfaces/profile.interface.js';
+import { scanHttpRoutes } from '../routes/scan-http-routes.js';
 
 /**
  * Compiles a route path (`/users/:id`, `/files/:id(\\d+)`) into an anchored RegExp: literal

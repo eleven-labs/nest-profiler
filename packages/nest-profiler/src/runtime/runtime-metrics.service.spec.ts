@@ -1,7 +1,7 @@
-import { RuntimeMetricsService } from './runtime-metrics.service';
-import { completeProfilePerformance, markProfileStart } from '../utils/profile-metrics.util';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import { RuntimeMetricsService } from './runtime-metrics.service.js';
+import { completeProfilePerformance, markProfileStart } from '../utils/profile-metrics.util.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeService(options: ProfilerModuleOptions = {}): RuntimeMetricsService {
   return new RuntimeMetricsService(options);

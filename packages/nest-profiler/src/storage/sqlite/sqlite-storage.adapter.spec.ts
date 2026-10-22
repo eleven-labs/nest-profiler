@@ -3,8 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { createClient, type Client, type InStatement } from '@libsql/client';
-import { SqliteStorageAdapter } from './sqlite-storage.adapter';
-import type { Profile } from '../../interfaces/profile.interface';
+import { SqliteStorageAdapter } from './sqlite-storage.adapter.js';
+import type { Profile } from '../../interfaces/profile.interface.js';
 
 /** Every SQL statement sent through a client, so a test can assert what an open does and does not run. */
 const executedSql: string[] = [];

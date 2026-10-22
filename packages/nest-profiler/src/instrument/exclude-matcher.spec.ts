@@ -1,4 +1,4 @@
-import { compileExcludeMatcher } from './exclude-matcher';
+import { compileExcludeMatcher } from './exclude-matcher.js';
 
 describe('compileExcludeMatcher', () => {
   it('returns undefined when there is nothing to match, so the hot path can skip it', () => {

@@ -8,7 +8,7 @@ import type {
   DiscoverInputGroup,
   DiscoverInputItem,
 } from '@eleven-labs/nest-profiler';
-import { COMMAND_ICON } from './icons';
+import { COMMAND_ICON } from './icons.js';
 
 /**
  * nest-commander metadata keys, mirrored locally (they are not part of its public API) — a `@Command`

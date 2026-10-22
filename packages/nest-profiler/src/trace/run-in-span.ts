@@ -1,15 +1,15 @@
 import type { ClsService } from 'nestjs-cls';
-import { readActiveSpanId, readProfile, setActiveSpanId } from '../services/profiler-context';
-import { INERT_SPAN, TraceSpanDelegate } from './trace-span.delegate';
-import type { SpanOutcome } from './trace-span.delegate';
+import { readActiveSpanId, readProfile, setActiveSpanId } from '../services/profiler-context.js';
+import { INERT_SPAN, TraceSpanDelegate } from './trace-span.delegate.js';
+import type { SpanOutcome } from './trace-span.delegate.js';
 import {
   appendManualSpan,
   nextSpanId,
   releaseOpenSpan,
   trackOpenSpan,
-} from '../utils/profile-runtime-state';
-import { nowMs, sinceMs } from '../utils/clock.utils';
-import type { Profile, TraceSpanKind } from '../interfaces/profile.interface';
+} from '../utils/profile-runtime-state.js';
+import { nowMs, sinceMs } from '../utils/clock.utils.js';
+import type { Profile, TraceSpanKind } from '../interfaces/profile.interface.js';
 
 /**
  * Opens a span against a profile and returns the delegate that closes it.

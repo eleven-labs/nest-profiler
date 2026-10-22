@@ -1,8 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { readProfile, readRequest, readToken, setProfileContext } from './profiler-context';
-import { PROFILER_CLS_KEYS } from '../constants';
-import type { Profile } from '../interfaces/profile.interface';
+import { readProfile, readRequest, readToken, setProfileContext } from './profiler-context.js';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(token = 't-1'): Profile {
   return {

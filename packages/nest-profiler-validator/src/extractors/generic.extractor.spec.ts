@@ -1,4 +1,4 @@
-import { genericExtractor } from './generic.extractor';
+import { genericExtractor } from './generic.extractor.js';
 
 describe('genericExtractor', () => {
   it('maps an array of messages to one violation each', () => {

@@ -1,6 +1,6 @@
-import { elapsedMs, monotonicNow } from './clock.utils';
-import { markProfileStart, profileElapsedMs } from './profile-metrics.util';
-import type { Profile } from '../interfaces/profile.interface';
+import { elapsedMs, monotonicNow } from './clock.utils.js';
+import { markProfileStart, profileElapsedMs } from './profile-metrics.util.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(startTime = Date.now()): Profile {
   return {

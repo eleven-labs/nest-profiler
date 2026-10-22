@@ -1,1 +1,1 @@
-export { AxiosInstrumentation } from './axios.instrumentation';
+export { AxiosInstrumentation } from './axios.instrumentation.js';

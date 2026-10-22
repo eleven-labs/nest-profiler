@@ -9,8 +9,8 @@ import {
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { ColumnInfo, EntitySchema, IndexInfo, RelationInfo } from '@eleven-labs/nest-profiler';
-import { MONGOOSE_SCHEMA_COLLECTOR_OPTIONS } from './mongoose-schema-collector.interface';
-import type { MongooseSchemaCollectorModuleOptions } from './mongoose-schema-collector.interface';
+import { MONGOOSE_SCHEMA_COLLECTOR_OPTIONS } from './mongoose-schema-collector.interface.js';
+import type { MongooseSchemaCollectorModuleOptions } from './mongoose-schema-collector.interface.js';
 
 /** The `ref` a schema type carries, if any (a related model name). */
 interface RefHolder {

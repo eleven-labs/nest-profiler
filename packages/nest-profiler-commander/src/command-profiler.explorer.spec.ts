@@ -1,7 +1,7 @@
 import type { DiscoveryService } from '@nestjs/core';
 import { CommandRunner } from 'nest-commander';
-import { CommandProfilerExplorer } from './command-profiler.explorer';
-import type { CommandProfiler, CommandProfileMeta } from './command-profiler.service';
+import { CommandProfilerExplorer } from './command-profiler.explorer.js';
+import type { CommandProfiler, CommandProfileMeta } from './command-profiler.service.js';
 
 /** Stand-in for nest-commander's abstract `CommandRunner`. */
 class FakeCommandRunner {

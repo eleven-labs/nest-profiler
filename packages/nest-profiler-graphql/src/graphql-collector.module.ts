@@ -3,20 +3,20 @@ import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { GraphQLContextAdapter } from './adapters/graphql-context.adapter';
-import { GraphqlDiscoverSource } from './graphql-discover-source';
-import { buildGraphqlEntrypointType } from './graphql-entrypoint';
+import { GraphQLContextAdapter } from './adapters/graphql-context.adapter.js';
+import { GraphqlDiscoverSource } from './graphql-discover-source.js';
+import { buildGraphqlEntrypointType } from './graphql-entrypoint.js';
 import {
   ConfigurableModuleClass,
   GRAPHQL_COLLECTOR_OPTIONS,
   type GraphQLCollectorModuleOptions,
   type GraphQLCollectorModuleAsyncOptions,
-} from './graphql-collector.interface';
+} from './graphql-collector.interface.js';
 
 export type {
   GraphQLCollectorModuleOptions,
   GraphQLCollectorModuleAsyncOptions,
-} from './graphql-collector.interface';
+} from './graphql-collector.interface.js';
 
 // The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
 // the single, supported registration mechanism.

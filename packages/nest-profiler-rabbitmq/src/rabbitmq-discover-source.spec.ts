@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { AmqpConnection, AmqpConnectionManager, RABBIT_HANDLER } from '@golevelup/nestjs-rabbitmq';
 import type { RabbitMQConfig } from '@golevelup/nestjs-rabbitmq';
-import { RabbitMqDiscoverSource } from './rabbitmq-discover-source';
+import { RabbitMqDiscoverSource } from './rabbitmq-discover-source.js';
 
 function handler(config: unknown) {
   const fn = function () {};

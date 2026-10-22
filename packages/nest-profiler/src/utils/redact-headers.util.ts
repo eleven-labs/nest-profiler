@@ -1,4 +1,4 @@
-import { REDACTED } from './redact.utils';
+import { REDACTED } from './redact.utils.js';
 
 /**
  * Transport-agnostic header redaction helpers shared by the core middleware and every

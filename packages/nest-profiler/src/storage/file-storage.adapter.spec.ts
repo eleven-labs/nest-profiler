@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { FileStorageAdapter } from './file-storage.adapter';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import { FileStorageAdapter } from './file-storage.adapter.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
 
 // The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered for every adapter
 // in `storage-adapter.contract.spec.ts`. This spec keeps only what is specific to the

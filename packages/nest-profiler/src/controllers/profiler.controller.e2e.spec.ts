@@ -15,19 +15,19 @@ import {
 import type { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import type { ProfilerSecurityOptions } from '../nest-profiler.builder';
-import type { PlatformRequest } from '../types/http';
-import { TracerService } from '../services/tracer.service';
-import { ProfilerStorageService } from '../services/profiler-storage.service';
-import { ProfilerCoreService } from '../services/profiler-core.service';
-import { ProfilerCollector } from '../collectors/collector.decorator';
-import type { IProfilerCollector } from '../collectors/collector.interface';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import type { ProfilerSecurityOptions } from '../nest-profiler.builder.js';
+import type { PlatformRequest } from '../types/http.js';
+import { TracerService } from '../services/tracer.service.js';
+import { ProfilerStorageService } from '../services/profiler-storage.service.js';
+import { ProfilerCoreService } from '../services/profiler-core.service.js';
+import { ProfilerCollector } from '../collectors/collector.decorator.js';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
 import type {
   EntrypointSummary,
   ProfilerEntrypointType,
-} from '../entrypoints/profiler-entrypoint-type.interface';
+} from '../entrypoints/profiler-entrypoint-type.interface.js';
 
 // Absolute path to a throwaway sub-panel template, written in beforeAll. The
 // grouped collector points at it so the group tab renders end-to-end.

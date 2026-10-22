@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { RequestMethod } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { RouteCollector } from './route.collector';
+import { RouteCollector } from './route.collector.js';
 
 function makeController(
   controllerPath: string,

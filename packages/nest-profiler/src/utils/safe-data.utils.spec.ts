@@ -1,4 +1,4 @@
-import { toSafeData, safeStringify, normalizeBody } from './safe-data.utils';
+import { toSafeData, safeStringify, normalizeBody } from './safe-data.utils.js';
 
 describe('toSafeData', () => {
   it('passes through JSON-safe primitives untouched', () => {

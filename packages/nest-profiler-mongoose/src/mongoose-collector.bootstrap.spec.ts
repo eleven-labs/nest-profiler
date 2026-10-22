@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { MongooseCollectorModule } from './mongoose-collector.module';
+import { MongooseCollectorModule } from './mongoose-collector.module.js';
 
 /**
  * Bootstrap matrix: with no Connection present the connection patch resolves nothing and

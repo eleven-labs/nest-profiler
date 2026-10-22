@@ -3,9 +3,9 @@ import { Controller, Get } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import { TracerService } from '../services/tracer.service';
-import { createProfilerLogger } from '../services/profiler-logger-adapter';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import { TracerService } from '../services/tracer.service.js';
+import { createProfilerLogger } from '../services/profiler-logger-adapter.js';
 
 /**
  * Profiles sharing a trace id are one unit of work — a request and the events or messages it set

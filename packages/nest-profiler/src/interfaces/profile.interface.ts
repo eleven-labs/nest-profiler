@@ -1,6 +1,6 @@
-import type { ProfilerTag } from '../analysis/profiler-tag.interface';
-import type { SourceCodeFrame } from '../utils/source-context.util';
-import type { SummaryPrimitive } from '../storage/profile-summary';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface.js';
+import type { SourceCodeFrame } from '../utils/source-context.util.js';
+import type { SummaryPrimitive } from '../storage/profile-summary.js';
 
 export type LogLevel = 'log' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
 

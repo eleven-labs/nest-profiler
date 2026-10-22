@@ -4,8 +4,8 @@ import { ClsModule } from 'nestjs-cls';
 import {
   ValidatorCollectorModule,
   VALIDATOR_COLLECTOR_OPTIONS,
-} from './validator-collector.module';
-import { ValidatorCollector } from './validator.collector';
+} from './validator-collector.module.js';
+import { ValidatorCollector } from './validator.collector.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

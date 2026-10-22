@@ -3,8 +3,8 @@ import {
   isCollectionDeferred,
   readTransportResponseBody,
   setTransportResponseBody,
-} from './profile-runtime-state';
-import type { Profile } from '../interfaces/profile.interface';
+} from './profile-runtime-state.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 const AT = 1_700_000_000_000;
 

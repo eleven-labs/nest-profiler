@@ -1,4 +1,4 @@
-import { redact, redactString, isSecretKey, REDACTED } from './redact.utils';
+import { redact, redactString, isSecretKey, REDACTED } from './redact.utils.js';
 
 describe('isSecretKey', () => {
   it('flags common sensitive key names case-insensitively', () => {

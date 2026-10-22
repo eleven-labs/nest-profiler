@@ -1,7 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { PipeTransform, ValidationPipeOptions } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
-import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface';
+import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface.js';
 
 /**
  * `ValidationPipe` subclass that attaches the raw class-validator

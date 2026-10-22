@@ -10,7 +10,7 @@ import {
   redactString,
 } from '@eleven-labs/nest-profiler';
 import type { RedactOptions, RedactStringOptions } from '@eleven-labs/nest-profiler';
-import type { AiMessageRole } from './ai-call.interface';
+import type { AiMessageRole } from './ai-call.interface.js';
 
 /**
  * How much of one kind of AI content reaches a stored profile.

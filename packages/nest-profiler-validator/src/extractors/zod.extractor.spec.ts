@@ -1,4 +1,4 @@
-import { zodExtractor } from './zod.extractor';
+import { zodExtractor } from './zod.extractor.js';
 
 describe('zodExtractor', () => {
   it('extracts issues via a nestjs-zod exception getZodError()', () => {

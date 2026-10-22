@@ -1,6 +1,6 @@
-import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import type { RawSpan } from './build-trace';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { RawSpan } from './build-trace.js';
 
 /**
  * Transient per-request timestamps stamped by the guard, interceptor and validation pipe, held on

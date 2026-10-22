@@ -1,4 +1,4 @@
-import type { Profile } from '../interfaces/profile.interface';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /** Per-section pagination state handed to the list template for rendering the pager. */
 export interface ProfilerListPagination {

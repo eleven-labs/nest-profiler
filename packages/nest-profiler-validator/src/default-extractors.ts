@@ -1,7 +1,7 @@
-import type { ValidationViolationExtractor } from './violation-extractor.interface';
-import { classValidatorExtractor } from './extractors/class-validator.extractor';
-import { zodExtractor } from './extractors/zod.extractor';
-import { genericExtractor } from './extractors/generic.extractor';
+import type { ValidationViolationExtractor } from './violation-extractor.interface.js';
+import { classValidatorExtractor } from './extractors/class-validator.extractor.js';
+import { zodExtractor } from './extractors/zod.extractor.js';
+import { genericExtractor } from './extractors/generic.extractor.js';
 
 /**
  * Built-in extractor chain, tried in order. Rich, validator-specific extractors

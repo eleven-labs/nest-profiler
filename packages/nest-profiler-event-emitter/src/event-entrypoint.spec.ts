@@ -4,8 +4,8 @@ import {
   EVENT_ENTRYPOINT_TYPE,
   EVENT_ENTRYPOINT_TYPE_DEF,
   buildEventEntrypointType,
-} from './event-entrypoint';
-import type { EventEntrypointData } from './event-entrypoint';
+} from './event-entrypoint.js';
+import type { EventEntrypointData } from './event-entrypoint.js';
 
 function makeProfile(
   data: Partial<EventEntrypointData> = {},

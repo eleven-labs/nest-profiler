@@ -13,34 +13,34 @@ import {
 } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { DEFAULT_LIST_PAGE_SIZE, PROFILER_BASE_PATH } from '../constants';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { TemplateRendererService } from '../services/template-renderer.service';
-import { ClientAssetRegistry } from '../services/client-asset-registry.service';
-import { PUBLIC_DIR } from '../views/template-engine';
-import { ProfilerCoreService } from '../services/profiler-core.service';
-import type { GlobalPanelInfo } from '../collectors/collector-registry.service';
-import { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service';
-import { parseExplainPlan } from '../collectors/sql/explain/parse-explain';
-import type { QueryEntry } from '../collectors/sql/sql-query.interface';
-import { MERMAID_SCRIPT_URL } from '../collectors/schema/mermaid-cdn';
-import { ProfilerGuard } from '../guards/profiler.guard';
-import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
-import type { PlatformRequest } from '../types/http';
-import type { LogEntry, Profile } from '../interfaces/profile.interface';
-import { unhandledExceptions } from '../analysis/profiler-error';
+import { DEFAULT_LIST_PAGE_SIZE, PROFILER_BASE_PATH } from '../constants.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { TemplateRendererService } from '../services/template-renderer.service.js';
+import { ClientAssetRegistry } from '../services/client-asset-registry.service.js';
+import { PUBLIC_DIR } from '../views/template-engine.js';
+import { ProfilerCoreService } from '../services/profiler-core.service.js';
+import type { GlobalPanelInfo } from '../collectors/collector-registry.service.js';
+import { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service.js';
+import { parseExplainPlan } from '../collectors/sql/explain/parse-explain.js';
+import type { QueryEntry } from '../collectors/sql/sql-query.interface.js';
+import { MERMAID_SCRIPT_URL } from '../collectors/schema/mermaid-cdn.js';
+import { ProfilerGuard } from '../guards/profiler.guard.js';
+import { appendLinkQuery, linkQueryPairs } from '../views/link.utils.js';
+import type { PlatformRequest } from '../types/http.js';
+import type { LogEntry, Profile } from '../interfaces/profile.interface.js';
+import { unhandledExceptions } from '../analysis/profiler-error.js';
 import {
   buildCriteria,
   filterAppliesToSection,
   parseFilterValues,
   parseLenientInt,
-} from '../list-filters/list-filter.utils';
-import { sectionTypeConstraint } from '../list-sections/list-section.utils';
-import { buildPageHref } from '../list-pagination/list-pagination.utils';
-import type { ProfilerQuery } from '../storage/profiler-query';
-import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
-import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
+} from '../list-filters/list-filter.utils.js';
+import { sectionTypeConstraint } from '../list-sections/list-section.utils.js';
+import { buildPageHref } from '../list-pagination/list-pagination.utils.js';
+import type { ProfilerQuery } from '../storage/profiler-query.js';
+import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface.js';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface.js';
 
 /** Universal tabs every profile shows, regardless of its entrypoint kind. */
 const UNIVERSAL_TAB_NAMES = ['performance', 'logs', 'exceptions'];

@@ -2,9 +2,9 @@ import { isSecretKey, redact, REDACTED } from '@eleven-labs/nest-profiler';
 import type {
   ValidationViolationExtractor,
   ViolationExtractorContext,
-} from '../violation-extractor.interface';
-import { VALIDATOR_RAW_ERRORS } from '../violation-extractor.interface';
-import type { ViolationEntry } from '../validator-collector.interface';
+} from '../violation-extractor.interface.js';
+import { VALIDATOR_RAW_ERRORS } from '../violation-extractor.interface.js';
+import type { ViolationEntry } from '../validator-collector.interface.js';
 
 /**
  * Minimal shape of `class-validator`'s `ValidationError` that we consume. Declared

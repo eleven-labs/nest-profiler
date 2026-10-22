@@ -1,8 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { HttpCollectorModule } from './http-collector.module';
-import { AxiosInstrumentation } from './axios';
-import { FetchInstrumentation } from './fetch';
+import { HttpCollectorModule } from './http-collector.module.js';
+import { AxiosInstrumentation } from './axios/index.js';
+import { FetchInstrumentation } from './fetch/index.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler

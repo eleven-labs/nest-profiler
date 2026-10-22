@@ -1,4 +1,4 @@
-import { isMcpTool, markMcpTools, mcpToolNamesOf } from './mcp-tool-registry';
+import { isMcpTool, markMcpTools, mcpToolNamesOf } from './mcp-tool-registry.js';
 
 /** How `@ai-sdk/mcp` builds a tool it discovered: `dynamicTool(…)`, then the protocol's `_meta`. */
 const mcpTool = (meta?: unknown): Record<string, unknown> => ({

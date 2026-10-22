@@ -1,8 +1,8 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import { CommandRunner } from 'nest-commander';
-import { CommandProfiler } from './command-profiler.service';
-import type { CommandProfileMeta } from './command-profiler.service';
+import { CommandProfiler } from './command-profiler.service.js';
+import type { CommandProfileMeta } from './command-profiler.service.js';
 
 /** Minimal shape of a commander `Option` whose value parser we wrap. */
 interface CommandOptionLike {

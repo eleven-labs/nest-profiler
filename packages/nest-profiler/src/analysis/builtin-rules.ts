@@ -1,8 +1,8 @@
-import type { PerformanceRule } from './performance-rule.interface';
-import { resolveEntryErrorClassifier } from './profiler-error';
-import { BUILTIN_TAG_IDS } from './profiler-tag.interface';
-import type { TaggableEntry } from './taggable-collector.interface';
-import { unhandledExceptions } from './profiler-error';
+import type { PerformanceRule } from './performance-rule.interface.js';
+import { resolveEntryErrorClassifier } from './profiler-error.js';
+import { BUILTIN_TAG_IDS } from './profiler-tag.interface.js';
+import type { TaggableEntry } from './taggable-collector.interface.js';
+import { unhandledExceptions } from './profiler-error.js';
 
 /** Applied to collectors that expose no `isErrorEntry`: an entry error, or a status ≥ 500. */
 const defaultEntryIsError = resolveEntryErrorClassifier();

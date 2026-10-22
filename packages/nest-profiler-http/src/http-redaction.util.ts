@@ -4,7 +4,7 @@
  * compatibility with existing deep imports within this package.
  */
 import { buildMaskedQueryParams, DEFAULT_MASK_QUERY_PARAMS } from '@eleven-labs/nest-profiler';
-import type { HttpCaptureOptions } from './http-request.interface';
+import type { HttpCaptureOptions } from './http-request.interface.js';
 
 export {
   DEFAULT_MASK_HEADERS,

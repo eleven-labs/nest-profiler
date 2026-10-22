@@ -1,15 +1,15 @@
 import * as path from 'path';
-import type { ProfilerErrorOptions } from '../analysis/profiler-error';
-import { resolveErrorSeverity, resolveProfileErrorClassifier } from '../analysis/profiler-error';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
-import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { HTTP_ICON } from '../views/icons';
-import { HELPERS } from '../views/template-engine';
-import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
+import type { ProfilerErrorOptions } from '../analysis/profiler-error.js';
+import { resolveErrorSeverity, resolveProfileErrorClassifier } from '../analysis/profiler-error.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface.js';
+import { HTTP_ICON } from '../views/icons.js';
+import { HELPERS } from '../views/template-engine.js';
+import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface.js';
 import type {
   EntrypointSummary,
   ProfilerEntrypointType,
-} from './profiler-entrypoint-type.interface';
+} from './profiler-entrypoint-type.interface.js';
 
 const SECTIONS_DIR = path.join(__dirname, '../templates/sections');
 const ENTRYPOINTS_DIR = path.join(__dirname, '../templates/entrypoints');

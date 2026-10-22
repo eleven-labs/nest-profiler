@@ -12,26 +12,26 @@ import {
   ConfigurableModuleClass,
   NEST_PROFILER_MODULE_OPTIONS,
   PROFILER_ENABLED,
-} from './nest-profiler.builder';
-import type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder';
-import { ProfilerStorageService } from './services/profiler-storage.service';
-import { TracerService } from './services/tracer.service';
-import { ProfilerMiddleware } from './middleware/profiler.middleware';
-import { ProfilerInterceptor } from './interceptors/profiler.interceptor';
-import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter';
-import { ProfilerController } from './controllers/profiler.controller';
-import { ProfilerGuard } from './guards/profiler.guard';
-import { CollectorRegistry } from './collectors/collector-registry.service';
-import { ExplainRunnerRegistry } from './collectors/sql/explain/explain-runner-registry.service';
-import { RouteCollector } from './collectors/route.collector';
-import { TemplateRendererService } from './services/template-renderer.service';
-import { ClientAssetRegistry } from './services/client-asset-registry.service';
-import { ProfilerCoreService } from './services/profiler-core.service';
-import { RuntimeMetricsService } from './runtime/runtime-metrics.service';
-import { RuntimeCollector } from './runtime/runtime.collector';
-import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage';
-import { PROFILER_BASE_PATH } from './constants';
-import { markInternal } from './instrument/internal-marker';
+} from './nest-profiler.builder.js';
+import type { ProfilerModuleAsyncOptions, ProfilerModuleOptions } from './nest-profiler.builder.js';
+import { ProfilerStorageService } from './services/profiler-storage.service.js';
+import { TracerService } from './services/tracer.service.js';
+import { ProfilerMiddleware } from './middleware/profiler.middleware.js';
+import { ProfilerInterceptor } from './interceptors/profiler.interceptor.js';
+import { ProfilerExceptionFilter } from './exception-filters/profiler-exception.filter.js';
+import { ProfilerController } from './controllers/profiler.controller.js';
+import { ProfilerGuard } from './guards/profiler.guard.js';
+import { CollectorRegistry } from './collectors/collector-registry.service.js';
+import { ExplainRunnerRegistry } from './collectors/sql/explain/explain-runner-registry.service.js';
+import { RouteCollector } from './collectors/route.collector.js';
+import { TemplateRendererService } from './services/template-renderer.service.js';
+import { ClientAssetRegistry } from './services/client-asset-registry.service.js';
+import { ProfilerCoreService } from './services/profiler-core.service.js';
+import { RuntimeMetricsService } from './runtime/runtime-metrics.service.js';
+import { RuntimeCollector } from './runtime/runtime.collector.js';
+import { PROFILER_STORAGE_ADAPTER, FileStorageAdapter } from './storage/index.js';
+import { PROFILER_BASE_PATH } from './constants.js';
+import { markInternal } from './instrument/internal-marker.js';
 
 /**
  * Brands a provider as a profiler internal on its way into the module, so the optional automatic

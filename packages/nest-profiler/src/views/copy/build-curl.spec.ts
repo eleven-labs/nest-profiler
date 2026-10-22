@@ -1,4 +1,4 @@
-import { buildCurlCommand } from './build-curl';
+import { buildCurlCommand } from './build-curl.js';
 
 describe('buildCurlCommand', () => {
   it('builds a GET command without -X and without a body', () => {

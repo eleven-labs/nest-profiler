@@ -1,6 +1,6 @@
 import type { ClsService } from 'nestjs-cls';
-import { PROFILER_CLS_KEYS } from '../constants';
-import type { Profile } from '../interfaces/profile.interface';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * The single way to read the active profiling context out of the CLS store.

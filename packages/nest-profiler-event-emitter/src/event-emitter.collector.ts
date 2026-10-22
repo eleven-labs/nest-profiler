@@ -14,12 +14,15 @@ import type {
   TagSeverity,
   TaggableCollector,
 } from '@eleven-labs/nest-profiler';
-import { EVENT_EMITTER_COLLECTOR_OPTIONS, EVENT_ICON } from './event-emitter-collector.interface';
+import {
+  EVENT_EMITTER_COLLECTOR_OPTIONS,
+  EVENT_ICON,
+} from './event-emitter-collector.interface.js';
 import type {
   EventEmitterCollectorModuleOptions,
   EventEntry,
-} from './event-emitter-collector.interface';
-import { EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch';
+} from './event-emitter-collector.interface.js';
+import { EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch.js';
 
 /**
  * Renders the "Events" panel from the emissions recorded by {@link EventEmitterPatch}, and feeds

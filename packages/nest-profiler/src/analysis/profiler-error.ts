@@ -1,6 +1,6 @@
-import type { ExceptionEntry, Profile } from '../interfaces/profile.interface';
-import type { TagSeverity } from './profiler-tag.interface';
-import type { TaggableEntry } from './taggable-collector.interface';
+import type { ExceptionEntry, Profile } from '../interfaces/profile.interface.js';
+import type { TagSeverity } from './profiler-tag.interface.js';
+import type { TaggableEntry } from './taggable-collector.interface.js';
 
 /** Status at or above which a response is a failure when no `httpStatus` is configured. */
 const DEFAULT_ERROR_STATUS = 500;

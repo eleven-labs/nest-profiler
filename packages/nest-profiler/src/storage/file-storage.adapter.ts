@@ -1,11 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Profile } from '../interfaces/profile.interface';
-import type { IProfilerStorageAdapter } from './storage-adapter.interface';
-import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from './profile-summary';
-import { summarizeProfile } from './profile-summary';
-import type { ProfilerPage, ProfilerQuery } from './profiler-query';
-import { distinctFromSummaries, selectPage } from './profiler-query';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { IProfilerStorageAdapter } from './storage-adapter.interface.js';
+import type {
+  IndexAttributesProvider,
+  ProfileSummary,
+  SummaryPrimitive,
+} from './profile-summary.js';
+import { summarizeProfile } from './profile-summary.js';
+import type { ProfilerPage, ProfilerQuery } from './profiler-query.js';
+import { distinctFromSummaries, selectPage } from './profiler-query.js';
 
 export interface FileStorageAdapterOptions {
   /** Directory where profile files are stored. Defaults to '.profiler' in cwd. */

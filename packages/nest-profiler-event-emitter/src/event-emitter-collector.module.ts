@@ -3,15 +3,15 @@ import type { DynamicModule } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './event-emitter-collector.interface';
+import { ConfigurableModuleClass } from './event-emitter-collector.interface.js';
 import type {
   EventEmitterCollectorModuleAsyncOptions,
   EventEmitterCollectorModuleOptions,
-} from './event-emitter-collector.interface';
-import { EventDiscoverSource } from './event-discover-source';
-import { EventEmitterCollector } from './event-emitter.collector';
-import { EventEmitterPatch } from './event-emitter.patch';
-import { EventProfilerService } from './event-profiler.service';
+} from './event-emitter-collector.interface.js';
+import { EventDiscoverSource } from './event-discover-source.js';
+import { EventEmitterCollector } from './event-emitter.collector.js';
+import { EventEmitterPatch } from './event-emitter.patch.js';
+import { EventProfilerService } from './event-profiler.service.js';
 
 // `EventProfilerService` registers the `event` entrypoint type and wraps the `@OnEvent` handlers,
 // `EventDiscoverSource` self-registers at bootstrap; both need DiscoveryModule (DiscoveryService +

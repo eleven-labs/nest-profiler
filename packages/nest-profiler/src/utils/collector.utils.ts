@@ -1,6 +1,6 @@
 import { ClsServiceManager } from 'nestjs-cls';
-import { PROFILER_CLS_KEYS } from '../constants';
-import type { Profile } from '../interfaces/profile.interface';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * Returns the typed collector entries array for the given key.

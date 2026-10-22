@@ -3,11 +3,11 @@ import { Catch, Controller, Put, UseFilters } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import { TracerService } from '../services/tracer.service';
-import { ProfilerStorageService } from '../services/profiler-storage.service';
-import { createProfilerLogger } from '../services/profiler-logger-adapter';
-import type { Profile } from '../interfaces/profile.interface';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import { TracerService } from '../services/tracer.service.js';
+import { ProfilerStorageService } from '../services/profiler-storage.service.js';
+import { createProfilerLogger } from '../services/profiler-logger-adapter.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * Exception filters run after the interceptor's `catchError`: they pick the status, write the

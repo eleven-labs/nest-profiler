@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { MongooseSchemaCollectorModule } from './mongoose-schema-collector.module';
+import { MongooseSchemaCollectorModule } from './mongoose-schema-collector.module.js';
 
 /**
  * Bootstrap matrix: with no connection present the collector introspects nothing and no-ops,

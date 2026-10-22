@@ -5,8 +5,8 @@ import type {
   EntryErrorOptions,
   TagSeverityOptions,
 } from '@eleven-labs/nest-profiler';
-import type { HttpCaptureOptions } from './http-request.interface';
-import type { HttpInstrumentation } from './http-instrumentation.interface';
+import type { HttpCaptureOptions } from './http-request.interface.js';
+import type { HttpInstrumentation } from './http-instrumentation.interface.js';
 
 export interface HttpCollectorModuleOptions
   extends HttpCaptureOptions, CollectorModuleOptions, TagSeverityOptions {

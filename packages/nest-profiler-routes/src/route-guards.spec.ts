@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Controller, Get, Injectable, UseGuards } from '@nestjs/common';
 import type { CanActivate } from '@nestjs/common';
-import { readRouteGuards } from './route-guards';
+import { readRouteGuards } from './route-guards.js';
 
 @Injectable()
 class JwtGuard implements CanActivate {

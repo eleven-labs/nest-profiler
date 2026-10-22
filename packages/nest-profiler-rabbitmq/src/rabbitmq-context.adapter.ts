@@ -8,11 +8,11 @@ import {
   RABBITMQ_COLLECTOR_OPTIONS,
   RABBITMQ_ENTRYPOINT_TYPE,
   RMQ_CONTEXT_TYPE,
-} from './rabbitmq-collector.interface';
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
-import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface';
-import { buildRabbitMqPublish } from './build-rabbitmq-publish';
-import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util';
+} from './rabbitmq-collector.interface.js';
+import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
+import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface.js';
+import { buildRabbitMqPublish } from './build-rabbitmq-publish.js';
+import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util.js';
 
 /**
  * Context adapter that lets the profiler capture `@RabbitSubscribe` messages.

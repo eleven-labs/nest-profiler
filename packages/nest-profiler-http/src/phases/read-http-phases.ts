@@ -1,7 +1,7 @@
 import type { ClientRequest } from 'node:http';
-import type { HttpPhases, HttpPhaseName } from '../http-phases.interface';
-import { hasHttpPhases } from '../http-phases.interface';
-import { isInstrumentedClientRequest, phasesOfClientRequest } from './client-request-timer';
+import type { HttpPhases, HttpPhaseName } from '../http-phases.interface.js';
+import { hasHttpPhases } from '../http-phases.interface.js';
+import { isInstrumentedClientRequest, phasesOfClientRequest } from './client-request-timer.js';
 
 /** Properties that lead from an object an instrumentation holds towards the underlying request. */
 const UNWRAP_KEYS = ['request', 'req'] as const;

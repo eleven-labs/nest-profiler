@@ -1,20 +1,20 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
 import type { CanActivate, ConfigurableModuleAsyncOptions, Type } from '@nestjs/common';
-import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface';
+import type { IProfilerStorageAdapter } from './storage/storage-adapter.interface.js';
 import type {
   ProfilerFilterRequest,
   ProfilerForceProfileFilter,
   ProfilerRequestFilter,
-} from './filters';
-import type { PerformanceRule } from './analysis/performance-rule.interface';
-import type { ProfilerErrorOptions } from './analysis/profiler-error';
-import type { PlatformRequest, PlatformResponse } from './types/http';
-import type { SafeDataOptions } from './utils/safe-data.utils';
-import type { ProfilerRuntimeOptions } from './runtime/runtime-metrics.interface';
-import type { ProfilerRedactionOptions } from './utils/redaction-options';
-import type { SourceContextOptions } from './utils/source-context.util';
-import type { ProfilerEditorName } from './views/editor-link';
-import type { SummaryPrimitive } from './storage/profile-summary';
+} from './filters.js';
+import type { PerformanceRule } from './analysis/performance-rule.interface.js';
+import type { ProfilerErrorOptions } from './analysis/profiler-error.js';
+import type { PlatformRequest, PlatformResponse } from './types/http.js';
+import type { SafeDataOptions } from './utils/safe-data.utils.js';
+import type { ProfilerRuntimeOptions } from './runtime/runtime-metrics.interface.js';
+import type { ProfilerRedactionOptions } from './utils/redaction-options.js';
+import type { SourceContextOptions } from './utils/source-context.util.js';
+import type { ProfilerEditorName } from './views/editor-link.js';
+import type { SummaryPrimitive } from './storage/profile-summary.js';
 
 /**
  * Context handed to an {@link ProfilerAuthorize} predicate. Both the request and the

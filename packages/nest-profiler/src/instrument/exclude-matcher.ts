@@ -1,4 +1,4 @@
-import { escapeRegExp } from '../utils/regexp.utils';
+import { escapeRegExp } from '../utils/regexp.utils.js';
 
 /**
  * Name matching for the automatic instrumentation's `exclude` option.

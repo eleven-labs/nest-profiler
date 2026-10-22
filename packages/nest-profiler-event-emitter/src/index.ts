@@ -1,19 +1,19 @@
-export { EventEmitterCollectorModule } from './event-emitter-collector.module';
-export { EventEmitterCollector } from './event-emitter.collector';
-export { EventProfilerService } from './event-profiler.service';
-export { EventDiscoverSource } from './event-discover-source';
-export { EventEmitterPatch, EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch';
-export { EVENT_ICON } from './event-emitter-collector.interface';
+export { EventEmitterCollectorModule } from './event-emitter-collector.module.js';
+export { EventEmitterCollector } from './event-emitter.collector.js';
+export { EventProfilerService } from './event-profiler.service.js';
+export { EventDiscoverSource } from './event-discover-source.js';
+export { EventEmitterPatch, EVENT_EMITTER_EVENTS_KEY } from './event-emitter.patch.js';
+export { EVENT_ICON } from './event-emitter-collector.interface.js';
 export {
   EVENT_ENTRYPOINT_TYPE,
   EVENT_ENTRYPOINT_TYPE_DEF,
   buildEventEntrypointType,
-} from './event-entrypoint';
-export { scanEventListeners } from './event-listener-scan';
+} from './event-entrypoint.js';
+export { scanEventListeners } from './event-listener-scan.js';
 export type {
   EventEmitterCollectorModuleOptions,
   EventEmitterCollectorModuleAsyncOptions,
   EventEntry,
-} from './event-emitter-collector.interface';
-export type { EventEntrypointData } from './event-entrypoint';
-export type { DiscoveredListener } from './event-listener-scan';
+} from './event-emitter-collector.interface.js';
+export type { EventEntrypointData } from './event-entrypoint.js';
+export type { DiscoveredListener } from './event-listener-scan.js';

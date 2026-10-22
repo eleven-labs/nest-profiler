@@ -1,7 +1,7 @@
 import * as path from 'path';
-import { AbstractQueryCollector } from '../abstract-query.collector';
-import { normalizeSqlFingerprint } from '../../analysis/fingerprint.utils';
-import type { QueryEntry } from './sql-query.interface';
+import { AbstractQueryCollector } from '../abstract-query.collector.js';
+import { normalizeSqlFingerprint } from '../../analysis/fingerprint.utils.js';
+import type { QueryEntry } from './sql-query.interface.js';
 
 /**
  * Shared behaviour for SQL query collectors (TypeORM, MikroORM, …).

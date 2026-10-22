@@ -6,7 +6,7 @@ import {
   findHandlerFn,
   scanEventListeners,
   toEventName,
-} from './event-listener-scan';
+} from './event-listener-scan.js';
 
 class ReviewListener {
   @OnEvent('review.created')

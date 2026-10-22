@@ -10,12 +10,12 @@ import type {
   TaggableEntry,
   TraceContributor,
 } from '@eleven-labs/nest-profiler';
-import { AI_ICON } from './icons';
-import { AI_COLLECTOR_OPTIONS } from './ai-collector.interface';
-import type { AiCollectorModuleOptions } from './ai-collector.interface';
-import { AI_ENTRIES_KEY, isAiCall } from './ai-call.interface';
-import { aiCaptureLevels } from './ai-capture';
-import type { AiCallEntry, AiCollectorData, AiEntry } from './ai-call.interface';
+import { AI_ICON } from './icons.js';
+import { AI_COLLECTOR_OPTIONS } from './ai-collector.interface.js';
+import type { AiCollectorModuleOptions } from './ai-collector.interface.js';
+import { AI_ENTRIES_KEY, isAiCall } from './ai-call.interface.js';
+import { aiCaptureLevels } from './ai-capture.js';
+import type { AiCallEntry, AiCollectorData, AiEntry } from './ai-call.interface.js';
 
 const EMPTY: AiCollectorData = {
   entries: [],

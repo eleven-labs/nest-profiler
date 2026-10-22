@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { CollectorRegistry } from './collector-registry.service';
+import { CollectorRegistry } from './collector-registry.service.js';
 import { DiscoveryModule } from '@nestjs/core';
-import { ProfilerCollector } from './collector.decorator';
-import type { IProfilerCollector } from './collector.interface';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import { ProfilerCollector } from './collector.decorator.js';
+import type { IProfilerCollector } from './collector.interface.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 // Collectors discovered through the @ProfilerCollector decorator carry their
 // presentation metadata on the decorator (not on the instance), exercising the

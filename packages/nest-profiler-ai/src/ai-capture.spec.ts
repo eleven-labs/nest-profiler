@@ -11,7 +11,7 @@ import {
   configureAiCapture,
   maxCapturedMessages,
   resetAiCapture,
-} from './ai-capture';
+} from './ai-capture.js';
 
 const JWT =
   'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.dBjftJeZ4CVPmB92K27uhbUJU1p1r';

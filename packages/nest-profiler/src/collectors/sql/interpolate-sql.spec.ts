@@ -1,4 +1,4 @@
-import { interpolateSql } from './interpolate-sql';
+import { interpolateSql } from './interpolate-sql.js';
 
 describe('interpolateSql', () => {
   it('returns the sql untouched when there are no parameters', () => {

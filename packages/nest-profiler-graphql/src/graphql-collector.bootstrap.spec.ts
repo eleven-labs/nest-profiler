@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { GraphQLCollectorModule } from './graphql-collector.module';
+import { GraphQLCollectorModule } from './graphql-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector resolves the GraphQL plugin surface lazily (ModuleRef,

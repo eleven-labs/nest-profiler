@@ -1,8 +1,8 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { CommandProfiler } from './command-profiler.service';
-import { CommandProfilerExplorer } from './command-profiler.explorer';
-import { CommanderDiscoverSource } from './commander-discover-source';
+import { CommandProfiler } from './command-profiler.service.js';
+import { CommandProfilerExplorer } from './command-profiler.explorer.js';
+import { CommanderDiscoverSource } from './commander-discover-source.js';
 
 export interface CommanderCollectorModuleOptions {
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */

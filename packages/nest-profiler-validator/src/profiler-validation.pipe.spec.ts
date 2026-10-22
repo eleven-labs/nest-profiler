@@ -2,13 +2,16 @@ import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
 import { IsNotEmpty, IsString } from 'class-validator';
-import { ProfilerValidationPipe, createProfilerValidationPipe } from './profiler-validation.pipe';
-import { createClassValidatorPipe } from './class-validator.adapter';
-import { VALIDATOR_KEY } from './validator-collector.interface';
-import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface';
-import type { ValidationViolationExtractor } from './violation-extractor.interface';
+import {
+  ProfilerValidationPipe,
+  createProfilerValidationPipe,
+} from './profiler-validation.pipe.js';
+import { createClassValidatorPipe } from './class-validator.adapter.js';
+import { VALIDATOR_KEY } from './validator-collector.interface.js';
+import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface.js';
+import type { ValidationViolationExtractor } from './violation-extractor.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { ValidationEntry } from './validator-collector.interface';
+import type { ValidationEntry } from './validator-collector.interface.js';
 
 function makeProfile(): Profile {
   return {

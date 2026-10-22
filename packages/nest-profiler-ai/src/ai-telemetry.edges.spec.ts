@@ -5,10 +5,10 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry } from './ai-telemetry';
-import { resetAiCapture } from './ai-capture';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
-import type { AiCallEntry, AiEntry } from './ai-call.interface';
+import { AiProfilerTelemetry } from './ai-telemetry.js';
+import { resetAiCapture } from './ai-capture.js';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
+import type { AiCallEntry, AiEntry } from './ai-call.interface.js';
 
 function newProfile(type: string = HTTP_ENTRYPOINT_TYPE): Profile {
   return {

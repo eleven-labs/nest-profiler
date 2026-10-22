@@ -1,2 +1,2 @@
-export { NodeHttpPhases } from './node-http.phases';
-export { UndiciPhases } from './undici.phases';
+export { NodeHttpPhases } from './node-http.phases.js';
+export { UndiciPhases } from './undici.phases.js';

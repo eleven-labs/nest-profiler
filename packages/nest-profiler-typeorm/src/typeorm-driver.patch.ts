@@ -1,13 +1,13 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from './typeorm-data-source.token';
+import { getDataSourceToken } from './typeorm-data-source.token.js';
 import { ClsService } from 'nestjs-cls';
 import type { DataSource, QueryRunner } from 'typeorm';
 import { appendCollectorEntry, readProfile, redact, tryResolve } from '@eleven-labs/nest-profiler';
-import type { QueryEntry } from './typeorm-collector.interface';
-import { detectQueryType } from './typeorm-collector.interface';
-import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
-import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface';
+import type { QueryEntry } from './typeorm-collector.interface.js';
+import { detectQueryType } from './typeorm-collector.interface.js';
+import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface.js';
+import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface.js';
 
 export const TYPEORM_QUERIES_KEY = '__typeorm_queries';
 

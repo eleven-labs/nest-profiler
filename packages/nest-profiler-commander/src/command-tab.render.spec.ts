@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import { ClientAssetRegistry, TemplateRendererService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
-import type { CommandInfo } from './commander-collector.interface';
+import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface.js';
+import type { CommandInfo } from './commander-collector.interface.js';
 
 function profileWith(data: Partial<CommandInfo>): Profile<CommandInfo> {
   return {

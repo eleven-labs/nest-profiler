@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { getProfilerVersion } from '../version';
+import { getProfilerVersion } from '../version.js';
 
 /** Per-path digest cache: each asset is read and hashed once, then reused for the process lifetime. */
 const queryCache = new Map<string, string>();

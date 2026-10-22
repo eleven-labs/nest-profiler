@@ -1,5 +1,5 @@
 import type { DynamicModule, ModuleMetadata, Provider } from '@nestjs/common';
-import { markInternal } from './instrument/internal-marker';
+import { markInternal } from './instrument/internal-marker.js';
 
 /**
  * The collector-specific wiring merged on top of the `DynamicModule` produced by a

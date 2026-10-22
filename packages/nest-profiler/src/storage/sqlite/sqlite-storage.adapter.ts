@@ -2,11 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { createClient, type Client, type InValue, type Row } from '@libsql/client';
-import type { Profile } from '../../interfaces/profile.interface';
-import type { IProfilerStorageAdapter } from '../storage-adapter.interface';
-import type { IndexAttributesProvider, SummaryPrimitive } from '../profile-summary';
-import { summarizeProfile } from '../profile-summary';
-import type { FilterCriterion, ProfilerPage, ProfilerQuery } from '../profiler-query';
+import type { Profile } from '../../interfaces/profile.interface.js';
+import type { IProfilerStorageAdapter } from '../storage-adapter.interface.js';
+import type { IndexAttributesProvider, SummaryPrimitive } from '../profile-summary.js';
+import { summarizeProfile } from '../profile-summary.js';
+import type { FilterCriterion, ProfilerPage, ProfilerQuery } from '../profiler-query.js';
 
 export interface SqliteStorageAdapterOptions {
   /**

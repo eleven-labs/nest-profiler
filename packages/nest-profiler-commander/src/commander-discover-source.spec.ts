@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { Command, CommandRunner, Option } from 'nest-commander';
-import { CommanderDiscoverSource } from './commander-discover-source';
+import { CommanderDiscoverSource } from './commander-discover-source.js';
 
 @Command({ name: 'build', description: 'Build the project' })
 class BuildCommand extends CommandRunner {

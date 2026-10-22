@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ExplainRunner } from './explain.interface';
+import type { ExplainRunner } from './explain.interface.js';
 
 /**
  * Process-wide registry of {@link ExplainRunner}s, one per SQL collector that has EXPLAIN

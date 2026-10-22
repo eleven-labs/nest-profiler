@@ -12,11 +12,11 @@ import type {
   DiscoverGroup,
   ProfilerDiscoverSource,
 } from '@eleven-labs/nest-profiler';
-import { RABBITMQ_ICON } from './icons';
-import { DEFAULT_EXCHANGE_LABEL } from './rabbitmq-labels';
-import { describeSubscription } from './rabbitmq-subscription.describe';
-import { connectionName, describeTopology } from './rabbitmq-topology.describe';
-import type { DiscoveredRabbitMqConnection } from './rabbitmq-topology.describe';
+import { RABBITMQ_ICON } from './icons.js';
+import { DEFAULT_EXCHANGE_LABEL } from './rabbitmq-labels.js';
+import { describeSubscription } from './rabbitmq-subscription.describe.js';
+import { connectionName, describeTopology } from './rabbitmq-topology.describe.js';
+import type { DiscoveredRabbitMqConnection } from './rabbitmq-topology.describe.js';
 
 /** Shown on a handler golevelup skips because its `name` matches no module-level handler config. */
 const NOT_REGISTERED_DESCRIPTION =

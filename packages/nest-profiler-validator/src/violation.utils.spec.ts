@@ -1,4 +1,4 @@
-import { countViolations } from './violation.utils';
+import { countViolations } from './violation.utils.js';
 
 describe('countViolations', () => {
   it('counts the number of constraints on a leaf violation', () => {

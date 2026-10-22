@@ -1,6 +1,6 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
-import { ConfigCollectorModule, CONFIG_COLLECTOR_OPTIONS } from './config-collector.module';
-import { ConfigCollector } from './config.collector';
+import { ConfigCollectorModule, CONFIG_COLLECTOR_OPTIONS } from './config-collector.module.js';
+import { ConfigCollector } from './config.collector.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

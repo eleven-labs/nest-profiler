@@ -6,18 +6,18 @@ import type {
   HttpCaptureInput,
   HttpCaptureOptions,
   HttpRequestEntry,
-} from './http-request.interface';
+} from './http-request.interface.js';
 import { redact, tryResolve } from '@eleven-labs/nest-profiler';
-import { appendHttpRequestEntry } from './append-http-request-entry.util';
-import { hasHttpPhases } from './http-phases.interface';
+import { appendHttpRequestEntry } from './append-http-request-entry.util.js';
+import { hasHttpPhases } from './http-phases.interface.js';
 import {
   DEFAULT_MASK_HEADERS,
   extractHeaders,
   redactQueryString,
   resolveMaskedQueryParams,
-} from './http-redaction.util';
-import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
-import { outgoingTraceId, resolveTraceIdHeader } from './propagate-trace-id';
+} from './http-redaction.util.js';
+import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants.js';
+import { outgoingTraceId, resolveTraceIdHeader } from './propagate-trace-id.js';
 
 /**
  * Injectable façade for recording outgoing HTTP requests into the active

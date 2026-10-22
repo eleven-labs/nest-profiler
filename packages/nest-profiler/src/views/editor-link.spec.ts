@@ -1,4 +1,4 @@
-import { EDITOR_NAMES, createEditorLink, resolveEditorTemplate } from './editor-link';
+import { EDITOR_NAMES, createEditorLink, resolveEditorTemplate } from './editor-link.js';
 
 describe('resolveEditorTemplate', () => {
   it('resolves every editor it advertises', () => {

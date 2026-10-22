@@ -8,7 +8,7 @@ import type {
   ProfilerListFilter,
   SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
-import { EVENT_ICON } from './event-emitter-collector.interface';
+import { EVENT_ICON } from './event-emitter-collector.interface.js';
 
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 

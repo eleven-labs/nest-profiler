@@ -1,8 +1,8 @@
 import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
 import { ExplainRunnerRegistry } from '@eleven-labs/nest-profiler';
-import { TypeOrmExplainRunner } from './typeorm-explain.runner';
-import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface';
+import { TypeOrmExplainRunner } from './typeorm-explain.runner.js';
+import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface.js';
 
 interface QueryRunnerLike {
   query: jest.Mock;

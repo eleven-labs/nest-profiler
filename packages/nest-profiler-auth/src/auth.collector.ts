@@ -15,8 +15,8 @@ import type { IProfilerCollector, Profile, SecurityContext } from '@eleven-labs/
 // that module imports this file, and the resulting cycle leaves the token undefined when the
 // decorators below run — `@Inject(undefined)` then silently degrades to the `@Optional()`
 // default, so `badge`, `badgeValue` and `maskUserFields` would be ignored.
-import { AUTH_COLLECTOR_OPTIONS } from './auth-collector.interface';
-import type { AuthCollectorModuleOptions } from './auth-collector.interface';
+import { AUTH_COLLECTOR_OPTIONS } from './auth-collector.interface.js';
+import type { AuthCollectorModuleOptions } from './auth-collector.interface.js';
 
 const AUTH_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L2 4v4c0 3.3 2.5 6.4 6 7 3.5-.6 6-3.7 6-7V4L8 1z" opacity="0.9"/></svg>`;
 

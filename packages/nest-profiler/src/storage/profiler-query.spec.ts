@@ -3,11 +3,11 @@ import {
   distinctInMemory,
   matchesCriterion,
   matchesQuery,
-} from './profiler-query';
-import type { ProfilerQuery } from './profiler-query';
-import { summarizeProfile } from './profile-summary';
-import type { IndexAttributesProvider } from './profile-summary';
-import type { Profile } from '../interfaces/profile.interface';
+} from './profiler-query.js';
+import type { ProfilerQuery } from './profiler-query.js';
+import { summarizeProfile } from './profile-summary.js';
+import type { IndexAttributesProvider } from './profile-summary.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function profile(overrides: {
   token?: string;

@@ -3,10 +3,10 @@ import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { createZodDto, ZodValidationPipe } from 'nestjs-zod';
-import { ProfilerValidationPipe } from './profiler-validation.pipe';
-import { VALIDATOR_KEY } from './validator-collector.interface';
+import { ProfilerValidationPipe } from './profiler-validation.pipe.js';
+import { VALIDATOR_KEY } from './validator-collector.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { ValidationEntry } from './validator-collector.interface';
+import type { ValidationEntry } from './validator-collector.interface.js';
 
 const WidgetSchema = z.object({
   name: z.string().min(3),

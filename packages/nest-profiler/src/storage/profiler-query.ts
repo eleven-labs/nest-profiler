@@ -1,6 +1,10 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { IndexAttributesProvider, ProfileSummary, SummaryPrimitive } from './profile-summary';
-import { summarizeProfile } from './profile-summary';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type {
+  IndexAttributesProvider,
+  ProfileSummary,
+  SummaryPrimitive,
+} from './profile-summary.js';
+import { summarizeProfile } from './profile-summary.js';
 
 /** Comparison operators a {@link FilterCriterion} may use against a summary field. */
 export type FilterOp = 'eq' | 'gte' | 'lte' | 'range' | 'contains' | 'truthy';

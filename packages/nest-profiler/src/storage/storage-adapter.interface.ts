@@ -1,6 +1,6 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerPage, ProfilerQuery } from './profiler-query';
-import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerPage, ProfilerQuery } from './profiler-query.js';
+import type { IndexAttributesProvider, SummaryPrimitive } from './profile-summary.js';
 
 /**
  * DI token the resolved {@link IProfilerStorageAdapter} is provided under.

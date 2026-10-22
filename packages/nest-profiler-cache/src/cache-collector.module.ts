@@ -1,6 +1,6 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { CacheCollector } from './cache.collector';
-import { CacheManagerPatch } from './cache-manager.patch';
+import { CacheCollector } from './cache.collector.js';
+import { CacheManagerPatch } from './cache-manager.patch.js';
 
 export interface CacheCollectorModuleOptions {
   /** Enable the collector. Default: `true`. Set to `false` to disable (the host application decides per environment). */

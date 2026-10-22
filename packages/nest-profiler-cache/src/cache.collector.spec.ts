@@ -1,12 +1,12 @@
 import * as path from 'path';
 import type { ModuleRef } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
-import { CacheCollector } from './cache.collector';
-import { CacheCollectorModule } from './cache-collector.module';
-import { CacheManagerPatch } from './cache-manager.patch';
-import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
+import { CacheCollector } from './cache.collector.js';
+import { CacheCollectorModule } from './cache-collector.module.js';
+import { CacheManagerPatch } from './cache-manager.patch.js';
+import { CACHE_OPERATIONS_KEY } from './cache-collector.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { CacheOperationEntry } from './cache-collector.interface';
+import type { CacheOperationEntry } from './cache-collector.interface.js';
 
 function moduleRefFor(cls: ClsService | undefined): ModuleRef {
   return { get: jest.fn(() => cls) } as unknown as ModuleRef;

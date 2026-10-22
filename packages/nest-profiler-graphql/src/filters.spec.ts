@@ -1,5 +1,5 @@
 import type { ProfilerFilterRequest } from '@eleven-labs/nest-profiler';
-import { ignoreGraphQLPlayground, ignoreGraphQLIntrospection } from './filters';
+import { ignoreGraphQLPlayground, ignoreGraphQLIntrospection } from './filters.js';
 
 function req(overrides: Partial<ProfilerFilterRequest> = {}): ProfilerFilterRequest {
   return { method: 'POST', url: '/graphql', headers: {}, ...overrides };

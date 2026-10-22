@@ -3,8 +3,8 @@ import type { ConfigurableModuleAsyncOptions } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { RoutesCollector } from './routes.collector';
-import { HttpDiscoverSource } from './http-discover-source';
+import { RoutesCollector } from './routes.collector.js';
+import { HttpDiscoverSource } from './http-discover-source.js';
 
 /** Options for {@link RoutesCollectorModule}. */
 export interface RoutesCollectorModuleOptions {

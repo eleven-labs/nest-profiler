@@ -1,10 +1,10 @@
 import type { ClsService } from 'nestjs-cls';
 import type { ModuleRef as _MR } from '@nestjs/core';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
-import type { HttpRequestEntry } from './http-request.interface';
-import { DEFAULT_MASK_HEADERS } from './http-redaction.util';
+import { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface.js';
+import type { HttpRequestEntry } from './http-request.interface.js';
+import { DEFAULT_MASK_HEADERS } from './http-redaction.util.js';
 
 function makeProfile(): Profile {
   return {

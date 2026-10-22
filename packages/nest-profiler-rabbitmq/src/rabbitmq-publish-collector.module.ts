@@ -1,19 +1,19 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './rabbitmq-publish-collector.interface';
+import { ConfigurableModuleClass } from './rabbitmq-publish-collector.interface.js';
 import type {
   RabbitMqPublishCollectorModuleAsyncOptions,
   RabbitMqPublishCollectorModuleOptions,
-} from './rabbitmq-publish-collector.interface';
-import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
-import { RabbitMqPublishPatch } from './rabbitmq-publish.patch';
+} from './rabbitmq-publish-collector.interface.js';
+import { RabbitMqPublishCollector } from './rabbitmq-publish.collector.js';
+import { RabbitMqPublishPatch } from './rabbitmq-publish.patch.js';
 
-export { RABBITMQ_PUBLISH_COLLECTOR_OPTIONS } from './rabbitmq-publish-collector.interface';
+export { RABBITMQ_PUBLISH_COLLECTOR_OPTIONS } from './rabbitmq-publish-collector.interface.js';
 export type {
   RabbitMqPublishCollectorModuleOptions,
   RabbitMqPublishCollectorModuleAsyncOptions,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 
 // The patch resolves ClsService lazily via ModuleRef, so it needs no imports of its own.
 const SHAPE: CollectorModuleShape = { providers: [RabbitMqPublishPatch, RabbitMqPublishCollector] };

@@ -1,4 +1,4 @@
-import type { ColumnInfo, EntitySchema, RelationInfo } from './schema.interface';
+import type { ColumnInfo, EntitySchema, RelationInfo } from './schema.interface.js';
 
 /**
  * Mermaid crow's-foot notation per edge kind. One-to-many is folded into many-to-one (read

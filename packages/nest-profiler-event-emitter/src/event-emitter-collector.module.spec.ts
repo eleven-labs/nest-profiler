@@ -6,11 +6,11 @@ import {
   ProfilerModule,
   sectionTypeConstraint,
 } from '@eleven-labs/nest-profiler';
-import { EventEmitterCollectorModule } from './event-emitter-collector.module';
-import { EventEmitterCollector } from './event-emitter.collector';
-import { EventProfilerService } from './event-profiler.service';
-import { EventDiscoverSource } from './event-discover-source';
-import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface';
+import { EventEmitterCollectorModule } from './event-emitter-collector.module.js';
+import { EventEmitterCollector } from './event-emitter.collector.js';
+import { EventProfilerService } from './event-profiler.service.js';
+import { EventDiscoverSource } from './event-discover-source.js';
+import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface.js';
 
 async function bootstrap(module: ReturnType<typeof EventEmitterCollectorModule.forRoot>) {
   const moduleRef = await Test.createTestingModule({

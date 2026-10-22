@@ -1,4 +1,4 @@
-import type { AiTokenUsage } from './ai-call.interface';
+import type { AiTokenUsage } from './ai-call.interface.js';
 
 /**
  * What one model charges, in the currency of your choice — the panel prints it with a `$`, so

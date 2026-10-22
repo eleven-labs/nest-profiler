@@ -1,8 +1,8 @@
 import * as path from 'path';
-import { ValidatorCollector } from './validator.collector';
-import { VALIDATOR_KEY } from './validator-collector.interface';
+import { ValidatorCollector } from './validator.collector.js';
+import { VALIDATOR_KEY } from './validator-collector.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { ValidationEntry } from './validator-collector.interface';
+import type { ValidationEntry } from './validator-collector.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

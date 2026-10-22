@@ -1,7 +1,7 @@
-import { RuntimeCollector } from './runtime.collector';
-import { RuntimeMetricsService } from './runtime-metrics.service';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import { RuntimeCollector } from './runtime.collector.js';
+import { RuntimeMetricsService } from './runtime-metrics.service.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 const emptyProfile = {
   token: '',

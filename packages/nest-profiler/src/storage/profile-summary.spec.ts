@@ -1,5 +1,5 @@
-import { summarizeProfile } from './profile-summary';
-import type { Profile } from '../interfaces/profile.interface';
+import { summarizeProfile } from './profile-summary.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function httpProfile(overrides: Partial<Profile> = {}): Profile {
   return {

@@ -11,8 +11,8 @@ import type {
   DiscoverEntry,
   DiscoverGroup,
 } from '@eleven-labs/nest-profiler';
-import { describeHandlerParams, handlerHasRouteArgs } from './describe-handler-params';
-import { readRouteGuards } from './route-guards';
+import { describeHandlerParams, handlerHasRouteArgs } from './describe-handler-params.js';
+import { readRouteGuards } from './route-guards.js';
 
 /**
  * The built-in {@link ProfilerDiscoverSource} for REST controllers. It discovers every request-mapped

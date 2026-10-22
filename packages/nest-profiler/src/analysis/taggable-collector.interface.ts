@@ -1,6 +1,6 @@
-import type { IProfilerCollector } from '../collectors/collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface.js';
 
 /**
  * The minimal shape every entry exposed to the performance-rule engine shares:

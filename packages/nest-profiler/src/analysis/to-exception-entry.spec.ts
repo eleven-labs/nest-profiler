@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { toExceptionEntry, resolveExceptionCaptureOptions } from './to-exception-entry';
+import { toExceptionEntry, resolveExceptionCaptureOptions } from './to-exception-entry.js';
 
 describe('toExceptionEntry', () => {
   it('records the name, message and stack of an Error', () => {

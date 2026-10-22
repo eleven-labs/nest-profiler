@@ -1,4 +1,4 @@
-import type { ExplainPlan, ExplainRawResult } from './explain.interface';
+import type { ExplainPlan, ExplainRawResult } from './explain.interface.js';
 
 function toNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;

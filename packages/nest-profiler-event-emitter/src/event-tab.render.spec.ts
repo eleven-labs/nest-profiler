@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import { ClientAssetRegistry, TemplateRendererService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { EVENT_ENTRYPOINT_TYPE } from './event-entrypoint';
-import type { EventEntrypointData } from './event-entrypoint';
+import { EVENT_ENTRYPOINT_TYPE } from './event-entrypoint.js';
+import type { EventEntrypointData } from './event-entrypoint.js';
 
 function profileWith(
   data: Partial<EventEntrypointData> = {},

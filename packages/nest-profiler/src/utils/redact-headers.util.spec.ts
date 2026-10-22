@@ -1,4 +1,4 @@
-import { extractHeaders, formatHeaderValue, DEFAULT_MASK_HEADERS } from './redact-headers.util';
+import { extractHeaders, formatHeaderValue, DEFAULT_MASK_HEADERS } from './redact-headers.util.js';
 
 describe('DEFAULT_MASK_HEADERS', () => {
   it('includes the common sensitive headers', () => {

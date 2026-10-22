@@ -2,8 +2,8 @@ import {
   resolveEntryErrorClassifier,
   resolveErrorSeverity,
   resolveProfileErrorClassifier,
-} from './profiler-error';
-import type { ExceptionEntry, Profile, ResponseData } from '../interfaces/profile.interface';
+} from './profiler-error.js';
+import type { ExceptionEntry, Profile, ResponseData } from '../interfaces/profile.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

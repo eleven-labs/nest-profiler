@@ -1,7 +1,10 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
-import { MongooseCollectorModule, MONGOOSE_COLLECTOR_OPTIONS } from './mongoose-collector.module';
-import { MongooseCollector } from './mongoose.collector';
-import { MongooseConnectionPatch } from './mongoose-connection.patch';
+import {
+  MongooseCollectorModule,
+  MONGOOSE_COLLECTOR_OPTIONS,
+} from './mongoose-collector.module.js';
+import { MongooseCollector } from './mongoose.collector.js';
+import { MongooseConnectionPatch } from './mongoose-connection.patch.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

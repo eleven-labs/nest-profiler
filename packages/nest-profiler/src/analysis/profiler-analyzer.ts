@@ -1,14 +1,14 @@
 import { Logger } from '@nestjs/common';
-import type { IProfilerCollector } from '../collectors/collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 import type {
   AnalyzedCollector,
   PerformanceRule,
   PerformanceRuleContext,
-} from './performance-rule.interface';
-import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
-import { upsertTag } from './profiler-tag.interface';
-import { isTaggableCollector } from './taggable-collector.interface';
+} from './performance-rule.interface.js';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface.js';
+import { upsertTag } from './profiler-tag.interface.js';
+import { isTaggableCollector } from './taggable-collector.interface.js';
 
 const logger = new Logger('ProfilerAnalyzer');
 

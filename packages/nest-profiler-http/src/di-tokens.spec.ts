@@ -1,4 +1,4 @@
-import { HTTP_INSTRUMENTATIONS } from './http-collector.constants';
+import { HTTP_INSTRUMENTATIONS } from './http-collector.constants.js';
 
 /**
  * See the core's `di-tokens.spec.ts`: a DI token created with a bare `Symbol()` is unique per

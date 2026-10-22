@@ -2,17 +2,17 @@ import { BadRequestException } from '@nestjs/common';
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerInterceptor } from './profiler.interceptor';
+import { ProfilerInterceptor } from './profiler.interceptor.js';
 import {
   deferCollectionToFinishHook,
   isExceptionRecorded,
   setTransportResponseBody,
-} from '../utils/profile-runtime-state';
-import { ProfilerCoreService } from '../services/profiler-core.service';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
-import type { PlatformRequest, PlatformResponse } from '../types/http';
-import type { IContextAdapter } from '../adapters/context-adapter.interface';
+} from '../utils/profile-runtime-state.js';
+import { ProfilerCoreService } from '../services/profiler-core.service.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
+import type { PlatformRequest, PlatformResponse } from '../types/http.js';
+import type { IContextAdapter } from '../adapters/context-adapter.interface.js';
 
 function makeProfile(): Profile<HttpRequestData> {
   return {

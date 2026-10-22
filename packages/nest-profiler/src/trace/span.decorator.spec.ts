@@ -1,12 +1,12 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { Span } from './span.decorator';
-import { setProfileContext } from '../services/profiler-context';
-import { manualSpansOf } from '../utils/profile-runtime-state';
-import { appendCollectorEntry } from '../utils/collector.utils';
-import type { RawSpan } from './build-trace';
-import type { Profile } from '../interfaces/profile.interface';
+import { Span } from './span.decorator.js';
+import { setProfileContext } from '../services/profiler-context.js';
+import { manualSpansOf } from '../utils/profile-runtime-state.js';
+import { appendCollectorEntry } from '../utils/collector.utils.js';
+import type { RawSpan } from './build-trace.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

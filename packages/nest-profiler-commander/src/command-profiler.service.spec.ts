@@ -3,10 +3,10 @@ import type { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { CommandProfiler } from './command-profiler.service';
-import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint';
-import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
-import type { CommandInfo } from './commander-collector.interface';
+import { CommandProfiler } from './command-profiler.service.js';
+import { COMMAND_ENTRYPOINT_TYPE_DEF } from './commander-entrypoint.js';
+import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface.js';
+import type { CommandInfo } from './commander-collector.interface.js';
 
 function moduleRefFor(cls?: ClsService, core?: ProfilerCoreService): ModuleRef {
   return {

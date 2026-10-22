@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { CollectorRegistry, ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { RabbitMqPublishCollectorModule } from './rabbitmq-publish-collector.module';
+import { RabbitMqPublishCollectorModule } from './rabbitmq-publish-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler core

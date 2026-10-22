@@ -3,10 +3,10 @@ import { Controller, Get, Post, Res } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import { TracerService } from '../services/tracer.service';
-import { ProfilerStorageService } from '../services/profiler-storage.service';
-import type { PlatformResponse } from '../types/http';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import { TracerService } from '../services/tracer.service.js';
+import { ProfilerStorageService } from '../services/profiler-storage.service.js';
+import type { PlatformResponse } from '../types/http.js';
 
 /**
  * A controller taking over the response with `@Res()` returns the transport object, because

@@ -1,19 +1,19 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './auth-collector.interface';
+import { ConfigurableModuleClass } from './auth-collector.interface.js';
 import type {
   AuthCollectorModuleAsyncOptions,
   AuthCollectorModuleOptions,
-} from './auth-collector.interface';
-import { AuthCollector } from './auth.collector';
+} from './auth-collector.interface.js';
+import { AuthCollector } from './auth.collector.js';
 
-export { AUTH_COLLECTOR_OPTIONS } from './auth-collector.interface';
+export { AUTH_COLLECTOR_OPTIONS } from './auth-collector.interface.js';
 export type {
   AuthBadgeMode,
   AuthCollectorModuleOptions,
   AuthCollectorModuleAsyncOptions,
-} from './auth-collector.interface';
+} from './auth-collector.interface.js';
 
 const SHAPE: CollectorModuleShape = { providers: [AuthCollector] };
 

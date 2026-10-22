@@ -1,4 +1,4 @@
-import type { HttpProfilerRecorder } from './http-profiler-recorder.service';
+import type { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
 
 /**
  * Pluggable HTTP-client integration. Implement this to teach the profiler how

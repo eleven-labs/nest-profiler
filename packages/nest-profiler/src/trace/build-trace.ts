@@ -1,9 +1,9 @@
 import { Logger } from '@nestjs/common';
-import type { Profile, TraceSpan } from '../interfaces/profile.interface';
-import type { IProfilerCollector } from '../collectors/collector.interface';
-import { roundMs } from '../utils/clock.utils';
-import { manualSpansOf } from '../utils/profile-runtime-state';
-import { buildLifecycleSpans } from './build-lifecycle';
+import type { Profile, TraceSpan } from '../interfaces/profile.interface.js';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
+import { roundMs } from '../utils/clock.utils.js';
+import { manualSpansOf } from '../utils/profile-runtime-state.js';
+import { buildLifecycleSpans } from './build-lifecycle.js';
 
 const logger = new Logger('BuildTrace');
 

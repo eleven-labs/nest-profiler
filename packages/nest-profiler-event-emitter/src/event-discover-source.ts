@@ -10,9 +10,9 @@ import type {
   DiscoverInputItem,
   ProfilerDiscoverSource,
 } from '@eleven-labs/nest-profiler';
-import { EVENT_ICON } from './event-emitter-collector.interface';
-import { emitterDelimiter, scanEventListeners } from './event-listener-scan';
-import type { DiscoveredListener } from './event-listener-scan';
+import { EVENT_ICON } from './event-emitter-collector.interface.js';
+import { emitterDelimiter, scanEventListeners } from './event-listener-scan.js';
+import type { DiscoveredListener } from './event-listener-scan.js';
 
 /** Discriminator of this source, and the `?view=discover-event` key its view is filed under. */
 const SOURCE = 'event';

@@ -1,9 +1,9 @@
 import type { ClientRequest, IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { monotonicNow } from '@eleven-labs/nest-profiler';
-import type { HttpPhases } from '../http-phases.interface';
-import { hasHttpPhases } from '../http-phases.interface';
-import { phaseSpan } from './phase-clock';
+import type { HttpPhases } from '../http-phases.interface.js';
+import { hasHttpPhases } from '../http-phases.interface.js';
+import { phaseSpan } from './phase-clock.js';
 
 /**
  * Monotonic marks taken from a `ClientRequest`'s own lifecycle events. Kept as marks rather than

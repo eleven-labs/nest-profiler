@@ -1,6 +1,6 @@
-import { AbstractQueryCollector } from './abstract-query.collector';
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerTag } from '../analysis/profiler-tag.interface';
+import { AbstractQueryCollector } from './abstract-query.collector.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface.js';
 
 interface TestEntry {
   id: number;

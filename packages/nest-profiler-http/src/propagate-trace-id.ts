@@ -1,6 +1,6 @@
 import { DEFAULT_TRACE_ID_HEADER, readTraceId } from '@eleven-labs/nest-profiler';
 import type { ClsService } from 'nestjs-cls';
-import type { HttpCaptureOptions } from './http-request.interface';
+import type { HttpCaptureOptions } from './http-request.interface.js';
 
 /**
  * The header an outgoing call should carry the trace id on, or `undefined` when propagation is off.

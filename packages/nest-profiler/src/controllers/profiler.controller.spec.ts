@@ -1,13 +1,13 @@
-import { ProfilerController } from './profiler.controller';
-import type { ProfilerCoreService } from '../services/profiler-core.service';
-import type { TemplateRendererService } from '../services/template-renderer.service';
-import type { ClientAssetRegistry } from '../services/client-asset-registry.service';
-import type { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service';
-import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerQuery } from '../storage/profiler-query';
-import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
-import type { PlatformRequest } from '../types/http';
+import { ProfilerController } from './profiler.controller.js';
+import type { ProfilerCoreService } from '../services/profiler-core.service.js';
+import type { TemplateRendererService } from '../services/template-renderer.service.js';
+import type { ClientAssetRegistry } from '../services/client-asset-registry.service.js';
+import type { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service.js';
+import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerQuery } from '../storage/profiler-query.js';
+import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query.js';
+import type { PlatformRequest } from '../types/http.js';
 
 /** Minimal platform request for the `@Req()` param of the controller handlers. */
 function mockReq(overrides: Partial<PlatformRequest> = {}): PlatformRequest {

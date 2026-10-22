@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { ConfigCollectorModule } from './config-collector.module';
+import { ConfigCollectorModule } from './config-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler

@@ -19,15 +19,15 @@ import {
   resolveEntryErrorClassifier,
   resolveErrorSeverity,
 } from '@eleven-labs/nest-profiler';
-import type { HttpRequestEntry } from './http-request.interface';
-import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
+import type { HttpRequestEntry } from './http-request.interface.js';
+import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface.js';
 import {
   HTTP_PHASE_LABELS,
   HTTP_PHASE_SEQUENCE,
   formatPhaseDuration,
-} from './http-phases.interface';
-import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants';
-import type { HttpCollectorModuleOptions } from './http-collector.constants';
+} from './http-phases.interface.js';
+import { HTTP_COLLECTOR_OPTIONS } from './http-collector.constants.js';
+import type { HttpCollectorModuleOptions } from './http-collector.constants.js';
 
 /**
  * Renders the client-agnostic "HTTP Client" panel from {@link HttpRequestEntry}

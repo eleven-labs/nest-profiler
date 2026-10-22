@@ -1,6 +1,6 @@
 import { ModuleRef } from '@nestjs/core';
 import type { Profile, ProfilerDiscoverSource, DiscoverGroup } from '@eleven-labs/nest-profiler';
-import { discoverViewKey, RoutesCollector } from './routes.collector';
+import { discoverViewKey, RoutesCollector } from './routes.collector.js';
 
 const EMPTY_PROFILE = {} as Profile;
 

@@ -1,4 +1,4 @@
-import { extractHeaders, formatHeaderValue, DEFAULT_MASK_HEADERS } from './http-redaction.util';
+import { extractHeaders, formatHeaderValue, DEFAULT_MASK_HEADERS } from './http-redaction.util.js';
 
 describe('DEFAULT_MASK_HEADERS', () => {
   it('includes the common sensitive headers', () => {

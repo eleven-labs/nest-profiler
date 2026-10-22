@@ -1,5 +1,10 @@
-import { agentFrameworkOf, currentAiAgent, instrumentAgentClass, profileAgent } from './ai-agent';
-import type { AiAgentLike } from './ai-agent';
+import {
+  agentFrameworkOf,
+  currentAiAgent,
+  instrumentAgentClass,
+  profileAgent,
+} from './ai-agent.js';
+import type { AiAgentLike } from './ai-agent.js';
 
 /** A stand-in for `ToolLoopAgent`: the two methods the SDK calls, plus the state around them. */
 class FakeAgent implements AiAgentLike {

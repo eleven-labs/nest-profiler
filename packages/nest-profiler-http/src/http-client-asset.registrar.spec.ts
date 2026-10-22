@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { HttpClientAssetRegistrar } from './http-client-asset.registrar';
+import { HttpClientAssetRegistrar } from './http-client-asset.registrar.js';
 import type { ClientAssetRegistry } from '@eleven-labs/nest-profiler';
 
 describe('HttpClientAssetRegistrar', () => {

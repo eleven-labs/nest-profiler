@@ -1,12 +1,12 @@
 import type { DynamicModule, FactoryProvider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { HttpCollectorModule } from './http-collector.module';
-import type { HttpInstrumentation } from './http-instrumentation.interface';
-import type { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import { HttpClientCollector } from './http-client.collector';
-import { HttpProfilerRecorder as Recorder } from './http-profiler-recorder.service';
-import { HttpInstrumentationRunner } from './http-instrumentation.runner';
-import { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants';
+import { HttpCollectorModule } from './http-collector.module.js';
+import type { HttpInstrumentation } from './http-instrumentation.interface.js';
+import type { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+import { HttpClientCollector } from './http-client.collector.js';
+import { HttpProfilerRecorder as Recorder } from './http-profiler-recorder.service.js';
+import { HttpInstrumentationRunner } from './http-instrumentation.runner.js';
+import { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants.js';
 
 class FakeInstrumentation implements HttpInstrumentation {
   install(_recorder: HttpProfilerRecorder): void {}

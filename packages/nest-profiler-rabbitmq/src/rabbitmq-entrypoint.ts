@@ -8,9 +8,9 @@ import type {
   SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
 import { resolveErrorSeverity, resolveProfileErrorClassifier } from '@eleven-labs/nest-profiler';
-import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
-import { RABBITMQ_ICON } from './icons';
+import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface.js';
+import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
+import { RABBITMQ_ICON } from './icons.js';
 
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 

@@ -8,9 +8,9 @@ import type {
   ProfilerErrorOptions,
   ProfilerListFilter,
 } from '@eleven-labs/nest-profiler';
-import { AI_ICON } from './icons';
-import { isAiCall } from './ai-call.interface';
-import type { AiCollectorData } from './ai-call.interface';
+import { AI_ICON } from './icons.js';
+import { isAiCall } from './ai-call.interface.js';
+import type { AiCollectorData } from './ai-call.interface.js';
 
 /** `Profile.entrypoint.type` value for a request that called a language model. */
 export const AI_ENTRYPOINT_TYPE = 'ai';

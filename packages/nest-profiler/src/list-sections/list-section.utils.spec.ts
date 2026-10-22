@@ -1,5 +1,5 @@
-import { sectionTypeConstraint, sortSections } from './list-section.utils';
-import type { ProfilerListSection } from './profiler-list-section.interface';
+import { sectionTypeConstraint, sortSections } from './list-section.utils.js';
+import type { ProfilerListSection } from './profiler-list-section.interface.js';
 
 const requests: ProfilerListSection = {
   key: 'http',

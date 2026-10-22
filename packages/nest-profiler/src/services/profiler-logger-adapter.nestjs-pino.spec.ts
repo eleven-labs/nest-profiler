@@ -3,8 +3,8 @@ import type { TestingModule } from '@nestjs/testing';
 import { PinoLogger, LoggerModule } from 'nestjs-pino';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
-import { createProfilerLogger } from './profiler-logger-adapter';
-import type { Profile } from '../interfaces/profile.interface';
+import { createProfilerLogger } from './profiler-logger-adapter.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

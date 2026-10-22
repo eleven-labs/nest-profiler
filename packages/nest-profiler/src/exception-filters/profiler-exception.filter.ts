@@ -1,14 +1,17 @@
 import { ArgumentsHost, Catch, Inject, Injectable, Optional } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { PROFILER_REQ_KEY } from '../constants';
-import { readProfile } from '../services/profiler-context';
-import { isExceptionRecorded } from '../utils/profile-runtime-state';
-import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to-exception-entry';
-import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
+import { PROFILER_REQ_KEY } from '../constants.js';
+import { readProfile } from '../services/profiler-context.js';
+import { isExceptionRecorded } from '../utils/profile-runtime-state.js';
+import {
+  resolveExceptionCaptureOptions,
+  toExceptionEntry,
+} from '../analysis/to-exception-entry.js';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * Records exceptions that never reach {@link ProfilerInterceptor}.

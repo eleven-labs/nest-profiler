@@ -1,9 +1,9 @@
 import * as ejs from 'ejs';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PUBLIC_DIR, TEMPLATES_DIR } from './template-engine';
-import { assetVersionQuery } from './asset-version';
-import type { CollectorPanelInfo } from '../collectors/collector-registry.service';
+import { PUBLIC_DIR, TEMPLATES_DIR } from './template-engine.js';
+import { assetVersionQuery } from './asset-version.js';
+import type { CollectorPanelInfo } from '../collectors/collector-registry.service.js';
 
 let _toolbarSource: string | undefined;
 

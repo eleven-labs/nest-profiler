@@ -1,5 +1,5 @@
-import { ExplainRunnerRegistry } from './explain-runner-registry.service';
-import type { ExplainRawResult, ExplainRunner } from './explain.interface';
+import { ExplainRunnerRegistry } from './explain-runner-registry.service.js';
+import type { ExplainRawResult, ExplainRunner } from './explain.interface.js';
 
 function makeRunner(collectorName: string): ExplainRunner {
   return {

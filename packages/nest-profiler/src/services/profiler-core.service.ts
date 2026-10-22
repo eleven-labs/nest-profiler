@@ -1,34 +1,34 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
-import { ProfilerStorageService } from './profiler-storage.service';
-import { CollectorRegistry } from '../collectors/collector-registry.service';
-import { RouteCollector } from '../collectors/route.collector';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { analyzeProfile } from '../analysis/profiler-analyzer';
-import { unhandledExceptions } from '../analysis/profiler-error';
-import { buildTrace, isTraceContributor } from '../trace/build-trace';
-import { BUILTIN_PERFORMANCE_RULES } from '../analysis/builtin-rules';
-import type { PerformanceRule } from '../analysis/performance-rule.interface';
-import type { IContextAdapter } from '../adapters/context-adapter.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import { ProfilerStorageService } from './profiler-storage.service.js';
+import { CollectorRegistry } from '../collectors/collector-registry.service.js';
+import { RouteCollector } from '../collectors/route.collector.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { analyzeProfile } from '../analysis/profiler-analyzer.js';
+import { unhandledExceptions } from '../analysis/profiler-error.js';
+import { buildTrace, isTraceContributor } from '../trace/build-trace.js';
+import { BUILTIN_PERFORMANCE_RULES } from '../analysis/builtin-rules.js';
+import type { PerformanceRule } from '../analysis/performance-rule.interface.js';
+import type { IContextAdapter } from '../adapters/context-adapter.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 import type {
   ProfilerFilterOption,
   ProfilerListFilter,
-} from '../list-filters/profiler-list-filter.interface';
-import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
-import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
-import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils';
-import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
-import type { ProfilerDiscoverSource } from '../routes/discover-source.interface';
+} from '../list-filters/profiler-list-filter.interface.js';
+import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters.js';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface.js';
+import { DEFAULT_SECTION_ORDER } from '../list-sections/list-section.utils.js';
+import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface.js';
+import type { ProfilerDiscoverSource } from '../routes/discover-source.interface.js';
 import {
   buildHttpEntrypointType,
   HTTP_ENTRYPOINT_TYPE_DEF,
-} from '../entrypoints/builtin-http-entrypoint';
-import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import type { SummaryPrimitive } from '../storage/profile-summary';
-import { resolveExceptionCaptureOptions } from '../analysis/to-exception-entry';
-import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
+} from '../entrypoints/builtin-http-entrypoint.js';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface.js';
+import type { SummaryPrimitive } from '../storage/profile-summary.js';
+import { resolveExceptionCaptureOptions } from '../analysis/to-exception-entry.js';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry.js';
 
 /** Default display order for contributed filters with no explicit `order`. */
 const DEFAULT_FILTER_ORDER = 100;

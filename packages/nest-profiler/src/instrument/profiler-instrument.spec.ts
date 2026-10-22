@@ -1,15 +1,15 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
-import * as peerUtil from '../utils/optional-peer.util';
+import * as peerUtil from '../utils/optional-peer.util.js';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { createProfilerInstrument } from './profiler-instrument';
-import { markInternal } from './internal-marker';
-import { setProfileContext } from '../services/profiler-context';
-import { manualSpansOf } from '../utils/profile-runtime-state';
-import { appendCollectorEntry } from '../utils/collector.utils';
-import type { RawSpan } from '../trace/build-trace';
-import type { Profile } from '../interfaces/profile.interface';
+import { createProfilerInstrument } from './profiler-instrument.js';
+import { markInternal } from './internal-marker.js';
+import { setProfileContext } from '../services/profiler-context.js';
+import { manualSpansOf } from '../utils/profile-runtime-state.js';
+import { appendCollectorEntry } from '../utils/collector.utils.js';
+import type { RawSpan } from '../trace/build-trace.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

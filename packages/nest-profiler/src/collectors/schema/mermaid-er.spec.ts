@@ -1,5 +1,5 @@
-import { toMermaidErDiagram } from './mermaid-er';
-import type { ColumnInfo, EntitySchema, RelationInfo } from './schema.interface';
+import { toMermaidErDiagram } from './mermaid-er.js';
+import type { ColumnInfo, EntitySchema, RelationInfo } from './schema.interface.js';
 
 const column = (name: string, over: Partial<ColumnInfo> = {}): ColumnInfo => ({
   name,

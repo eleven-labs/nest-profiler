@@ -1,4 +1,4 @@
-import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils.js';
 
 describe('isPlainObject', () => {
   it('returns true for a plain object', () => {

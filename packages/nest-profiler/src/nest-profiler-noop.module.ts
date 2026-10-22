@@ -1,5 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { TracerService } from './services/tracer.service';
+import { TracerService } from './services/tracer.service.js';
 
 /**
  * A standalone no-op counterpart to {@link ProfilerModule} that provides and exports

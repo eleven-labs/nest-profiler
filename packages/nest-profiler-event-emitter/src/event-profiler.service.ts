@@ -14,12 +14,12 @@ import {
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface';
-import type { EventEmitterCollectorModuleOptions } from './event-emitter-collector.interface';
-import { EVENT_ENTRYPOINT_TYPE, buildEventEntrypointType } from './event-entrypoint';
-import type { EventEntrypointData } from './event-entrypoint';
-import { emitterDelimiter, scanEventListeners } from './event-listener-scan';
-import type { DiscoveredListener } from './event-listener-scan';
+import { EVENT_EMITTER_COLLECTOR_OPTIONS } from './event-emitter-collector.interface.js';
+import type { EventEmitterCollectorModuleOptions } from './event-emitter-collector.interface.js';
+import { EVENT_ENTRYPOINT_TYPE, buildEventEntrypointType } from './event-entrypoint.js';
+import type { EventEntrypointData } from './event-entrypoint.js';
+import { emitterDelimiter, scanEventListeners } from './event-listener-scan.js';
+import type { DiscoveredListener } from './event-listener-scan.js';
 
 /** Metadata identifying which subscription a wrapped handler serves, captured at wrap time. */
 interface ListenerMeta {

@@ -1,13 +1,13 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
-import { PROFILER_STORAGE_ADAPTER } from '../storage/storage-adapter.interface';
-import type { IProfilerStorageAdapter } from '../storage/storage-adapter.interface';
-import { MemoryStorageAdapter } from '../storage/memory-storage.adapter';
-import type { IndexAttributesProvider, SummaryPrimitive } from '../storage/profile-summary';
-import type { ProfilerPage, ProfilerQuery } from '../storage/profiler-query';
-import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { PROFILER_STORAGE_ADAPTER } from '../storage/storage-adapter.interface.js';
+import type { IProfilerStorageAdapter } from '../storage/storage-adapter.interface.js';
+import { MemoryStorageAdapter } from '../storage/memory-storage.adapter.js';
+import type { IndexAttributesProvider, SummaryPrimitive } from '../storage/profile-summary.js';
+import type { ProfilerPage, ProfilerQuery } from '../storage/profiler-query.js';
+import { applyQueryInMemory, distinctInMemory } from '../storage/profiler-query.js';
 
 @Injectable()
 export class ProfilerStorageService {

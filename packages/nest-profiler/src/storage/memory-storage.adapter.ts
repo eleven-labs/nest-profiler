@@ -1,5 +1,5 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { IProfilerStorageAdapter } from './storage-adapter.interface';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { IProfilerStorageAdapter } from './storage-adapter.interface.js';
 
 export interface MemoryStorageAdapterOptions {
   /** Maximum profiles kept (LRU eviction). Default: 100. Set to `0` (or negative) for no cap. */

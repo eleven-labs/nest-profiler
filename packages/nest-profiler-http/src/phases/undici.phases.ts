@@ -1,12 +1,12 @@
 import diagnosticsChannel from 'node:diagnostics_channel';
 import { Injectable } from '@nestjs/common';
 import { monotonicNow } from '@eleven-labs/nest-profiler';
-import type { HttpInstrumentation } from '../http-instrumentation.interface';
-import type { HttpPhases } from '../http-phases.interface';
-import { hasHttpPhases } from '../http-phases.interface';
-import { phaseSpan } from './phase-clock';
-import { activePhaseSlot, registerPhaseSlotProvider } from './phase-slot';
-import type { HttpPhaseSlot } from './phase-slot';
+import type { HttpInstrumentation } from '../http-instrumentation.interface.js';
+import type { HttpPhases } from '../http-phases.interface.js';
+import { hasHttpPhases } from '../http-phases.interface.js';
+import { phaseSpan } from './phase-clock.js';
+import { activePhaseSlot, registerPhaseSlotProvider } from './phase-slot.js';
+import type { HttpPhaseSlot } from './phase-slot.js';
 
 /** A connection whose `connected` never arrives must not grow this queue without bound. */
 const MAX_PENDING_CONNECTS = 32;

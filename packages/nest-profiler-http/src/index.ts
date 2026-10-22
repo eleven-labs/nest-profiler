@@ -1,20 +1,20 @@
-export { HttpCollectorModule } from './http-collector.module';
+export { HttpCollectorModule } from './http-collector.module.js';
 export type {
   HttpCollectorModuleOptions,
   HttpCollectorModuleAsyncOptions,
-} from './http-collector.module';
-export { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants';
-export { HttpProfilerRecorder } from './http-profiler-recorder.service';
-export { HttpClientCollector } from './http-client.collector';
-export type { HttpInstrumentation } from './http-instrumentation.interface';
-export { appendHttpRequestEntry } from './append-http-request-entry.util';
-export { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
+} from './http-collector.module.js';
+export { HTTP_COLLECTOR_OPTIONS, HTTP_INSTRUMENTATIONS } from './http-collector.constants.js';
+export { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+export { HttpClientCollector } from './http-client.collector.js';
+export type { HttpInstrumentation } from './http-instrumentation.interface.js';
+export { appendHttpRequestEntry } from './append-http-request-entry.util.js';
+export { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface.js';
 export type {
   HttpRequestEntry,
   HttpCaptureInput,
   HttpCaptureOptions,
-} from './http-request.interface';
-export type { HttpPhases, HttpPhaseName } from './http-phases.interface';
+} from './http-request.interface.js';
+export type { HttpPhases, HttpPhaseName } from './http-phases.interface.js';
 export {
   HTTP_PHASE_SEQUENCE,
   HTTP_PHASE_LABELS,
@@ -22,22 +22,22 @@ export {
   sumHttpPhases,
   hasHttpPhases,
   formatPhaseDuration,
-} from './http-phases.interface';
-export { readHttpPhases } from './phases/read-http-phases';
-export { instrumentClientRequest, phasesOfClientRequest } from './phases/client-request-timer';
+} from './http-phases.interface.js';
+export { readHttpPhases } from './phases/read-http-phases.js';
+export { instrumentClientRequest, phasesOfClientRequest } from './phases/client-request-timer.js';
 export {
   openPhaseSlot,
   activePhaseSlot,
   phaseSlotsEnabled,
   registerPhaseSlotProvider,
-} from './phases/phase-slot';
-export type { HttpPhaseSlot } from './phases/phase-slot';
-export { DEFAULT_MASK_HEADERS, extractHeaders, formatHeaderValue } from './http-redaction.util';
+} from './phases/phase-slot.js';
+export type { HttpPhaseSlot } from './phases/phase-slot.js';
+export { DEFAULT_MASK_HEADERS, extractHeaders, formatHeaderValue } from './http-redaction.util.js';
 export {
   DEFAULT_MASK_QUERY_PARAMS,
   redactQueryString,
   resolveMaskedQueryParams,
-} from './http-redaction.util';
+} from './http-redaction.util.js';
 
 // Client adapters are NOT re-exported here — importing this barrel must never pull in a client
 // library. Select an adapter from its subpath instead:

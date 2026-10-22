@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from './typeorm-data-source.token';
+import { getDataSourceToken } from './typeorm-data-source.token.js';
 import type { DataSource } from 'typeorm';
 import type { ExplainDialect, ExplainRawResult, ExplainRunner } from '@eleven-labs/nest-profiler';
 import { ExplainRunnerRegistry, detectQueryType, tryResolve } from '@eleven-labs/nest-profiler';
-import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
-import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface';
+import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface.js';
+import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface.js';
 
 /** Maps a TypeORM `DataSource.options.type` to a supported EXPLAIN dialect (or `null`). */
 function toDialect(type: string | undefined): ExplainDialect | null {

@@ -1,5 +1,5 @@
 import { safeStringify } from '@eleven-labs/nest-profiler';
-import type { MongooseQueryEntry } from './mongoose-collector.interface';
+import type { MongooseQueryEntry } from './mongoose-collector.interface.js';
 
 /**
  * The argument an operation was called with, as rendered in the panel and in the `mongosh`

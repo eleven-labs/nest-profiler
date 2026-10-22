@@ -1,7 +1,11 @@
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
-import { createProfilerLogger, DEFAULT_LOG_METHODS, parseLogArgs } from './profiler-logger-adapter';
-import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface';
+import {
+  createProfilerLogger,
+  DEFAULT_LOG_METHODS,
+  parseLogArgs,
+} from './profiler-logger-adapter.js';
+import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

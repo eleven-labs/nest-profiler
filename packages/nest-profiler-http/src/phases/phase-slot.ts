@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { HttpPhases } from '../http-phases.interface';
+import type { HttpPhases } from '../http-phases.interface.js';
 
 /**
  * A place for a phases provider to deposit what it measured, for the instrumentation that is

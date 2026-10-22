@@ -1,5 +1,5 @@
-import { parseExplainPlan } from './parse-explain';
-import type { ExplainRawResult } from './explain.interface';
+import { parseExplainPlan } from './parse-explain.js';
+import type { ExplainRawResult } from './explain.interface.js';
 
 const raw = (
   dialect: ExplainRawResult['dialect'],

@@ -27,7 +27,7 @@ import type { Server } from 'node:http';
 import type { FastifyRequest } from 'fastify';
 import { ProfilerModule } from '@eleven-labs/nest-profiler';
 import type { HttpRequestData, Profile } from '@eleven-labs/nest-profiler';
-import { GraphQLCollectorModule } from './graphql-collector.module';
+import { GraphQLCollectorModule } from './graphql-collector.module.js';
 
 function gqlOf(profile: Profile<HttpRequestData>): HttpRequestData['graphql'] {
   return profile.entrypoint.data.graphql;
