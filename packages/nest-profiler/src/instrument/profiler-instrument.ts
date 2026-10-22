@@ -1,19 +1,19 @@
 import { Logger } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
-import { loadOptionalPeer } from '../utils/optional-peer.util';
-import { escapeRegExp } from '../utils/regexp.utils';
-import { runInSpan } from '../trace/run-in-span';
-import { readActiveSpanDepth, setActiveSpanDepth } from '../services/profiler-context';
-import { compileExcludeMatcher } from './exclude-matcher';
-import type { ExcludeMatcher } from './exclude-matcher';
-import { isInternal } from './internal-marker';
+import { loadOptionalPeer } from '../utils/optional-peer.util.js';
+import { escapeRegExp } from '../utils/regexp.utils.js';
+import { runInSpan } from '../trace/run-in-span.js';
+import { readActiveSpanDepth, setActiveSpanDepth } from '../services/profiler-context.js';
+import { compileExcludeMatcher } from './exclude-matcher.js';
+import type { ExcludeMatcher } from './exclude-matcher.js';
+import { isInternal } from './internal-marker.js';
 import {
   isCallableObject,
   isClass,
   isNativeFunction,
   isSlotBackedBuiltIn,
   usesNativePrivateMembers,
-} from './skip-instrumentation';
+} from './skip-instrumentation.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
 

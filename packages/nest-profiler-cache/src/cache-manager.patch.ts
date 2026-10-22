@@ -3,8 +3,8 @@ import { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { appendCollectorEntry, readProfile, tryResolve } from '@eleven-labs/nest-profiler';
-import type { CacheOperationEntry } from './cache-collector.interface';
-import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
+import type { CacheOperationEntry } from './cache-collector.interface.js';
+import { CACHE_OPERATIONS_KEY } from './cache-collector.interface.js';
 
 /** Minimal cache manager surface required by this patch. Returns Promise<unknown> so the
  *  patch function (which also returns Promise<unknown>) can be assigned without casting. */

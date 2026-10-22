@@ -2,9 +2,9 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { Logger } from '@nestjs/common';
-import { TemplateRendererService } from './template-renderer.service';
-import { ClientAssetRegistry } from './client-asset-registry.service';
-import { TEMPLATES_DIR } from '../views/template-engine';
+import { TemplateRendererService } from './template-renderer.service.js';
+import { ClientAssetRegistry } from './client-asset-registry.service.js';
+import { TEMPLATES_DIR } from '../views/template-engine.js';
 
 const MINIMAL_LIST_DATA = {
   title: 'Profiles',

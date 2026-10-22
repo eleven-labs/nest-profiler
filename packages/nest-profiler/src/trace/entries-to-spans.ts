@@ -1,6 +1,6 @@
-import type { RawSpan } from './build-trace';
-import type { TaggableEntry } from '../analysis/taggable-collector.interface';
-import type { TraceSpanKind } from '../interfaces/profile.interface';
+import type { RawSpan } from './build-trace.js';
+import type { TaggableEntry } from '../analysis/taggable-collector.interface.js';
+import type { TraceSpanKind } from '../interfaces/profile.interface.js';
 
 /** How a collector projects one of its entries onto the trace. */
 export interface EntrySpanOptions<TEntry> {

@@ -3,8 +3,8 @@ import {
   filterAppliesToSection,
   parseFilterValues,
   parseLenientInt,
-} from './list-filter.utils';
-import type { ProfilerListFilter } from './profiler-list-filter.interface';
+} from './list-filter.utils.js';
+import type { ProfilerListFilter } from './profiler-list-filter.interface.js';
 
 const methodFilter: ProfilerListFilter<string> = {
   key: 'method',

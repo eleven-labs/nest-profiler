@@ -1,6 +1,6 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerTag, TagSeverity } from './profiler-tag.interface';
-import type { TagConfig, TaggableEntry } from './taggable-collector.interface';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerTag, TagSeverity } from './profiler-tag.interface.js';
+import type { TagConfig, TaggableEntry } from './taggable-collector.interface.js';
 
 /**
  * One collector's contribution to the analysis pass: its name, its rule `domain`,

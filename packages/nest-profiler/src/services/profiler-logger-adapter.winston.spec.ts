@@ -11,8 +11,12 @@ import { format, transports } from 'winston';
 import type { Logger as Winston } from 'winston';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
-import { DEFAULT_LOG_METHODS, createProfilerLogger, parseLogArgs } from './profiler-logger-adapter';
-import type { Profile } from '../interfaces/profile.interface';
+import {
+  DEFAULT_LOG_METHODS,
+  createProfilerLogger,
+  parseLogArgs,
+} from './profiler-logger-adapter.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(): Profile {
   return {

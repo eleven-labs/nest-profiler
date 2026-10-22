@@ -2,17 +2,17 @@ import { DynamicModule, Module, Type } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import type { HttpInstrumentation } from './http-instrumentation.interface';
-import { HttpClientCollector } from './http-client.collector';
-import { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import { HttpInstrumentationRunner } from './http-instrumentation.runner';
-import { HttpClientAssetRegistrar } from './http-client-asset.registrar';
+import type { HttpInstrumentation } from './http-instrumentation.interface.js';
+import { HttpClientCollector } from './http-client.collector.js';
+import { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+import { HttpInstrumentationRunner } from './http-instrumentation.runner.js';
+import { HttpClientAssetRegistrar } from './http-client-asset.registrar.js';
 import {
   ConfigurableModuleClass,
   HTTP_INSTRUMENTATIONS,
   type HttpCollectorModuleOptions,
   type HttpCollectorModuleAsyncOptions,
-} from './http-collector.constants';
+} from './http-collector.constants.js';
 
 export type { HttpCollectorModuleOptions, HttpCollectorModuleAsyncOptions };
 

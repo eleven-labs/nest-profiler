@@ -1,9 +1,9 @@
 import * as path from 'path';
-import { buildCurlCommand } from './copy/build-curl';
-import { interpolateSql } from '../collectors/sql/interpolate-sql';
-import { safeStringify } from '../utils/safe-data.utils';
-import { createDateHelpers } from './date-helpers';
-import { formatDuration } from './duration';
+import { buildCurlCommand } from './copy/build-curl.js';
+import { interpolateSql } from '../collectors/sql/interpolate-sql.js';
+import { safeStringify } from '../utils/safe-data.utils.js';
+import { createDateHelpers } from './date-helpers.js';
+import { formatDuration } from './duration.js';
 
 const HOST_DATE_HELPERS = createDateHelpers();
 

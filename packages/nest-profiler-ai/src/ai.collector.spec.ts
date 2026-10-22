@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { appendCollectorEntry } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiCollector } from './ai.collector';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
-import { configureAiCapture, resetAiCapture } from './ai-capture';
-import type { AiCallEntry, AiCollectorData, AiToolExecutionEntry } from './ai-call.interface';
+import { AiCollector } from './ai.collector.js';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
+import { configureAiCapture, resetAiCapture } from './ai-capture.js';
+import type { AiCallEntry, AiCollectorData, AiToolExecutionEntry } from './ai-call.interface.js';
 
 function newProfile(): Profile {
   return {

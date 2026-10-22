@@ -8,8 +8,8 @@ import type {
   TraceContributor,
 } from '@eleven-labs/nest-profiler';
 import { entriesToSpans, getCollectorEntries } from '@eleven-labs/nest-profiler';
-import type { CacheOperationEntry } from './cache-collector.interface';
-import { CACHE_OPERATIONS_KEY } from './cache-collector.interface';
+import type { CacheOperationEntry } from './cache-collector.interface.js';
+import { CACHE_OPERATIONS_KEY } from './cache-collector.interface.js';
 
 const CACHE_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="3" rx="1"/><rect x="1" y="6.5" width="14" height="3" rx="1" opacity="0.7"/><rect x="1" y="11" width="14" height="3" rx="1" opacity="0.4"/></svg>`;
 

@@ -1,5 +1,5 @@
-import { resolveRedactionConfig } from './redaction-config';
-import { redact, REDACTED } from './redact.utils';
+import { resolveRedactionConfig } from './redaction-config.js';
+import { redact, REDACTED } from './redact.utils.js';
 
 describe('resolveRedactionConfig', () => {
   it('extends the built-in header list rather than replacing it', () => {

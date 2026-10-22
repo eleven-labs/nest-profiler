@@ -6,11 +6,11 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile, TaggableEntry } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry } from './ai-telemetry';
-import { AiCollector } from './ai.collector';
-import { configureAiCapture, resetAiCapture } from './ai-capture';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
-import type { AiCallEntry, AiEntry } from './ai-call.interface';
+import { AiProfilerTelemetry } from './ai-telemetry.js';
+import { AiCollector } from './ai.collector.js';
+import { configureAiCapture, resetAiCapture } from './ai-capture.js';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
+import type { AiCallEntry, AiEntry } from './ai-call.interface.js';
 
 function newProfile(): Profile {
   return {

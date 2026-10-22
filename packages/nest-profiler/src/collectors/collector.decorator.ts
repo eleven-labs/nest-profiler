@@ -1,5 +1,5 @@
 import { DiscoveryService } from '@nestjs/core';
-import { markInternal } from '../instrument/internal-marker';
+import { markInternal } from '../instrument/internal-marker.js';
 
 export interface ProfilerCollectorMetadata {
   name: string;

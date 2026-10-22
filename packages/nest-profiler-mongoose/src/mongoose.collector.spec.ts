@@ -3,12 +3,12 @@ import { EventEmitter } from 'events';
 import type { Connection } from 'mongoose';
 import type { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
-import { MongooseCollector } from './mongoose.collector';
-import { MongooseCollectorModule } from './mongoose-collector.module';
-import { MongooseConnectionPatch } from './mongoose-connection.patch';
-import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
+import { MongooseCollector } from './mongoose.collector.js';
+import { MongooseCollectorModule } from './mongoose-collector.module.js';
+import { MongooseConnectionPatch } from './mongoose-connection.patch.js';
+import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { MongooseQueryEntry } from './mongoose-collector.interface';
+import type { MongooseQueryEntry } from './mongoose-collector.interface.js';
 
 function mongooseModuleRef(cls: unknown, connection: unknown): ModuleRef {
   return { get: (t: unknown) => (t === ClsService ? cls : connection) } as unknown as ModuleRef;

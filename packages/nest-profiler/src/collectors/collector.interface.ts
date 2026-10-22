@@ -1,5 +1,5 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { TagSeverity } from '../analysis/profiler-tag.interface.js';
 
 /**
  * One sidebar view contributed by a `scope: 'global'` collector. A global collector renders a

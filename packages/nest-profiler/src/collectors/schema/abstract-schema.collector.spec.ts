@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
-import type { Profile } from '../../interfaces/profile.interface';
-import { AbstractSchemaCollector } from './abstract-schema.collector';
-import type { EntitySchema } from './schema.interface';
+import type { Profile } from '../../interfaces/profile.interface.js';
+import { AbstractSchemaCollector } from './abstract-schema.collector.js';
+import type { EntitySchema } from './schema.interface.js';
 
 const emptyProfile = {} as Profile;
 

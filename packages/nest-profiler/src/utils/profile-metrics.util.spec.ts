@@ -3,8 +3,8 @@ import {
   markProfileStart,
   profileElapsedMs,
   registerGcCounter,
-} from './profile-metrics.util';
-import type { Profile } from '../interfaces/profile.interface';
+} from './profile-metrics.util.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(startTime = Date.now()): Profile {
   return {

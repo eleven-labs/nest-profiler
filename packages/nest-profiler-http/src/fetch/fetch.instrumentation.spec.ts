@@ -1,15 +1,15 @@
 import type { ModuleRef } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
-import type { HttpCaptureOptions, HttpRequestEntry } from '../http-request.interface';
+import type { HttpCaptureOptions, HttpRequestEntry } from '../http-request.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { HTTP_CLIENT_REQUESTS_KEY } from '../http-request.interface';
-import { HttpProfilerRecorder } from '../http-profiler-recorder.service';
-import { FetchInstrumentation } from './fetch.instrumentation';
+import { HTTP_CLIENT_REQUESTS_KEY } from '../http-request.interface.js';
+import { HttpProfilerRecorder } from '../http-profiler-recorder.service.js';
+import { FetchInstrumentation } from './fetch.instrumentation.js';
 import {
   activePhaseSlot,
   registerPhaseSlotProvider,
   resetPhaseSlotProviders,
-} from '../phases/phase-slot';
+} from '../phases/phase-slot.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

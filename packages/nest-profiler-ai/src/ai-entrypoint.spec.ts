@@ -1,6 +1,6 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AI_ENTRYPOINT_TYPE, buildAiEntrypointType } from './ai-entrypoint';
-import type { AiCollectorData } from './ai-call.interface';
+import { AI_ENTRYPOINT_TYPE, buildAiEntrypointType } from './ai-entrypoint.js';
+import type { AiCollectorData } from './ai-call.interface.js';
 
 const data: AiCollectorData = {
   entries: [

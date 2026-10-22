@@ -1,7 +1,7 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
-import { TypeOrmCollectorModule, TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.module';
-import { TypeOrmCollector } from './typeorm.collector';
-import { TypeOrmDriverPatch } from './typeorm-driver.patch';
+import { TypeOrmCollectorModule, TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.module.js';
+import { TypeOrmCollector } from './typeorm.collector.js';
+import { TypeOrmDriverPatch } from './typeorm-driver.patch.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

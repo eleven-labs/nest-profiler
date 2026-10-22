@@ -1,9 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { ConfigCollectorModule } from './config-collector.module';
+import { ConfigCollectorModule } from './config-collector.module.js';
 import { ConfigModule, ConfigService, registerAs } from '@nestjs/config';
-import { ConfigCollector } from './config.collector';
-import type { ConfigCollectorData, ConfigGroup } from './config.collector';
-import { CONFIG_COLLECTOR_OPTIONS } from './config-collector.module';
+import { ConfigCollector } from './config.collector.js';
+import type { ConfigCollectorData, ConfigGroup } from './config.collector.js';
+import { CONFIG_COLLECTOR_OPTIONS } from './config-collector.module.js';
 import type { ModuleMetadata } from '@nestjs/common';
 import type { Profile } from '@eleven-labs/nest-profiler';
 
@@ -242,7 +242,7 @@ describe('ConfigCollector', () => {
         loadOptionalPeer: () => undefined,
       }));
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require('./config.collector') as typeof import('./config.collector');
+      const mod = require('./config.collector') as typeof import('./config.collector.js');
       const collector = new mod.ConfigCollector(undefined as unknown as ConfigService, {});
       collector.onApplicationBootstrap();
       expect(collector.collect(makeProfile()).runtime.nestVersion).toBe('unknown');

@@ -1,8 +1,11 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { distinctInMemory, matchesCriterion, summarizeProfile } from '@eleven-labs/nest-profiler';
-import { buildRabbitMqEntrypointType, RABBITMQ_ENTRYPOINT_TYPE_DEF } from './rabbitmq-entrypoint';
-import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface';
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+import {
+  buildRabbitMqEntrypointType,
+  RABBITMQ_ENTRYPOINT_TYPE_DEF,
+} from './rabbitmq-entrypoint.js';
+import { RABBITMQ_ENTRYPOINT_TYPE } from './rabbitmq-collector.interface.js';
+import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
 
 const attrs = (p: Profile): Record<string, string | number | boolean> =>
   RABBITMQ_ENTRYPOINT_TYPE_DEF.indexAttributes?.(p) ?? {};

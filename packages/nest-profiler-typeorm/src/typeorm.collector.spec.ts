@@ -3,12 +3,12 @@ import { Readable } from 'stream';
 import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { TypeOrmCollector } from './typeorm.collector';
-import { TypeOrmCollectorModule } from './typeorm-collector.module';
-import { TYPEORM_QUERIES_KEY, TypeOrmDriverPatch } from './typeorm-driver.patch';
-import { detectQueryType } from './typeorm-collector.interface';
+import { TypeOrmCollector } from './typeorm.collector.js';
+import { TypeOrmCollectorModule } from './typeorm-collector.module.js';
+import { TYPEORM_QUERIES_KEY, TypeOrmDriverPatch } from './typeorm-driver.patch.js';
+import { detectQueryType } from './typeorm-collector.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import type { QueryEntry } from './typeorm-collector.interface';
+import type { QueryEntry } from './typeorm-collector.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

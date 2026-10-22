@@ -5,12 +5,12 @@ import {
   describeHandlerParams,
   handlerHasRouteArgs,
   resetClassValidatorStorageCache,
-} from './describe-handler-params';
+} from './describe-handler-params.js';
 
 /** Re-requires the module under test after a `jest.doMock('class-validator', …)` in isolation. */
-function reloadModule(): typeof import('./describe-handler-params') {
+function reloadModule(): typeof import('./describe-handler-params.js') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('./describe-handler-params') as typeof import('./describe-handler-params');
+  const mod = require('./describe-handler-params') as typeof import('./describe-handler-params.js');
   mod.resetClassValidatorStorageCache();
   return mod;
 }

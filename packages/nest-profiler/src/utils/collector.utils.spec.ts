@@ -1,5 +1,5 @@
-import { appendCollectorEntry, getCollectorEntries } from './collector.utils';
-import type { Profile } from '../interfaces/profile.interface';
+import { appendCollectorEntry, getCollectorEntries } from './collector.utils.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(collectors: Record<string, unknown> = {}): Profile {
   return {

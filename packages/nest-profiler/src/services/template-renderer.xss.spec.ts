@@ -1,7 +1,7 @@
 import * as path from 'node:path';
-import { TemplateRendererService } from './template-renderer.service';
-import { ClientAssetRegistry } from './client-asset-registry.service';
-import { TEMPLATES_DIR } from '../views/template-engine';
+import { TemplateRendererService } from './template-renderer.service.js';
+import { ClientAssetRegistry } from './client-asset-registry.service.js';
+import { TEMPLATES_DIR } from '../views/template-engine.js';
 
 /**
  * Render-level XSS regression suite. Every field the profiler renders from captured,

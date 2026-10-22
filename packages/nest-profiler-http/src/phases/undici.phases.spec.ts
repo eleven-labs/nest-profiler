@@ -1,9 +1,9 @@
 import diagnosticsChannel from 'node:diagnostics_channel';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { HttpPhases } from '../http-phases.interface';
-import { UndiciPhases, resetUndiciPhases } from './undici.phases';
-import { openPhaseSlot, phaseSlotsEnabled, resetPhaseSlotProviders } from './phase-slot';
+import type { HttpPhases } from '../http-phases.interface.js';
+import { UndiciPhases, resetUndiciPhases } from './undici.phases.js';
+import { openPhaseSlot, phaseSlotsEnabled, resetPhaseSlotProviders } from './phase-slot.js';
 
 let server: http.Server;
 let base: string;

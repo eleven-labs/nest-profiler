@@ -1,4 +1,4 @@
-import { getToJSON, isPlainObject, stringifyExotic } from './type.utils';
+import { getToJSON, isPlainObject, stringifyExotic } from './type.utils.js';
 
 /** Sentinel written in place of a redacted value across the whole profiler ecosystem. */
 export const REDACTED = '[REDACTED]';

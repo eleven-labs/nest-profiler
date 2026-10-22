@@ -1,5 +1,5 @@
-import { buildPageHref, paginateProfiles } from './list-pagination.utils';
-import type { Profile } from '../interfaces/profile.interface';
+import { buildPageHref, paginateProfiles } from './list-pagination.utils.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 const profiles = (n: number): Profile[] =>
   Array.from({ length: n }, (_, i) => ({

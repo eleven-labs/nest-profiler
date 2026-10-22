@@ -6,9 +6,9 @@ import {
   ProfilerCoreService,
   sectionTypeConstraint,
 } from '@eleven-labs/nest-profiler';
-import { RabbitMqCollectorModule } from './rabbitmq-collector.module';
-import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
-import { RABBITMQ_COLLECTOR_OPTIONS } from './rabbitmq-collector.interface';
+import { RabbitMqCollectorModule } from './rabbitmq-collector.module.js';
+import { RabbitMqContextAdapter } from './rabbitmq-context.adapter.js';
+import { RABBITMQ_COLLECTOR_OPTIONS } from './rabbitmq-collector.interface.js';
 
 @Controller()
 class DummyController {

@@ -5,9 +5,12 @@ import type { TagConfig } from '@eleven-labs/nest-profiler';
 import type {
   MongooseCollectorModuleOptions,
   MongooseQueryEntry,
-} from './mongoose-collector.interface';
-import { MONGOOSE_COLLECTOR_OPTIONS, MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
-import { buildMongoCommand, buildMongoFingerprint } from './build-mongo-command';
+} from './mongoose-collector.interface.js';
+import {
+  MONGOOSE_COLLECTOR_OPTIONS,
+  MONGOOSE_QUERIES_KEY,
+} from './mongoose-collector.interface.js';
+import { buildMongoCommand, buildMongoFingerprint } from './build-mongo-command.js';
 
 const MONGO_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5c-.8 1-2 3-2 4.5a2 2 0 0 0 4 0c0-1.5-1.2-3.5-2-4.5z"/><path d="M8 9.5v5"/></svg>`;
 const DB_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy="4" rx="6" ry="2"/><path d="M2 4v3c0 1.1 2.7 2 6 2s6-.9 6-2V4"/><path d="M2 7v3c0 1.1 2.7 2 6 2s6-.9 6-2V7"/><path d="M2 10v2c0 1.1 2.7 2 6 2s6-.9 6-2v-2"/></svg>`;

@@ -1,10 +1,10 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
-import { ProfilerNoopModule } from './nest-profiler-noop.module';
-import { TracerService } from './services/tracer.service';
+import { ProfilerNoopModule } from './nest-profiler-noop.module.js';
+import { TracerService } from './services/tracer.service.js';
 
-import { ProfilerStorageService } from './services/profiler-storage.service';
-import { CollectorRegistry } from './collectors/collector-registry.service';
+import { ProfilerStorageService } from './services/profiler-storage.service.js';
+import { CollectorRegistry } from './collectors/collector-registry.service.js';
 
 describe('ProfilerNoopModule', () => {
   it('forRoot() resolves TracerService with none of its optional dependencies', async () => {

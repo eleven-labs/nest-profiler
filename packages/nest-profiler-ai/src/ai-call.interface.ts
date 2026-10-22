@@ -1,6 +1,6 @@
 import type { ProfilerTag } from '@eleven-labs/nest-profiler';
-import type { AiAgentInfo } from './ai-agent';
-import type { AiCaptureField, AiCaptureLevel } from './ai-capture';
+import type { AiAgentInfo } from './ai-agent.js';
+import type { AiCaptureField, AiCaptureLevel } from './ai-capture.js';
 
 /** Key the raw entries are accumulated under, before {@link AiCollector} shapes them. */
 export const AI_ENTRIES_KEY = 'ai.entries';

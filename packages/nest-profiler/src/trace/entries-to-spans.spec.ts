@@ -1,5 +1,5 @@
-import { entriesToSpans } from './entries-to-spans';
-import type { TaggableEntry } from '../analysis/taggable-collector.interface';
+import { entriesToSpans } from './entries-to-spans.js';
+import type { TaggableEntry } from '../analysis/taggable-collector.interface.js';
 
 interface Entry extends TaggableEntry {
   label: string;

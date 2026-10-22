@@ -1,7 +1,7 @@
 import type { ClsService } from 'nestjs-cls';
 import { appendCollectorEntry, readProfile } from '@eleven-labs/nest-profiler';
-import type { HttpRequestEntry } from './http-request.interface';
-import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface';
+import type { HttpRequestEntry } from './http-request.interface.js';
+import { HTTP_CLIENT_REQUESTS_KEY } from './http-request.interface.js';
 
 /**
  * Low-level primitive for feeding the shared "HTTP Client" panel from any HTTP

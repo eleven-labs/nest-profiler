@@ -27,18 +27,36 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "default": "./dist/index.js"
     },
     "./harness": {
-      "types": "./dist/harness/index.d.ts",
-      "require": "./dist/harness/index.js",
+      "import": {
+        "types": "./dist/esm/harness/index.d.ts",
+        "default": "./dist/esm/harness/index.js"
+      },
+      "require": {
+        "types": "./dist/harness/index.d.ts",
+        "default": "./dist/harness/index.js"
+      },
       "default": "./dist/harness/index.js"
     },
     "./pricing": {
-      "types": "./dist/pricing/index.d.ts",
-      "require": "./dist/pricing/index.js",
+      "import": {
+        "types": "./dist/esm/pricing/index.d.ts",
+        "default": "./dist/esm/pricing/index.js"
+      },
+      "require": {
+        "types": "./dist/pricing/index.d.ts",
+        "default": "./dist/pricing/index.js"
+      },
       "default": "./dist/pricing/index.js"
     },
     "./package.json": "./package.json"

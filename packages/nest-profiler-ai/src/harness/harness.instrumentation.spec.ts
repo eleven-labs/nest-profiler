@@ -6,18 +6,18 @@ import {
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import type { Telemetry } from 'ai';
-import { currentAiAgent } from '../ai-agent';
-import { HARNESS_OPERATION, harnessFrameworkOf } from '../ai-harness-operation';
+import { currentAiAgent } from '../ai-agent.js';
+import { HARNESS_OPERATION, harnessFrameworkOf } from '../ai-harness-operation.js';
 import {
   HarnessInstrumentation,
   harnessTelemetryFor,
   instrumentHarnessAgentClass,
-} from './harness.instrumentation';
-import { AiProfilerTelemetry } from '../ai-telemetry';
-import { resetAiCapture } from '../ai-capture';
-import { configureAiPricing, resetAiPricing } from '../ai-pricing';
-import { AI_ENTRIES_KEY } from '../ai-call.interface';
-import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from '../ai-call.interface';
+} from './harness.instrumentation.js';
+import { AiProfilerTelemetry } from '../ai-telemetry.js';
+import { resetAiCapture } from '../ai-capture.js';
+import { configureAiPricing, resetAiPricing } from '../ai-pricing.js';
+import { AI_ENTRIES_KEY } from '../ai-call.interface.js';
+import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from '../ai-call.interface.js';
 
 const integration: Telemetry = {};
 const other: Telemetry = {};

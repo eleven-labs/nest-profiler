@@ -10,7 +10,7 @@ import type {
   Profile,
 } from '@eleven-labs/nest-profiler';
 import { PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
-import { GRAPHQL_ENTRYPOINT_TYPE } from '../graphql-entrypoint';
+import { GRAPHQL_ENTRYPOINT_TYPE } from '../graphql-entrypoint.js';
 
 type GqlResolveInfo = {
   fieldName?: string;

@@ -1,6 +1,6 @@
-import type { Profile } from '../interfaces/profile.interface';
-import type { RawSpan } from '../trace/build-trace';
-import type { TraceSpanDelegate } from '../trace/trace-span.delegate';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { RawSpan } from '../trace/build-trace.js';
+import type { TraceSpanDelegate } from '../trace/trace-span.delegate.js';
 
 /**
  * Transport plumbing attached to a profile for the length of the request, and to nothing else.

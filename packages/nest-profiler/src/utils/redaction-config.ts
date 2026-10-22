@@ -1,8 +1,8 @@
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { DEFAULT_MASK_HEADERS } from './redact-headers.util';
-import { buildMaskedQueryParams, DEFAULT_MASK_QUERY_PARAMS } from './redact-query.util';
-import { REDACTED } from './redact.utils';
-import type { RedactOptions } from './redact.utils';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { DEFAULT_MASK_HEADERS } from './redact-headers.util.js';
+import { buildMaskedQueryParams, DEFAULT_MASK_QUERY_PARAMS } from './redact-query.util.js';
+import { REDACTED } from './redact.utils.js';
+import type { RedactOptions } from './redact.utils.js';
 
 /**
  * The effective masking configuration for one profiler instance, resolved once from

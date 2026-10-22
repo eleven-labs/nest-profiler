@@ -2,15 +2,15 @@ import { DynamicModule, Inject, Module, OnModuleInit, Optional } from '@nestjs/c
 import { DiscoveryModule, ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { RabbitMqContextAdapter } from './rabbitmq-context.adapter';
-import { RabbitMqDiscoverSource } from './rabbitmq-discover-source';
+import { RabbitMqContextAdapter } from './rabbitmq-context.adapter.js';
+import { RabbitMqDiscoverSource } from './rabbitmq-discover-source.js';
 import {
   ConfigurableModuleClass,
   RABBITMQ_COLLECTOR_OPTIONS,
   type RabbitMqCollectorModuleOptions,
   type RabbitMqCollectorModuleAsyncOptions,
-} from './rabbitmq-collector.interface';
-import { buildRabbitMqEntrypointType } from './rabbitmq-entrypoint';
+} from './rabbitmq-collector.interface.js';
+import { buildRabbitMqEntrypointType } from './rabbitmq-entrypoint.js';
 
 // The adapter registers itself with the core in onModuleInit via registerContextAdapter() —
 // the single, supported registration mechanism. The route source self-registers at bootstrap and

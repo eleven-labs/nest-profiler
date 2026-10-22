@@ -4,8 +4,8 @@ import {
   buildGraphqlEntrypointType,
   GRAPHQL_ENTRYPOINT_TYPE,
   GRAPHQL_ENTRYPOINT_TYPE_DEF,
-} from './graphql-entrypoint';
-import type { GraphQLEntrypointData } from './graphql-entrypoint';
+} from './graphql-entrypoint.js';
+import type { GraphQLEntrypointData } from './graphql-entrypoint.js';
 
 const attrs = (p: Profile): Record<string, string | number | boolean> =>
   GRAPHQL_ENTRYPOINT_TYPE_DEF.indexAttributes?.(p) ?? {};

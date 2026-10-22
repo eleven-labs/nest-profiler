@@ -1,7 +1,7 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
-import { RoutesCollectorModule, ROUTES_COLLECTOR_OPTIONS } from './routes-collector.module';
-import { RoutesCollector } from './routes.collector';
-import { HttpDiscoverSource } from './http-discover-source';
+import { RoutesCollectorModule, ROUTES_COLLECTOR_OPTIONS } from './routes-collector.module.js';
+import { RoutesCollector } from './routes.collector.js';
+import { HttpDiscoverSource } from './http-discover-source.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

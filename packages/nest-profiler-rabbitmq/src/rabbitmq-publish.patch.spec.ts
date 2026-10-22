@@ -4,13 +4,13 @@ import { ClsService as ClsServiceToken } from 'nestjs-cls';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import type { Options } from 'amqplib';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { RabbitMqPublishPatch, patchRabbitMqPublish } from './rabbitmq-publish.patch';
-import type { PublishTarget } from './rabbitmq-publish.patch';
-import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface';
+import { RabbitMqPublishPatch, patchRabbitMqPublish } from './rabbitmq-publish.patch.js';
+import type { PublishTarget } from './rabbitmq-publish.patch.js';
+import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface.js';
 import type {
   RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 
 function makeProfile(): Profile {
   return {

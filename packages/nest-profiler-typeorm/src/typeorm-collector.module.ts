@@ -1,20 +1,20 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './typeorm-collector.interface';
+import { ConfigurableModuleClass } from './typeorm-collector.interface.js';
 import type {
   TypeOrmCollectorModuleAsyncOptions,
   TypeOrmCollectorModuleOptions,
-} from './typeorm-collector.interface';
-import { TypeOrmCollector } from './typeorm.collector';
-import { TypeOrmDriverPatch } from './typeorm-driver.patch';
-import { TypeOrmExplainRunner } from './typeorm-explain.runner';
+} from './typeorm-collector.interface.js';
+import { TypeOrmCollector } from './typeorm.collector.js';
+import { TypeOrmDriverPatch } from './typeorm-driver.patch.js';
+import { TypeOrmExplainRunner } from './typeorm-explain.runner.js';
 
-export { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
+export { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface.js';
 export type {
   TypeOrmCollectorModuleOptions,
   TypeOrmCollectorModuleAsyncOptions,
-} from './typeorm-collector.interface';
+} from './typeorm-collector.interface.js';
 
 // The patch resolves the (optionally named) DataSource + ClsService lazily via ModuleRef.
 // The explain runner registers itself with the core ExplainRunnerRegistry on init.

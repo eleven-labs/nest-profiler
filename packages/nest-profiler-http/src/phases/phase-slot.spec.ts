@@ -4,7 +4,7 @@ import {
   phaseSlotsEnabled,
   registerPhaseSlotProvider,
   resetPhaseSlotProviders,
-} from './phase-slot';
+} from './phase-slot.js';
 
 describe('phase slot', () => {
   afterEach(() => {

@@ -1,5 +1,5 @@
-import type { FilterCriterion } from '../storage/profiler-query';
-import type { ProfilerListFilter } from './profiler-list-filter.interface';
+import type { FilterCriterion } from '../storage/profiler-query.js';
+import type { ProfilerListFilter } from './profiler-list-filter.interface.js';
 
 /**
  * Lenient integer parser shared by the numeric built-in filters: absent, empty

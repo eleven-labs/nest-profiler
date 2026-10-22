@@ -1,15 +1,15 @@
 import * as path from 'path';
 import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { ProfilerCollector } from './collector.decorator';
-import type { ProfilerCollectorMetadata } from './collector.decorator';
-import type { GlobalPanelDescriptor, IProfilerCollector } from './collector.interface';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
-import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { TAG_SEVERITY_RANK } from '../analysis/profiler-tag.interface';
-import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import { ProfilerCollector } from './collector.decorator.js';
+import type { ProfilerCollectorMetadata } from './collector.decorator.js';
+import type { GlobalPanelDescriptor, IProfilerCollector } from './collector.interface.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface.js';
+import { TAG_SEVERITY_RANK } from '../analysis/profiler-tag.interface.js';
+import type { TagSeverity } from '../analysis/profiler-tag.interface.js';
 
 const GROUPED_PANEL_TEMPLATE = path.join(__dirname, '..', 'templates', 'grouped-panel.ejs');
 

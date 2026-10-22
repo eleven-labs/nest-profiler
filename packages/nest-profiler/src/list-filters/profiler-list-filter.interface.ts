@@ -1,4 +1,4 @@
-import type { FilterCriterion } from '../storage/profiler-query';
+import type { FilterCriterion } from '../storage/profiler-query.js';
 
 /**
  * DI multi-token under which {@link ProfilerListFilter} implementations are

@@ -5,15 +5,15 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry } from './ai-telemetry';
-import { configureAiCapture, resetAiCapture } from './ai-capture';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
+import { AiProfilerTelemetry } from './ai-telemetry.js';
+import { configureAiCapture, resetAiCapture } from './ai-capture.js';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
 import type {
   AiCallEntry,
   AiEntry,
   AiMessagePart,
   AiToolExecutionEntry,
-} from './ai-call.interface';
+} from './ai-call.interface.js';
 
 function newProfile(): Profile {
   return {

@@ -5,11 +5,11 @@ import type { INestApplication, MessageEvent } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Observable, interval, map, take } from 'rxjs';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import { TracerService } from '../services/tracer.service';
-import { ProfilerStorageService } from '../services/profiler-storage.service';
-import type { Profile } from '../interfaces/profile.interface';
-import type { PlatformResponse } from '../types/http';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import { TracerService } from '../services/tracer.service.js';
+import { ProfilerStorageService } from '../services/profiler-storage.service.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { PlatformResponse } from '../types/http.js';
 
 /**
  * A streamed response — Server-Sent Events, an LLM token stream, NDJSON — breaks the assumption

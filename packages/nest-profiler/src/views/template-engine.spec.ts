@@ -1,4 +1,4 @@
-import { HELPERS } from './template-engine';
+import { HELPERS } from './template-engine.js';
 
 describe('template-engine HELPERS', () => {
   describe('gqlTypeClass', () => {

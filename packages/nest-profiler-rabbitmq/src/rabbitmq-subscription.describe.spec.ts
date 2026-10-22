@@ -1,5 +1,5 @@
 import type { RabbitHandlerConfig } from '@golevelup/nestjs-rabbitmq';
-import { describeSubscription } from './rabbitmq-subscription.describe';
+import { describeSubscription } from './rabbitmq-subscription.describe.js';
 
 const groupOf = (groups: ReturnType<typeof describeSubscription>, label: string) =>
   groups.find((group) => group.label === label);

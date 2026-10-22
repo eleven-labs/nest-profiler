@@ -1,9 +1,9 @@
-import { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './build-trace';
-import type { RawSpan, TraceContributor } from './build-trace';
-import { appendManualSpan } from '../utils/profile-runtime-state';
-import { lifecycleMarks } from './build-lifecycle';
-import type { Profile, TraceSpan } from '../interfaces/profile.interface';
-import type { IProfilerCollector } from '../collectors/collector.interface';
+import { buildTrace, isTraceContributor, TRACE_ROOT_ID } from './build-trace.js';
+import type { RawSpan, TraceContributor } from './build-trace.js';
+import { appendManualSpan } from '../utils/profile-runtime-state.js';
+import { lifecycleMarks } from './build-lifecycle.js';
+import type { Profile, TraceSpan } from '../interfaces/profile.interface.js';
+import type { IProfilerCollector } from '../collectors/collector.interface.js';
 
 const T0 = 1_000_000;
 

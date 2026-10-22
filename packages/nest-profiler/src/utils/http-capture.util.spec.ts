@@ -3,11 +3,11 @@ import {
   captureHeaders,
   finalizeHttpProfile,
   resolveHttpCaptureConfig,
-} from './http-capture.util';
-import type { HttpCaptureConfig } from './http-capture.util';
-import { markProfileStart } from './profile-metrics.util';
-import { DEFAULT_MAX_BODY_SIZE } from './safe-data.utils';
-import type { Profile } from '../interfaces/profile.interface';
+} from './http-capture.util.js';
+import type { HttpCaptureConfig } from './http-capture.util.js';
+import { markProfileStart } from './profile-metrics.util.js';
+import { DEFAULT_MAX_BODY_SIZE } from './safe-data.utils.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 const AT = 1_700_000_000_000;
 

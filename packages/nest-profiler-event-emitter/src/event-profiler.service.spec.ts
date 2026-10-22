@@ -5,10 +5,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { ProfilerCoreService } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { EventProfilerService } from './event-profiler.service';
-import { EVENT_ENTRYPOINT_TYPE } from './event-entrypoint';
-import type { EventEntrypointData } from './event-entrypoint';
-import type { EventEmitterCollectorModuleOptions } from './event-emitter-collector.interface';
+import { EventProfilerService } from './event-profiler.service.js';
+import { EVENT_ENTRYPOINT_TYPE } from './event-entrypoint.js';
+import type { EventEntrypointData } from './event-entrypoint.js';
+import type { EventEmitterCollectorModuleOptions } from './event-emitter-collector.interface.js';
 
 class ReviewListener {
   calls: unknown[][] = [];

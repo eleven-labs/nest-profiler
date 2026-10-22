@@ -1,5 +1,5 @@
-import type { ProfilerTag } from './profiler-tag.interface';
-import { maxTagSeverity, upsertTag } from './profiler-tag.interface';
+import type { ProfilerTag } from './profiler-tag.interface.js';
+import { maxTagSeverity, upsertTag } from './profiler-tag.interface.js';
 
 describe('maxTagSeverity', () => {
   it('returns the highest severity across entries, or null when untagged', () => {

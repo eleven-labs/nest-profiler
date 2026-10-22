@@ -5,14 +5,14 @@ import {
   setProfileContext,
 } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
-import { configureAiCapture, resetAiCapture } from './ai-capture';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
-import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from './ai-call.interface';
-import { markMcpTools } from './mcp-tool-registry';
-import { profileAgent } from './ai-agent';
-import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
-import { configureAiPricing, resetAiPricing } from './ai-pricing';
+import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry.js';
+import { configureAiCapture, resetAiCapture } from './ai-capture.js';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
+import type { AiCallEntry, AiEntry, AiToolExecutionEntry } from './ai-call.interface.js';
+import { markMcpTools } from './mcp-tool-registry.js';
+import { profileAgent } from './ai-agent.js';
+import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint.js';
+import { configureAiPricing, resetAiPricing } from './ai-pricing.js';
 
 /** A bare profile, as the HTTP middleware would have opened it. */
 function newProfile(): Profile {

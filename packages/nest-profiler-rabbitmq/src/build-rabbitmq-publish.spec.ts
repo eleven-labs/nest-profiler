@@ -1,5 +1,5 @@
-import { buildRabbitMqPublish } from './build-rabbitmq-publish';
-import type { RabbitMqInfo } from './rabbitmq-collector.interface';
+import { buildRabbitMqPublish } from './build-rabbitmq-publish.js';
+import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
 
 function info(overrides: Partial<RabbitMqInfo> = {}): RabbitMqInfo {
   return { exchange: 'articles.events', routingKey: 'published.LEFIGARO', ...overrides };

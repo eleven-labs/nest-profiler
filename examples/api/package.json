@@ -22,6 +22,7 @@
     "test:e2e:http-clients": "HTTP_CLIENT=axios pnpm test:e2e \"content|cli\" && HTTP_CLIENT=fetch pnpm test:e2e \"content|cli\"",
     "test:e2e:dataloader": "FEATURE_DATALOADER=true pnpm test:e2e graphql",
     "test:e2e:no-stress": "PROFILER_STRESS=false pnpm test:e2e",
+    "test:esm": "node test/esm-smoke.mjs",
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {

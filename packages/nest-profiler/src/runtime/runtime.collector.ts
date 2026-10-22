@@ -1,10 +1,13 @@
 import * as path from 'node:path';
 import { Injectable } from '@nestjs/common';
-import { ProfilerCollector } from '../collectors/collector.decorator';
-import type { GlobalPanelDescriptor, IProfilerCollector } from '../collectors/collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import { RuntimeMetricsService } from './runtime-metrics.service';
-import type { RuntimeCollectorData } from './runtime-metrics.interface';
+import { ProfilerCollector } from '../collectors/collector.decorator.js';
+import type {
+  GlobalPanelDescriptor,
+  IProfilerCollector,
+} from '../collectors/collector.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { RuntimeMetricsService } from './runtime-metrics.service.js';
+import type { RuntimeCollectorData } from './runtime-metrics.interface.js';
 
 const RUNTIME_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l2.5-3.5L7 9.5 10 4l4 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 

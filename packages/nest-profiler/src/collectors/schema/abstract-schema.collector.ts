@@ -1,10 +1,10 @@
 import * as path from 'path';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { IProfilerCollector } from '../collector.interface';
-import type { Profile } from '../../interfaces/profile.interface';
-import { redactString } from '../../utils/redact.utils';
-import { toMermaidErDiagram } from './mermaid-er';
-import type { EntitySchema, SchemaCollectorData } from './schema.interface';
+import type { IProfilerCollector } from '../collector.interface.js';
+import type { Profile } from '../../interfaces/profile.interface.js';
+import { redactString } from '../../utils/redact.utils.js';
+import { toMermaidErDiagram } from './mermaid-er.js';
+import type { EntitySchema, SchemaCollectorData } from './schema.interface.js';
 
 /** Shared table/schema glyph, reused by every ORM's Schema panel. */
 export const SCHEMA_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9zM3.5 3a.5.5 0 00-.5.5V6h10V3.5a.5.5 0 00-.5-.5h-9zM13 7H3v2.5h10V7zm0 3.5H3v2a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-2z"/></svg>`;

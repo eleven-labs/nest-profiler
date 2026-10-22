@@ -1,19 +1,19 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { ConfigurableModuleClass } from './mongoose-collector.interface';
+import { ConfigurableModuleClass } from './mongoose-collector.interface.js';
 import type {
   MongooseCollectorModuleAsyncOptions,
   MongooseCollectorModuleOptions,
-} from './mongoose-collector.interface';
-import { MongooseCollector } from './mongoose.collector';
-import { MongooseConnectionPatch } from './mongoose-connection.patch';
+} from './mongoose-collector.interface.js';
+import { MongooseCollector } from './mongoose.collector.js';
+import { MongooseConnectionPatch } from './mongoose-connection.patch.js';
 
-export { MONGOOSE_COLLECTOR_OPTIONS } from './mongoose-collector.interface';
+export { MONGOOSE_COLLECTOR_OPTIONS } from './mongoose-collector.interface.js';
 export type {
   MongooseCollectorModuleOptions,
   MongooseCollectorModuleAsyncOptions,
-} from './mongoose-collector.interface';
+} from './mongoose-collector.interface.js';
 
 // The patch resolves the (optionally named) connection + ClsService lazily via ModuleRef.
 const SHAPE: CollectorModuleShape = { providers: [MongooseConnectionPatch, MongooseCollector] };

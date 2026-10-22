@@ -7,7 +7,7 @@ import type {
   DiscoverEntry,
   DiscoverGroup,
 } from '@eleven-labs/nest-profiler';
-import { GRAPHQL_ICON } from './icons';
+import { GRAPHQL_ICON } from './icons.js';
 
 /**
  * A {@link ProfilerDiscoverSource} contributing the **Discover / GraphQL** view. It reads the

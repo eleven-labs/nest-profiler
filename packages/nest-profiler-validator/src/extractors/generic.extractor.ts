@@ -1,8 +1,8 @@
 import type {
   ValidationViolationExtractor,
   ViolationExtractorContext,
-} from '../violation-extractor.interface';
-import type { ViolationEntry } from '../validator-collector.interface';
+} from '../violation-extractor.interface.js';
+import type { ViolationEntry } from '../validator-collector.interface.js';
 
 interface HttpExceptionLike {
   getResponse?: unknown;

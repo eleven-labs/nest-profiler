@@ -1,7 +1,7 @@
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
-import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface';
-import type { RabbitMqPublishEntry } from './rabbitmq-publish-collector.interface';
+import { RabbitMqPublishCollector } from './rabbitmq-publish.collector.js';
+import { RABBITMQ_PUBLISHES_KEY } from './rabbitmq-publish-collector.interface.js';
+import type { RabbitMqPublishEntry } from './rabbitmq-publish-collector.interface.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

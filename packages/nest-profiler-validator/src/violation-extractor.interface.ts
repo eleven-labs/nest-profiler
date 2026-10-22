@@ -1,4 +1,4 @@
-import type { ViolationEntry } from './validator-collector.interface';
+import type { ViolationEntry } from './validator-collector.interface.js';
 
 /**
  * Context handed to a {@link ValidationViolationExtractor}. Carries the error

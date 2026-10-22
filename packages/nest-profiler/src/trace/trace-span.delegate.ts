@@ -1,5 +1,5 @@
-import type { ProfilerTag } from '../analysis/profiler-tag.interface';
-import type { TraceSpan, TraceSpanKind, TraceSpanStatus } from '../interfaces/profile.interface';
+import type { ProfilerTag } from '../analysis/profiler-tag.interface.js';
+import type { TraceSpan, TraceSpanKind, TraceSpanStatus } from '../interfaces/profile.interface.js';
 
 /**
  * The handle on an open span, handed to the callback of `TracerService.span()` and returned by

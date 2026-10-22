@@ -2,12 +2,12 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { ProfilerMiddleware } from './profiler.middleware';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
-import type { PlatformRequest, PlatformResponse } from '../types/http';
-import type { ProfilerCoreService } from '../services/profiler-core.service';
+import { ProfilerMiddleware } from './profiler.middleware.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
+import type { PlatformRequest, PlatformResponse } from '../types/http.js';
+import type { ProfilerCoreService } from '../services/profiler-core.service.js';
 
 /** Reads the HTTP request data from a possibly-undefined profile's entrypoint. */
 function reqData(profile: Profile<HttpRequestData> | undefined): HttpRequestData | undefined {

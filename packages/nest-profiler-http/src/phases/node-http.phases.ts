@@ -1,7 +1,7 @@
 import type { ClientRequest } from 'node:http';
 import { Injectable } from '@nestjs/common';
-import type { HttpInstrumentation } from '../http-instrumentation.interface';
-import { instrumentClientRequest } from './client-request-timer';
+import type { HttpInstrumentation } from '../http-instrumentation.interface.js';
+import { instrumentClientRequest } from './client-request-timer.js';
 
 type RequestFactory = (...args: never[]) => ClientRequest;
 

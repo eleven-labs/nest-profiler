@@ -1,9 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ProfilerCollector, AbstractSqlQueryCollector } from '@eleven-labs/nest-profiler';
 import type { TagConfig } from '@eleven-labs/nest-profiler';
-import { TYPEORM_QUERIES_KEY } from './typeorm-driver.patch';
-import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface';
-import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface';
+import { TYPEORM_QUERIES_KEY } from './typeorm-driver.patch.js';
+import { TYPEORM_COLLECTOR_OPTIONS } from './typeorm-collector.interface.js';
+import type { TypeOrmCollectorModuleOptions } from './typeorm-collector.interface.js';
 
 const DB_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy="4" rx="6" ry="2"/><path d="M2 4v3c0 1.1 2.7 2 6 2s6-.9 6-2V4"/><path d="M2 7v3c0 1.1 2.7 2 6 2s6-.9 6-2V7"/><path d="M2 10v2c0 1.1 2.7 2 6 2s6-.9 6-2v-2"/></svg>`;
 

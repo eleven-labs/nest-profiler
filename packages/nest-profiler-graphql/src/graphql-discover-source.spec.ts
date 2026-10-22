@@ -1,5 +1,5 @@
 import { ModuleRef } from '@nestjs/core';
-import { GraphqlDiscoverSource } from './graphql-discover-source';
+import { GraphqlDiscoverSource } from './graphql-discover-source.js';
 
 interface FakeField {
   name: string;

@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import type { ArgumentMetadata } from '@nestjs/common';
 import { IsNotEmpty, IsString } from 'class-validator';
-import { createClassValidatorPipe } from './class-validator.adapter';
-import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface';
+import { createClassValidatorPipe } from './class-validator.adapter.js';
+import { VALIDATOR_RAW_ERRORS } from './violation-extractor.interface.js';
 
 class SimpleDto {
   @IsString()

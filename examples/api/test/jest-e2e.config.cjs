@@ -49,9 +49,9 @@ module.exports = {
   // Empties `.profiler` once per run; the suite's profiles are kept afterwards for browsing.
   globalSetup: '<rootDir>/test/global-setup.ts',
   setupFiles: ['reflect-metadata', '<rootDir>/test/setup-env.ts'],
-  // nest-profiler-mikro-orm is ESM-only ("type": "module"): its dist must load natively via
-  // require(esm), not be transpiled to CJS by ts-jest like the other (CommonJS) workspace dists.
-  transformIgnorePatterns: ['/node_modules/', '/packages/nest-profiler-mikro-orm/dist/'],
+  // The suite runs as CommonJS, so the workspace packages resolve to their CommonJS build. The
+  // ESM builds (`dist/esm`) are never reached here: `pnpm check:esm-import` covers them.
+  transformIgnorePatterns: ['/node_modules/'],
   // Every app bootstrap reseeds the shared databases (clear + insert) — spec files must not overlap.
   maxWorkers: 1,
   testTimeout: 30000,

@@ -1,8 +1,8 @@
-import type { TagSeverity } from '../analysis/profiler-tag.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
-import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
-import type { SummaryPrimitive } from '../storage/profile-summary';
+import type { TagSeverity } from '../analysis/profiler-tag.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface.js';
+import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface.js';
+import type { SummaryPrimitive } from '../storage/profile-summary.js';
 
 /**
  * DI multi-token under which {@link ProfilerEntrypointType} implementations are

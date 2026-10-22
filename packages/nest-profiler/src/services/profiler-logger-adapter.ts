@@ -1,7 +1,7 @@
 import { ClsServiceManager } from 'nestjs-cls';
-import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface';
-import { PROFILER_CLS_KEYS } from '../constants';
-import { toSafeData } from '../utils/safe-data.utils';
+import type { LogEntry, LogLevel, Profile } from '../interfaces/profile.interface.js';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import { toSafeData } from '../utils/safe-data.utils.js';
 
 /** Method name to profiler log level; extend with custom entries (e.g. a logger's `silly` or `http` level) to support any logger. */
 export type LogMethodMap = Record<string, LogLevel>;

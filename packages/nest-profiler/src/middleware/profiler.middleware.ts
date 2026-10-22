@@ -1,45 +1,45 @@
 import { Inject, Injectable, Logger, NestMiddleware, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { NextFunction, PlatformRequest, PlatformResponse } from '../types/http.js';
 import type {
   HttpRequestData,
   Profile,
   ResponseData,
   ResponseStreamData,
-} from '../interfaces/profile.interface';
-import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface';
-import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants';
-import { ProfilerCoreService } from '../services/profiler-core.service';
-import { setProfileContext } from '../services/profiler-context';
+} from '../interfaces/profile.interface.js';
+import { HTTP_ENTRYPOINT_TYPE } from '../interfaces/profile.interface.js';
+import { PROFILER_REQ_KEY, PROFILER_BASE_PATH } from '../constants.js';
+import { ProfilerCoreService } from '../services/profiler-core.service.js';
+import { setProfileContext } from '../services/profiler-context.js';
 import type {
   ProfilerFilterRequest,
   ProfilerForceProfileFilter,
   ProfilerRequestFilter,
-} from '../filters';
+} from '../filters.js';
 import {
   completeProfilePerformance,
   markProfileStart,
   profileElapsedMs,
-} from '../utils/profile-metrics.util';
-import { roundMs } from '../utils/clock.utils';
+} from '../utils/profile-metrics.util.js';
+import { roundMs } from '../utils/clock.utils.js';
 import {
   captureBody,
   captureHeaders,
   finalizeHttpProfile,
   resolveHttpCaptureConfig,
-} from '../utils/http-capture.util';
-import type { HttpCaptureConfig } from '../utils/http-capture.util';
+} from '../utils/http-capture.util.js';
+import type { HttpCaptureConfig } from '../utils/http-capture.util.js';
 import {
   deferCollectionToFinishHook,
   setTransportResponseBody,
-} from '../utils/profile-runtime-state';
-import { redactQueryRecord, redactQueryString } from '../utils/redact-query.util';
-import { extractHeaders } from '../utils/redact-headers.util';
-import { redact } from '../utils/redact.utils';
-import { DEFAULT_TRACE_ID_HEADER, resolveTraceId } from '../trace/trace-id';
-import type { SummaryPrimitive } from '../storage/profile-summary';
+} from '../utils/profile-runtime-state.js';
+import { redactQueryRecord, redactQueryString } from '../utils/redact-query.util.js';
+import { extractHeaders } from '../utils/redact-headers.util.js';
+import { redact } from '../utils/redact.utils.js';
+import { DEFAULT_TRACE_ID_HEADER, resolveTraceId } from '../trace/trace-id.js';
+import type { SummaryPrimitive } from '../storage/profile-summary.js';
 
 /**
  * Paths skipped by default so the profiler list is not flooded with browser and

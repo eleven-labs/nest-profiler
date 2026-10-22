@@ -5,8 +5,8 @@ import {
   instrumentClientRequest,
   isInstrumentedClientRequest,
   phasesOfClientRequest,
-} from './client-request-timer';
-import { readHttpPhases } from './read-http-phases';
+} from './client-request-timer.js';
+import { readHttpPhases } from './read-http-phases.js';
 
 /** A real server, because the phases are derived from real socket and stream events. */
 let server: http.Server;

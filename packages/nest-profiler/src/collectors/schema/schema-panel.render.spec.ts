@@ -1,7 +1,7 @@
 import * as path from 'node:path';
-import { ClientAssetRegistry } from '../../services/client-asset-registry.service';
-import { TemplateRendererService } from '../../services/template-renderer.service';
-import type { SchemaCollectorData } from './schema.interface';
+import { ClientAssetRegistry } from '../../services/client-asset-registry.service.js';
+import { TemplateRendererService } from '../../services/template-renderer.service.js';
+import type { SchemaCollectorData } from './schema.interface.js';
 
 const SCHEMA_PANEL = path.join(__dirname, 'templates', 'schema-panel.ejs');
 

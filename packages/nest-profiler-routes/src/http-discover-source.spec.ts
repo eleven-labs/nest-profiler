@@ -4,7 +4,7 @@ import type { CanActivate } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { HTTP_ENTRYPOINT_TYPE_DEF, HTTP_ICON } from '@eleven-labs/nest-profiler';
-import { HttpDiscoverSource } from './http-discover-source';
+import { HttpDiscoverSource } from './http-discover-source.js';
 
 class CreatePetDto {
   @IsString()

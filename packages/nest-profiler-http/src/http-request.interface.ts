@@ -3,7 +3,7 @@ import type {
   RedactionHeaderOptions,
   RedactionQueryParamOptions,
 } from '@eleven-labs/nest-profiler';
-import type { HttpPhases } from './http-phases.interface';
+import type { HttpPhases } from './http-phases.interface.js';
 
 /**
  * A single outgoing HTTP request captured during a profile, surfaced in the

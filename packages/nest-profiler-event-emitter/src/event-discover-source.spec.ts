@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { DiscoveryService, MetadataScanner, ModuleRef, Reflector } from '@nestjs/core';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EventDiscoverSource } from './event-discover-source';
+import { EventDiscoverSource } from './event-discover-source.js';
 
 class ReviewListener {
   @OnEvent('review.created')

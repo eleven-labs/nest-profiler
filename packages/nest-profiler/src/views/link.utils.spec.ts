@@ -1,4 +1,4 @@
-import { appendLinkQuery, linkQueryPairs } from './link.utils';
+import { appendLinkQuery, linkQueryPairs } from './link.utils.js';
 
 describe('appendLinkQuery', () => {
   it('returns the href unchanged for an empty query', () => {

@@ -1,6 +1,6 @@
-import { PROFILER_REQ_KEY } from './constants';
-import { PROFILER_ENABLED } from './nest-profiler.builder';
-import { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface';
+import { PROFILER_REQ_KEY } from './constants.js';
+import { PROFILER_ENABLED } from './nest-profiler.builder.js';
+import { PROFILER_STORAGE_ADAPTER } from './storage/storage-adapter.interface.js';
 
 /**
  * A symbol used as a DI token, or as a key two packages exchange data under, must keep one

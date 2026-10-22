@@ -4,8 +4,8 @@ import {
   loadAiPricing,
   pricingFor,
   resetAiPricing,
-} from './ai-pricing';
-import { fetchLiteLLMPricing, fetchOpenRouterPricing } from './pricing';
+} from './ai-pricing.js';
+import { fetchLiteLLMPricing, fetchOpenRouterPricing } from './pricing/index.js';
 
 describe('AI pricing registry', () => {
   afterEach(() => {

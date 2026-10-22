@@ -1,4 +1,4 @@
-import type { ProfilerListSection } from './profiler-list-section.interface';
+import type { ProfilerListSection } from './profiler-list-section.interface.js';
 
 /** Default display order for contributed sections with no explicit `order`. */
 export const DEFAULT_SECTION_ORDER = 100;

@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { CommanderCollectorModule } from './commander-collector.module';
+import { CommanderCollectorModule } from './commander-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler

@@ -1,15 +1,15 @@
-import type { IProfilerCollector } from './collector.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import { getCollectorEntries } from '../utils/collector.utils';
-import { maxTagSeverity } from '../analysis/profiler-tag.interface';
-import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import type { IProfilerCollector } from './collector.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { getCollectorEntries } from '../utils/collector.utils.js';
+import { maxTagSeverity } from '../analysis/profiler-tag.interface.js';
+import type { TagSeverity } from '../analysis/profiler-tag.interface.js';
 import type {
   TagConfig,
   TaggableCollector,
   TaggableEntry,
-} from '../analysis/taggable-collector.interface';
-import { entriesToSpans } from '../trace/entries-to-spans';
-import type { RawSpan, TraceContributor } from '../trace/build-trace';
+} from '../analysis/taggable-collector.interface.js';
+import { entriesToSpans } from '../trace/entries-to-spans.js';
+import type { RawSpan, TraceContributor } from '../trace/build-trace.js';
 
 /** Default per-collector thresholds, used when a subclass exposes no options. */
 const DEFAULT_TAG_CONFIG: TagConfig = {

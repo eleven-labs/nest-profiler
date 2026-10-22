@@ -2,8 +2,8 @@ import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@n
 import {
   TypeOrmSchemaCollectorModule,
   TYPEORM_SCHEMA_COLLECTOR_OPTIONS,
-} from './typeorm-schema-collector.module';
-import { TypeOrmSchemaCollector } from './typeorm-schema.collector';
+} from './typeorm-schema-collector.module.js';
+import { TypeOrmSchemaCollector } from './typeorm-schema.collector.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

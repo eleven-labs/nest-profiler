@@ -1,16 +1,16 @@
 import { Test } from '@nestjs/testing';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { TracerService } from '../services/tracer.service';
-import { setProfileContext } from '../services/profiler-context';
-import { appendCollectorEntry } from '../utils/collector.utils';
-import { createProfilerLogger } from '../services/profiler-logger-adapter';
-import { manualSpansOf } from '../utils/profile-runtime-state';
-import { buildTrace, TRACE_ROOT_ID } from './build-trace';
-import { entriesToSpans } from './entries-to-spans';
-import { runAsSpanParent } from './run-in-span';
-import type { TraceContributor } from './build-trace';
-import type { Profile, TraceSpan } from '../interfaces/profile.interface';
-import type { TaggableEntry } from '../analysis/taggable-collector.interface';
+import { TracerService } from '../services/tracer.service.js';
+import { setProfileContext } from '../services/profiler-context.js';
+import { appendCollectorEntry } from '../utils/collector.utils.js';
+import { createProfilerLogger } from '../services/profiler-logger-adapter.js';
+import { manualSpansOf } from '../utils/profile-runtime-state.js';
+import { buildTrace, TRACE_ROOT_ID } from './build-trace.js';
+import { entriesToSpans } from './entries-to-spans.js';
+import { runAsSpanParent } from './run-in-span.js';
+import type { TraceContributor } from './build-trace.js';
+import type { Profile, TraceSpan } from '../interfaces/profile.interface.js';
+import type { TaggableEntry } from '../analysis/taggable-collector.interface.js';
 
 const QUERIES_KEY = 'queries';
 

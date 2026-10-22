@@ -9,16 +9,16 @@ import {
 } from 'node:perf_hooks';
 import type { EventLoopUtilization } from 'node:perf_hooks';
 import * as v8 from 'node:v8';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { registerGcCounter } from '../utils/profile-metrics.util';
-import type { GcCounter } from '../utils/profile-metrics.util';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { registerGcCounter } from '../utils/profile-metrics.util.js';
+import type { GcCounter } from '../utils/profile-metrics.util.js';
 import type {
   RuntimeCollectorData,
   RuntimeHeapStatistics,
   RuntimeProcessInfo,
   RuntimeSample,
-} from './runtime-metrics.interface';
+} from './runtime-metrics.interface.js';
 
 const DEFAULT_INTERVAL = 5000;
 const DEFAULT_HISTORY_SIZE = 120;

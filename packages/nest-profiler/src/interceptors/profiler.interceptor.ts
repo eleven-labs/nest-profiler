@@ -10,23 +10,26 @@ import {
 import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { ClsService } from 'nestjs-cls';
-import type { PlatformRequest, PlatformResponse } from '../types/http';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import { PROFILER_BASE_PATH } from '../constants';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { ProfilerCoreService } from '../services/profiler-core.service';
-import { readProfile, setProfileContext } from '../services/profiler-context';
-import { resolveExceptionCaptureOptions, toExceptionEntry } from '../analysis/to-exception-entry';
-import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry';
-import { finalizeHttpProfile, resolveHttpCaptureConfig } from '../utils/http-capture.util';
-import type { HttpCaptureConfig } from '../utils/http-capture.util';
+import type { PlatformRequest, PlatformResponse } from '../types/http.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import { PROFILER_BASE_PATH } from '../constants.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { ProfilerCoreService } from '../services/profiler-core.service.js';
+import { readProfile, setProfileContext } from '../services/profiler-context.js';
+import {
+  resolveExceptionCaptureOptions,
+  toExceptionEntry,
+} from '../analysis/to-exception-entry.js';
+import type { ExceptionCaptureOptions } from '../analysis/to-exception-entry.js';
+import { finalizeHttpProfile, resolveHttpCaptureConfig } from '../utils/http-capture.util.js';
+import type { HttpCaptureConfig } from '../utils/http-capture.util.js';
 import {
   isCollectionDeferred,
   markExceptionRecorded,
   readTransportResponseBody,
-} from '../utils/profile-runtime-state';
-import type { Profile } from '../interfaces/profile.interface';
-import { toolbarSnippet } from '../views/layout.view';
+} from '../utils/profile-runtime-state.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { toolbarSnippet } from '../views/layout.view.js';
 
 /**
  * True when the value a route handler emitted is the transport response object rather than a

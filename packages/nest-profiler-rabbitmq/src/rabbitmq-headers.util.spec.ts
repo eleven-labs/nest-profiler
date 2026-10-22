@@ -3,7 +3,7 @@ import {
   extractHeaders,
   formatHeaderValue,
   resolveMaskHeaders,
-} from './rabbitmq-headers.util';
+} from './rabbitmq-headers.util.js';
 
 describe('extractHeaders', () => {
   it('returns an empty object for non-object input', () => {

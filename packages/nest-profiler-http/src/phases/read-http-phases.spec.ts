@@ -1,4 +1,4 @@
-import { readHttpPhases } from './read-http-phases';
+import { readHttpPhases } from './read-http-phases.js';
 
 /** A `got` / `@szmarczak/http-timer` breakdown, which the reader understands natively. */
 const timerTimings = {

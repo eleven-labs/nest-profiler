@@ -2,12 +2,12 @@ import type { ClsService } from 'nestjs-cls';
 import type { ModuleRef } from '@nestjs/core';
 import { ClsService as ClsServiceToken } from 'nestjs-cls';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { MongooseConnectionPatch, resultCount, safeResult } from './mongoose-connection.patch';
-import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
+import { MongooseConnectionPatch, resultCount, safeResult } from './mongoose-connection.patch.js';
+import { MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface.js';
 import type {
   MongooseCollectorModuleOptions,
   MongooseQueryEntry,
-} from './mongoose-collector.interface';
+} from './mongoose-collector.interface.js';
 
 function makeProfile(): Profile {
   return {

@@ -18,8 +18,11 @@ import {
 import type {
   MongooseCollectorModuleOptions,
   MongooseQueryEntry,
-} from './mongoose-collector.interface';
-import { MONGOOSE_COLLECTOR_OPTIONS, MONGOOSE_QUERIES_KEY } from './mongoose-collector.interface';
+} from './mongoose-collector.interface.js';
+import {
+  MONGOOSE_COLLECTOR_OPTIONS,
+  MONGOOSE_QUERIES_KEY,
+} from './mongoose-collector.interface.js';
 
 /** Narrow surface of mongoose.Query used during patching. */
 interface PatchableQuery {

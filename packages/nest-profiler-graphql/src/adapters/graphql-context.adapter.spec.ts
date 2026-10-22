@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { PROFILER_REQ_KEY } from '@eleven-labs/nest-profiler';
 import type { HttpRequestData, Profile } from '@eleven-labs/nest-profiler';
-import { GraphQLContextAdapter } from './graphql-context.adapter';
+import { GraphQLContextAdapter } from './graphql-context.adapter.js';
 
 function makeProfile(): Profile<HttpRequestData> {
   return {

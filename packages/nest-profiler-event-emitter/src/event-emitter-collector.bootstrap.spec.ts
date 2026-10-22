@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { EventEmitterCollectorModule } from './event-emitter-collector.module';
+import { EventEmitterCollectorModule } from './event-emitter-collector.module.js';
 
 /**
  * Bootstrap matrix: the collector must initialise cleanly against both an enabled profiler

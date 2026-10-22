@@ -4,8 +4,8 @@ jest.mock('fs', () => {
 });
 
 import * as fs from 'fs';
-import { toolbarSnippet } from './layout.view';
-import type { CollectorPanelInfo } from '../collectors/collector-registry.service';
+import { toolbarSnippet } from './layout.view.js';
+import type { CollectorPanelInfo } from '../collectors/collector-registry.service.js';
 
 describe('toolbarSnippet', () => {
   it('renders the toolbar with the token (sliced) and profiler link', () => {

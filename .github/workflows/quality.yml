@@ -52,6 +52,12 @@ jobs:
       - name: Verify documented public exports
         run: pnpm check:api-exports
 
+      # The ESM build is what an ESM application imports: it must load without require(esm) and
+      # without pulling in the CommonJS build alongside. NestJS 12, installed by default, is the
+      # case it exists for: its packages are ESM.
+      - name: Verify the packages can be imported from ESM
+        run: pnpm check:esm-import
+
       # NestJS 12 itself ships ESM only, so a CommonJS app on it already relies on Node's
       # require(esm). The strict check below is only meaningful against CommonJS peers: run it
       # with NestJS 11 installed (the built `dist/` stays as is).
@@ -63,6 +69,9 @@ jobs:
       # sides) and to the e2e suite (which runs as ESM), and fatal in a deployed CommonJS app.
       - name: Verify the packages can be required from CommonJS
         run: pnpm check:cjs-require
+
+      - name: Verify the packages can be imported from ESM on NestJS 11
+        run: pnpm check:esm-import
 
   skill-references:
     name: Skill references in sync

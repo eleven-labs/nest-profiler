@@ -1,6 +1,6 @@
-import type { ProfilerListFilter } from './profiler-list-filter.interface';
-import { parseLenientInt } from './list-filter.utils';
-import { BUILTIN_TAG_IDS } from '../analysis/profiler-tag.interface';
+import type { ProfilerListFilter } from './profiler-list-filter.interface.js';
+import { parseLenientInt } from './list-filter.utils.js';
+import { BUILTIN_TAG_IDS } from '../analysis/profiler-tag.interface.js';
 
 /** Free-text search across URL, GraphQL operation/field name and command name. */
 const searchFilter: ProfilerListFilter<string> = {

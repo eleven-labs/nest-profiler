@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import type { EventLoopUtilization } from 'node:perf_hooks';
-import type { Profile } from '../interfaces/profile.interface';
-import { elapsedMs, monotonicNow } from './clock.utils';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { elapsedMs, monotonicNow } from './clock.utils.js';
 
 /**
  * Per-profile resource accounting: what the process was doing when a profile opened, so what it

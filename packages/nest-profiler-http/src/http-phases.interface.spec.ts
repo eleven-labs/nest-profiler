@@ -5,7 +5,7 @@ import {
   formatPhaseDuration,
   hasHttpPhases,
   sumHttpPhases,
-} from './http-phases.interface';
+} from './http-phases.interface.js';
 
 describe('HttpPhases contract', () => {
   it('sums the measured phases', () => {

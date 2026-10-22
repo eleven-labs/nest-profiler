@@ -1,12 +1,12 @@
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { Profile } from '../interfaces/profile.interface';
-import { completeProfilePerformance } from './profile-metrics.util';
-import { extractHeaders } from './redact-headers.util';
-import { redact } from './redact.utils';
-import { resolveRedactionConfig } from './redaction-config';
-import type { ResolvedRedactionConfig } from './redaction-config';
-import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from './safe-data.utils';
-import type { SafeDataOptions } from './safe-data.utils';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { completeProfilePerformance } from './profile-metrics.util.js';
+import { extractHeaders } from './redact-headers.util.js';
+import { redact } from './redact.utils.js';
+import { resolveRedactionConfig } from './redaction-config.js';
+import type { ResolvedRedactionConfig } from './redaction-config.js';
+import { DEFAULT_MAX_BODY_SIZE, normalizeBody } from './safe-data.utils.js';
+import type { SafeDataOptions } from './safe-data.utils.js';
 
 /**
  * How HTTP request and response payloads are turned into profile data, resolved once from the

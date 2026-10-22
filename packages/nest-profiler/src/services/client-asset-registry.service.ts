@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
-import { PUBLIC_DIR } from '../views/template-engine';
+import { PUBLIC_DIR } from '../views/template-engine.js';
 
 export interface ClientAssetRegistration {
   /** File name served under `/_profiler/__assets/scripts/` (e.g. `http.js`). Must be unique. */

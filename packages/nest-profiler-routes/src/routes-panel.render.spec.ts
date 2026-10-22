@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { ClientAssetRegistry, TemplateRendererService } from '@eleven-labs/nest-profiler';
-import type { RoutesCollectorData } from './routes.collector';
+import type { RoutesCollectorData } from './routes.collector.js';
 
 const ROUTES_PANEL = path.join(__dirname, 'templates', 'routes-panel.ejs');
 

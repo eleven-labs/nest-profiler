@@ -1,10 +1,10 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { getDataSourceToken } from './typeorm-data-source.token';
+import { getDataSourceToken } from './typeorm-data-source.token.js';
 import type { DataSource } from 'typeorm';
-import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
-import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
-import type { IndexMetadata } from 'typeorm/metadata/IndexMetadata';
+import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata.js';
+import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata.js';
+import type { IndexMetadata } from 'typeorm/metadata/IndexMetadata.js';
 import {
   AbstractSchemaCollector,
   ProfilerCollector,
@@ -12,8 +12,8 @@ import {
   tryResolve,
 } from '@eleven-labs/nest-profiler';
 import type { ColumnInfo, EntitySchema, IndexInfo, RelationInfo } from '@eleven-labs/nest-profiler';
-import { TYPEORM_SCHEMA_COLLECTOR_OPTIONS } from './typeorm-schema-collector.interface';
-import type { TypeOrmSchemaCollectorModuleOptions } from './typeorm-schema-collector.interface';
+import { TYPEORM_SCHEMA_COLLECTOR_OPTIONS } from './typeorm-schema-collector.interface.js';
+import type { TypeOrmSchemaCollectorModuleOptions } from './typeorm-schema-collector.interface.js';
 
 /** Stringifies a TypeORM column type (string literal or the constructor function form). */
 function columnType(type: ColumnMetadata['type']): string {

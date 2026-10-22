@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Telemetry } from 'ai';
-import { instrumentAgentMethods } from '../ai-agent';
-import type { AiInstrumentation } from '../ai-instrumentation.interface';
+import { instrumentAgentMethods } from '../ai-agent.js';
+import type { AiInstrumentation } from '../ai-instrumentation.interface.js';
 
 /** Every method of `HarnessAgent` that runs a turn — the two resuming a suspended one included. */
 const HARNESS_METHODS = ['generate', 'stream', 'continueGenerate', 'continueStream'] as const;

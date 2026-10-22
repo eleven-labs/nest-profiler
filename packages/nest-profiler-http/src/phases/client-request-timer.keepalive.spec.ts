@@ -1,6 +1,6 @@
 import * as http from 'node:http';
 import type { AddressInfo, Socket } from 'node:net';
-import { instrumentClientRequest, phasesOfClientRequest } from './client-request-timer';
+import { instrumentClientRequest, phasesOfClientRequest } from './client-request-timer.js';
 
 /**
  * The connection listeners are `once` listeners on the *socket*, and a keep-alive socket never

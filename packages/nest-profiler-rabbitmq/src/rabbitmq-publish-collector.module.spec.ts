@@ -2,9 +2,9 @@ import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@n
 import {
   RabbitMqPublishCollectorModule,
   RABBITMQ_PUBLISH_COLLECTOR_OPTIONS,
-} from './rabbitmq-publish-collector.module';
-import { RabbitMqPublishCollector } from './rabbitmq-publish.collector';
-import { RabbitMqPublishPatch } from './rabbitmq-publish.patch';
+} from './rabbitmq-publish-collector.module.js';
+import { RabbitMqPublishCollector } from './rabbitmq-publish.collector.js';
+import { RabbitMqPublishPatch } from './rabbitmq-publish.patch.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

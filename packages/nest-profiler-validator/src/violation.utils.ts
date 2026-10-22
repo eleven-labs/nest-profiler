@@ -1,4 +1,4 @@
-import type { ViolationEntry } from './validator-collector.interface';
+import type { ViolationEntry } from './validator-collector.interface.js';
 
 /**
  * Total number of constraint failures across a violation tree. A leaf with

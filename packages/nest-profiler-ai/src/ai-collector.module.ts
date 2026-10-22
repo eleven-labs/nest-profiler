@@ -3,25 +3,25 @@ import type { DynamicModule, OnModuleInit, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ProfilerCoreService, buildCollectorModule } from '@eleven-labs/nest-profiler';
 import type { CollectorModuleShape } from '@eleven-labs/nest-profiler';
-import { AiCollector } from './ai.collector';
-import { buildAiEntrypointType } from './ai-entrypoint';
-import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry';
-import { instrumentAgentClass } from './ai-agent';
-import type { AiInstrumentation } from './ai-instrumentation.interface';
-import { aiCaptureLevels, configureAiCapture, resetAiCapture } from './ai-capture';
-import { configureAiPricing, loadAiPricing } from './ai-pricing';
+import { AiCollector } from './ai.collector.js';
+import { buildAiEntrypointType } from './ai-entrypoint.js';
+import { AiProfilerTelemetry, configureAiEntrypointPromotion } from './ai-telemetry.js';
+import { instrumentAgentClass } from './ai-agent.js';
+import type { AiInstrumentation } from './ai-instrumentation.interface.js';
+import { aiCaptureLevels, configureAiCapture, resetAiCapture } from './ai-capture.js';
+import { configureAiPricing, loadAiPricing } from './ai-pricing.js';
 import {
   AI_COLLECTOR_OPTIONS,
   AI_INSTRUMENTATIONS,
   ConfigurableModuleClass,
   type AiCollectorModuleAsyncOptions,
   type AiCollectorModuleOptions,
-} from './ai-collector.interface';
+} from './ai-collector.interface.js';
 
 export type {
   AiCollectorModuleOptions,
   AiCollectorModuleAsyncOptions,
-} from './ai-collector.interface';
+} from './ai-collector.interface.js';
 
 /** Collector-specific wiring for the active path, derived from the selected `instrumentations`. */
 function aiShape(opts: Pick<AiCollectorModuleOptions, 'instrumentations'>): CollectorModuleShape {

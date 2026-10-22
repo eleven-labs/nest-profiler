@@ -1,11 +1,11 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { FileStorageAdapter } from './file-storage.adapter';
-import { MemoryStorageAdapter } from './memory-storage.adapter';
-import { SqliteStorageAdapter } from './sqlite/sqlite-storage.adapter';
-import type { IProfilerStorageAdapter } from './storage-adapter.interface';
-import type { Profile } from '../interfaces/profile.interface';
+import { FileStorageAdapter } from './file-storage.adapter.js';
+import { MemoryStorageAdapter } from './memory-storage.adapter.js';
+import { SqliteStorageAdapter } from './sqlite/sqlite-storage.adapter.js';
+import type { IProfilerStorageAdapter } from './storage-adapter.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 /**
  * Cross-adapter contract suite: the behaviour every {@link IProfilerStorageAdapter}

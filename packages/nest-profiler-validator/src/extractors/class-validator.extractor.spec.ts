@@ -1,5 +1,5 @@
-import { classValidatorExtractor, mapClassValidatorErrors } from './class-validator.extractor';
-import { VALIDATOR_RAW_ERRORS } from '../violation-extractor.interface';
+import { classValidatorExtractor, mapClassValidatorErrors } from './class-validator.extractor.js';
+import { VALIDATOR_RAW_ERRORS } from '../violation-extractor.interface.js';
 
 function errorCarrying(raw: unknown): unknown {
   return { [VALIDATOR_RAW_ERRORS]: raw };

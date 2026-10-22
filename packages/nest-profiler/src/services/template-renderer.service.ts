@@ -1,16 +1,16 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import * as ejs from 'ejs';
-import { HELPERS, PUBLIC_DIR, TEMPLATES_DIR } from '../views/template-engine';
-import { assetVersionQuery } from '../views/asset-version';
-import { createDateHelpers, hostTimezone, isValidTimezone } from '../views/date-helpers';
-import type { DateHelpers } from '../views/date-helpers';
-import { EDITOR_NAMES, createEditorLink, resolveEditorTemplate } from '../views/editor-link';
-import type { EditorLink } from '../views/editor-link';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { ClientAssetRegistry } from './client-asset-registry.service';
+import ejs from 'ejs';
+import { HELPERS, PUBLIC_DIR, TEMPLATES_DIR } from '../views/template-engine.js';
+import { assetVersionQuery } from '../views/asset-version.js';
+import { createDateHelpers, hostTimezone, isValidTimezone } from '../views/date-helpers.js';
+import type { DateHelpers } from '../views/date-helpers.js';
+import { EDITOR_NAMES, createEditorLink, resolveEditorTemplate } from '../views/editor-link.js';
+import type { EditorLink } from '../views/editor-link.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { ClientAssetRegistry } from './client-asset-registry.service.js';
 
 @Injectable()
 export class TemplateRendererService {

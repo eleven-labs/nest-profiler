@@ -1,16 +1,16 @@
 import { Test } from '@nestjs/testing';
-import { ProfilerCoreService } from './profiler-core.service';
-import { ProfilerStorageService } from './profiler-storage.service';
-import { CollectorRegistry } from '../collectors/collector-registry.service';
-import { RouteCollector } from '../collectors/route.collector';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { IContextAdapter } from '../adapters/context-adapter.interface';
-import type { Profile } from '../interfaces/profile.interface';
-import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface';
-import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters';
-import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface';
-import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface';
+import { ProfilerCoreService } from './profiler-core.service.js';
+import { ProfilerStorageService } from './profiler-storage.service.js';
+import { CollectorRegistry } from '../collectors/collector-registry.service.js';
+import { RouteCollector } from '../collectors/route.collector.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { IContextAdapter } from '../adapters/context-adapter.interface.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { ProfilerListFilter } from '../list-filters/profiler-list-filter.interface.js';
+import { BUILTIN_LIST_FILTERS } from '../list-filters/builtin-filters.js';
+import type { ProfilerListSection } from '../list-sections/profiler-list-section.interface.js';
+import type { ProfilerEntrypointType } from '../entrypoints/profiler-entrypoint-type.interface.js';
 
 function makeProfile(): Profile {
   return {

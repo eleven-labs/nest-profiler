@@ -1,5 +1,5 @@
 import type { DynamicModule } from '@nestjs/common';
-import { buildCollectorModule } from './collector-module.builder';
+import { buildCollectorModule } from './collector-module.builder.js';
 
 class DummyModule {}
 class DummyProvider {}

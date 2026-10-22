@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { TypeOrmSchemaCollectorModule } from './typeorm-schema-collector.module';
+import { TypeOrmSchemaCollectorModule } from './typeorm-schema-collector.module.js';
 
 /**
  * Bootstrap matrix: with no DataSource present the collector introspects nothing and no-ops,

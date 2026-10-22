@@ -1,5 +1,5 @@
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
-import { unhandledExceptions } from '../analysis/profiler-error';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
+import { unhandledExceptions } from '../analysis/profiler-error.js';
 
 /** The primitive value types a {@link ProfileSummary} field (or attribute) may hold. */
 export type SummaryPrimitive = string | number | boolean;

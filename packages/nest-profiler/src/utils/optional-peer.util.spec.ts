@@ -1,4 +1,4 @@
-import { loadOptionalPeer, resolveOptionalPeer } from './optional-peer.util';
+import { loadOptionalPeer, resolveOptionalPeer } from './optional-peer.util.js';
 
 /** A resolution error as Node raises it, carrying the `code` the helper branches on. */
 function nodeError(message: string, code: string): NodeJS.ErrnoException {

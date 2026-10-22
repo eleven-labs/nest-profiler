@@ -1,7 +1,7 @@
 import { DiscoveryModule } from '@nestjs/core';
-import { CommanderCollectorModule } from './commander-collector.module';
-import { CommandProfiler } from './command-profiler.service';
-import { CommandProfilerExplorer } from './command-profiler.explorer';
+import { CommanderCollectorModule } from './commander-collector.module.js';
+import { CommandProfiler } from './command-profiler.service.js';
+import { CommandProfilerExplorer } from './command-profiler.explorer.js';
 
 describe('CommanderCollectorModule.forRoot', () => {
   it('registers a bare module when disabled', () => {

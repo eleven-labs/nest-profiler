@@ -1,4 +1,4 @@
-import { normalizeSqlFingerprint, normalizeHttpFingerprint } from './fingerprint.utils';
+import { normalizeSqlFingerprint, normalizeHttpFingerprint } from './fingerprint.utils.js';
 
 describe('normalizeSqlFingerprint', () => {
   it('collapses bind values so the same query shares a fingerprint', () => {

@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProfilerModule, ProfilerNoopModule } from '@eleven-labs/nest-profiler';
-import { TypeOrmCollectorModule } from './typeorm-collector.module';
+import { TypeOrmCollectorModule } from './typeorm-collector.module.js';
 
 /**
  * Bootstrap matrix: with no DataSource present the driver patch resolves nothing and no-ops,

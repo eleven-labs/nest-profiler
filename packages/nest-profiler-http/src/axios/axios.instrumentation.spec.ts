@@ -2,11 +2,11 @@ import axios from 'axios';
 import type { ModuleRef, DiscoveryService } from '@nestjs/core';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 import type { ClsService } from 'nestjs-cls';
-import type { HttpCaptureOptions, HttpRequestEntry } from '../http-request.interface';
+import type { HttpCaptureOptions, HttpRequestEntry } from '../http-request.interface.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { HTTP_CLIENT_REQUESTS_KEY } from '../http-request.interface';
-import { HttpProfilerRecorder } from '../http-profiler-recorder.service';
-import { AxiosInstrumentation } from './axios.instrumentation';
+import { HTTP_CLIENT_REQUESTS_KEY } from '../http-request.interface.js';
+import { HttpProfilerRecorder } from '../http-profiler-recorder.service.js';
+import { AxiosInstrumentation } from './axios.instrumentation.js';
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {

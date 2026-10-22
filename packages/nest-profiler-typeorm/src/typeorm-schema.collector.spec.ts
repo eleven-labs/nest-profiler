@@ -1,9 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { getDataSourceToken } from './typeorm-data-source.token';
+import { getDataSourceToken } from './typeorm-data-source.token.js';
 import type { ModuleRef } from '@nestjs/core';
 import type { DataSource } from 'typeorm';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { TypeOrmSchemaCollector } from './typeorm-schema.collector';
+import { TypeOrmSchemaCollector } from './typeorm-schema.collector.js';
 
 const emptyProfile = {} as Profile;
 

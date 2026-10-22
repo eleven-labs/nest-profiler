@@ -8,10 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import { PROFILER_BASE_PATH } from '../constants';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import type { PlatformRequest, PlatformResponse } from '../types/http';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import { PROFILER_BASE_PATH } from '../constants.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import type { PlatformRequest, PlatformResponse } from '../types/http.js';
 
 /** Narrows an already-instantiated guard from a guard class. */
 function isGuardInstance(entry: Type<CanActivate> | CanActivate): entry is CanActivate {

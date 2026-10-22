@@ -2,11 +2,11 @@ import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { ClsService } from 'nestjs-cls';
 import { appendCollectorEntry, readProfile, markInternal } from '@eleven-labs/nest-profiler';
-import type { ValidationEntry, ViolationEntry } from './validator-collector.interface';
-import { VALIDATOR_KEY } from './validator-collector.interface';
-import type { ValidationViolationExtractor } from './violation-extractor.interface';
-import { DEFAULT_EXTRACTORS } from './default-extractors';
-import { countViolations } from './violation.utils';
+import type { ValidationEntry, ViolationEntry } from './validator-collector.interface.js';
+import { VALIDATOR_KEY } from './validator-collector.interface.js';
+import type { ValidationViolationExtractor } from './violation-extractor.interface.js';
+import { DEFAULT_EXTRACTORS } from './default-extractors.js';
+import { countViolations } from './violation.utils.js';
 
 type Constructable = abstract new (...args: unknown[]) => unknown;
 

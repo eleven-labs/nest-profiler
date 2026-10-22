@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import type { HttpInstrumentation } from '../http-instrumentation.interface';
-import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
-import { hasHeader } from '../propagate-trace-id';
-import { readHttpPhases } from '../phases/read-http-phases';
+import type { HttpInstrumentation } from '../http-instrumentation.interface.js';
+import type { HttpProfilerRecorder } from '../http-profiler-recorder.service.js';
+import { hasHeader } from '../propagate-trace-id.js';
+import { readHttpPhases } from '../phases/read-http-phases.js';
 
 interface ProfilerAxiosConfig extends InternalAxiosRequestConfig {
   _profilerStart?: number;

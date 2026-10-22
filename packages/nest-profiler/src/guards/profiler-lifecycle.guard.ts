@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { CanActivate } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { PROFILER_CLS_KEYS } from '../constants';
-import { lifecycleMarks } from '../trace/build-lifecycle';
-import type { Profile } from '../interfaces/profile.interface';
-import { nowMs } from '../utils/clock.utils';
+import { PROFILER_CLS_KEYS } from '../constants.js';
+import { lifecycleMarks } from '../trace/build-lifecycle.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import { nowMs } from '../utils/clock.utils.js';
 
 /**
  * A no-op global guard that stamps, on the active profile, the epoch-ms at which the guard phase

@@ -3,13 +3,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Test } from '@nestjs/testing';
-import { ProfilerModule } from './nest-profiler.module';
-import { TracerService } from './services/tracer.service';
+import { ProfilerModule } from './nest-profiler.module.js';
+import { TracerService } from './services/tracer.service.js';
 
-import { ProfilerStorageService } from './services/profiler-storage.service';
-import { CollectorRegistry } from './collectors/collector-registry.service';
-import type { IProfilerStorageAdapter } from './storage';
-import type { Profile } from './interfaces/profile.interface';
+import { ProfilerStorageService } from './services/profiler-storage.service.js';
+import { CollectorRegistry } from './collectors/collector-registry.service.js';
+import type { IProfilerStorageAdapter } from './storage/index.js';
+import type { Profile } from './interfaces/profile.interface.js';
 
 function makeProfile(token: string): Profile {
   return {

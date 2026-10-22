@@ -1,6 +1,6 @@
 import type { RabbitMQConfig } from '@golevelup/nestjs-rabbitmq';
-import { connectionName, describeTopology } from './rabbitmq-topology.describe';
-import type { DiscoveredRabbitMqConnection } from './rabbitmq-topology.describe';
+import { connectionName, describeTopology } from './rabbitmq-topology.describe.js';
+import type { DiscoveredRabbitMqConnection } from './rabbitmq-topology.describe.js';
 
 const connection = (
   name: string,

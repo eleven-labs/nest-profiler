@@ -5,8 +5,8 @@ import { ClsService } from 'nestjs-cls';
 import type { Options } from 'amqplib';
 import { PROFILER_CLS_KEYS, appendCollectorEntry, tryResolve } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util';
-import { capturePublishPayload } from './rabbitmq-publish.util';
+import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util.js';
+import { capturePublishPayload } from './rabbitmq-publish.util.js';
 // Import the options token from the interface module, never from
 // `./rabbitmq-publish-collector.module`: that module imports this file, and the resulting cycle
 // leaves the re-exported token undefined when the decorators below run — `@Inject(undefined)`
@@ -14,11 +14,11 @@ import { capturePublishPayload } from './rabbitmq-publish.util';
 import {
   RABBITMQ_PUBLISHES_KEY,
   RABBITMQ_PUBLISH_COLLECTOR_OPTIONS,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 import type {
   RabbitMqPublishEntry,
   RabbitMqPublishCollectorModuleOptions,
-} from './rabbitmq-publish-collector.interface';
+} from './rabbitmq-publish-collector.interface.js';
 
 /** golevelup's `AmqpConnection.publish`, plus the idempotence marker the patch stamps on it. */
 type PublishFn = ((

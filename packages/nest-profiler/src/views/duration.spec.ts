@@ -1,4 +1,4 @@
-import { formatDuration } from './duration';
+import { formatDuration } from './duration.js';
 
 describe('formatDuration', () => {
   it('keeps two decimals below 10ms, where they carry the whole signal', () => {

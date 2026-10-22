@@ -1,4 +1,4 @@
-import type { AiModelPricing, AiPricingTable } from '../ai-pricing';
+import type { AiModelPricing, AiPricingTable } from '../ai-pricing.js';
 
 const LITELLM_PRICES_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';

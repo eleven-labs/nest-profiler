@@ -2,8 +2,8 @@ import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@n
 import {
   MongooseSchemaCollectorModule,
   MONGOOSE_SCHEMA_COLLECTOR_OPTIONS,
-} from './mongoose-schema-collector.module';
-import { MongooseSchemaCollector } from './mongoose-schema.collector';
+} from './mongoose-schema-collector.module.js';
+import { MongooseSchemaCollector } from './mongoose-schema.collector.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

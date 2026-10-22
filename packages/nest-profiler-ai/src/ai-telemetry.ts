@@ -8,13 +8,13 @@ import type {
   Telemetry,
 } from 'ai';
 import { HTTP_ENTRYPOINT_TYPE } from '@eleven-labs/nest-profiler';
-import { AI_ENTRIES_KEY } from './ai-call.interface';
-import { estimateCost } from './ai-pricing';
-import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint';
-import { isMcpTool, mcpToolNamesOf } from './mcp-tool-registry';
-import { agentFrameworkOf, currentAiAgent } from './ai-agent';
-import { harnessFrameworkOf } from './ai-harness-operation';
-import type { AiAgentInfo } from './ai-agent';
+import { AI_ENTRIES_KEY } from './ai-call.interface.js';
+import { estimateCost } from './ai-pricing.js';
+import { AI_ENTRYPOINT_TYPE } from './ai-entrypoint.js';
+import { isMcpTool, mcpToolNamesOf } from './mcp-tool-registry.js';
+import { agentFrameworkOf, currentAiAgent } from './ai-agent.js';
+import { harnessFrameworkOf } from './ai-harness-operation.js';
+import type { AiAgentInfo } from './ai-agent.js';
 import {
   captureDiagnostic,
   type AiCaptureField,
@@ -26,7 +26,7 @@ import {
   captureUrl,
   captureValue,
   maxCapturedMessages,
-} from './ai-capture';
+} from './ai-capture.js';
 import type {
   AiApproval,
   AiToolOrigin,
@@ -40,7 +40,7 @@ import type {
   AiToolCall,
   AiToolDefinition,
   AiToolExecutionEntry,
-} from './ai-call.interface';
+} from './ai-call.interface.js';
 
 /** Whether a profiled HTTP request that called a model is promoted to the `ai` kind. */
 let promoteEntrypoint = true;

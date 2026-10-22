@@ -1,8 +1,8 @@
 import { Test } from '@nestjs/testing';
-import { ProfilerStorageService } from './profiler-storage.service';
-import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder';
-import { PROFILER_STORAGE_ADAPTER, type IProfilerStorageAdapter } from '../storage';
-import type { Profile } from '../interfaces/profile.interface';
+import { ProfilerStorageService } from './profiler-storage.service.js';
+import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
+import { PROFILER_STORAGE_ADAPTER, type IProfilerStorageAdapter } from '../storage/index.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 function makeProfile(token: string, createdAt = Date.now()): Profile {
   return {

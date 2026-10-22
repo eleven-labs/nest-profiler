@@ -1,1 +1,1 @@
-export { FetchInstrumentation } from './fetch.instrumentation';
+export { FetchInstrumentation } from './fetch.instrumentation.js';

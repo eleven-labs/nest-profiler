@@ -1,6 +1,6 @@
 import type { DynamicModule, FactoryProvider, Provider, ValueProvider } from '@nestjs/common';
-import { AuthCollectorModule, AUTH_COLLECTOR_OPTIONS } from './auth-collector.module';
-import { AuthCollector } from './auth.collector';
+import { AuthCollectorModule, AUTH_COLLECTOR_OPTIONS } from './auth-collector.module.js';
+import { AuthCollector } from './auth.collector.js';
 
 function optionsProvider(mod: DynamicModule): Provider | undefined {
   return (mod.providers ?? []).find(

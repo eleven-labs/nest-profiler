@@ -1,4 +1,4 @@
-import type { TagSeverity } from '../analysis/profiler-tag.interface';
+import type { TagSeverity } from '../analysis/profiler-tag.interface.js';
 
 /**
  * The options every collector module accepts, declared once.

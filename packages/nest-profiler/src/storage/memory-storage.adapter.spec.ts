@@ -1,5 +1,5 @@
-import { MemoryStorageAdapter } from './memory-storage.adapter';
-import type { Profile } from '../interfaces/profile.interface';
+import { MemoryStorageAdapter } from './memory-storage.adapter.js';
+import type { Profile } from '../interfaces/profile.interface.js';
 
 // The shared save/findOne/findAll/TTL/LRU/clear behaviour is covered once for every
 // adapter in `storage-adapter.contract.spec.ts`. What remains here is what is specific

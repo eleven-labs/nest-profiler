@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { HttpInstrumentation } from '../http-instrumentation.interface';
-import type { HttpProfilerRecorder } from '../http-profiler-recorder.service';
-import { hasHeader } from '../propagate-trace-id';
-import { openPhaseSlot, phaseSlotsEnabled } from '../phases/phase-slot';
-import type { HttpPhaseSlot } from '../phases/phase-slot';
+import type { HttpInstrumentation } from '../http-instrumentation.interface.js';
+import type { HttpProfilerRecorder } from '../http-profiler-recorder.service.js';
+import { hasHeader } from '../propagate-trace-id.js';
+import { openPhaseSlot, phaseSlotsEnabled } from '../phases/phase-slot.js';
+import type { HttpPhaseSlot } from '../phases/phase-slot.js';
 
 type FetchFn = typeof fetch;
 type PatchableFetch = FetchFn & { __profilerPatched?: boolean };

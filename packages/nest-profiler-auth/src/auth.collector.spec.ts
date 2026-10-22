@@ -1,7 +1,7 @@
 import type { ModuleRef } from '@nestjs/core';
 import type { ClsService } from 'nestjs-cls';
-import { AuthCollectorModule } from './auth-collector.module';
-import { AuthCollector } from './auth.collector';
+import { AuthCollectorModule } from './auth-collector.module.js';
+import { AuthCollector } from './auth.collector.js';
 import type { Profile } from '@eleven-labs/nest-profiler';
 
 const mockGet = jest.fn();

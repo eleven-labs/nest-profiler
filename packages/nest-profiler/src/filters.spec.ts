@@ -1,5 +1,5 @@
-import { combineFilters } from './filters';
-import type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters';
+import { combineFilters } from './filters.js';
+import type { ProfilerFilterRequest, ProfilerRequestFilter } from './filters.js';
 
 function req(overrides: Partial<ProfilerFilterRequest> = {}): ProfilerFilterRequest {
   return { method: 'GET', url: '/health', headers: {}, ...overrides };

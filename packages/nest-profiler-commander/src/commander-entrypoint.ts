@@ -6,9 +6,9 @@ import type {
   ProfilerListFilter,
   SummaryPrimitive,
 } from '@eleven-labs/nest-profiler';
-import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface';
-import type { CommandInfo } from './commander-collector.interface';
-import { COMMAND_ICON } from './icons';
+import { COMMAND_ENTRYPOINT_TYPE } from './commander-collector.interface.js';
+import type { CommandInfo } from './commander-collector.interface.js';
+import { COMMAND_ICON } from './icons.js';
 
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 

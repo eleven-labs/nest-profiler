@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { HttpInstrumentation } from './http-instrumentation.interface';
-import { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import { HTTP_INSTRUMENTATIONS } from './http-collector.constants';
+import type { HttpInstrumentation } from './http-instrumentation.interface.js';
+import { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+import { HTTP_INSTRUMENTATIONS } from './http-collector.constants.js';
 
 /**
  * Installs every registered {@link HttpInstrumentation} once the application

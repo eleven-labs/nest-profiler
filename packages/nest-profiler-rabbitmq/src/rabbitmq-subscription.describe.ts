@@ -5,7 +5,7 @@ import {
   GENERATED_QUEUE_LABEL,
   formatEmptyValue,
   orLabel,
-} from './rabbitmq-labels';
+} from './rabbitmq-labels.js';
 
 /**
  * `queueOptions` keys rendered under **Queue options**, in a deliberate reading order:

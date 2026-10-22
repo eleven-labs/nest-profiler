@@ -1,13 +1,13 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { ProfilerCoreService } from './profiler-core.service';
-import { readActiveSpanId, readProfile, readToken, readTraceId } from './profiler-context';
-import { INERT_SPAN, TraceSpanDelegate } from '../trace/trace-span.delegate';
-import { openSpan, runInSpan } from '../trace/run-in-span';
-import { getOpenSpan } from '../utils/profile-runtime-state';
-import { toExceptionEntry } from '../analysis/to-exception-entry';
-import type { Profile } from '../interfaces/profile.interface';
-import type { SummaryPrimitive } from '../storage/profile-summary';
+import { ProfilerCoreService } from './profiler-core.service.js';
+import { readActiveSpanId, readProfile, readToken, readTraceId } from './profiler-context.js';
+import { INERT_SPAN, TraceSpanDelegate } from '../trace/trace-span.delegate.js';
+import { openSpan, runInSpan } from '../trace/run-in-span.js';
+import { getOpenSpan } from '../utils/profile-runtime-state.js';
+import { toExceptionEntry } from '../analysis/to-exception-entry.js';
+import type { Profile } from '../interfaces/profile.interface.js';
+import type { SummaryPrimitive } from '../storage/profile-summary.js';
 
 /**
  * The one service to inject to talk to the profiler from your own code.

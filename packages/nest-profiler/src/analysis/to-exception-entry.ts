@@ -1,10 +1,10 @@
 import { HttpException } from '@nestjs/common';
-import type { ExceptionEntry } from '../interfaces/profile.interface';
-import type { ProfilerModuleOptions } from '../nest-profiler.builder';
-import { captureBody, resolveHttpCaptureConfig } from '../utils/http-capture.util';
-import type { HttpCaptureConfig } from '../utils/http-capture.util';
-import { analyzeStack, resolveStackAnalysisOptions } from '../utils/source-context.util';
-import type { StackAnalysisOptions } from '../utils/source-context.util';
+import type { ExceptionEntry } from '../interfaces/profile.interface.js';
+import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
+import { captureBody, resolveHttpCaptureConfig } from '../utils/http-capture.util.js';
+import type { HttpCaptureConfig } from '../utils/http-capture.util.js';
+import { analyzeStack, resolveStackAnalysisOptions } from '../utils/source-context.util.js';
+import type { StackAnalysisOptions } from '../utils/source-context.util.js';
 
 /**
  * Turns whatever was thrown into the {@link ExceptionEntry} stored on a profile.

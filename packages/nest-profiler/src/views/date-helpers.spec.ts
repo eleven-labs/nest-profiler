@@ -1,4 +1,4 @@
-import { createDateHelpers, hostTimezone, isValidTimezone } from './date-helpers';
+import { createDateHelpers, hostTimezone, isValidTimezone } from './date-helpers.js';
 
 // The Jest preset pins TZ to Europe/Paris, so "host timezone" means Europe/Paris here.
 describe('date-helpers', () => {

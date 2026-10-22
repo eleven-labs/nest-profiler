@@ -3,10 +3,10 @@ import { Controller, Get, RequestMethod, VersioningType } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { ProfilerModule } from '../nest-profiler.module';
-import { TracerService } from '../services/tracer.service';
-import { ProfilerStorageService } from '../services/profiler-storage.service';
-import type { HttpRequestData, Profile } from '../interfaces/profile.interface';
+import { ProfilerModule } from '../nest-profiler.module.js';
+import { TracerService } from '../services/tracer.service.js';
+import { ProfilerStorageService } from '../services/profiler-storage.service.js';
+import type { HttpRequestData, Profile } from '../interfaces/profile.interface.js';
 
 /**
  * The profiler must stay reachable at `/_profiler` whatever the host does to its own routing, and

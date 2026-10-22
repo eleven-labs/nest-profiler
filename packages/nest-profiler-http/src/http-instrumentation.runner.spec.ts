@@ -1,8 +1,8 @@
 import type { ClsService } from 'nestjs-cls';
 import type { ModuleRef as _MR } from '@nestjs/core';
-import { HttpInstrumentationRunner } from './http-instrumentation.runner';
-import { HttpProfilerRecorder } from './http-profiler-recorder.service';
-import type { HttpInstrumentation } from './http-instrumentation.interface';
+import { HttpInstrumentationRunner } from './http-instrumentation.runner.js';
+import { HttpProfilerRecorder } from './http-profiler-recorder.service.js';
+import type { HttpInstrumentation } from './http-instrumentation.interface.js';
 
 function recorderModuleRef(cls: unknown): _MR {
   return { get: () => cls } as unknown as _MR;

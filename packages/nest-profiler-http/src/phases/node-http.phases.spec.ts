@@ -1,8 +1,8 @@
 import http from 'node:http';
 import https from 'node:https';
 import type { AddressInfo } from 'node:net';
-import { NodeHttpPhases } from './node-http.phases';
-import { phasesOfClientRequest } from './client-request-timer';
+import { NodeHttpPhases } from './node-http.phases.js';
+import { phasesOfClientRequest } from './client-request-timer.js';
 
 type Factories = Record<string, unknown>;
 

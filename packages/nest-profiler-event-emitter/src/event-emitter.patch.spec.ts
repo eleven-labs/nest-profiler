@@ -4,11 +4,11 @@ import type { ModuleRef } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { PROFILER_CLS_KEYS } from '@eleven-labs/nest-profiler';
 import type { Profile } from '@eleven-labs/nest-profiler';
-import { EVENT_EMITTER_EVENTS_KEY, EventEmitterPatch } from './event-emitter.patch';
+import { EVENT_EMITTER_EVENTS_KEY, EventEmitterPatch } from './event-emitter.patch.js';
 import type {
   EventEmitterCollectorModuleOptions,
   EventEntry,
-} from './event-emitter-collector.interface';
+} from './event-emitter-collector.interface.js';
 
 function makeProfile(): Profile {
   return {

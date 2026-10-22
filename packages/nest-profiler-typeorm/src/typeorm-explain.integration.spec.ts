@@ -1,8 +1,8 @@
 import { DataSource } from 'typeorm';
-import { getDataSourceToken } from './typeorm-data-source.token';
+import { getDataSourceToken } from './typeorm-data-source.token.js';
 import type { ModuleRef } from '@nestjs/core';
 import { ExplainRunnerRegistry, parseExplainPlan } from '@eleven-labs/nest-profiler';
-import { TypeOrmExplainRunner } from './typeorm-explain.runner';
+import { TypeOrmExplainRunner } from './typeorm-explain.runner.js';
 
 /**
  * Real-driver integration: the runner executes `EXPLAIN QUERY PLAN` against a live TypeORM

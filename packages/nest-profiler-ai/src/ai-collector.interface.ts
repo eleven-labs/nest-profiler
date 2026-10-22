@@ -6,9 +6,9 @@ import type {
   ProfilerErrorOptions,
   TagSeverityOptions,
 } from '@eleven-labs/nest-profiler';
-import type { AiPricingSource, AiPricingTable } from './ai-pricing';
-import type { AiCaptureOptions, AiRedactionOptions } from './ai-capture';
-import type { AiInstrumentation } from './ai-instrumentation.interface';
+import type { AiPricingSource, AiPricingTable } from './ai-pricing.js';
+import type { AiCaptureOptions, AiRedactionOptions } from './ai-capture.js';
+import type { AiInstrumentation } from './ai-instrumentation.interface.js';
 
 export interface AiCollectorModuleOptions extends CollectorModuleOptions, TagSeverityOptions {
   /**
