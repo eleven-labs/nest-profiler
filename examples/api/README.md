@@ -13,11 +13,14 @@ SQL_ORM=mikro-orm       # catalog on the hosted Postgres (DATABASE_* / POSTGRES_
 FEATURE_MONGOOSE=false  # reviews / MongoDB disabled
 FEATURE_RABBITMQ=false  # no broker
 FEATURE_GRAPHQL=true    # GraphQL served over the catalog
+NODE_OPTIONS=--experimental-require-module  # see below
 ```
 
 Active collectors on the live demo: **Catalog** (SQL, REST + **GraphQL**), **Content** (HTTP + Cache), **Auth**, **Config**, **Validator**.
 
 On a serverless host the app does not own the port: when `VERCEL` is set, `main.ts` initialises Nest and exports the Express request handler instead of calling `listen()`. The platform imports the entrypoint and only watches for a `listen()` call for about a second before giving up, which a bootstrap of this size never meets.
+
+NestJS 12 ships its packages as ESM, and CommonJS code loads them through Node's `require(esm)`: the profiler packages and some of the app's dependencies (`@golevelup/nestjs-rabbitmq`, `nest-commander`) are CommonJS. Vercel's function runtime turns `require(esm)` off, so the deployment sets `NODE_OPTIONS=--experimental-require-module` to turn it back on, as the [NestJS migration guide](https://docs.nestjs.com/migration-guide#esm-packages) does for AWS Lambda. Without it, every route fails on boot with `ERR_REQUIRE_ESM`.
 
 | Endpoint                 | URL                                                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |

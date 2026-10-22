@@ -53,18 +53,18 @@ jobs:
   test:
     name: Test (Node ${{ matrix.node-version }}, NestJS ${{ matrix.nestjs }})
     runs-on: ubuntu-latest
-    # Headroom for the NestJS 12 lane's extra install and typecheck.
-    timeout-minutes: ${{ matrix.nestjs == 12 && 10 || 5 }}
+    # Headroom for the NestJS 11 lane's extra install and typecheck.
+    timeout-minutes: ${{ matrix.nestjs == 11 && 10 || 5 }}
     strategy:
       fail-fast: false
       matrix:
-        # The lockfile tracks NestJS 11, run on every supported Node version.
+        # The lockfile tracks NestJS 12, run on every supported Node version.
         node-version: [22, 24, 26]
-        nestjs: [11]
-        # NestJS 12 compatibility does not depend on the Node version: a single lane covers it.
+        nestjs: [12]
+        # NestJS 11 compatibility does not depend on the Node version: a single lane covers it.
         include:
           - node-version: 24
-            nestjs: 12
+            nestjs: 11
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,23 +82,23 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The overrides change the dependency graph, so the lockfile is re-resolved: this lane tracks
-      # the latest NestJS 12 releases rather than pinned versions.
+      # the latest NestJS 11 releases rather than pinned versions.
       - name: Switch to NestJS ${{ matrix.nestjs }}
-        if: matrix.nestjs != 11
+        if: matrix.nestjs != 12
         run: pnpm nestjs:use ${{ matrix.nestjs }} && pnpm install --no-frozen-lockfile
 
       # ts-jest compiles in isolatedModules mode (no type checking): typecheck the packages
-      # against the switched NestJS types explicitly.
+      # against the older NestJS types explicitly.
       - name: Typecheck packages against NestJS ${{ matrix.nestjs }}
-        if: matrix.nestjs != 11
+        if: matrix.nestjs != 12
         run: pnpm typecheck --filter='./packages/*'
 
       - name: Test with coverage
         run: pnpm test:cov
 
       - name: Upload coverage reports to Codecov
-        # One upload per Node version: the NestJS 12 lane checks compatibility, not coverage.
-        if: matrix.nestjs == 11
+        # One upload per Node version: the NestJS 11 lane checks compatibility, not coverage.
+        if: matrix.nestjs == 12
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
@@ -132,13 +132,13 @@ jobs:
         # Single Node version: unit tests cover 22/24/26; 24 is the floor for require(esm) (mikro-orm v7 ESM).
         node-version: [24]
         sql-orm: [typeorm, mikro-orm]
-        nestjs: [11]
-        # NestJS 12 on the primary ORM only: it runs the widest suite (HTTP clients, DataLoader).
+        nestjs: [12]
+        # NestJS 11 on the primary ORM only: it runs the widest suite (HTTP clients, DataLoader).
         # An include that overrides `nestjs` starts a new combination: repeat the Node version.
         include:
           - node-version: 24
             sql-orm: typeorm
-            nestjs: 12
+            nestjs: 11
     services:
       postgres:
         image: postgres:16-alpine
@@ -181,9 +181,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The overrides change the dependency graph, so the lockfile is re-resolved: this lane tracks
-      # the latest NestJS 12 releases rather than pinned versions.
+      # the latest NestJS 11 releases rather than pinned versions.
       - name: Switch to NestJS ${{ matrix.nestjs }}
-        if: matrix.nestjs != 11
+        if: matrix.nestjs != 12
         run: pnpm nestjs:use ${{ matrix.nestjs }} && pnpm install --no-frozen-lockfile
 
       # typeorm (primary) runs the full suite minus content/cli; mikro-orm (secondary) runs only the
