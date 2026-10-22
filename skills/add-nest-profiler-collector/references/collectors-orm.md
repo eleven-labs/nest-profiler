@@ -37,7 +37,7 @@ TypeOrmSchemaCollectorModule.forRoot(),
 
 ## MikroORM — `@eleven-labs/nest-profiler-mikro-orm`
 
-- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7` (7.1+ on NestJS 12), `nestjs-cls@^6 || ^7`.
 - **Modules:** `MikroOrmCollectorModule` + `MikroOrmSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MikroOrmModule` in its own modules.
 - **Gotcha:** the **only ESM-only collector** — the app must be `"type": "module"` and use `.js` import specifiers. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.

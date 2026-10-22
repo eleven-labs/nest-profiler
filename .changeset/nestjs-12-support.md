@@ -25,4 +25,4 @@ Support NestJS 12 alongside NestJS 11. The peer ranges now accept both majors:
 - `@nestjs/event-emitter`: `^3.0.0 || ^12.0.0`.
 - `@nestjs/mongoose`: `^11.0.0 || ^12.0.0`.
 
-No code change is needed on the application side: install the NestJS 12 versions of these packages and the profiler keeps working.
+No code change is needed on the application side: install the NestJS 12 versions of these packages and the profiler keeps working. On NestJS 12, `@mikro-orm/nestjs` needs 7.1 or later and `@golevelup/nestjs-rabbitmq` 9.1 or later: earlier versions reject NestJS 12 in their own peer ranges.

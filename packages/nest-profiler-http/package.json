@@ -1,7 +1,7 @@
 {
   "name": "@eleven-labs/nest-profiler-http",
   "version": "1.2.1",
-  "description": "Client-agnostic HTTP-client collector for @eleven-labs/nest-profiler — pluggable axios/fetch instrumentations",
+  "description": "Client-agnostic HTTP-client collector for @eleven-labs/nest-profiler \u2014 pluggable axios/fetch instrumentations",
   "keywords": [
     "nestjs",
     "http-client",

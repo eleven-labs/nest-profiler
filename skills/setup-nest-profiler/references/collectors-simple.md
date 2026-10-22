@@ -80,7 +80,7 @@ RoutesCollectorModule.forRoot(),
 
 ## RabbitMQ — `@eleven-labs/nest-profiler-rabbitmq`
 
-- **Peers:** `@golevelup/nestjs-rabbitmq@^9` **optional**, `amqplib@^0.10` **optional**. No `nestjs-cls`.
+- **Peers:** `@golevelup/nestjs-rabbitmq@^9` (9.1+ on NestJS 12) **optional**, `amqplib@^0.10` **optional**. No `nestjs-cls`.
 - **Module:** `RabbitMqCollectorModule` (`forRoot` + `forRootAsync`).
 - **Placement:** the bundle of the process that **consumes** messages; the app keeps `RabbitMQModule` in its own module. Add `RabbitMqPublishCollectorModule.forRoot()` to list published messages in the emitting profile.
 - **Behaviour:** registers a context adapter for the `rmq` context and opens a fresh profile per consumed message (a `rabbitmq` entrypoint).

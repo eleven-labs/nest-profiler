@@ -31,7 +31,7 @@
     "screenshots": "tsx scripts/generate-profiler-screenshots.ts",
     "check:api-exports": "tsx scripts/check-api-reference-exports.ts",
     "check:cjs-require": "tsx scripts/check-cjs-require.ts",
-    "nestjs:use": "tsx scripts/use-nestjs-major.ts",
+    "nestjs:use": "tsx scripts/use-nestjs-version.ts",
     "sync:skill-refs": "tsx scripts/sync-skill-references.ts",
     "sync:skill-refs:check": "tsx scripts/sync-skill-references.ts --check",
     "docker:up": "docker compose up -d",
