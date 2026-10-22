@@ -32,7 +32,7 @@
 pnpm add -D @eleven-labs/nest-profiler-mikro-orm
 ```
 
-**Peer dependencies:** `@mikro-orm/core ^7.0.0`, `@mikro-orm/nestjs ^7.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
+**Peer dependencies:** `@mikro-orm/core ^7.0.0`, `@mikro-orm/nestjs ^7.0.0` (7.1+ on NestJS 12) — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 

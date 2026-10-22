@@ -41,7 +41,7 @@ The two are independent: register the one that matches what your application doe
 pnpm add -D @eleven-labs/nest-profiler-rabbitmq
 ```
 
-**Peer dependencies:** `@golevelup/nestjs-rabbitmq` and `amqplib` (the ones you already use to talk to the broker). They are optional — when no RabbitMQ traffic runs, the modules simply never produce a profile or a panel entry.
+**Peer dependencies:** `@golevelup/nestjs-rabbitmq` (9.1+ on NestJS 12) and `amqplib` (the ones you already use to talk to the broker). They are optional — when no RabbitMQ traffic runs, the modules simply never produce a profile or a panel entry.
 
 ## Consuming messages — `RabbitMqCollectorModule`
 

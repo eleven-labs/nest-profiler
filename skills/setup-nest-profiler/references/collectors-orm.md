@@ -37,7 +37,7 @@ TypeOrmSchemaCollectorModule.forRoot(),
 
 ## MikroORM — `@eleven-labs/nest-profiler-mikro-orm`
 
-- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7` (7.1+ on NestJS 12), `nestjs-cls@^6 || ^7`.
 - **Modules:** `MikroOrmCollectorModule` + `MikroOrmSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MikroOrmModule` in its own modules.
 - **Gotcha:** the **only ESM-only collector** — the app must be `"type": "module"` and use `.js` import specifiers. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.
@@ -53,7 +53,7 @@ MikroOrmSchemaCollectorModule.forRoot(),
 
 ## Mongoose — `@eleven-labs/nest-profiler-mongoose`
 
-- **Peers (required):** `@nestjs/mongoose@^11`, `mongoose@^8 || ^9`, `nestjs-cls@^6 || ^7`.
+- **Peers (required):** `@nestjs/mongoose@^11 || ^12`, `mongoose@^8 || ^9`, `nestjs-cls@^6 || ^7`.
 - **Modules:** `MongooseCollectorModule` + `MongooseSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MongooseModule.forRoot(...)` in its own modules.
 - **Gotcha:** patches `Query` / `Aggregate` `exec`. `connectionName` selects a non-default connection.

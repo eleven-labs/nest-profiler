@@ -32,7 +32,7 @@
 pnpm add -D @eleven-labs/nest-profiler-mongoose
 ```
 
-**Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
+**Peer dependencies:** `mongoose ^9.0.0`, `@nestjs/mongoose ^11.0.0 || ^12.0.0` — your app's own dependencies, installed with a plain `pnpm add`.
 
 ## Setup
 

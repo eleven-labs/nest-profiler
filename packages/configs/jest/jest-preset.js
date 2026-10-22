@@ -3,11 +3,32 @@
 // fails here rather than only on a contributor's machine.
 process.env.TZ = 'Europe/Paris';
 
-// content-disposition@3 (pulled in by @fastify/static) ships ESM only, and Jest can only
-// `require()` ESM from Node 24.9 on. Below that, compile it to CJS so suites booting Fastify still
-// run; from 24.9 on Jest loads it as ESM, which a CJS build would break.
-const [major, minor] = process.versions.node.split('.').map(Number);
-const compileEsmOnlyDeps = major < 24 || (major === 24 && minor < 9);
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const vm = require('node:vm');
+
+// NestJS 12 ships ESM only, NestJS 11 CommonJS (see `pnpm nestjs:use`). Jest runs from the package
+// directory: read the installed `@nestjs/common` there. A package without it compiles them anyway.
+function isNestEsmOnly() {
+  try {
+    const manifest = join(process.cwd(), 'node_modules/@nestjs/common/package.json');
+    return JSON.parse(readFileSync(manifest, 'utf8')).type === 'module';
+  } catch {
+    return true;
+  }
+}
+
+// ESM-only dependencies: NestJS 12 (every `@nestjs/*` package) and content-disposition@3 (pulled
+// in by @fastify/static). Jest only `require()`s ESM natively when `vm.SourceTextModule` can
+// evaluate synchronously (Node 24.9+ run with `--experimental-vm-modules`). Otherwise compile them
+// to CJS so suites still run; when Jest loads them as ESM, a CJS build would break them.
+const ESM_ONLY_DEPS = [...(isNestEsmOnly() ? ['@nestjs'] : []), 'content-disposition'];
+const jestRequiresEsm = typeof vm.SourceTextModule?.prototype.hasAsyncGraph === 'function';
+const compileEsmOnlyDeps = !jestRequiresEsm;
+// pnpm stores `@scope/name@x` under `.pnpm/@scope+name@x/node_modules/@scope/name`: match both.
+const esmDepsLookahead = ESM_ONLY_DEPS.flatMap((dep) => [`\\.pnpm/${dep}[+@]`, `${dep}/`]).join(
+  '|',
+);
 
 /** @type {import('jest').Config} */
 module.exports = {
@@ -25,16 +46,12 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   ...(compileEsmOnlyDeps && {
-    transformIgnorePatterns: [
-      '/node_modules/(?!\\.pnpm/content-disposition@|content-disposition/)',
-    ],
+    transformIgnorePatterns: [`/node_modules/(?!${esmDepsLookahead})`],
   }),
   transform: {
     ...(compileEsmOnlyDeps && {
-      '/content-disposition/.+\\.js$': [
-        'ts-jest',
-        { tsconfig: { allowJs: true, module: 'CommonJS', isolatedModules: true } },
-      ],
+      [`/node_modules/(?:${ESM_ONLY_DEPS.join('|')})/.+\\.js$`]:
+        require.resolve('./esm-to-cjs-transformer'),
     }),
     '^.+\\.(t|j)s$': [
       'ts-jest',

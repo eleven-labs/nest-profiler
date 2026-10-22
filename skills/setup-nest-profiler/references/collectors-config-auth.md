@@ -8,7 +8,7 @@ Two independent root-level collectors that snapshot sensitive-by-nature data (re
 
 Snapshots the resolved configuration at bootstrap into a panel, with secret auto-masking.
 
-- **Peers (required):** `@nestjs/config@^4`. **Does not** peer on `nestjs-cls`.
+- **Peers (required):** `@nestjs/config@^4 || ^12`. **Does not** peer on `nestjs-cls`.
 - **Module:** `ConfigCollectorModule` (`forRoot` + `forRootAsync`).
 - **Placement:** the `ProfilingModule` bundle. The app keeps `ConfigModule.forRoot({ load: [...] })` in `AppModule`.
 - **Behaviour:** snapshots via `configService.internalConfig`; auto-masks keys matching `password|secret|key|token|credential|api_key`. `maskKeys` adds extra key names or fully-qualified paths (e.g. `database.password`).

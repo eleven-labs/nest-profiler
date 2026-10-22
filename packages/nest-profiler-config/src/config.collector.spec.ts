@@ -233,18 +233,20 @@ describe('ConfigCollector', () => {
   });
 
   it('falls back to nestVersion "unknown" when @nestjs/core version is unreadable', () => {
-    // Isolated module registry so the mocked (throwing) package.json only affects this test's
-    // freshly-required collector, exercising the version-resolution catch.
+    // Isolated module registry so the mocked peer loader only affects this test's freshly-required
+    // collector. The loader is the seam rather than `@nestjs/core/package.json` itself: whether
+    // that subpath is exported (and so mockable by name) depends on the installed NestJS version.
     jest.isolateModules(() => {
-      jest.doMock('@nestjs/core/package.json', () => {
-        throw new Error('boom');
-      });
+      jest.doMock('@eleven-labs/nest-profiler', () => ({
+        ...jest.requireActual<object>('@eleven-labs/nest-profiler'),
+        loadOptionalPeer: () => undefined,
+      }));
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mod = require('./config.collector') as typeof import('./config.collector');
       const collector = new mod.ConfigCollector(undefined as unknown as ConfigService, {});
       collector.onApplicationBootstrap();
       expect(collector.collect(makeProfile()).runtime.nestVersion).toBe('unknown');
-      jest.dontMock('@nestjs/core/package.json');
+      jest.dontMock('@eleven-labs/nest-profiler');
     });
   });
 
