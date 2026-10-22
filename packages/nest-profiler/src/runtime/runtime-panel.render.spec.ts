@@ -1,4 +1,4 @@
-import * as ejs from 'ejs';
+import ejs from 'ejs';
 import { RuntimeCollector } from './runtime.collector.js';
 import { RuntimeMetricsService } from './runtime-metrics.service.js';
 import { HELPERS } from '../views/template-engine.js';

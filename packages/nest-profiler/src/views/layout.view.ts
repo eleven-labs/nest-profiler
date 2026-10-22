@@ -1,4 +1,4 @@
-import * as ejs from 'ejs';
+import ejs from 'ejs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PUBLIC_DIR, TEMPLATES_DIR } from './template-engine.js';

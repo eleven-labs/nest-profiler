@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import * as ejs from 'ejs';
+import ejs from 'ejs';
 import { HELPERS, PUBLIC_DIR, TEMPLATES_DIR } from '../views/template-engine.js';
 import { assetVersionQuery } from '../views/asset-version.js';
 import { createDateHelpers, hostTimezone, isValidTimezone } from '../views/date-helpers.js';

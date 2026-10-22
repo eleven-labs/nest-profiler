@@ -23,6 +23,14 @@ import { join } from 'node:path';
 
 const PACKAGES_DIR = join(process.cwd(), 'packages');
 
+/**
+ * Packages built around a library that ships ESM only: a CommonJS application using them already
+ * `require()`s that library itself, so it needs require(esm) with or without the profiler.
+ */
+const ESM_ONLY_LIBRARY: Record<string, string> = {
+  '@eleven-labs/nest-profiler-mikro-orm': '@mikro-orm/core v7',
+};
+
 interface Manifest {
   name?: string;
   private?: boolean;
@@ -53,9 +61,7 @@ function publishedEntries(): Entry[] {
       continue; // not a package (the shared configs live in subdirectories of their own)
     }
     if (manifest.private === true || manifest.name === undefined) continue;
-    // A package that ships ESM on purpose (nest-profiler-mikro-orm, because MikroORM is
-    // ESM-only) is consumed with `import`, and requiring it is expected to fail.
-    if (manifest.type === 'module') continue;
+    if (ESM_ONLY_LIBRARY[manifest.name] !== undefined) continue;
     entries.push({
       name: manifest.name,
       entry: join(PACKAGES_DIR, dir, manifest.main ?? './dist/index.js'),
@@ -97,4 +103,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
+for (const [name, library] of Object.entries(ESM_ONLY_LIBRARY)) {
+  console.log(`Skipped ${name}: ${library} ships ESM only, so its users need require(esm) anyway.`);
+}
 console.log(`Every published package requires cleanly from CommonJS (${entries.length}).`);

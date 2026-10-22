@@ -40,7 +40,7 @@ TypeOrmSchemaCollectorModule.forRoot(),
 - **Peers (required):** `@mikro-orm/core@^7`, `@mikro-orm/nestjs@^7` (7.1+ on NestJS 12), `nestjs-cls@^6 || ^7`.
 - **Modules:** `MikroOrmCollectorModule` + `MikroOrmSchemaCollectorModule`.
 - **Placement:** the `ProfilingModule` bundle; the app keeps `MikroOrmModule` in its own modules.
-- **Gotcha:** the **only ESM-only collector** — the app must be `"type": "module"` and use `.js` import specifiers. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.
+- **Gotcha:** MikroORM v7 ships ESM only, so a CommonJS app loads it through `require()` of ES modules: Node.js 22.12 or newer. The collector itself ships an ESM and a CommonJS build, like every profiler package. It wraps the ORM logger on init; no `dataSource` needed. `connectionName` selects a non-default context.
 - Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-mikro-orm> · tutorial: <https://nest-profiler.eleven-labs.com/docs/tutorials/sql-collectors>
 
 ```ts

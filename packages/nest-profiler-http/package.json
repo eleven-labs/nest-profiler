@@ -23,23 +23,47 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "default": "./dist/index.js"
     },
     "./axios": {
-      "types": "./dist/axios/index.d.ts",
-      "require": "./dist/axios/index.js",
+      "import": {
+        "types": "./dist/esm/axios/index.d.ts",
+        "default": "./dist/esm/axios/index.js"
+      },
+      "require": {
+        "types": "./dist/axios/index.d.ts",
+        "default": "./dist/axios/index.js"
+      },
       "default": "./dist/axios/index.js"
     },
     "./fetch": {
-      "types": "./dist/fetch/index.d.ts",
-      "require": "./dist/fetch/index.js",
+      "import": {
+        "types": "./dist/esm/fetch/index.d.ts",
+        "default": "./dist/esm/fetch/index.js"
+      },
+      "require": {
+        "types": "./dist/fetch/index.d.ts",
+        "default": "./dist/fetch/index.js"
+      },
       "default": "./dist/fetch/index.js"
     },
     "./phases": {
-      "types": "./dist/phases/index.d.ts",
-      "require": "./dist/phases/index.js",
+      "import": {
+        "types": "./dist/esm/phases/index.d.ts",
+        "default": "./dist/esm/phases/index.js"
+      },
+      "require": {
+        "types": "./dist/phases/index.d.ts",
+        "default": "./dist/phases/index.js"
+      },
       "default": "./dist/phases/index.js"
     },
     "./package.json": "./package.json"

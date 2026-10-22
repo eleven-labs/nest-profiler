@@ -2,9 +2,9 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { getDataSourceToken } from './typeorm-data-source.token.js';
 import type { DataSource } from 'typeorm';
-import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
-import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
-import type { IndexMetadata } from 'typeorm/metadata/IndexMetadata';
+import type { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata.js';
+import type { RelationMetadata } from 'typeorm/metadata/RelationMetadata.js';
+import type { IndexMetadata } from 'typeorm/metadata/IndexMetadata.js';
 import {
   AbstractSchemaCollector,
   ProfilerCollector,
