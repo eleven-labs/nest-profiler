@@ -15,8 +15,7 @@ jobs:
   package-quality:
     name: Package and docs quality checks
     runs-on: ubuntu-latest
-    # Headroom for the NestJS 11 reinstall before the CommonJS check.
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -51,12 +50,6 @@ jobs:
       # undocumented, and removing it after a release costs a major.
       - name: Verify documented public exports
         run: pnpm check:api-exports
-
-      # NestJS 12 itself ships ESM only, so a CommonJS app on it already relies on Node's
-      # require(esm). The strict check below is only meaningful against CommonJS peers: run it
-      # with NestJS 11 installed (the built `dist/` stays as is).
-      - name: Switch to NestJS 11 for the CommonJS check
-        run: pnpm nestjs:use 11 && pnpm install --no-frozen-lockfile
 
       # The packages ship CommonJS, so a value import of an ESM-only dependency compiles to a
       # `require()` Node refuses — invisible to the compiler, to the unit tests (CommonJS on both

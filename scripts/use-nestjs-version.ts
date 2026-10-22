@@ -3,41 +3,43 @@
  * Switch the workspace to another supported NestJS major, so CI (or a contributor) can run the
  * suites and the example app against it:
  *
- *   pnpm nestjs:use 11 && pnpm install --no-frozen-lockfile   # NestJS 11
- *   pnpm nestjs:use 12 && git checkout pnpm-lock.yaml && pnpm install   # back to the default
+ *   pnpm nestjs:use 12 && pnpm install --no-frozen-lockfile   # NestJS 12
+ *   pnpm nestjs:use 11 && git checkout pnpm-lock.yaml && pnpm install   # back to the default
  *
- * The committed manifests and lockfile track the newest major (12). Older majors are applied as
- * pnpm `overrides` in `pnpm-workspace.yaml`, in a marked block this script adds or removes: the
- * manifests stay untouched, and every copy of a package in the graph is forced to the same major.
- * Peer ranges need no change: they already accept every supported major.
+ * The committed manifests and lockfile stay on NestJS 11: the packages ship CommonJS, and NestJS 12
+ * is ESM only, so a CommonJS `require()` of it fails wherever require(esm) is unavailable, such as
+ * the example app's Vercel functions. Other majors are applied as pnpm `overrides` in
+ * `pnpm-workspace.yaml`, in a marked block this script adds or removes: the manifests stay
+ * untouched, and every copy of a package in the graph is forced to the same major. Peer ranges
+ * need no change: they already accept every supported major.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
 type Ranges = Record<string, string>;
 
-const LATEST_MAJOR = '12';
+const DEFAULT_MAJOR = '11';
 
 /**
- * Ranges per older NestJS major. Only the packages whose major follows NestJS's own belong here;
- * the others already accept both majors (`@nestjs/typeorm` 12, `@mikro-orm/nestjs` 7.1,
+ * Ranges per non-default NestJS major. Only the packages whose major follows NestJS's own belong
+ * here; the others already accept both majors (`@nestjs/typeorm` 12, `@mikro-orm/nestjs` 7.1,
  * `nest-winston` 2…) or never load the framework at runtime (`@nestjs/cli`).
  */
 const RANGES_BY_MAJOR: Record<string, Ranges> = {
-  '11': {
-    '@nestjs/common': '^11.2.7',
-    '@nestjs/core': '^11.2.7',
-    '@nestjs/testing': '^11.2.7',
-    '@nestjs/platform-express': '^11.2.7',
-    '@nestjs/platform-fastify': '^11.2.7',
-    '@nestjs/graphql': '^13.4.5',
-    '@nestjs/apollo': '^13.4.5',
-    '@nestjs/mercurius': '^13.4.5',
-    '@nestjs/config': '^4.0.2',
-    '@nestjs/cache-manager': '^3.0.1',
-    '@nestjs/event-emitter': '^3.0.1',
-    '@nestjs/mongoose': '^11.0.1',
-    '@nestjs/axios': '^4.0.0',
-    '@nestjs/swagger': '^11.4.7',
+  '12': {
+    '@nestjs/common': '^12.1.3',
+    '@nestjs/core': '^12.1.3',
+    '@nestjs/testing': '^12.1.3',
+    '@nestjs/platform-express': '^12.1.3',
+    '@nestjs/platform-fastify': '^12.1.3',
+    '@nestjs/graphql': '^14.0.3',
+    '@nestjs/apollo': '^14.0.3',
+    '@nestjs/mercurius': '^14.0.3',
+    '@nestjs/config': '^12.0.1',
+    '@nestjs/cache-manager': '^12.0.1',
+    '@nestjs/event-emitter': '^12.0.1',
+    '@nestjs/mongoose': '^12.0.0',
+    '@nestjs/axios': '^12.0.1',
+    '@nestjs/swagger': '^12.0.2',
   },
 };
 
@@ -56,8 +58,8 @@ function withoutBlock(source: string): string {
 
 const major = process.argv[2] ?? '';
 const ranges = RANGES_BY_MAJOR[major];
-if (!ranges && major !== LATEST_MAJOR) {
-  const majors = [...Object.keys(RANGES_BY_MAJOR), LATEST_MAJOR];
+if (!ranges && major !== DEFAULT_MAJOR) {
+  const majors = [DEFAULT_MAJOR, ...Object.keys(RANGES_BY_MAJOR)];
   console.error(`Usage: pnpm nestjs:use <${majors.join('|')}>`);
   process.exit(1);
 }

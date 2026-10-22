@@ -12,7 +12,7 @@ description: Install and configure @eleven-labs/nest-profiler in a NestJS 11 or 
 ## Requirements
 
 - Node.js 22 or newer
-- A NestJS 11 or 12 application
+- A NestJS 11 or 12 application. NestJS 12 ships ESM only and the profiler packages ship CommonJS, so on NestJS 12 they rely on Node's `require()` of ES modules, enabled by default from Node.js 22.12. See [Troubleshooting](/docs/troubleshooting#err_require_esm-on-nestjs-12).
 - Any package manager (the examples below use `pnpm`; `npm` and `yarn` work too)
 
 ## Installation
