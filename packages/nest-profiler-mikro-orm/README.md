@@ -112,6 +112,12 @@ MikroOrmSchemaCollectorModule.forRoot(),
 
 Pass `connectionName` to introspect a named MikroORM context (omit it for the default), and `enabled: false` to disable per environment. The panel reads `orm.getMetadata()` and never touches data; column defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no MikroORM context is wired.
 
+### Entity relationship diagram
+
+The panel opens with a collapsible **Entity relationship diagram** section: a [Mermaid](https://mermaid.js.org) `erDiagram` of the registered entities, with their columns (`PK` / `UK` keys) and one line per relation in crow's-foot notation. Both sides of a bidirectional relation (paired through `mappedBy` / `inversedBy`, declared on either side) are drawn as a single line labelled with the two property names.
+
+The diagram is rendered in the browser and nothing has to be installed: the first time the section is opened, the profiler page loads Mermaid from jsDelivr — a single, version-pinned file checked against its Subresource Integrity hash, and the only third-party URL the profiler's CSP allows. When the CDN is unreachable (offline or air-gapped machines), the section shows the Mermaid source instead. **Copy Mermaid** copies that source in every case, ready to paste into a README, a GitHub comment or [mermaid.live](https://mermaid.live).
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

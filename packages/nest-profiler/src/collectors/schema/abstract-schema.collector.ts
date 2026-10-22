@@ -3,6 +3,7 @@ import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import type { IProfilerCollector } from '../collector.interface';
 import type { Profile } from '../../interfaces/profile.interface';
 import { redactString } from '../../utils/redact.utils';
+import { toMermaidErDiagram } from './mermaid-er';
 import type { EntitySchema, SchemaCollectorData } from './schema.interface';
 
 /** Shared table/schema glyph, reused by every ORM's Schema panel. */
@@ -29,8 +30,17 @@ export abstract class AbstractSchemaCollector
   readonly priority: number = 80;
   readonly scope = 'global' as const;
 
+  /**
+   * Whether the panel offers a Mermaid entity-relationship diagram of the schema. Relational
+   * ORMs opt in; document stores (Mongoose) keep the per-entity tables only.
+   */
+  protected readonly erDiagram: boolean = false;
+
   /** Cached introspection result — schema is static, captured once at bootstrap. */
   private entities: EntitySchema[] = [];
+
+  /** Mermaid source derived from {@link entities}, when {@link erDiagram} is on. */
+  private mermaid?: string;
 
   onApplicationBootstrap(): void {
     try {
@@ -39,6 +49,9 @@ export abstract class AbstractSchemaCollector
       // stay silent so the panel simply doesn't appear.
       if (found === undefined) return;
       this.entities = this.redactDefaults(found);
+      if (this.erDiagram && this.entities.length > 0) {
+        this.mermaid = toMermaidErDiagram(this.entities);
+      }
       // Canary: the handle resolved but exposed no entities — likely a private ORM-metadata
       // shape change or a mis-wired connection. Warn so the empty panel is diagnosable.
       if (found.length === 0) {
@@ -49,6 +62,7 @@ export abstract class AbstractSchemaCollector
       }
     } catch {
       this.entities = [];
+      this.mermaid = undefined;
     }
   }
 
@@ -61,7 +75,7 @@ export abstract class AbstractSchemaCollector
   }
 
   collect(_profile: Profile): SchemaCollectorData {
-    return { entities: this.entities, entityCount: this.entities.length };
+    return { entities: this.entities, entityCount: this.entities.length, mermaid: this.mermaid };
   }
 
   /**

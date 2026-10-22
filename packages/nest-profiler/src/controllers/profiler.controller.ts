@@ -24,6 +24,7 @@ import type { GlobalPanelInfo } from '../collectors/collector-registry.service';
 import { ExplainRunnerRegistry } from '../collectors/sql/explain/explain-runner-registry.service';
 import { parseExplainPlan } from '../collectors/sql/explain/parse-explain';
 import type { QueryEntry } from '../collectors/sql/sql-query.interface';
+import { MERMAID_SCRIPT_URL } from '../collectors/schema/mermaid-cdn';
 import { ProfilerGuard } from '../guards/profiler.guard';
 import { appendLinkQuery, linkQueryPairs } from '../views/link.utils';
 import type { PlatformRequest } from '../types/http';
@@ -86,12 +87,15 @@ const VENDORED_SCRIPTS = ['highlight.min.js', 'graphql.min.js'];
 
 /**
  * Content-Security-Policy for the profiler's sensitive responses. `script-src 'self'` (the UI
- * carries no inline scripts) neutralises any residual XSS; `frame-ancestors 'none'` blocks
+ * carries no inline scripts) neutralises any residual XSS — its only other source is the exact,
+ * version-pinned Mermaid file the Schema panel's ER diagram loads on demand (a path-qualified
+ * source matches that single URL, not the whole CDN); `frame-ancestors 'none'` blocks
  * clickjacking. Paired with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`
  * on the HTML pages and the JSON export.
  */
 const PROFILER_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
+  `default-src 'self'; script-src 'self' ${MERMAID_SCRIPT_URL}; style-src 'self' 'unsafe-inline'; ` +
+  `img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'`;
 
 /** One global sidebar item; `group`/`groupLabel` file it under a heading when its collector declares one. */
 interface GlobalView {

@@ -4,6 +4,7 @@ import { initCopy } from './behaviors/copy';
 import { initExplain } from './behaviors/explain';
 import { initFilters } from './behaviors/filters';
 import { initGroupTabs } from './behaviors/group-tabs';
+import { initMermaidDiagrams } from './behaviors/mermaid-diagram';
 import { initRowLink } from './behaviors/row-link';
 import { initTraceWaterfall } from './behaviors/trace-waterfall';
 import { bootTheme, initTheme } from './behaviors/theme';
@@ -25,4 +26,5 @@ api.onReady(() => {
   initRowLink(api);
   initExplain(api);
   initTraceWaterfall(api);
+  initMermaidDiagrams();
 });

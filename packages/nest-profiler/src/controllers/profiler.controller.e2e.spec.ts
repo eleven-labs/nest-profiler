@@ -385,7 +385,7 @@ describe('ProfilerController (e2e)', () => {
       const token = await createProfile('/hello');
       // Mirrors PROFILER_CSP in the controller — a regression guard on the exact policy.
       const expectedCsp =
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
+        "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/mermaid@12.1.0/dist/mermaid.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'";
 
       for (const url of ['/_profiler', `/_profiler/${token}`]) {
         const res = await request(server()).get(url);

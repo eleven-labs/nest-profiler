@@ -214,4 +214,52 @@ describe('MikroOrmSchemaCollector', () => {
     ]);
     expect(data.entities[1]?.tableName).toBe('Bare');
   });
+
+  it('pairs bidirectional relations through mappedBy / inversedBy for the ER diagram', () => {
+    const scalarId = {
+      name: 'id',
+      kind: ReferenceKind.SCALAR,
+      columnTypes: ['int'],
+      primary: true,
+    };
+    const category = {
+      className: 'Category',
+      tableName: 'categories',
+      props: [scalarId],
+      relations: [
+        {
+          name: 'products',
+          kind: ReferenceKind.ONE_TO_MANY,
+          targetMeta: { className: 'Product' },
+          mappedBy: 'category',
+        },
+      ],
+      indexes: [],
+      uniques: [],
+    };
+    const product = {
+      className: 'Product',
+      tableName: 'products',
+      props: [scalarId],
+      // No `inversedBy` on the owning side: the diagram pairs it through `mappedBy` above.
+      relations: [
+        {
+          name: 'category',
+          kind: ReferenceKind.MANY_TO_ONE,
+          targetMeta: { className: 'Category' },
+        },
+      ],
+      indexes: [],
+      uniques: [],
+    };
+    const collector = new MikroOrmSchemaCollector(moduleRefFor(fakeOrm([category, product])));
+    collector.onApplicationBootstrap();
+
+    const data = collector.collect(emptyProfile);
+    expect(data.entities[0]?.relations[0]?.inverseProperty).toBe('category');
+    expect(data.entities[1]?.relations[0]?.inverseProperty).toBeUndefined();
+    expect(data.mermaid?.split('\n').filter((line) => line.includes(' : '))).toEqual([
+      '  Product }o--|| Category : "category / products"',
+    ]);
+  });
 });

@@ -31,6 +31,11 @@ export interface RelationInfo {
   kind: string;
   /** Target entity/model name (e.g. `User`). */
   target: string;
+  /**
+   * Property holding the other side of a bidirectional relation (e.g. `posts` for `author`),
+   * when the ORM exposes it. Lets the ER diagram draw both declarations as a single line.
+   */
+  inverseProperty?: string;
 }
 
 /** An index declared on an entity. */
@@ -55,4 +60,9 @@ export interface EntitySchema {
 export interface SchemaCollectorData {
   entities: EntitySchema[];
   entityCount: number;
+  /**
+   * Mermaid `erDiagram` source of the schema, rendered as a diagram in the panel. Only set by
+   * collectors that opt in (the relational ORMs) and when at least one entity is registered.
+   */
+  mermaid?: string;
 }

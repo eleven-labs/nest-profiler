@@ -49,6 +49,7 @@ function mapRelation(relation: RelationMetadata): RelationInfo {
     property: relation.propertyName,
     kind: relation.relationType,
     target: relation.inverseEntityMetadata.name,
+    inverseProperty: relation.inverseRelation?.propertyName,
   };
 }
 
@@ -75,6 +76,7 @@ export class TypeOrmSchemaCollector extends AbstractSchemaCollector {
   readonly label = 'TypeORM';
   readonly group = 'schema';
   readonly groupLabel = 'Schemas';
+  protected readonly erDiagram = true;
 
   constructor(
     private readonly moduleRef: ModuleRef,

@@ -39,6 +39,39 @@ describe('AbstractSchemaCollector', () => {
     expect(collector.getTemplatePath().endsWith('schema-panel.ejs')).toBe(true);
   });
 
+  it('leaves the Mermaid diagram out unless the collector opts in', () => {
+    const collector = new TestSchemaCollector(() => [entity([])]);
+    collector.onApplicationBootstrap();
+
+    expect(collector.collect(emptyProfile).mermaid).toBeUndefined();
+  });
+
+  it('derives the Mermaid diagram from the redacted entities when opted in', () => {
+    class DiagramSchemaCollector extends TestSchemaCollector {
+      protected readonly erDiagram = true;
+    }
+    const collector = new DiagramSchemaCollector(() => [
+      entity([{ name: 'id', type: 'int', nullable: false, primary: true, generated: true }]),
+    ]);
+    collector.onApplicationBootstrap();
+
+    expect(collector.collect(emptyProfile).mermaid).toBe(
+      'erDiagram\n  Product {\n    int id PK\n  }',
+    );
+  });
+
+  it('omits the opted-in diagram when no entity is registered', () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    class DiagramSchemaCollector extends TestSchemaCollector {
+      protected readonly erDiagram = true;
+    }
+    const collector = new DiagramSchemaCollector(() => []);
+    collector.onApplicationBootstrap();
+
+    expect(collector.collect(emptyProfile).mermaid).toBeUndefined();
+    warn.mockRestore();
+  });
+
   it('redacts secrets in string column defaults and leaves absent defaults untouched', () => {
     const collector = new TestSchemaCollector(() => [
       entity([
