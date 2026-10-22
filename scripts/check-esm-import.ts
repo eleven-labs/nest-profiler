@@ -86,7 +86,7 @@ function requiringDependency(stderr: string): string | undefined {
   )?.[1];
   const match =
     from === undefined ? null : /.*node_modules[\\/]((?:@[^\\/]+[\\/])?[^\\/]+)/.exec(from);
-  const name = match?.[1]?.replace('\\', '/');
+  const name = match?.[1]?.replace(/\\/g, '/');
   return name === undefined || name.startsWith('@eleven-labs/') ? undefined : name;
 }
 
