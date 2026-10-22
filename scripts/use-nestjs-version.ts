@@ -6,9 +6,9 @@
  *   pnpm nestjs:use 12 && pnpm install --no-frozen-lockfile   # NestJS 12
  *   pnpm nestjs:use 11 && git checkout pnpm-lock.yaml && pnpm install   # back to the default
  *
- * The committed manifests and lockfile stay on NestJS 11: the packages ship CommonJS, and NestJS 12
- * is ESM only, so a CommonJS `require()` of it fails wherever require(esm) is unavailable, such as
- * the example app's Vercel functions. Other majors are applied as pnpm `overrides` in
+ * The committed manifests and lockfile stay on NestJS 11: NestJS 12 ships its packages as ESM, which
+ * CommonJS code (the profiler packages, and the CommonJS libraries the example app uses) loads
+ * through require(esm), and the example app's Vercel functions turn require(esm) off. Other majors are applied as pnpm `overrides` in
  * `pnpm-workspace.yaml`, in a marked block this script adds or removes: the manifests stay
  * untouched, and every copy of a package in the graph is forced to the same major. Peer ranges
  * need no change: they already accept every supported major.

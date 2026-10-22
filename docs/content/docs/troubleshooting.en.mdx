@@ -12,10 +12,10 @@ This page collects the symptoms people hit most often and the fix for each. If n
 
 The app crashes on startup with `Error [ERR_REQUIRE_ESM]: require() of ES Module …/@nestjs/common/index.js from …/@eleven-labs/nest-profiler/dist/….js not supported`.
 
-NestJS 12 ships ESM only, while the profiler packages ship CommonJS: loading them means `require()`-ing an ES module, which Node.js only allows by default from 22.12 on.
+NestJS 12 ships its packages as ESM and keeps supporting CommonJS applications, which load them through Node's `require()` of ES modules. The profiler packages ship CommonJS and load NestJS the same way. Node.js only allows it by default from 22.12 on.
 
-- **Node.js 22.0 to 22.11.** Upgrade to 22.12 or newer.
-- **`require()` of ES modules disabled.** A runtime started with `--no-experimental-require-module` refuses it whatever the Node.js version. Stay on NestJS 11 there for now: the profiler supports both.
+- **Node.js 22.0 to 22.11.** Upgrade to 22.12 or newer, the minimum NestJS 12 itself requires on the 22.x line.
+- **`require()` of ES modules disabled.** Some runtimes turn it off whatever the Node.js version, such as AWS Lambda on its Node.js 20, 22 and 24 runtimes. Turn it back on with `NODE_OPTIONS=--experimental-require-module`, as the [NestJS migration guide](https://docs.nestjs.com/migration-guide#esm-packages) recommends: a CommonJS NestJS 12 application needs it there anyway.
 
 ## No profiles appear at all
 

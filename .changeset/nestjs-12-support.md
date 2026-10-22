@@ -27,4 +27,4 @@ Support NestJS 12 alongside NestJS 11. The peer ranges now accept both majors:
 
 No code change is needed on the application side: install the NestJS 12 versions of these packages and the profiler keeps working. On NestJS 12, `@mikro-orm/nestjs` needs 7.1 or later and `@golevelup/nestjs-rabbitmq` 9.1 or later: earlier versions reject NestJS 12 in their own peer ranges.
 
-NestJS 12 ships ESM only and the profiler packages still ship CommonJS, so on NestJS 12 they rely on Node's `require()` of ES modules, enabled by default from Node.js 22.12.
+NestJS 12 ships its packages as ESM and keeps supporting CommonJS applications, which load them through Node's `require()` of ES modules (Node.js 22.12 or newer). The profiler packages ship CommonJS and load NestJS 12 the same way: a CommonJS application stays CommonJS.
