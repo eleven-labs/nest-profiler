@@ -1,6 +1,6 @@
 {
   "name": "@eleven-labs/nest-profiler-validator",
-  "version": "1.2.1",
+  "version": "1.4.0",
   "description": "Validation pipe collector for @eleven-labs/nest-profiler",
   "keywords": [
     "nestjs",
