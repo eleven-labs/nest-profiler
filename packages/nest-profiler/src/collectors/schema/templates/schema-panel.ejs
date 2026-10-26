@@ -40,8 +40,39 @@
           <p class="text-2xs text-foreground-faint">Rendered with Mermaid, loaded from cdn.jsdelivr.net when this section is opened.</p>
           <%- copyBtn(data.mermaid, 'Copy Mermaid') %>
         </div>
-        <div class="overflow-x-auto" data-mermaid-output>
+        <div data-mermaid-status>
           <p class="text-xs text-foreground-faint">Loading diagram…</p>
+        </div>
+        <!-- Pan / zoom viewport, wired by src/client/behaviors/diagram-viewport.ts. Its inline
+             height follows the diagram (--diagram-height), capped to the window; expanded, it
+             covers the whole window. -->
+        <div class="hidden group/diagram relative h-(--diagram-height,60vh) min-h-60 max-h-[70vh] overflow-hidden rounded-lg border border-line bg-surface select-none touch-none cursor-grab data-dragging:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-nest/40 data-expanded:fixed data-expanded:inset-0 data-expanded:z-[1000] data-expanded:h-auto data-expanded:max-h-none data-expanded:rounded-none data-expanded:border-0"
+             tabindex="0" role="application" aria-label="Entity relationship diagram — drag to pan, Ctrl or ⌘ + scroll to zoom, + and - keys to zoom, 0 to fit"
+             data-diagram-viewport>
+          <div class="h-full w-full" data-mermaid-output></div>
+          <div class="hidden absolute top-2 left-2 cursor-default" data-diagram-controls>
+            <select class="max-w-56 rounded-md border border-line bg-surface/90 px-2 py-1 text-2xs text-foreground-muted shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-nest/40" aria-label="Go to entity" data-mermaid-entities>
+              <option value="">Go to entity…</option>
+            </select>
+          </div>
+          <div class="absolute top-2 right-2 flex items-center gap-0.5 rounded-md border border-line bg-surface/90 p-0.5 shadow-sm cursor-default" data-diagram-controls>
+            <button type="button" class="p-1.5 rounded text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" title="Zoom out (-)" aria-label="Zoom out" data-diagram-action="zoom-out">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M5 12h14"/></svg>
+            </button>
+            <button type="button" class="min-w-12 px-1.5 py-1 rounded text-2xs font-medium tabular-nums text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" title="Actual size (1)" aria-label="Zoom to actual size" data-diagram-action="actual" data-diagram-zoom>100%</button>
+            <button type="button" class="p-1.5 rounded text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" title="Zoom in (+)" aria-label="Zoom in" data-diagram-action="zoom-in">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <span class="w-px h-4 mx-0.5 bg-line"></span>
+            <button type="button" class="p-1.5 rounded text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" title="Fit to view (0)" aria-label="Fit to view" data-diagram-action="fit">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded text-foreground-muted hover:bg-surface-muted hover:text-foreground transition-colors" title="Toggle full window (Esc to leave)" aria-label="Toggle full window" aria-pressed="false" data-diagram-action="expand">
+              <svg class="w-3.5 h-3.5 group-data-expanded/diagram:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M4 4l6 6M20 4l-6 6M20 20l-6-6M4 20l6-6"/></svg>
+              <svg class="w-3.5 h-3.5 hidden group-data-expanded/diagram:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 5v5H5M14 5v5h5M14 19v-5h5M10 19v-5H5"/></svg>
+            </button>
+          </div>
+          <p class="pointer-events-none absolute bottom-2 left-2 rounded bg-surface/90 px-1.5 py-0.5 text-2xs text-foreground-faint">Drag to pan · Ctrl/⌘ + scroll or double-click to zoom<span class="hidden group-data-expanded/diagram:inline"> · Esc to leave</span></p>
         </div>
         <pre class="hidden text-xs font-mono text-foreground-secondary bg-surface-muted border border-line rounded-lg p-3 overflow-x-auto" data-mermaid-source><%= data.mermaid %></pre>
       </div>

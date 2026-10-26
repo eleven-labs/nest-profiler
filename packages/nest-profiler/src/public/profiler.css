@@ -241,3 +241,9 @@
   background: transparent !important;
   padding: 0 !important;
 }
+
+/* ER diagram: the entity picked in "Go to entity" (src/client/behaviors/mermaid-diagram.ts). A
+   filter, unlike a stroke, works whatever shapes Mermaid draws the entity box with. */
+[data-diagram-focused] {
+  filter: drop-shadow(0 0 3px var(--color-nest)) drop-shadow(0 0 6px var(--color-nest));
+}

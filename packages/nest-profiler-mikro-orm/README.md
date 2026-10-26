@@ -118,6 +118,8 @@ The panel opens with a collapsible **Entity relationship diagram** section: a [M
 
 The diagram is rendered in the browser and nothing has to be installed: the first time the section is opened, the profiler page loads Mermaid from jsDelivr — a single, version-pinned file checked against its Subresource Integrity hash, and the only third-party URL the profiler's CSP allows. When the CDN is unreachable (offline or air-gapped machines), the section shows the Mermaid source instead. **Copy Mermaid** copies that source in every case, ready to paste into a README, a GitHub comment or [mermaid.live](https://mermaid.live).
 
+The diagram is drawn in a pannable, zoomable viewport so large schemas stay legible: drag to pan, **Ctrl / ⌘ + scroll** (or pinch, or double-click) to zoom around the cursor, and use the toolbar to zoom, return to 100 %, fit the whole diagram or expand it to the full window (**Esc** to leave). **Go to entity** centres and highlights one entity. While the diagram has focus, `+` / `-` zoom, `0` fits, `1` returns to 100 % and the arrow keys pan.
+
 ---
 
 Part of the [nest-profiler](https://github.com/eleven-labs/nest-profiler) toolkit · Powered & maintained by [Eleven Labs](https://eleven-labs.com)

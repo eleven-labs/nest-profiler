@@ -52,4 +52,14 @@ describe('schema-panel template', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain(`data-copy="${Buffer.from(mermaid, 'utf8').toString('base64')}"`);
   });
+
+  it('draws the diagram into a pan/zoom viewport with its controls and an entity picker', async () => {
+    const html = await render({ entities: [product], entityCount: 1, mermaid: 'erDiagram' });
+
+    expect(html).toMatch(/<div[^>]*tabindex="0"[^>]*data-diagram-viewport>/);
+    for (const action of ['zoom-out', 'actual', 'zoom-in', 'fit', 'expand']) {
+      expect(html).toContain(`data-diagram-action="${action}"`);
+    }
+    expect(html).toContain('data-mermaid-entities');
+  });
 });
