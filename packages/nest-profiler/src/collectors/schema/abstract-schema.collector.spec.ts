@@ -60,6 +60,27 @@ describe('AbstractSchemaCollector', () => {
     );
   });
 
+  it('draws a document schema as a document diagram, without opting in', () => {
+    class DocumentSchemaCollector extends TestSchemaCollector {
+      protected readonly dataModel = 'document';
+    }
+    const collector = new DocumentSchemaCollector(() => [
+      entity([{ name: '_id', type: 'ObjectId', nullable: true, primary: true, generated: true }]),
+    ]);
+    collector.onApplicationBootstrap();
+
+    const data = collector.collect(emptyProfile);
+    expect(data.dataModel).toBe('document');
+    expect(data.mermaid).toBe('erDiagram\n  Product {\n    ObjectId _id PK\n  }');
+  });
+
+  it('reports a relational data model by default', () => {
+    const collector = new TestSchemaCollector(() => [entity([])]);
+    collector.onApplicationBootstrap();
+
+    expect(collector.collect(emptyProfile).dataModel).toBe('relational');
+  });
+
   it('omits the opted-in diagram when no entity is registered', () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     class DiagramSchemaCollector extends TestSchemaCollector {

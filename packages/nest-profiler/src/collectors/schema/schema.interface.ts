@@ -21,13 +21,30 @@ export interface ColumnInfo {
   default?: string;
   /** Declared length/precision when the ORM exposes one (e.g. `255`). */
   length?: string;
+  /**
+   * Nesting level of a field in a document store: absent (or `0`) for a top-level field, `1` for a
+   * field of an embedded document or nested object, and so on. Columns are listed parent-first,
+   * so the fields of an embedded document directly follow the column holding it, and their
+   * {@link ColumnInfo.name} is the full dotted path (e.g. `items.product`).
+   */
+  depth?: number;
+  /**
+   * Set on a field holding embedded data in a document store: `one` for a single embedded
+   * document or nested object, `many` for an array of embedded documents. Its own fields follow
+   * it, one level deeper.
+   */
+  embedded?: 'one' | 'many';
 }
 
 /** A relation from an entity to another. */
 export interface RelationInfo {
   /** Property holding the relation (e.g. `author`). */
   property: string;
-  /** Relation cardinality: `one-to-one` | `one-to-many` | `many-to-one` | `many-to-many`. */
+  /**
+   * Relation cardinality: `one-to-one` | `one-to-many` | `many-to-one` | `many-to-many`. A
+   * document store has no enforced cardinality: its references are `ref` (one id) or `ref[]` (an
+   * array of ids).
+   */
   kind: string;
   /** Target entity/model name (e.g. `User`). */
   target: string;
@@ -56,13 +73,23 @@ export interface EntitySchema {
   indexes: IndexInfo[];
 }
 
+/**
+ * How a schema is organised, which decides the panel's vocabulary and diagram: `relational`
+ * (tables, columns, relations, an entity relationship diagram) or `document` (collections of
+ * documents with embedded data and references, a document diagram).
+ */
+export type SchemaDataModel = 'relational' | 'document';
+
 /** Payload rendered by the Schema panel. */
 export interface SchemaCollectorData {
   entities: EntitySchema[];
   entityCount: number;
+  /** How the schema is organised. Absent means `relational`. */
+  dataModel?: SchemaDataModel;
   /**
-   * Mermaid `erDiagram` source of the schema, rendered as a diagram in the panel. Only set by
-   * collectors that opt in (the relational ORMs) and when at least one entity is registered.
+   * Mermaid source of the schema, rendered as a diagram in the panel: an entity relationship
+   * diagram for the relational ORMs that opt in, a document diagram for a document store. Only
+   * set when at least one entity is registered.
    */
   mermaid?: string;
 }

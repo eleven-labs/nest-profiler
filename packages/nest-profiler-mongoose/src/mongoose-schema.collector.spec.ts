@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { getConnectionToken } from '@nestjs/mongoose';
 import type { ModuleRef } from '@nestjs/core';
+import { Mongoose, Schema } from 'mongoose';
 import type { Connection } from 'mongoose';
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { MongooseSchemaCollector } from './mongoose-schema.collector.js';
@@ -57,15 +58,16 @@ describe('MongooseSchemaCollector', () => {
 
     const data = collector.collect(emptyProfile);
     expect(data.entityCount).toBe(1);
+    expect(data.dataModel).toBe('document');
     const review = data.entities[0];
     expect(review).toMatchObject({ name: 'Review', tableName: 'reviews' });
-    // `_id` is the primary key; `author`/`tags` are refs → relations, not columns.
-    expect(review?.columns.map((c) => c.name)).toEqual(['_id', 'body', 'source']);
+    // `_id` is the primary key; a ref is a stored id — a field — and a reference to its model.
+    expect(review?.columns.map((c) => c.name)).toEqual(['_id', 'body', 'source', 'author', 'tags']);
     expect(review?.columns[0]).toMatchObject({ name: '_id', primary: true, generated: true });
     expect(review?.columns[1]).toMatchObject({ name: 'body', type: 'String', nullable: false });
     expect(review?.relations).toEqual([
-      { property: 'author', kind: 'many-to-one', target: 'User' },
-      { property: 'tags', kind: 'one-to-many', target: 'Tag' },
+      { property: 'author', kind: 'ref', target: 'User' },
+      { property: 'tags', kind: 'ref[]', target: 'Tag' },
     ]);
     expect(review?.indexes).toEqual([{ name: 'body_text', columns: ['body'], unique: true }]);
   });
@@ -157,10 +159,145 @@ describe('MongooseSchemaCollector', () => {
     expect(col('weakRef')).toBeDefined(); // non-string ref stays a column
     // Array-of-refs resolves the target from whichever element holder the mongoose version uses.
     expect(entity?.relations).toEqual([
-      { property: 'casterTags', kind: 'one-to-many', target: 'CasterTag' },
-      { property: 'embeddedTags', kind: 'one-to-many', target: 'EmbeddedTag' },
-      { property: 'legacyTags', kind: 'one-to-many', target: 'LegacyTag' },
+      { property: 'casterTags', kind: 'ref[]', target: 'CasterTag' },
+      { property: 'embeddedTags', kind: 'ref[]', target: 'EmbeddedTag' },
+      { property: 'legacyTags', kind: 'ref[]', target: 'LegacyTag' },
     ]);
     expect(entity?.indexes).toEqual([{ name: undefined, columns: ['n'], unique: false }]);
+  });
+
+  describe('document structure, introspected from real mongoose schemas', () => {
+    /** Registers `schemas` as models on a fresh Mongoose instance and collects the panel data. */
+    function collectModels(
+      schemas: Record<string, Schema>,
+    ): ReturnType<MongooseSchemaCollector['collect']> {
+      const mongoose = new Mongoose();
+      for (const [name, schema] of Object.entries(schemas)) mongoose.model(name, schema);
+      const collector = new MongooseSchemaCollector(moduleRefFor(fakeConnection(mongoose.models)));
+      collector.onApplicationBootstrap();
+      return collector.collect(emptyProfile);
+    }
+
+    const item = new Schema({
+      product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+      qty: Number,
+    });
+    const address = new Schema({ city: String }, { _id: false });
+    const order = new Schema({
+      customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
+      tags: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
+      items: [item],
+      shipping: { type: address, required: true },
+      meta: { source: String, nested: { deep: Number } },
+      labels: [String],
+    });
+    order.index({ 'items.product': 1 });
+
+    it('lists embedded documents and nested objects parent-first, one level deeper', () => {
+      const data = collectModels({ Order: order });
+      const fields = data.entities[0]?.columns.map(({ name, type, depth, embedded }) => ({
+        name,
+        type,
+        depth,
+        embedded,
+      }));
+
+      expect(fields).toEqual([
+        { name: 'customer', type: 'ObjectId', depth: undefined, embedded: undefined },
+        { name: 'tags', type: 'ObjectId[]', depth: undefined, embedded: undefined },
+        { name: 'items', type: 'Subdocument[]', depth: undefined, embedded: 'many' },
+        { name: 'items.product', type: 'ObjectId', depth: 1, embedded: undefined },
+        { name: 'items.qty', type: 'Number', depth: 1, embedded: undefined },
+        { name: 'items._id', type: 'ObjectId', depth: 1, embedded: undefined },
+        { name: 'shipping', type: 'Subdocument', depth: undefined, embedded: 'one' },
+        { name: 'shipping.city', type: 'String', depth: 1, embedded: undefined },
+        { name: 'meta', type: 'Object', depth: undefined, embedded: 'one' },
+        { name: 'meta.source', type: 'String', depth: 1, embedded: undefined },
+        { name: 'meta.nested', type: 'Object', depth: 1, embedded: 'one' },
+        { name: 'meta.nested.deep', type: 'Number', depth: 2, embedded: undefined },
+        { name: 'labels', type: 'String[]', depth: undefined, embedded: undefined },
+        { name: '_id', type: 'ObjectId', depth: undefined, embedded: undefined },
+        { name: '__v', type: 'Number', depth: undefined, embedded: undefined },
+      ]);
+      const column = (name: string) => data.entities[0]?.columns.find((c) => c.name === name);
+      // Only the document's own `_id` is its primary key; an embedded `_id` is generated too.
+      expect(column('_id')).toMatchObject({ primary: true, generated: true });
+      expect(column('items._id')).toMatchObject({ primary: false, generated: true });
+      expect(column('shipping')?.nullable).toBe(false);
+    });
+
+    it('finds the references nested in embedded documents', () => {
+      const data = collectModels({ Order: order });
+
+      expect(data.entities[0]?.relations).toEqual([
+        { property: 'customer', kind: 'ref', target: 'Customer' },
+        { property: 'tags', kind: 'ref[]', target: 'Tag' },
+        { property: 'items.product', kind: 'ref', target: 'Product' },
+      ]);
+      expect(data.entities[0]?.indexes).toEqual([
+        { name: undefined, columns: ['items.product'], unique: false },
+      ]);
+    });
+
+    it('draws a document diagram: embedding solid, references dashed', () => {
+      const data = collectModels({
+        Order: order,
+        Product: new Schema({ sku: { type: String, unique: true } }),
+      });
+
+      expect(data.mermaid).toBe(
+        [
+          'erDiagram',
+          '  Order {',
+          '    ObjectId customer "ref Customer"',
+          '    ObjectId[] tags "ref Tag"',
+          '    Subdocument[] items',
+          '    Subdocument shipping',
+          '    Object meta',
+          '    String[] labels',
+          '    ObjectId _id PK',
+          '    Number __v',
+          '  }',
+          '  Order_items["Order.items[]"] {',
+          '    ObjectId product "ref Product"',
+          '    Number qty',
+          '    ObjectId _id',
+          '  }',
+          '  Order_shipping["Order.shipping"] {',
+          '    String city',
+          '  }',
+          '  Order_meta["Order.meta"] {',
+          '    String source',
+          '    Object nested',
+          '  }',
+          '  Order_meta_nested["Order.meta.nested"] {',
+          '    Number deep',
+          '  }',
+          '  Product {',
+          '    String sku UK',
+          '    ObjectId _id PK',
+          '    Number __v',
+          '  }',
+          '  Order ||--o{ Order_items : "embeds items[]"',
+          '  Order ||--|| Order_shipping : "embeds shipping"',
+          '  Order ||--o| Order_meta : "embeds meta"',
+          '  Order_meta ||--o| Order_meta_nested : "embeds nested"',
+          '  Order }o..o| Customer : "ref customer"',
+          '  Order }o..o{ Tag : "ref tags[]"',
+          '  Order_items }o..o| Product : "ref product"',
+        ].join('\n'),
+      );
+    });
+
+    it('does not expand a recursive schema forever', () => {
+      const comment = new Schema({ body: String });
+      comment.add({ replies: [comment] });
+
+      const data = collectModels({ Thread: new Schema({ comments: [comment] }) });
+      const names = data.entities[0]?.columns.map((c) => c.name);
+
+      expect(names).toContain('comments.replies');
+      expect(names).not.toContain('comments.replies.body');
+    });
   });
 });

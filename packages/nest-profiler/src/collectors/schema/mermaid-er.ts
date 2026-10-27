@@ -22,14 +22,15 @@ interface Edge {
 /**
  * Mermaid entity/attribute names accept letters, digits, `_` and `-` (attribute types also
  * `(`, `)`, `,`, `[` and `]`); anything else collapses to `_`, and a leading digit gets prefixed.
+ * Shared with the document diagram.
  */
-function token(value: string, extra = ''): string {
+export function token(value: string, extra = ''): string {
   const allowed = new RegExp(`[^A-Za-z0-9_\\-${extra}]`, 'g');
   const safe = value.trim().replace(allowed, '_') || '_';
   return /^[A-Za-z_]/.test(safe) ? safe : `_${safe}`;
 }
 
-function attributeType(column: ColumnInfo): string {
+export function attributeType(column: ColumnInfo): string {
   const type = column.length ? `${column.type}(${column.length})` : column.type;
   return token(type, '(),\\[\\]');
 }
