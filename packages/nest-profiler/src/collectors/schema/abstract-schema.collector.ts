@@ -3,8 +3,9 @@ import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import type { IProfilerCollector } from '../collector.interface.js';
 import type { Profile } from '../../interfaces/profile.interface.js';
 import { redactString } from '../../utils/redact.utils.js';
+import { toMermaidDocumentDiagram } from './mermaid-document.js';
 import { toMermaidErDiagram } from './mermaid-er.js';
-import type { EntitySchema, SchemaCollectorData } from './schema.interface.js';
+import type { EntitySchema, SchemaCollectorData, SchemaDataModel } from './schema.interface.js';
 
 /** Shared table/schema glyph, reused by every ORM's Schema panel. */
 export const SCHEMA_ICON = `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9zM3.5 3a.5.5 0 00-.5.5V6h10V3.5a.5.5 0 00-.5-.5h-9zM13 7H3v2.5h10V7zm0 3.5H3v2a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-2z"/></svg>`;
@@ -31,15 +32,22 @@ export abstract class AbstractSchemaCollector
   readonly scope = 'global' as const;
 
   /**
-   * Whether the panel offers a Mermaid entity-relationship diagram of the schema. Relational
-   * ORMs opt in; document stores (Mongoose) keep the per-entity tables only.
+   * Whether the panel offers a Mermaid entity-relationship diagram of a `relational` schema.
+   * Relational ORMs opt in. A `document` schema always gets its document diagram instead: an ER
+   * diagram would draw foreign keys and cardinalities a document store does not have.
    */
   protected readonly erDiagram: boolean = false;
+
+  /**
+   * How the introspected schema is organised — `document` for a document store (Mongoose), which
+   * switches the panel to fields, embedded documents and references.
+   */
+  protected readonly dataModel: SchemaDataModel = 'relational';
 
   /** Cached introspection result — schema is static, captured once at bootstrap. */
   private entities: EntitySchema[] = [];
 
-  /** Mermaid source derived from {@link entities}, when {@link erDiagram} is on. */
+  /** Mermaid source derived from {@link entities} — see {@link diagram}. */
   private mermaid?: string;
 
   onApplicationBootstrap(): void {
@@ -49,9 +57,7 @@ export abstract class AbstractSchemaCollector
       // stay silent so the panel simply doesn't appear.
       if (found === undefined) return;
       this.entities = this.redactDefaults(found);
-      if (this.erDiagram && this.entities.length > 0) {
-        this.mermaid = toMermaidErDiagram(this.entities);
-      }
+      this.mermaid = this.diagram();
       // Canary: the handle resolved but exposed no entities — likely a private ORM-metadata
       // shape change or a mis-wired connection. Warn so the empty panel is diagnosable.
       if (found.length === 0) {
@@ -75,7 +81,19 @@ export abstract class AbstractSchemaCollector
   }
 
   collect(_profile: Profile): SchemaCollectorData {
-    return { entities: this.entities, entityCount: this.entities.length, mermaid: this.mermaid };
+    return {
+      entities: this.entities,
+      entityCount: this.entities.length,
+      dataModel: this.dataModel,
+      mermaid: this.mermaid,
+    };
+  }
+
+  /** The Mermaid source matching {@link dataModel}, or `undefined` when there is none to draw. */
+  private diagram(): string | undefined {
+    if (this.entities.length === 0) return undefined;
+    if (this.dataModel === 'document') return toMermaidDocumentDiagram(this.entities);
+    return this.erDiagram ? toMermaidErDiagram(this.entities) : undefined;
   }
 
   /**

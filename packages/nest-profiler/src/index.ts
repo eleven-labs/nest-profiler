@@ -81,6 +81,7 @@ export type {
   IndexInfo,
   EntitySchema,
   SchemaCollectorData,
+  SchemaDataModel,
 } from './collectors/schema/schema.interface.js';
 export { detectQueryType } from './collectors/sql/sql-query.interface.js';
 export type { QueryEntry, QueryType } from './collectors/sql/sql-query.interface.js';

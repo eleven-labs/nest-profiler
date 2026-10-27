@@ -1,6 +1,12 @@
 <%
   const entities = (data && Array.isArray(data.entities)) ? data.entities : [];
   const entityCount = (data && typeof data.entityCount === 'number') ? data.entityCount : entities.length;
+  // A document store (Mongoose) speaks of models, fields and references — not tables, columns
+  // and relations — and nests its fields in embedded documents.
+  const isDocument = data && data.dataModel === 'document';
+  const words = isDocument
+    ? { entity: 'model', entities: 'models', column: 'field', columns: 'Fields', relations: 'References', property: 'Field', target: 'Model', diagram: 'Document diagram' }
+    : { entity: 'entity', entities: 'entities', column: 'column', columns: 'Columns', relations: 'Relations', property: 'Property', target: 'Target', diagram: 'Entity relationship diagram' };
 
   function relationArrow(kind) {
     return (kind || '').replace(/-/g, ' ');
@@ -9,7 +15,7 @@
 
 <% if (entityCount === 0) { %>
   <div class="py-8 text-center bg-surface-muted border border-line rounded-lg space-y-3 px-6">
-    <p class="text-foreground-muted text-sm font-medium">No registered entities to display.</p>
+    <p class="text-foreground-muted text-sm font-medium">No registered <%= words.entities %> to display.</p>
     <p class="text-foreground-faint text-xs leading-relaxed">
       This panel introspects the ORM connection at startup. It appears once at least one entity or
       model is registered on the profiled connection.
@@ -17,11 +23,11 @@
   </div>
 <% } else { %>
   <div class="flex items-center gap-2 mb-3">
-    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Registered entities</h3>
-    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= entityCount %> entities</span>
+    <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Registered <%= words.entities %></h3>
+    <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted border border-line text-foreground-faint tabular-nums"><%= entityCount %> <%= words.entities %></span>
   </div>
 
-  <!-- ── ER diagram ─────────────────────────────────────────────────
+  <!-- ── ER / document diagram ──────────────────────────────────────
        Closed by default: the client behaviour (src/client/behaviors/mermaid-diagram.ts)
        loads Mermaid from jsDelivr and renders the source only once it is opened. -->
   <% if (typeof data.mermaid === 'string' && data.mermaid.length > 0) { %>
@@ -31,13 +37,13 @@
           <svg class="w-3.5 h-3.5 text-foreground-muted transition-transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
-          <span class="text-xs font-semibold text-foreground">Entity relationship diagram</span>
+          <span class="text-xs font-semibold text-foreground"><%= words.diagram %></span>
         </div>
         <span class="text-2xs text-foreground-faint shrink-0">Mermaid</span>
       </summary>
       <div class="border-t border-line p-4 space-y-3">
         <div class="flex items-center justify-between gap-3">
-          <p class="text-2xs text-foreground-faint">Rendered with Mermaid, loaded from cdn.jsdelivr.net when this section is opened.</p>
+          <p class="text-2xs text-foreground-faint">Rendered with Mermaid, loaded from cdn.jsdelivr.net when this section is opened.<% if (isDocument) { %> Solid lines embed a document, dashed lines are <code>ref</code>s — ids the database never checks.<% } %></p>
           <%- copyBtn(data.mermaid, 'Copy Mermaid') %>
         </div>
         <div data-mermaid-status>
@@ -47,12 +53,12 @@
              height follows the diagram (--diagram-height), capped to the window; expanded, it
              covers the whole window. -->
         <div class="hidden group/diagram relative h-(--diagram-height,60vh) min-h-60 max-h-[70vh] overflow-hidden rounded-lg border border-line bg-surface select-none touch-none cursor-grab data-dragging:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-nest/40 data-expanded:fixed data-expanded:inset-0 data-expanded:z-[1000] data-expanded:h-auto data-expanded:max-h-none data-expanded:rounded-none data-expanded:border-0"
-             tabindex="0" role="application" aria-label="Entity relationship diagram — drag to pan, Ctrl or ⌘ + scroll to zoom, + and - keys to zoom, 0 to fit"
+             tabindex="0" role="application" aria-label="<%= words.diagram %> — drag to pan, Ctrl or ⌘ + scroll to zoom, + and - keys to zoom, 0 to fit"
              data-diagram-viewport>
           <div class="h-full w-full" data-mermaid-output></div>
           <div class="hidden absolute top-2 left-2 cursor-default" data-diagram-controls>
-            <select class="max-w-56 rounded-md border border-line bg-surface/90 px-2 py-1 text-2xs text-foreground-muted shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-nest/40" aria-label="Go to entity" data-mermaid-entities>
-              <option value="">Go to entity…</option>
+            <select class="max-w-56 rounded-md border border-line bg-surface/90 px-2 py-1 text-2xs text-foreground-muted shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-nest/40" aria-label="Go to <%= words.entity %>" data-mermaid-entities>
+              <option value="">Go to <%= words.entity %>…</option>
             </select>
           </div>
           <div class="absolute top-2 right-2 flex items-center gap-0.5 rounded-md border border-line bg-surface/90 p-0.5 shadow-sm cursor-default" data-diagram-controls>
@@ -95,20 +101,20 @@
             <span class="text-2xs text-foreground-faint font-mono truncate">→ <%= entity.tableName %></span>
           <% } %>
         </div>
-        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface border border-line text-foreground-faint tabular-nums shrink-0"><%= columns.length %> columns</span>
+        <span class="text-2xs px-1.5 py-0.5 rounded-full bg-surface border border-line text-foreground-faint tabular-nums shrink-0"><%= columns.length %> <%= words.column %><%= columns.length === 1 ? '' : 's' %></span>
       </summary>
       <div class="border-t border-line p-4 space-y-4">
 
         <!-- ── Columns ─────────────────────────────────────────────── -->
         <div>
-          <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Columns</h4>
+          <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2"><%= words.columns %></h4>
           <div class="rounded-lg border border-line overflow-x-auto">
             <table class="w-full min-w-[640px]">
               <thead>
                 <tr class="border-b border-line">
                   <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Name</th>
                   <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Type</th>
-                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Nullable</th>
+                  <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"><%= isDocument ? 'Required' : 'Nullable' %></th>
                   <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">PK</th>
                   <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Generated</th>
                   <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Default</th>
@@ -116,9 +122,17 @@
               </thead>
               <tbody class="divide-y divide-line-subtle">
                 <% for (const column of columns) { %>
+                  <% const depth = typeof column.depth === 'number' && column.depth > 0 ? column.depth : 0; %>
                   <tr class="hover:bg-surface-muted transition-colors">
+                    <% if (depth > 0) { %>
+                    <!-- A field of an embedded document: indented under the field holding it, its full dotted path on hover. -->
+                    <td class="py-2 px-4 text-xs font-mono align-top" style="padding-left: <%= 1 + depth * 1.25 %>rem" title="<%= column.name %>">
+                      <span class="text-foreground-faint">↳</span>
+                      <span class="text-foreground"><%= column.name.slice(column.name.lastIndexOf('.') + 1) %></span>
+                    <% } else { %>
                     <td class="py-2 px-4 text-xs font-mono align-top">
                       <span class="text-foreground"><%= column.name %></span>
+                    <% } %>
                       <% if (column.databaseName && column.databaseName !== column.name) { %>
                         <span class="text-foreground-faint">(<%= column.databaseName %>)</span>
                       <% } %>
@@ -127,7 +141,11 @@
                       <%= column.type %><% if (column.length) { %><span class="text-foreground-faint">(<%= column.length %>)</span><% } %>
                     </td>
                     <td class="py-2 px-4 text-xs align-top">
-                      <% if (column.nullable) { %><span class="text-foreground-faint font-mono">yes</span><% } else { %><span class="text-foreground-muted font-mono">no</span><% } %>
+                      <% if (isDocument) { %>
+                        <% if (column.nullable) { %><span class="text-foreground-faint font-mono">no</span><% } else { %><span class="text-foreground-muted font-mono">yes</span><% } %>
+                      <% } else { %>
+                        <% if (column.nullable) { %><span class="text-foreground-faint font-mono">yes</span><% } else { %><span class="text-foreground-muted font-mono">no</span><% } %>
+                      <% } %>
                     </td>
                     <td class="py-2 px-4 text-xs align-top">
                       <% if (column.primary) { %><span class="text-success font-mono font-bold">PK</span><% } else { %><span class="text-foreground-faint">—</span><% } %>
@@ -154,14 +172,14 @@
         <!-- ── Relations ───────────────────────────────────────────── -->
         <% if (relations.length > 0) { %>
           <div>
-            <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2">Relations</h4>
+            <h4 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-2"><%= words.relations %></h4>
             <div class="rounded-lg border border-line overflow-x-auto">
               <table class="w-full min-w-[480px]">
                 <thead>
                   <tr class="border-b border-line">
-                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Property</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"><%= words.property %></th>
                     <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Kind</th>
-                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Target</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"><%= words.target %></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-line-subtle">
@@ -189,7 +207,7 @@
                 <thead>
                   <tr class="border-b border-line">
                     <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Name</th>
-                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Columns</th>
+                    <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest"><%= words.columns %></th>
                     <th class="text-left py-2.5 px-4 text-foreground-muted font-medium text-2xs uppercase tracking-widest">Unique</th>
                   </tr>
                 </thead>

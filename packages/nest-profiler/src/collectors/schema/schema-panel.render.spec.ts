@@ -62,4 +62,73 @@ describe('schema-panel template', () => {
     }
     expect(html).toContain('data-mermaid-entities');
   });
+
+  it('speaks of tables, columns and relations for a relational schema', async () => {
+    const html = await render({ entities: [product], entityCount: 1, mermaid: 'erDiagram' });
+
+    expect(html).toContain('Registered entities');
+    expect(html).toContain('Entity relationship diagram');
+    expect(html).toContain('1 column<');
+    expect(html).toContain('>Nullable<');
+  });
+
+  describe('document schema', () => {
+    const order = {
+      name: 'Order',
+      tableName: 'orders',
+      columns: [
+        { name: 'customer', type: 'ObjectId', nullable: false, primary: false, generated: false },
+        {
+          name: 'items',
+          type: 'Subdocument[]',
+          nullable: true,
+          primary: false,
+          generated: false,
+          embedded: 'many' as const,
+        },
+        {
+          name: 'items.qty',
+          type: 'Number',
+          nullable: true,
+          primary: false,
+          generated: false,
+          depth: 1,
+        },
+      ],
+      relations: [{ property: 'customer', kind: 'ref', target: 'Customer' }],
+      indexes: [],
+    };
+    const renderDocument = (): Promise<string> =>
+      render({ entities: [order], entityCount: 1, dataModel: 'document', mermaid: 'erDiagram' });
+
+    it('speaks of models, fields and references', async () => {
+      const html = await renderDocument();
+
+      expect(html).toContain('Registered models');
+      expect(html).toContain('Document diagram');
+      expect(html).toContain('Go to model…');
+      expect(html).toContain('3 fields');
+      expect(html).toContain('>Fields<');
+      expect(html).toContain('>References<');
+      expect(html).not.toContain('Entity relationship diagram');
+      expect(html).not.toContain('>Relations<');
+    });
+
+    it('shows whether a field is required rather than nullable', async () => {
+      const html = await renderDocument();
+      const rows = html.split('<tr').filter((row) => row.includes('ObjectId'));
+
+      expect(html).toContain('>Required<');
+      expect(html).not.toContain('>Nullable<');
+      expect(rows[0]).toMatch(/font-mono">yes</);
+    });
+
+    it('indents the fields of an embedded document under the field holding it', async () => {
+      const html = await renderDocument();
+
+      expect(html).toMatch(
+        /style="padding-left: 2\.25rem" title="items\.qty">\s*<span[^>]*>↳<\/span>\s*<span[^>]*>qty</,
+      );
+    });
+  });
 });

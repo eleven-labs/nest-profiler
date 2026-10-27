@@ -121,7 +121,7 @@ At module initialization, the collector patches `mongoose.Query.prototype.exec` 
 
 ## Schema panel
 
-`MongooseSchemaCollectorModule` adds a global **Schemas / Mongoose** view to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, columns, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
+`MongooseSchemaCollectorModule` adds a global **Schemas / Mongoose** view to the profiler home page, listing every registered model with its fields (type, required, `_id`, default), references (`ref` → target model) and indexes (name, fields, unique). Unlike the per-request MongoDB panel, this is static process-level data introspected **once** at startup — so it renders on the home page, under the sidebar's **Schemas** heading, not inside a profile.
 
 Add it to the profiling bundle's `imports`:
 
@@ -132,6 +132,32 @@ MongooseSchemaCollectorModule.forRoot(),
 ```
 
 Pass `connectionName` to introspect a named connection (omit it for the default), and `enabled: false` to disable per environment. The panel reads each model's `schema.paths` and `schema.indexes()` and never touches data; path defaults are passed through the profiler's `redactString`, so a default embedding a secret is masked. The panel no-ops (does not appear) when no Mongoose connection is wired.
+
+### Document structure
+
+The panel shows each model the way MongoDB stores it, not as a relational table:
+
+- **Embedded documents and nested objects** are listed under the field holding them, one level deeper: a subdocument (`Subdocument`), an array of subdocuments (`Subdocument[]`) and a plain nested object (`Object`) each show their own fields, with the full dotted path (`items.product`) on hover. Arrays of values show their element type (`String[]`, `ObjectId[]`).
+- **References** are listed as `ref` (one id) or `ref[]` (an array of ids) with the model they name, including the ones declared inside an embedded document. A reference is also a field: it is an id stored in the document. No cardinality is inferred — the database never checks a `ref`, it only tells `populate()` which model to read.
+- Fields show whether they are **required** rather than nullable. Only the document's own `_id` is its primary key; the `_id` of an embedded document is listed as generated.
+
+A recursive schema (a document embedding its own kind) is expanded once.
+
+### Document diagram
+
+The panel opens with a collapsible **Document diagram** section, a [Mermaid](https://mermaid.js.org) diagram of the registered models:
+
+- one block per model, and one per embedded document or nested object, labelled with its path (`Order.items[]`);
+- a **solid line** from a document to what it embeds: an embedded document lives in exactly one parent, which holds one or an array of them;
+- a **dashed line** for every `ref`, labelled with the field: any number of documents may hold one, and it points at one document (`ref`) or several (`ref[]`).
+
+A shape embedded in several places — an address schema used for `shipping`, `billing` and a customer's `addresses[]` — is drawn **once**, named after the fields embedding it (`shipping / billing / addresses`), with a solid line from each of them. Shapes are recognised by their structure (fields, types, requiredness, references), so two identical schemas built separately, as `@nestjs/mongoose` does for every `@Prop`, count as one. A plain nested object always belongs to its own field.
+
+`_id` is marked `PK` and a single-field unique index `UK`. A `ref` to a model the application does not register is drawn as an empty block.
+
+The diagram is rendered in the browser and nothing has to be installed: the first time the section is opened, the profiler page loads Mermaid from jsDelivr — a single, version-pinned file checked against its Subresource Integrity hash, and the only third-party URL the profiler's CSP allows. When the CDN is unreachable (offline or air-gapped machines), the section shows the Mermaid source instead. **Copy Mermaid** copies that source in every case, ready to paste into a README, a GitHub comment or [mermaid.live](https://mermaid.live).
+
+The diagram is drawn in a pannable, zoomable viewport so large schemas stay legible: drag to pan, **Ctrl / ⌘ + scroll** (or pinch, or double-click) to zoom around the cursor, and use the toolbar to zoom, return to 100 %, fit the whole diagram or expand it to the full window (**Esc** to leave). **Go to model** centres and highlights one block. While the diagram has focus, `+` / `-` zoom, `0` fits, `1` returns to 100 % and the arrow keys pan.
 
 ---
 
