@@ -76,6 +76,7 @@ RabbitMqCollectorModule.forRoot({
   captureHeaders: true, // default — RabbitMQ headers (sensitive ones masked)
   captureBody: true, // default — deserialized payload (can be large)
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
+  traceIdHeader: 'x-request-id', // default — header the trace id is read from
   // What counts as a failed message. A message has no status code, so the default is
   // simply "the handler threw" — narrow it when a handler throws as flow control.
   error: { exceptions: ['TimeoutError'] },
@@ -130,6 +131,7 @@ await this.amqp.publish('articles.events', event.name, event.payload);
 
 ```ts
 RabbitMqPublishCollectorModule.forRoot({
+  propagateTraceId: true, // off by default — see "Linking a message to its request"
   captureHeaders: true, // default — publish headers (sensitive ones masked)
   captureBody: true, // default — the published message
   maskHeaders: ['x-tenant-secret'], // merged with the built-in mask list
@@ -174,6 +176,26 @@ command, or a consumed message when `RabbitMqCollectorModule` is registered too,
 see the messages a consumer republishes.
 
 Only the caller's publish options are captured, not the connection's `defaultPublishOptions`.
+
+## Linking a message to its request
+
+A message consumed by `RabbitMqCollectorModule` gets a profile of its own. To file it under the trace of the request that published it — so the detail page of either lists both, and the Logs tab can merge their lines — turn on `propagateTraceId` on the publishing side:
+
+```ts
+RabbitMqPublishCollectorModule.forRoot({
+  propagateTraceId: true, // or 'x-correlation-id'
+});
+```
+
+Every message published while a profile is active then carries the profile's trace id in an `x-request-id` header, and the consumer adopts it as its own trace id. With a custom header name, set the same one on the consumer with `traceIdHeader`.
+
+It is opt-in because adding a header to an application's messages is a visible change. Three behaviours worth knowing:
+
+- **A header rather than `correlationId`.** `AmqpConnection.request()` owns `correlationId` to match a reply to its request, so the header is also what links an `@RabbitRPC` handler. A message without the header falls back to its `correlationId`, for a publisher that sets it to the trace id itself.
+- **A header the caller set explicitly always wins.** They wrote it on purpose, and overwriting it would break the correlation they were setting up.
+- **Nothing is added outside a profiled execution.** A publish made at bootstrap or from a cron job goes out unchanged. The caller's publish options are never mutated: the header is added to a copy.
+
+The consumer validates the id before adopting it, like any inbound one: an id too long or made of unsafe characters is ignored and the message keeps a trace of its own.
 
 ## The Discover / RabbitMQ view
 

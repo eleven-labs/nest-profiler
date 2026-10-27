@@ -164,6 +164,85 @@ describe('patchRabbitMqPublish', () => {
     expect(entry.payload).toBeUndefined();
   });
 
+  describe('trace id propagation', () => {
+    it('leaves the message untouched by default', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(makeProfile()));
+      const publishOptions = { headers: { 'x-tenant': 't1' } };
+
+      await target.publish('articles.events', 'published.LEFIGARO', {}, publishOptions);
+
+      expect(target.calls[0]?.[3]).toBe(publishOptions);
+    });
+
+    it('adds the trace id header without mutating the caller options', async () => {
+      const profile = makeProfile();
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(profile), { propagateTraceId: true });
+      const publishOptions = { messageId: 'mid-1', headers: { 'x-tenant': 't1' } };
+
+      await target.publish('articles.events', 'published.LEFIGARO', {}, publishOptions);
+
+      expect(target.calls[0]?.[3]).toEqual({
+        messageId: 'mid-1',
+        headers: { 'x-tenant': 't1', 'x-request-id': 'trace-test' },
+      });
+      expect(publishOptions).toEqual({ messageId: 'mid-1', headers: { 'x-tenant': 't1' } });
+      // Recorded as sent.
+      expect(entriesOf(profile)[0]?.headers).toEqual({
+        'x-tenant': 't1',
+        'x-request-id': 'trace-test',
+      });
+    });
+
+    it('adds the header to a publish made without options', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(makeProfile()), { propagateTraceId: true });
+
+      await target.publish('articles.events', 'published.LEFIGARO', {});
+
+      expect(target.calls[0]?.[3]).toEqual({ headers: { 'x-request-id': 'trace-test' } });
+    });
+
+    it('writes a custom header name', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(makeProfile()), {
+        propagateTraceId: ' X-Correlation-Id ',
+      });
+
+      await target.publish('articles.events', 'published.LEFIGARO', {});
+
+      expect(target.calls[0]?.[3]).toEqual({ headers: { 'x-correlation-id': 'trace-test' } });
+    });
+
+    it('keeps a trace id header the caller set, whatever its case', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(makeProfile()), { propagateTraceId: true });
+      const publishOptions = { headers: { 'X-Request-Id': 'upstream' } };
+
+      await target.publish('articles.events', 'published.LEFIGARO', {}, publishOptions);
+
+      expect(target.calls[0]?.[3]).toBe(publishOptions);
+    });
+
+    it('adds nothing when the request was not profiled', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls(undefined), { propagateTraceId: true });
+
+      await target.publish('x', 'y', {});
+
+      expect(target.calls[0]?.[3]).toBeUndefined();
+    });
+
+    it('adds nothing outside a CLS context, and still publishes', async () => {
+      const target = makeTarget();
+      patchRabbitMqPublish(target, makeCls('throws'), { propagateTraceId: true });
+
+      await expect(target.publish('x', 'y', {})).resolves.toBe(true);
+      expect(target.calls[0]?.[3]).toBeUndefined();
+    });
+  });
+
   it('records nothing when the request was not profiled', async () => {
     const target = makeTarget();
     patchRabbitMqPublish(target, makeCls(undefined));

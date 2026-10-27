@@ -118,4 +118,55 @@ describe('RabbitMqContextAdapter', () => {
     expect(data.redelivered).toBe(true);
     expect(data.payload).toBeUndefined();
   });
+
+  describe('trace id adoption', () => {
+    /** Enriches a fresh profile from a message carrying `properties`; returns its trace id. */
+    function adoptedTraceId(
+      properties: Record<string, unknown>,
+      adapter = new RabbitMqContextAdapter({}),
+    ): { generated: string; adopted: string } {
+      const profile = adapter.recoverProfile();
+      const generated = profile.traceId;
+      const message = makeMessage({ properties } as unknown as ConsumeMessage);
+      adapter.enrichProfile(profile, makeCtx(message, {}));
+      return { generated, adopted: profile.traceId };
+    }
+
+    it('keeps its own trace when the message carries no trace id', () => {
+      const { generated, adopted } = adoptedTraceId({ headers: {} });
+      expect(adopted).toBe(generated);
+    });
+
+    it('adopts the trace id header the publisher added', () => {
+      expect(adoptedTraceId({ headers: { 'x-request-id': 'trace-1' } }).adopted).toBe('trace-1');
+    });
+
+    it('reads a header amqplib handed back as a Buffer', () => {
+      const headers = { 'x-request-id': Buffer.from('trace-1') };
+      expect(adoptedTraceId({ headers }).adopted).toBe('trace-1');
+    });
+
+    it('prefers the header over the correlationId golevelup sets on an RPC call', () => {
+      const properties = { headers: { 'x-request-id': 'trace-1' }, correlationId: 'rpc-1' };
+      expect(adoptedTraceId(properties).adopted).toBe('trace-1');
+    });
+
+    it('falls back to the correlationId when the header is absent', () => {
+      expect(adoptedTraceId({ headers: {}, correlationId: 'trace-1' }).adopted).toBe('trace-1');
+    });
+
+    it('reads a custom header name, whatever its case', () => {
+      const adapter = new RabbitMqContextAdapter({ traceIdHeader: 'x-correlation-id' });
+      const headers = { 'X-Correlation-Id': 'trace-1', 'x-request-id': 'other' };
+      expect(adoptedTraceId({ headers }, adapter).adopted).toBe('trace-1');
+    });
+
+    it('rejects a trace id unfit to adopt', () => {
+      const { generated, adopted } = adoptedTraceId({
+        headers: { 'x-request-id': '<script>' },
+        correlationId: 'a b',
+      });
+      expect(adopted).toBe(generated);
+    });
+  });
 });

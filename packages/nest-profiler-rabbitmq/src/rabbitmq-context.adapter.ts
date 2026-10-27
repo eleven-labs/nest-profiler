@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isAdoptableTraceId } from '@eleven-labs/nest-profiler';
+import { DEFAULT_TRACE_ID_HEADER, isAdoptableTraceId } from '@eleven-labs/nest-profiler';
 import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConsumeMessage } from 'amqplib';
 import { markProfileStart, redact } from '@eleven-labs/nest-profiler';
@@ -13,6 +13,7 @@ import type { RabbitMqInfo } from './rabbitmq-collector.interface.js';
 import type { RabbitMqCollectorModuleOptions } from './rabbitmq-collector.interface.js';
 import { buildRabbitMqPublish } from './build-rabbitmq-publish.js';
 import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util.js';
+import { readMessageTraceId } from './rabbitmq-trace-id.js';
 
 /**
  * Context adapter that lets the profiler capture `@RabbitSubscribe` messages.
@@ -40,9 +41,9 @@ export class RabbitMqContextAdapter implements IContextAdapter {
     const startTime = Date.now();
     const profile: Profile = {
       token: randomUUID(),
-      // A consumed message opens its own trace. `enrichProfile` adopts the broker's
-      // `correlationId` over this one when the publisher set it, which is what links a message
-      // back to the HTTP request that produced it.
+      // A consumed message opens its own trace. `enrichProfile` adopts the publisher's trace id
+      // over this one when the message carries it, which is what links a message back to the HTTP
+      // request that produced it.
       traceId: randomUUID(),
       createdAt: startTime,
       // The `rabbitmq` entrypoint type (registered by RabbitMqCollectorModule)
@@ -77,13 +78,17 @@ export class RabbitMqContextAdapter implements IContextAdapter {
     const headers =
       opts.captureHeaders !== false ? extractHeaders(properties?.headers, maskHeaders) : undefined;
 
-    // Adopt the publisher's correlation id as this trace's id when there is one — that is exactly
-    // the link between the request that published the message and the consumer that handled it,
-    // and it is the only propagation channel AMQP offers. Validated like any inbound id: it lands
-    // in log lines and in the dashboard, so it is not trusted on the publisher's word.
-    if (isAdoptableTraceId(properties?.correlationId)) {
-      profile.traceId = properties.correlationId;
-    }
+    // Adopt the publisher's trace id when the message carries one — that is exactly the link
+    // between the request that published the message and the consumer that handled it. The trace
+    // id header (written by the publish collector's `propagateTraceId`) comes first: it also links
+    // an `@RabbitRPC` handler, whose `correlationId` golevelup's RPC owns. The `correlationId` stays
+    // the fallback, for a publisher that sets it to the trace id itself. Both are validated like any
+    // inbound id: they land in log lines and in the dashboard, so they are not trusted on the
+    // publisher's word.
+    const traceId =
+      readMessageTraceId(properties?.headers, opts.traceIdHeader ?? DEFAULT_TRACE_ID_HEADER) ??
+      (isAdoptableTraceId(properties?.correlationId) ? properties.correlationId : undefined);
+    if (traceId) profile.traceId = traceId;
 
     const data: RabbitMqInfo = {
       exchange,

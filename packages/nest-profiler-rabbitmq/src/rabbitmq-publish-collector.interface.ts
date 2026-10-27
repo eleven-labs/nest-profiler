@@ -59,6 +59,20 @@ export const RABBITMQ_PUBLISHES_KEY = '__rabbitmq_publishes';
 export interface RabbitMqPublishCollectorModuleOptions
   extends CollectorModuleOptions, TagSeverityOptions, RedactionHeaderOptions {
   /**
+   * Add the profile's trace id to every message published while a profile is active, as a message
+   * header — what lets `RabbitMqCollectorModule` file the consumer's profile under the same trace
+   * as the request that published the message, so the detail page lists them together.
+   *
+   * Pass `true` for the default header (`x-request-id`), or a header name to use another — the
+   * consumer must read the same one (`RabbitMqCollectorModule`'s `traceIdHeader`). Off by default:
+   * adding a header to an application's messages is a visible change.
+   *
+   * A header rather than `correlationId`, which `AmqpConnection.request()` owns for RPC. A message
+   * that already carries the header keeps its own value, so an explicit one always wins.
+   */
+  propagateTraceId?: boolean | string;
+
+  /**
    * Capture the RabbitMQ headers passed to `publish()`. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
    */
