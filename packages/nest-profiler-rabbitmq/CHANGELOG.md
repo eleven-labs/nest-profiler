@@ -1,5 +1,11 @@
 # @eleven-labs/nest-profiler-rabbitmq
 
+## 1.6.0
+
+### Minor Changes
+
+- a476fdb: Link a consumed message to the request that published it: `RabbitMqPublishCollectorModule`'s new `propagateTraceId` option stamps every message published while a profile is active with the trace id header, and `RabbitMqCollectorModule` adopts it (header name set by the new `traceIdHeader` option), so the detail page lists both profiles under one trace.
+
 ## 1.4.0
 
 ### Minor Changes
