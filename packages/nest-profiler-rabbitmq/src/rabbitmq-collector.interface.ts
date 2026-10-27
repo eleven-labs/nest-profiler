@@ -9,6 +9,16 @@ import type {
 export interface RabbitMqCollectorModuleOptions
   extends CollectorModuleOptions, RedactionHeaderOptions {
   /**
+   * Message header the consumed message's trace id is read from — what files the consumer's
+   * profile under the trace of the request that published it. Default: `x-request-id`, the header
+   * `RabbitMqPublishCollectorModule`'s `propagateTraceId: true` writes.
+   *
+   * When the header is absent, the message's `correlationId` is adopted instead, for a publisher
+   * that sets it to the trace id itself; a message carrying neither opens a trace of its own.
+   */
+  traceIdHeader?: string;
+
+  /**
    * Capture incoming RabbitMQ message headers. Default: `true`.
    * Sensitive headers are masked — see {@link maskHeaders}.
    */

@@ -69,8 +69,12 @@ import {
     }),
     // Profiles each consumed message as a `rabbitmq` entrypoint.
     ConditionalModule.registerWhen(RabbitMqCollectorModule.forRoot(), isProfilerEnabled),
-    // Lists the events this context publishes in the RabbitMQ panel of the profile that emitted them.
-    ConditionalModule.registerWhen(RabbitMqPublishCollectorModule.forRoot(), isProfilerEnabled),
+    // Lists the events this context publishes in the RabbitMQ panel of the profile that emitted them,
+    // and stamps them with the request's trace id, so the consumer's profile joins its trace.
+    ConditionalModule.registerWhen(
+      RabbitMqPublishCollectorModule.forRoot({ propagateTraceId: true }),
+      isProfilerEnabled,
+    ),
   ],
   providers: [
     NotificationService,

@@ -7,6 +7,7 @@ import { PROFILER_CLS_KEYS, appendCollectorEntry, tryResolve } from '@eleven-lab
 import type { Profile } from '@eleven-labs/nest-profiler';
 import { extractHeaders, resolveMaskHeaders } from './rabbitmq-headers.util.js';
 import { capturePublishPayload } from './rabbitmq-publish.util.js';
+import { resolveTraceIdHeader, withTraceIdHeader } from './rabbitmq-trace-id.js';
 // Import the options token from the interface module, never from
 // `./rabbitmq-publish-collector.module`: that module imports this file, and the resulting cycle
 // leaves the re-exported token undefined when the decorators below run — `@Inject(undefined)`
@@ -52,6 +53,18 @@ export function patchRabbitMqPublish(
   if (typeof original !== 'function' || original.__profilerPatched === true) return;
 
   const maskHeaders = resolveMaskHeaders(options.maskHeaders);
+  const traceIdHeader = resolveTraceIdHeader(options.propagateTraceId);
+
+  /** The active profile's trace id, or `undefined` outside a profiled execution. */
+  const currentTraceId = (): string | undefined => {
+    if (!traceIdHeader) return undefined;
+    try {
+      return cls.get<Profile | undefined>(PROFILER_CLS_KEYS.profile)?.traceId;
+    } catch {
+      // Outside a CLS context — propagation is an aid, never a precondition for the publish.
+      return undefined;
+    }
+  };
 
   const record = (
     exchange: string,
@@ -99,8 +112,10 @@ export function patchRabbitMqPublish(
     exchange: string,
     routingKey: string,
     message: unknown,
-    publishOptions?: Options.Publish,
+    callerOptions?: Options.Publish,
   ): Promise<boolean> {
+    // Recorded as sent, so the panel shows the trace id header the patch added.
+    const publishOptions = withTraceIdHeader(callerOptions, traceIdHeader, currentTraceId());
     const startedAt = Date.now();
     let accepted: boolean | undefined;
     let error: string | undefined;
