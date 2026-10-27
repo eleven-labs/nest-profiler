@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { getConnectionToken } from '@nestjs/mongoose';
@@ -160,6 +161,27 @@ function fieldOf(
   return field;
 }
 
+/**
+ * A key identifying the structure an embedded document holds — its fields, their types,
+ * requiredness and references, recursively — so the same shape embedded in several places (an
+ * address used for shipping and billing) is recognised as one. Structural rather than by `Schema`
+ * identity: `@nestjs/mongoose` builds a fresh schema for every `@Prop({ type: [Address] })`.
+ */
+function shapeKey(field: FieldNode): string {
+  const describe = (node: FieldNode, prefix: string): unknown[] =>
+    node.children.map((child) => [
+      child.path.slice(prefix.length),
+      child.type,
+      child.required,
+      child.ref?.target ?? null,
+      child.embedded ?? null,
+      describe(child, `${child.path}.`),
+    ]);
+  // One document or an array of them is the embedding field's business, not the shape's.
+  const structure = JSON.stringify(describe(field, `${field.path}.`));
+  return createHash('sha256').update(structure).digest('hex').slice(0, 16);
+}
+
 /** Flattens the tree parent-first, the way the shared Schema panel lists nested fields. */
 function flatten(fields: FieldNode[], depth = 0): Array<{ field: FieldNode; depth: number }> {
   return fields.flatMap((field) => [{ field, depth }, ...flatten(field.children, depth + 1)]);
@@ -218,6 +240,8 @@ export class MongooseSchemaCollector extends AbstractSchemaCollector {
       };
       if (depth > 0) column.depth = depth;
       if (field.embedded) column.embedded = field.embedded;
+      // Only an embedded schema has a reusable shape; a plain nested object belongs to its field.
+      if (field.embedded && field.type !== 'Object') column.embeddedShape = shapeKey(field);
       columns.push(column);
       // A reference is a stored id like any other field — listed as one — and an edge to the
       // model it names, with no cardinality: the database never checks it.

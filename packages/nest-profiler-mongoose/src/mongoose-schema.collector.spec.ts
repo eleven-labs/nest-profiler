@@ -289,6 +289,42 @@ describe('MongooseSchemaCollector', () => {
       );
     });
 
+    it('recognises the same embedded shape wherever it is used', () => {
+      const address = (): Schema =>
+        new Schema(
+          { city: { type: String, required: true }, geo: { lat: Number } },
+          { _id: false },
+        );
+      const shared = address();
+      const data = collectModels({
+        Order: new Schema({
+          shipping: { type: shared, required: true },
+          billing: shared,
+          // A distinct but identical schema — what `@nestjs/mongoose` builds per `@Prop`.
+          pickup: address(),
+          parcel: new Schema({ weight: Number }),
+        }),
+        Customer: new Schema({ addresses: [shared] }),
+      });
+      const shape = (model: number, name: string): string | undefined =>
+        data.entities[model]?.columns.find((c) => c.name === name)?.embeddedShape;
+
+      expect(shape(0, 'shipping')).toEqual(expect.any(String));
+      expect(shape(0, 'billing')).toBe(shape(0, 'shipping'));
+      expect(shape(0, 'pickup')).toBe(shape(0, 'shipping'));
+      // One document or an array of them: the same shape.
+      expect(shape(1, 'addresses')).toBe(shape(0, 'shipping'));
+      expect(shape(0, 'parcel')).not.toBe(shape(0, 'shipping'));
+      // A plain nested object belongs to its field: never shared.
+      expect(shape(0, 'shipping.geo')).toBeUndefined();
+
+      expect(data.mermaid).toContain(
+        '  Order_shipping["shipping / billing / pickup / addresses"] {',
+      );
+      expect(data.mermaid).toContain('  Customer ||--o{ Order_shipping : "embeds addresses[]"');
+      expect(data.mermaid).not.toContain('Order_billing');
+    });
+
     it('does not expand a recursive schema forever', () => {
       const comment = new Schema({ body: String });
       comment.add({ replies: [comment] });

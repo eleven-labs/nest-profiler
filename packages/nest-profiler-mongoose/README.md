@@ -151,6 +151,8 @@ The panel opens with a collapsible **Document diagram** section, a [Mermaid](htt
 - a **solid line** from a document to what it embeds: an embedded document lives in exactly one parent, which holds one or an array of them;
 - a **dashed line** for every `ref`, labelled with the field: any number of documents may hold one, and it points at one document (`ref`) or several (`ref[]`).
 
+A shape embedded in several places — an address schema used for `shipping`, `billing` and a customer's `addresses[]` — is drawn **once**, named after the fields embedding it (`shipping / billing / addresses`), with a solid line from each of them. Shapes are recognised by their structure (fields, types, requiredness, references), so two identical schemas built separately, as `@nestjs/mongoose` does for every `@Prop`, count as one. A plain nested object always belongs to its own field.
+
 `_id` is marked `PK` and a single-field unique index `UK`. A `ref` to a model the application does not register is drawn as an empty block.
 
 The diagram is rendered in the browser and nothing has to be installed: the first time the section is opened, the profiler page loads Mermaid from jsDelivr — a single, version-pinned file checked against its Subresource Integrity hash, and the only third-party URL the profiler's CSP allows. When the CDN is unreachable (offline or air-gapped machines), the section shows the Mermaid source instead. **Copy Mermaid** copies that source in every case, ready to paste into a README, a GitHub comment or [mermaid.live](https://mermaid.live).

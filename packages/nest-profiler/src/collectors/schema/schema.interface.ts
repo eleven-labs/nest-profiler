@@ -34,6 +34,12 @@ export interface ColumnInfo {
    * it, one level deeper.
    */
   embedded?: 'one' | 'many';
+  /**
+   * Opaque key of the structure an {@link ColumnInfo.embedded} field holds: fields sharing a key
+   * embed the same document shape (an address reused for shipping and billing), which the document
+   * diagram draws once.
+   */
+  embeddedShape?: string;
 }
 
 /** A relation from an entity to another. */

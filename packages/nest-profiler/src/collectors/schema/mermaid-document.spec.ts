@@ -113,4 +113,74 @@ describe('toMermaidDocumentDiagram', () => {
 
     expect(diagram).toContain(`Us_er : "ref by"`);
   });
+
+  it('labels a block nested in an array with the array marker', () => {
+    const diagram = toMermaidDocumentDiagram([
+      model('Customer', {
+        columns: [
+          field('addresses', { type: 'Subdocument[]', embedded: 'many' }),
+          field('addresses.geo', { type: 'Object', depth: 1, embedded: 'one' }),
+          field('addresses.geo.lat', { type: 'Number', depth: 2 }),
+        ],
+      }),
+    ]);
+
+    expect(diagram).toContain('  Customer_addresses_geo["Customer.addresses[].geo"] {');
+  });
+
+  describe('a shape embedded in several places', () => {
+    // An address — with a nested object and a reference — embedded three times over two models.
+    const address = (prefix: string, depth: number, over: Partial<ColumnInfo>): ColumnInfo[] => [
+      field(prefix, { type: 'Subdocument', embedded: 'one', embeddedShape: 'address', ...over }),
+      field(`${prefix}.city`, { depth: depth + 1 }),
+      field(`${prefix}.geo`, { type: 'Object', depth: depth + 1, embedded: 'one' }),
+      field(`${prefix}.geo.lat`, { type: 'Number', depth: depth + 2 }),
+      field(`${prefix}.country`, { type: 'ObjectId', depth: depth + 1 }),
+    ];
+    const ref = (property: string) => ({ property, kind: 'ref', target: 'Country' });
+    const diagram = toMermaidDocumentDiagram([
+      model('Order', {
+        columns: [
+          ...address('shipping', 0, { nullable: false }),
+          ...address('billing', 0, {}),
+          field('total', { type: 'Number' }),
+        ],
+        relations: [ref('shipping.country'), ref('billing.country')],
+      }),
+      model('Customer', {
+        columns: address('addresses', 0, { type: 'Subdocument[]', embedded: 'many' }),
+        relations: [ref('addresses.country')],
+      }),
+    ]);
+
+    it('is drawn once, named after the fields embedding it', () => {
+      expect(diagram).toBe(
+        [
+          'erDiagram',
+          '  Order {',
+          '    Subdocument shipping',
+          '    Subdocument billing',
+          '    Number total',
+          '  }',
+          '  Order_shipping["shipping / billing / addresses"] {',
+          '    String city',
+          '    Object geo',
+          '    ObjectId country "ref Country"',
+          '  }',
+          '  Order_shipping_geo["(shipping / billing / addresses).geo"] {',
+          '    Number lat',
+          '  }',
+          '  Customer {',
+          '    Subdocument[] addresses',
+          '  }',
+          '  Order ||--|| Order_shipping : "embeds shipping"',
+          '  Order_shipping ||--o| Order_shipping_geo : "embeds geo"',
+          '  Order ||--o| Order_shipping : "embeds billing"',
+          '  Customer ||--o{ Order_shipping : "embeds addresses[]"',
+          // The reference declared in the shape, once, from its single block.
+          '  Order_shipping }o..o| Country : "ref country"',
+        ].join('\n'),
+      );
+    });
+  });
 });
