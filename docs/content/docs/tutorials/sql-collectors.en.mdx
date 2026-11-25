@@ -2,8 +2,8 @@
 title: SQL query profiling (TypeORM & MikroORM)
 description: Capture every SQL query issued by TypeORM or MikroORM and inspect duration, slow queries and execution plans in the profiler's Database panel.
 seo:
-  title: How to profile TypeORM and MikroORM queries
-  description: 'A step-by-step guide to capturing every SQL query issued by TypeORM or MikroORM and inspecting its duration, slow queries and EXPLAIN plan in the profiler Database panel, from installing the collector to reading the results.'
+  title: Find slow SQL and N+1 queries in NestJS
+  description: 'Catch slow SQL queries and N+1 patterns in a NestJS app using TypeORM or MikroORM: record every query with its duration and EXPLAIN plan, and see the flagged ones in the profiler Database panel.'
 ---
 
 This tutorial shows how to profile the SQL queries of a NestJS application backed by PostgreSQL, whether it uses **TypeORM** (`@nestjs/typeorm`) or **MikroORM** (`@mikro-orm/nestjs`). There is one collector package per ORM, but they share the same **Database** panel rendering and the same `QueryEntry` shape (provided by the core `AbstractSqlQueryCollector`), so everything below the wiring is identical whichever one you use — pick your ORM in each step.

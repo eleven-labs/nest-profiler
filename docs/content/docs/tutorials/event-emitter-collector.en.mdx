@@ -2,8 +2,8 @@
 title: Domain event profiling
 description: Profile the events dispatched through @nestjs/event-emitter and see what each @OnEvent handler actually did.
 seo:
-  title: How to profile @nestjs/event-emitter events
-  description: 'A step-by-step guide to profiling NestJS domain events: record every EventEmitter2 emission with its listeners, duration and payload, list your @OnEvent subscriptions, and give each handler execution its own profile.'
+  title: Debug NestJS events and @OnEvent handlers
+  description: 'See what happens after a NestJS event is emitted: record every EventEmitter2 emission with its listeners, duration and payload, list your @OnEvent subscriptions, and give each handler execution its own profile.'
 ---
 
 This tutorial shows how to profile the domain events an application dispatches with [`@nestjs/event-emitter`](https://docs.nestjs.com/techniques/events). Events are the classic blind spot of a request trace: the controller answers, and whatever the listeners did happens somewhere off to the side. This collector closes that gap on three fronts — an **Events** panel on the emitting profile, a **Discover / Events** view listing your subscriptions, and one profile per `@OnEvent` execution.
