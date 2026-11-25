@@ -1,0 +1,108 @@
+---
+title: Comparison
+description: Understand when to use NestJS Profiler, NestJS Devtools, or an APM platform, and how they complement each other.
+seo:
+  title: NestJS Profiler vs NestJS Devtools and APM platforms
+  description: Compare NestJS Profiler, NestJS Devtools, and APM platforms by purpose, workflow, and capabilities to choose the right tool for your NestJS application.
+---
+
+NestJS Profiler, NestJS Devtools, and APM platforms help you understand your application from different perspectives:
+
+- **NestJS Profiler:** what happened during this execution?
+- **NestJS Devtools:** how is my NestJS application put together?
+- **APM platforms:** how does my application behave in production?
+
+Choose based on the problem you need to solve. These tools can complement each other rather than replace one another.
+
+## At a glance
+
+|                            | NestJS Profiler                                                                          | NestJS Devtools                                         | APM platforms                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Primary purpose            | Inspect individual executions during development                                         | Explore NestJS application structure                    | Monitor deployed applications                                               |
+| Typical workflow           | Reproduce an issue and inspect its execution profile                                     | Explore modules, providers, routes, and dependencies    | Investigate errors and performance across services and instances            |
+| Main interface             | In-app profiler at `/_profiler`                                                          | Graph explorer and development tools                    | Centralized observability interface                                         |
+| NestJS-specific visibility | Execution details from enabled collectors                                                | Module graph, dependency injection, and route structure | Depends on the platform and instrumentation                                 |
+| Collected data             | Queries, outgoing calls, logs, exceptions, and other collector data grouped by execution | Application structure and dependency metadata           | Typically traces, metrics, and errors; other signals depend on the platform |
+| Multi-instance monitoring  | No built-in aggregation interface                                                        | Not its purpose                                         | Typically supported                                                         |
+| Alerting                   | No                                                                                       | Not its purpose                                         | Typically supported                                                         |
+| Infrastructure             | Runs inside your application; no separate service required                               | Development integration and Devtools interface          | Instrumentation connected to an observability backend                       |
+| Cost model                 | Free and MIT-licensed                                                                    | Depends on the features and plan                        | Depends on the platform, usage, and hosting model                           |
+
+APM platforms include products such as Sentry and Datadog. The table describes common capabilities, not a guarantee for every product or plan.
+
+OpenTelemetry provides instrumentation and telemetry-export components rather than a complete APM interface. When using an OpenTelemetry-based stack, storage, dashboards, search, and alerting depend on the backend you connect it to.
+
+## Why choose NestJS Profiler?
+
+### Inspect an execution in one place
+
+NestJS Profiler groups the data captured by enabled collectors into a single execution profile.
+
+Depending on your configuration, a profile can include:
+
+- Request and response information.
+- Database queries and their parameters.
+- Outgoing HTTP calls.
+- Cache operations.
+- Logs and exceptions.
+- Validation results.
+- Framework phases and instrumented method calls.
+
+Use the timeline and collector panels to understand what an execution did without reconstructing it from separate log entries.
+
+### Get visibility into NestJS integrations
+
+The profiler provides dedicated views for supported integrations, including HTTP, GraphQL, database access, authentication, validation, and application events.
+
+Coverage depends on the installed collectors and supported libraries. See the [documentation](/docs) for the available integrations and their configuration.
+
+### Investigate performance locally
+
+Inspect a captured execution to identify slow operations, repeated queries or calls, and other performance findings.
+
+[Performance tags](/docs/packages/nest-profiler/performance-tags) highlight patterns worth investigating. They are diagnostic signals: inspect the underlying operations to determine whether a finding represents a problem in your application.
+
+### Extend the profiler for your application
+
+Add application-specific data through [custom collectors](/docs/tutorials/custom-collector), or support additional execution sources through [custom entrypoint types](/docs/tutorials/build-entrypoint-type).
+
+This lets you keep domain-specific diagnostics alongside the built-in collector data.
+
+## When another tool is a better fit
+
+### You need to understand application structure
+
+Choose [NestJS Devtools](https://docs.nestjs.com/devtools/overview) to explore module relationships, inspect the dependency graph, or investigate dependency-resolution problems.
+
+NestJS Profiler focuses on captured executions rather than the application's dependency graph.
+
+### You need production monitoring
+
+Choose an APM platform when you need centralized visibility across services and instances, long-term telemetry, or alerts.
+
+NestJS Profiler is designed primarily for development. It can be configured for other environments, but it does not provide the aggregation and operational features of a production observability platform.
+
+See [Getting started](/docs/getting-started) for the recommended development-only setup.
+
+### You need function-level CPU profiling
+
+NestJS Profiler's execution timeline is not a sampling CPU profile.
+
+Use a CPU profiler when you need to identify which functions consume CPU time, rather than which instrumented operations contribute to an execution's duration.
+
+### Your integration is not covered
+
+Check the available collectors before choosing the profiler for a specific library or transport.
+
+An unsupported integration may require a custom collector or manual instrumentation. Another tool may offer ready-made support that better fits your application.
+
+## Using the tools together
+
+A complementary workflow is:
+
+1. Use NestJS Devtools to understand the application's structure.
+2. Use an APM platform to identify errors or slow operations in production.
+3. Reproduce the issue locally and use NestJS Profiler to inspect the captured execution.
+4. Repeat the execution after your change to verify its effect on the recorded operations and findings.
+
+Choose the tools that answer your questions. You do not need all three to benefit from any one of them.
