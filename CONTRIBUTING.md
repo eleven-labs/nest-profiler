@@ -4,6 +4,8 @@ Thanks for contributing.
 
 ## Development
 
+Requirements: Node.js `22+`, pnpm `10+`
+
 ```bash
 pnpm install
 pnpm docker:up      # Postgres + MongoDB + RabbitMQ, only for the example app's infra-backed features
@@ -23,6 +25,51 @@ Run the example API against the profiler UI (it boots with no infrastructure; `p
 
 ```bash
 pnpm example:dev    # http://localhost:3000/_profiler
+```
+
+Serve the documentation site locally:
+
+```bash
+pnpm docs:dev       # http://localhost:3002
+```
+
+## Repository layout
+
+A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything else supports them.
+
+```text
+packages/
+  nest-profiler/            core profiler engine, storage, and UI
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, mongoose, http, cache, auth, config, routes, validator, graphql, commander, rabbitmq, event-emitter, ai)
+  configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
+examples/
+  api/                      NestJS demo app with all collectors enabled
+docs/                       Fumadocs documentation site
+skills/                     installable agent skills for consumers (npx skills)
+scripts/                    repository automation and release helpers
+```
+
+## Common commands
+
+Run a task across every package via Turbo:
+
+```bash
+pnpm lint           # eslint
+pnpm typecheck      # tsc --noEmit
+pnpm test           # run unit tests
+pnpm test:cov       # run tests with coverage (enforces the 90% threshold)
+pnpm build          # build all packages
+pnpm docs:dev       # serve the docs site
+pnpm docker:up      # start Postgres + MongoDB + RabbitMQ for the example (docker:down to stop)
+pnpm attw           # check published type resolution (Are the Types Wrong?)
+pnpm changeset      # record a version bump
+```
+
+Target a single package with `--filter`:
+
+```bash
+pnpm --filter @eleven-labs/nest-profiler test:cov
+pnpm --filter @eleven-labs/nest-profiler-typeorm build
 ```
 
 ## Pull requests
@@ -74,4 +121,4 @@ Breaking changes must include:
 
 ## Releasing
 
-Releases and the alpha/beta prerelease flow run in CI from `main`. The full runbook, the versioning policy, label automation, and the one-time repository setup live in [MAINTAINERS.md](MAINTAINERS.md).
+Packages are versioned with Changesets and released from CI to the public npm registry, from `main`. The versioning policy, the stable release flow, the alpha/beta prerelease runbook, label automation, and the one-time repository setup live in [MAINTAINERS.md](MAINTAINERS.md).

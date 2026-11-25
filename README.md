@@ -32,65 +32,24 @@
   <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" /></a>
 </p>
 
-A **Symfony Web Profiler-inspired** toolkit for NestJS applications. Each profiled execution receives a unique token, and a rich panel UI at `/_profiler` lets you inspect request data, logs, exceptions, performance spans, and much more — in real time.
+A request profiler for NestJS. Every HTTP request, GraphQL operation, consumed message and CLI command gets a unique token, and the `/_profiler` UI shows what it did: SQL and MongoDB queries, outgoing HTTP calls, cache hits and misses, logs, exceptions and performance spans. Slow queries and **N+1 patterns** are flagged automatically. Inspired by Symfony's Web Profiler.
 
-The ecosystem is built around an **extensible collector architecture**: the core package provides the profiler engine, storage, and UI, while optional sub-packages each add a dedicated panel as a self-contained NestJS module.
+The core package provides the profiler engine, storage and UI. Optional collector packages each add a dedicated panel as a self-contained NestJS module.
 
 ![Profiler UI — the sidebar of views and the HTTP list with its filters](docs/public/screenshots/profiler/profiles-list.png)
 
-## Packages
+## Compatibility
 
-Each package is a self-contained NestJS module with its own README:
+| Profiler packages | NestJS 11 | NestJS 12 |
+| ----------------- | --------- | --------- |
+| 1.4.0 and later   | Yes       | Yes       |
+| 1.0.0 to 1.3.x    | Yes       | No        |
 
-- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, CPU/memory, runtime metrics, logs, exceptions)
-- [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
-- [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
-- [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (opt-in axios / fetch adapters and phase timings, bring your own client)
-- [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
-- [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
-- [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
-- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Discover views, one per transport (REST + GraphQL / RabbitMQ / CLI)
-- [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
-- [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
-- [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
-- [`@eleven-labs/nest-profiler-commander`](packages/nest-profiler-commander/README.md) — Command panel (CLI / nest-commander)
-- [`@eleven-labs/nest-profiler-rabbitmq`](packages/nest-profiler-rabbitmq/README.md) — RabbitMQ panel (messages consumed via `@RabbitSubscribe`)
-- [`@eleven-labs/nest-profiler-event-emitter`](packages/nest-profiler-event-emitter/README.md) — Events panel (domain events dispatched via `@nestjs/event-emitter`)
+- Node.js 22 or newer (22.12 or newer on NestJS 12, which ships its packages as ESM).
+- CommonJS and ESM applications, on Express or Fastify.
+- On NestJS 12, the MikroORM collector needs `@mikro-orm/nestjs` 7.1 or later and the RabbitMQ collector needs `@golevelup/nestjs-rabbitmq` 9.1 or later.
 
-Full guides and API reference live on the documentation site (`pnpm docs:dev`, then http://localhost:3002).
-
-### Panels at a glance
-
-|                                                                        |                                                                        |                                                                        |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)             |
-| **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                              |
-| ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Performance panel](docs/public/screenshots/profiler/performance.png) |
-| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Performance** (duration, CPU, memory, spans)                         |
-| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)         |
-| **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                           |
-| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Discover panel](docs/public/screenshots/profiler/discover.png)       |
-| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Discover** (REST/GraphQL/RabbitMQ/CLI)                               |
-| ![Runtime view](docs/public/screenshots/profiler/runtime.png)          | ![Schemas view](docs/public/screenshots/profiler/schema-typeorm.png)   |                                                                        |
-| **Runtime** (memory, CPU, event loop, GC)                              | **Schemas** (TypeORM/MikroORM/Mongoose)                                |                                                                        |
-
-## Quickstart
-
-Requirements: Node.js `22+`, pnpm `10+`
-
-```bash
-pnpm install        # install dependencies
-pnpm build          # build all packages
-pnpm test:cov       # run the test suite with coverage
-pnpm docs:dev       # serve the documentation site at http://localhost:3002
-```
-
-To try the profiler against a real app, start the databases and the demo API, then open `http://localhost:3000/_profiler`:
-
-```bash
-pnpm docker:up      # Postgres + MongoDB + RabbitMQ (runs in the background)
-pnpm example:dev
-```
+See [Getting started](https://nest-profiler.eleven-labs.com/docs/getting-started#requirements) and [Troubleshooting](https://nest-profiler.eleven-labs.com/docs/troubleshooting#err_require_esm-on-nestjs-12) for the details.
 
 ## Installation
 
@@ -127,21 +86,42 @@ npx skills add eleven-labs/nest-profiler
 
 Then ask your agent to _"set up nest-profiler in this app"_. See [`skills/`](skills/README.md) for the full list.
 
-## Repository Layout
+## Packages
 
-A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything else supports them.
+Each package is a self-contained NestJS module with its own README:
 
-```text
-packages/
-  nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, mikro-orm, mongoose, http, cache, auth, config, routes, validator, graphql, commander, rabbitmq, event-emitter)
-  configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
-examples/
-  api/                      NestJS demo app with all collectors enabled
-docs/                       Fumadocs documentation site
-skills/                     installable agent skills for consumers (npx skills)
-scripts/                    repository automation and release helpers
-```
+- [`@eleven-labs/nest-profiler`](packages/nest-profiler/README.md) — Core (request, response, performance, CPU/memory, runtime metrics, logs, exceptions)
+- [`@eleven-labs/nest-profiler-typeorm`](packages/nest-profiler-typeorm/README.md) — Database panel (TypeORM)
+- [`@eleven-labs/nest-profiler-mikro-orm`](packages/nest-profiler-mikro-orm/README.md) — Database panel (MikroORM)
+- [`@eleven-labs/nest-profiler-http`](packages/nest-profiler-http/README.md) — HTTP Client panel (opt-in axios / fetch adapters and phase timings, bring your own client)
+- [`@eleven-labs/nest-profiler-cache`](packages/nest-profiler-cache/README.md) — Cache panel
+- [`@eleven-labs/nest-profiler-auth`](packages/nest-profiler-auth/README.md) — Security panel
+- [`@eleven-labs/nest-profiler-config`](packages/nest-profiler-config/README.md) — Config panel
+- [`@eleven-labs/nest-profiler-routes`](packages/nest-profiler-routes/README.md) — Discover views, one per transport (REST + GraphQL / RabbitMQ / CLI)
+- [`@eleven-labs/nest-profiler-mongoose`](packages/nest-profiler-mongoose/README.md) — Database (NoSQL) panel
+- [`@eleven-labs/nest-profiler-validator`](packages/nest-profiler-validator/README.md) — Validator panel
+- [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
+- [`@eleven-labs/nest-profiler-commander`](packages/nest-profiler-commander/README.md) — Command panel (CLI / nest-commander)
+- [`@eleven-labs/nest-profiler-rabbitmq`](packages/nest-profiler-rabbitmq/README.md) — RabbitMQ panel (messages consumed via `@RabbitSubscribe`)
+- [`@eleven-labs/nest-profiler-event-emitter`](packages/nest-profiler-event-emitter/README.md) — Events panel (domain events dispatched via `@nestjs/event-emitter`)
+- [`@eleven-labs/nest-profiler-ai`](packages/nest-profiler-ai/README.md) — AI panel (AI SDK calls, agents and tool runs; published under the `alpha` dist-tag)
+
+Full guides, tutorials and the API reference live on the documentation site: [nest-profiler.eleven-labs.com](https://nest-profiler.eleven-labs.com).
+
+### Panels at a glance
+
+|                                                                        |                                                                        |                                                                        |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| ![Database panel](docs/public/screenshots/profiler/database.png)       | ![HTTP Client panel](docs/public/screenshots/profiler/http-client.png) | ![Cache panel](docs/public/screenshots/profiler/cache.png)             |
+| **Database** (TypeORM)                                                 | **HTTP Client** (Axios)                                                | **Cache**                                                              |
+| ![Security panel](docs/public/screenshots/profiler/security.png)       | ![Validator panel](docs/public/screenshots/profiler/validator.png)     | ![Performance panel](docs/public/screenshots/profiler/performance.png) |
+| **Security** (JWT/Auth)                                                | **Validator** (class-validator)                                        | **Performance** (duration, CPU, memory, spans)                         |
+| ![RabbitMQ panel](docs/public/screenshots/profiler/rabbitmq.png)       | ![MongoDB panel](docs/public/screenshots/profiler/mongodb.png)         | ![Command panel](docs/public/screenshots/profiler/command.png)         |
+| **RabbitMQ** (@RabbitSubscribe)                                        | **MongoDB** (Mongoose)                                                 | **Command** (nest-commander)                                           |
+| ![GraphQL panel](docs/public/screenshots/profiler/graphql-request.png) | ![Config panel](docs/public/screenshots/profiler/config.png)           | ![Discover panel](docs/public/screenshots/profiler/discover.png)       |
+| **GraphQL** (Apollo/Mercurius/graphql-yoga)                            | **Config** (ConfigService)                                             | **Discover** (REST/GraphQL/RabbitMQ/CLI)                               |
+| ![Runtime view](docs/public/screenshots/profiler/runtime.png)          | ![Schemas view](docs/public/screenshots/profiler/schema-typeorm.png)   |                                                                        |
+| **Runtime** (memory, CPU, event loop, GC)                              | **Schemas** (TypeORM/MikroORM/Mongoose)                                |                                                                        |
 
 ## Architecture
 
@@ -222,29 +202,6 @@ type, and the interceptor delegates to it automatically once it is registered fr
 your module's `onModuleInit` via `ProfilerCoreService.registerContextAdapter()`. See
 [Custom protocol adapters](packages/nest-profiler/docs/context-adapters.md).
 
-## Common Commands
+## Contributing
 
-Run a task across every package via Turbo:
-
-```bash
-pnpm lint           # eslint
-pnpm typecheck      # tsc --noEmit
-pnpm test           # run unit tests
-pnpm test:cov       # run tests with coverage (enforces the 90% threshold)
-pnpm build          # build all packages
-pnpm docs:dev       # serve the docs site
-pnpm docker:up      # start Postgres + MongoDB + RabbitMQ for the example (docker:down to stop)
-pnpm attw           # check published type resolution (Are the Types Wrong?)
-pnpm changeset      # record a version bump
-```
-
-Target a single package with `--filter`:
-
-```bash
-pnpm --filter @eleven-labs/nest-profiler test:cov
-pnpm --filter @eleven-labs/nest-profiler-typeorm build
-```
-
-## Publishing
-
-Packages are versioned with Changesets and released from CI to the public npm registry. The versioning policy, the stable release flow, and the alpha/beta prerelease runbook live in [MAINTAINERS.md](MAINTAINERS.md).
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the local setup, the repository layout, the common commands and the pull request checklist. Releases are described in [MAINTAINERS.md](MAINTAINERS.md).
