@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-routes: the module options of the Discover views and the ProfilerDiscoverSource extension point that lets GraphQL, RabbitMQ and CLI packages contribute a view of their own.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-routes`, which builds the **Discover** views from the routes registered at startup, one view per transport: the module options, what each view captures, and the `ProfilerDiscoverSource` extension point that lets a package contribute a view of its own.
+
 ## RoutesCollectorModuleOptions
 
 Options passed to `RoutesCollectorModule.forRoot()`.
@@ -141,3 +143,7 @@ collect(): DiscoverGroup {
 ```
 
 A group whose `entries` are empty but whose sections hold something still gets its view — a broker an application only publishes to is worth showing.
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-routes) - inspect the application routing table in Symfony-Routing-style Discover views, one per transport.

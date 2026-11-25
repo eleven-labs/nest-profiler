@@ -199,3 +199,8 @@ The Validator panel renders zod violations exactly the same way - one entry per 
 ## How it works
 
 `ProfilerValidationPipe` **wraps** the validation pipe you configure: it records a valid/invalid entry into the active request profile and normalizes violations through duck-typed extractors (class-validator, then zod, then a generic `HttpException` fallback) before re-throwing the original exception. It resolves CLS statically, so `createProfilerValidationPipe(...)` needs no DI container. See [How it works](/docs/packages/nest-profiler-validator#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-validator` package guide](/docs/packages/nest-profiler-validator) - inspect DTO validation violations in the Validator panel.
+- [`@eleven-labs/nest-profiler-validator` API reference](/docs/api-reference/nest-profiler-validator) - `ValidationEntry`, `ProfilerValidationPipe` and the violation extractor contract.

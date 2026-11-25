@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-ai: the module options, the recorded entry types, the tool origins and the ai entrypoint kind.'
 ---
 
+Every option and type exported by `@eleven-labs/nest-profiler-ai`, the alpha collector that records AI SDK calls in the **AI** panel: the module options, the capture levels that decide which prompt and answer fields are kept, the redaction hooks applied before anything is stored, and the `AiCallEntry` shape the panel renders.
+
 ## AiCollectorModuleOptions
 
 <AutoTypeTable
@@ -448,3 +450,7 @@ import {
 ```
 
 Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, added to the dev-only bundle's `imports` in place of `forRoot()`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-ai) - record every AI SDK call — prompts, tools, tokens, cost and streamed answers — in the AI panel (alpha).

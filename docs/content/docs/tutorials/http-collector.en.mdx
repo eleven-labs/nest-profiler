@@ -273,3 +273,8 @@ Each selected adapter installs once at bootstrap and funnels into the shared `Ht
 - **`NodeHttpPhases`** wraps `request`/`get` on `node:http` and `node:https` to start a timer on each outgoing request, and **`UndiciPhases`** subscribes to undici's `diagnostics_channel` events. Neither records anything: the adapter that records the call reads the breakdown they measured.
 
 Every adapter records the start time, then on completion the end time, status code and final URL, pushing an `HttpRequestEntry` to the current profile. Requests made outside a request context (e.g. in `onModuleInit`) are silently ignored since there is no active CLS profile.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-http` package guide](/docs/packages/nest-profiler-http) - record outgoing HTTP client calls in the HTTP Client panel.
+- [`@eleven-labs/nest-profiler-http` API reference](/docs/api-reference/nest-profiler-http) - the recorder, the axios and fetch instrumentations, the phase providers and `HttpRequestEntry`.

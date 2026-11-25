@@ -134,3 +134,8 @@ The cache collector works transparently with any store since it patches the `CAC
 ## How it works
 
 At `onModuleInit` the collector wraps the `CACHE_MANAGER`'s `get`, `set`, and `del` methods to record each operation (type, key, duration) into the active request profile. See [How it works](/docs/packages/nest-profiler-cache#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-cache` package guide](/docs/packages/nest-profiler-cache) - record cache GET/SET/DEL operations and the hit ratio in the Cache panel.
+- [`@eleven-labs/nest-profiler-cache` API reference](/docs/api-reference/nest-profiler-cache) - `CacheOperationEntry`, `CacheOperation` and the module setup.

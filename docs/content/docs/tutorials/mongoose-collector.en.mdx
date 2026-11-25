@@ -133,3 +133,8 @@ MongooseSchemaCollectorModule.forRoot(),
 Open `/_profiler` and select the **Schemas / Mongoose** view — it has the same shape as every ORM's, one disclosure per model over a columns table (see the [SQL walkthrough](/docs/tutorials/sql-collectors) for a shot of it).
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named connections, redacts secrets embedded in field defaults, and simply does not appear when no Mongoose connection is wired.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-mongoose` package guide](/docs/packages/nest-profiler-mongoose) - profile Mongoose queries and aggregations in the MongoDB panel.
+- [`@eleven-labs/nest-profiler-mongoose` API reference](/docs/api-reference/nest-profiler-mongoose) - `MongooseCollectorModuleOptions` and `MongooseQueryEntry`.

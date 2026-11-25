@@ -147,3 +147,8 @@ referencing a module-level `handlers` entry is registered at all.
 ## How it works
 
 A consumed message has no HTTP request/response, so the module registers an `IContextAdapter` for the `rmq` context that **creates** a fresh profile per message and registers the `rabbitmq` entrypoint type (the **RabbitMQ** list view and **Message** detail tab). The publish collector works the other way around: it patches `AmqpConnection.prototype.publish` and appends to whatever profile is active. See [How it works](/docs/packages/nest-profiler-rabbitmq#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-rabbitmq` package guide](/docs/packages/nest-profiler-rabbitmq) - profile RabbitMQ messages handled via @golevelup/nestjs-rabbitmq.
+- [`@eleven-labs/nest-profiler-rabbitmq` API reference](/docs/api-reference/nest-profiler-rabbitmq) - the consume and publish modules, `RabbitMqInfo` and `RabbitMqPublishEntry`.

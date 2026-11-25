@@ -220,3 +220,8 @@ Two golevelup behaviours the view makes visible: a handler with no `connection` 
 **every** declared connection (listed once per connection — the classic multi-vhost trap), and a
 handler whose `name` matches no entry in that connection's `handlers` map is **not registered** at
 all, which the entry states in place of its description.
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-rabbitmq) - profile RabbitMQ messages handled via @golevelup/nestjs-rabbitmq.
+- [Tutorial: RabbitMQ message profiling](/docs/tutorials/rabbitmq-collector) - profile RabbitMQ messages consumed via @RabbitSubscribe and inspect routing key, payload and timing in the web profiler.

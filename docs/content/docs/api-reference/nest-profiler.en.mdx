@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler: the module options, profile structure, profiler service, collector interface and storage adapters that sit at the heart of the profiler.'
 ---
 
+Every option, type and service of the core package `@eleven-labs/nest-profiler`: the `ProfilerModule` options, how errors are classified, the profile structure every collector writes to, entrypoint types, logging, `TracerService`, the collector and storage contracts, and the client assets the UI loads. Each collector package documents its own types on its page in this section.
+
 ## Module options
 
 ### ProfilerModuleOptions
@@ -473,3 +475,11 @@ import type {
   ClientAssetRegistration,
 } from '@eleven-labs/nest-profiler';
 ```
+
+## See also
+
+- [Core module overview](/docs/packages/nest-profiler) - install the core module and open the `/_profiler` web UI.
+- [Getting started](/docs/getting-started) - the dev-only entrypoint, the build setup and the first profiled request.
+- [Performance tags](/docs/packages/nest-profiler/performance-tags) - the N+1, slow, chatty and large-payload rules, and how to add your own.
+- [Tutorial: Build a custom collector](/docs/tutorials/custom-collector) - implement `IProfilerCollector` and render your own panel.
+- [Tutorial: Build a custom entrypoint type](/docs/tutorials/build-entrypoint-type) - profile a transport the profiler does not cover yet.

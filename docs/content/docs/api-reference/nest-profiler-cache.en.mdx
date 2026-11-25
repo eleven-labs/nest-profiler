@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-cache: the types, options and recorder API of the cache collector that tracks GET, SET and DEL operations together with the hit ratio.'
 ---
 
+Types of `@eleven-labs/nest-profiler-cache`, which records every `@nestjs/cache-manager` `get`, `set` and `del` call in the **Cache** panel: the `CacheOperationEntry` stored for each call, the four `CacheOperation` values the hit ratio is computed from, and the module setup.
+
 ## CacheOperationEntry
 
 One entry per cache operation (get, set, del) executed during a request.
@@ -59,3 +61,8 @@ export class ProfilingModule {}
 There is no `forRootAsync` by design: the collector has no runtime-resolved options (its only knob, `enabled`, is a synchronous build-time decision). It lives in the dev-only bundle, or is gated with `ConditionalModule.registerWhen(...)` under the runtime gate.
 
 **Prerequisite:** `CacheModule.register({ isGlobal: true })` from `@nestjs/cache-manager` must be registered in the application (provides `CACHE_MANAGER` globally, so the collector can inject it from the bundle).
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-cache) - record cache GET/SET/DEL operations and the hit ratio in the Cache panel.
+- [Tutorial: Cache profiling](/docs/tutorials/cache-collector) - track cache GET_HIT/GET_MISS/SET/DEL operations and the hit ratio in the profiler's Cache panel with nest-profiler-cache.

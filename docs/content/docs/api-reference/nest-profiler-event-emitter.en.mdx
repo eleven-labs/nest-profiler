@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-event-emitter: the entry and entrypoint types, module options and public exports of the collector that profiles @nestjs/event-emitter emissions and @OnEvent handler executions.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-event-emitter`: the `EventEntry` recorded for each `EventEmitter2` emission with its listeners, the module options, the entrypoint data of a profiled `@OnEvent` handler, and the `DiscoveredListener` rows of the Discover / Events view.
+
 ## EventEntry
 
 One entry per `emit` / `emitAsync` call made during a profiled execution — the rows of the **Events** panel.
@@ -111,3 +113,8 @@ EventEmitterCollectorModule.forRootAsync({
 ```
 
 **Prerequisite:** `EventEmitterModule.forRoot()` from `@nestjs/event-emitter` must be registered (it provides `EventEmitter2` globally). Pass `emitterToken` when the emitter is bound to a custom token.
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-event-emitter) - profile the domain events dispatched through @nestjs/event-emitter, and every @OnEvent handler execution.
+- [Tutorial: Domain event profiling](/docs/tutorials/event-emitter-collector) - profile the events dispatched through @nestjs/event-emitter and see what each @OnEvent handler actually did.

@@ -190,3 +190,8 @@ A command that throws is captured too: its profile is marked failed (status `500
 ## How it works
 
 At bootstrap the module wraps every `CommandRunner.run()` to synthesise a `command` profile, and registers the `command` entrypoint type with the profiler core (the Commands list view and **Command** detail tab) - so add it to the HTTP app's profiling bundle too when you want command profiles to render there. See [How it works](/docs/packages/nest-profiler-commander#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-commander` package guide](/docs/packages/nest-profiler-commander) - profile nest-commander CLI runs alongside HTTP requests.
+- [`@eleven-labs/nest-profiler-commander` API reference](/docs/api-reference/nest-profiler-commander) - `CommandInfo` and how a command profile is shaped.
