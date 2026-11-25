@@ -11,6 +11,7 @@ import type { EditorLink } from '../views/editor-link.js';
 import { NEST_PROFILER_MODULE_OPTIONS } from '../nest-profiler.builder.js';
 import type { ProfilerModuleOptions } from '../nest-profiler.builder.js';
 import { ClientAssetRegistry } from './client-asset-registry.service.js';
+import { getProfilerVersion } from '../version.js';
 
 @Injectable()
 export class TemplateRendererService {
@@ -72,6 +73,7 @@ export class TemplateRendererService {
     // `isoDate`/`timeOnly` come bound to the configured timezone, overriding the
     // host-timezone defaults `HELPERS` carries, and `displayTimezone` labels them in the nav.
     // `editorLink` is bound to the configured editor, and returns '' when there is none.
+    // `profilerVersion` is the installed core version, shown in the page footer.
     return ejs.renderFile(
       templatePath,
       {
@@ -79,6 +81,7 @@ export class TemplateRendererService {
         ...this.dateHelpers,
         displayTimezone: this.displayTimezone,
         editorLink: this.editorLink,
+        profilerVersion: getProfilerVersion(),
         assetVersion: this.assetVersion,
         link: (href: string) => href,
         linkQueryPairs: [],
