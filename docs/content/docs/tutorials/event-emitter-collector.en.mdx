@@ -132,3 +132,8 @@ Emissions feed the core rule engine under their own `event` domain, so the usual
 ## How it works
 
 The collector wraps the app's `EventEmitter2` (`emit` and `emitAsync`) and reads the active profile synchronously at emit entry. For listener profiling it scans the DI container at bootstrap — providers **and** controllers — and wraps each `@OnEvent` method so the execution runs in its own CLS branch with its own profile. See [How it works](/docs/packages/nest-profiler-event-emitter#how-it-works) on the package page, and its [Limitations](/docs/packages/nest-profiler-event-emitter#limitations) for request-scoped subscribers.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-event-emitter` package guide](/docs/packages/nest-profiler-event-emitter) - profile the domain events dispatched through @nestjs/event-emitter, and every @OnEvent handler execution.
+- [`@eleven-labs/nest-profiler-event-emitter` API reference](/docs/api-reference/nest-profiler-event-emitter) - `EventEntry`, the module options and the `@OnEvent` entrypoint data.

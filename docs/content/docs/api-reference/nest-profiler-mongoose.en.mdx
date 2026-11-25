@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-mongoose: the types and options of the Mongoose query collector that records collection, operation, duration and result count per query.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-mongoose`, which records every Mongoose query and aggregation in the **MongoDB** panel: the module options and the `MongooseQueryEntry` stored per operation.
+
 ## MongooseCollectorModuleOptions
 
 Options passed to `MongooseCollectorModule.forRoot()`.
@@ -69,3 +71,8 @@ MongooseCollectorModule.forRootAsync({
   }),
 });
 ```
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-mongoose) - profile Mongoose queries and aggregations in the MongoDB panel.
+- [Tutorial: MongoDB query profiling](/docs/tutorials/mongoose-collector) - capture every Mongoose query and aggregation and inspect collection, duration and result count in the profiler's MongoDB panel.

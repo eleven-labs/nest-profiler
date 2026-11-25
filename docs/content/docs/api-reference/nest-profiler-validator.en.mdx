@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-validator: the types and options of the validator-agnostic collector that captures DTO violations from class-validator, nestjs-zod and more.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-validator`, which records DTO validation in the **Validator** panel: the `ValidationEntry` and `ViolationEntry` shapes, the `ProfilerValidationPipe` and its factory, and the extractor contract used to read class-validator, zod or other validation errors.
+
 ## ValidatorCollectorModuleOptions
 
 Options for `ValidatorCollectorModule.forRoot()`. The module registers only the Validator panel — the validation pipe is owned by the app via [`createProfilerValidationPipe`](#createprofilervalidationpipe) — so `enabled` is its only knob.
@@ -173,3 +175,8 @@ import type { CreateArticleDto } from './dto/create-article.dto';
 **Prerequisite:** install the validator you use (`class-validator` + `class-transformer`, or `nestjs-zod` + `zod`) as a regular dependency of your app. For class-validator, `emitDecoratorMetadata: true` must be set in `tsconfig.json`.
 
 The panel registers like every other collector: `forRoot()` / `forRootAsync()` register only the `ValidatorCollector`, so it goes in the dev-only bundle (or, with the runtime gate, is wrapped in `ConditionalModule.registerWhen(..., isProfilerEnabled)` or toggled with the top-level `enabled` flag).
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-validator) - inspect DTO validation violations in the Validator panel.
+- [Tutorial: DTO validation profiling](/docs/tutorials/validator-collector) - inspect successful and failed DTO validations - class-validator or zod - in the profiler's Validator panel.

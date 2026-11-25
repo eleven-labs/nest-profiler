@@ -6,6 +6,8 @@ seo:
   description: "Complete API reference for @eleven-labs/nest-profiler-mikro-orm: the types and options of the MikroORM query collector that records SQL, duration and slow queries in the profiler's Database panel."
 ---
 
+Options and types of `@eleven-labs/nest-profiler-mikro-orm`, which records every SQL query MikroORM runs in the **Database** panel: the module options, including the slow-query threshold, the `QueryEntry` stored per query, and the `QueryType` badges. The TypeORM collector shares the same `QueryEntry` shape, see the [TypeORM reference](/docs/api-reference/nest-profiler-typeorm).
+
 ## MikroOrmCollectorModuleOptions
 
 Options passed to `MikroOrmCollectorModule.forRoot()`.
@@ -79,3 +81,8 @@ MikroOrmCollectorModule.forRootAsync({
   }),
 });
 ```
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-mikro-orm) - profile MikroORM SQL queries in the Database panel.
+- [Tutorial: SQL query profiling (TypeORM & MikroORM)](/docs/tutorials/sql-collectors) - capture every SQL query issued by TypeORM or MikroORM and inspect duration, slow queries and execution plans in the profiler's Database panel.

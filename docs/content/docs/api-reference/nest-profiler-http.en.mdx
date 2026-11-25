@@ -264,3 +264,8 @@ export class ProfilingModule {}
 > `ProfilingModule` is the dev-only bundle loaded by `main-dev.ts` — see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#recommended-install-it-as-a-dev-dependency). If the profiler is installed as a production dependency behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrap the same call in `ConditionalModule.registerWhen(..., isProfilerEnabled)`.
 
 The axios adapter auto-discovers your `HttpService` instances wherever `HttpModule` is imported, so your feature modules keep importing `HttpModule` and injecting `HttpService` as usual — no `axiosRef` wiring. At bootstrap each selected instrumentation installs its hooks and pushes every `HttpRequestEntry` to the current profile via the `HttpProfilerRecorder`. The collector registered by `HttpCollectorModule` renders the panel.
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-http) - record outgoing HTTP client calls in the HTTP Client panel.
+- [Tutorial: HTTP client profiling](/docs/tutorials/http-collector) - capture outgoing HTTP requests and inspect them in the HTTP Client panel - with the axios and fetch adapters or any client of your own.

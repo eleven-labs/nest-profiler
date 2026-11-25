@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-graphql: the types and options of the GraphQL collector for Apollo, Mercurius and graphql-yoga, capturing operation type, name and timing.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-graphql`, which profiles GraphQL queries and mutations on Apollo, Mercurius and graphql-yoga: the module options, the `GraphQLInfo` and entrypoint data recorded per operation, the `IContextAdapter` it implements, and the pre-built filters of the GraphQL list view.
+
 ## GraphQLCollectorModuleOptions
 
 Options passed to `GraphQLCollectorModule.forRoot()` / `forRootAsync()`.
@@ -120,3 +122,8 @@ import type {
 Drive the options from `ConfigService` (or any provider) with `forRootAsync()`, registered in the dev-only profiling bundle like `forRoot()` — or, behind the [runtime gate](/docs/packages/nest-profiler/configuration#when-production-code-calls-the-profiler-conditionalmodule), wrapped in `ConditionalModule.registerWhen(...)`. It resolves option _values_ only — for the `enabled` flag and when to prefer `forRoot`, see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler).
 
 Types used by the filters and adapter (`ProfilerFilterRequest`, `ProfilerRequestFilter`, `IContextAdapter`, `GraphQLInfo`, `PROFILER_REQ_KEY`, `combineFilters`) are exported from `@eleven-labs/nest-profiler`.
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-graphql) - profile GraphQL queries and mutations across Apollo, Mercurius and yoga.
+- [Tutorial: GraphQL profiling](/docs/tutorials/graphql-collector) - profile GraphQL queries and mutations with the nest-profiler-graphql package and inspect them in the profiler UI.

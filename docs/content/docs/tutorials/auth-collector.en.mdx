@@ -129,3 +129,8 @@ AuthCollectorModule.forRootAsync({
 ## How it works
 
 The collector reads `request.user` and the `Authorization` header from the current CLS context and decodes the JWT payload (no signature verification) before applying the masking rules. See [How it works](/docs/packages/nest-profiler-auth#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-auth` package guide](/docs/packages/nest-profiler-auth) - capture the authenticated user, roles and JWT claims in the Security panel.
+- [`@eleven-labs/nest-profiler-auth` API reference](/docs/api-reference/nest-profiler-auth) - `AuthCollectorModuleOptions`, the `SecurityContext` and the default masking.

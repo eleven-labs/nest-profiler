@@ -298,3 +298,9 @@ export class NoSqlCollector implements IProfilerCollector {
 - **Badge** - the sidebar badge concatenates each collector's individual badge (e.g. `5q · 3q`).
 
 The grouping logic is handled entirely by the core profiler (`@eleven-labs/nest-profiler`). The two collector packages do not need to know about each other.
+
+## See also
+
+- [Trace & custom collectors](/docs/packages/nest-profiler/collectors) - the reference guide for `TracerService.span()` and `@ProfilerCollector()`.
+- [Collector contracts in the API reference](/docs/api-reference/nest-profiler#collectors) - `IProfilerCollector` and the related types.
+- [Tutorial: Build a custom entrypoint type](/docs/tutorials/build-entrypoint-type) - when what you need to profile is a whole new kind of execution, not a panel.

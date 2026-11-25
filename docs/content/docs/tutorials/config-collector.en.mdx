@@ -161,3 +161,8 @@ ConfigCollectorModule.forRootAsync({
 ## How it works
 
 The collector reads `ConfigService`'s internal config **once at application bootstrap**, groups it by namespace (with keys flattened relative to each namespace, e.g. `pool.max`) and applies the masking rules; every profile then shows that same snapshot. Masking still matches the fully-qualified path, so `maskKeys: ['database.password']` works even though the key is displayed as `password`. See [How it works](/docs/packages/nest-profiler-config#how-it-works) on the package page.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-config` package guide](/docs/packages/nest-profiler-config) - inspect a @nestjs/config snapshot grouped by namespace in the Config panel.
+- [`@eleven-labs/nest-profiler-config` API reference](/docs/api-reference/nest-profiler-config) - `ConfigCollectorModuleOptions`, the masking rules and what is captured.

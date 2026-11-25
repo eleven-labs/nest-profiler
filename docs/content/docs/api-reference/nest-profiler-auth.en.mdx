@@ -6,6 +6,8 @@ seo:
   description: "Complete API reference for @eleven-labs/nest-profiler-auth: the types, options and services of the authentication and JWT claims collector that powers the profiler's Security panel."
 ---
 
+Options and types of `@eleven-labs/nest-profiler-auth`, the collector behind the **Security** panel: the module options, the `SecurityContext` captured for each request (authenticated user, roles and decoded JWT claims) and the keys it masks by default.
+
 ## AuthCollectorModuleOptions
 
 Options passed to `AuthCollectorModule.forRoot()`.
@@ -84,3 +86,8 @@ AuthCollectorModule.forRootAsync({
   }),
 });
 ```
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-auth) - capture the authenticated user, roles and JWT claims in the Security panel.
+- [Tutorial: Auth/Security profiling](/docs/tutorials/auth-collector) - capture the authenticated user, roles and JWT claims in the profiler's Security panel with nest-profiler-auth.

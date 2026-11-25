@@ -115,7 +115,7 @@ You will see:
 
 - Each SQL query with its type badge (`SELECT`, `INSERT`, …)
 - Duration per query with a bar chart indicator (MikroORM reports its own measured `took`)
-- Slow queries and N+1 patterns flagged as performance tags
+- Slow queries and N+1 patterns flagged as [performance tags](/docs/packages/nest-profiler/performance-tags)
 - Bound parameters
 
 The **Execution Trace** shows the `db.products.findAll` span with the SQL it issued nested underneath it.
@@ -185,3 +185,10 @@ Open `/_profiler` and select the view:
 ![Schemas / TypeORM view — the registered entities with their columns, types, primary keys and defaults](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/schema-typeorm.png)
 
 The panel is introspection-only (it never touches data), honours a `connectionName` option for named DataSources/contexts, redacts secrets embedded in column defaults, and simply does not appear when no DataSource or MikroORM context is wired.
+
+## See also
+
+- [`@eleven-labs/nest-profiler-mikro-orm` package guide](/docs/packages/nest-profiler-mikro-orm) - profile MikroORM SQL queries in the Database panel.
+- [`@eleven-labs/nest-profiler-mikro-orm` API reference](/docs/api-reference/nest-profiler-mikro-orm) - `MikroOrmCollectorModuleOptions`, `QueryEntry` and `QueryType`.
+- [`@eleven-labs/nest-profiler-typeorm` package guide](/docs/packages/nest-profiler-typeorm) - profile TypeORM SQL queries in the Database panel.
+- [`@eleven-labs/nest-profiler-typeorm` API reference](/docs/api-reference/nest-profiler-typeorm) - `TypeOrmCollectorModuleOptions`, `QueryEntry` and `QueryType`.

@@ -6,6 +6,8 @@ seo:
   description: 'Complete API reference for @eleven-labs/nest-profiler-config: the types and options of the configuration snapshot collector that captures a @nestjs/config view grouped by namespace with secret masking.'
 ---
 
+Options and types of `@eleven-labs/nest-profiler-config`, which snapshots your `@nestjs/config` values and shows them by namespace in the **Config** panel: the module options, the masking rules applied to secrets, and exactly what is captured.
+
 ## ConfigCollectorModuleOptions
 
 Options passed to `ConfigCollectorModule.forRoot()`.
@@ -84,3 +86,8 @@ ConfigCollectorModule.forRootAsync({
   }),
 });
 ```
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-config) - inspect a @nestjs/config snapshot grouped by namespace in the Config panel.
+- [Tutorial: Configuration profiling](/docs/tutorials/config-collector) - inspect your application's resolved configuration values in the Config panel, with sensitive key masking.
