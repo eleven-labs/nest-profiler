@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 import { TemplateRendererService } from './template-renderer.service.js';
 import { ClientAssetRegistry } from './client-asset-registry.service.js';
 import { TEMPLATES_DIR } from '../views/template-engine.js';
+import { getProfilerVersion } from '../version.js';
 
 const MINIMAL_LIST_DATA = {
   title: 'Profiles',
@@ -353,6 +354,23 @@ describe('TemplateRendererService', () => {
     const html = await service.render('detail', MINIMAL_DETAIL_DATA);
     expect(html).toContain('<!DOCTYPE html>');
   });
+
+  it.each([
+    ['list', MINIMAL_LIST_DATA],
+    ['detail', MINIMAL_DETAIL_DATA],
+  ])(
+    'ends the %s page with the version and links to the docs and the issue tracker',
+    async (name, data) => {
+      const html = await service.render(name, data);
+      const footer = html.slice(html.indexOf('<footer'));
+      expect(footer).toContain(`NestJS Profiler ${getProfilerVersion()}`);
+      expect(footer).toContain('href="https://nest-profiler.eleven-labs.com/docs"');
+      expect(footer).toContain(
+        'href="https://github.com/eleven-labs/nest-profiler/issues/new/choose"',
+      );
+      expect(footer).toContain('rel="noopener noreferrer"');
+    },
+  );
 
   describe('detail — Performance tab', () => {
     it('badges the tab with the total duration and shows the recorded spans', async () => {
