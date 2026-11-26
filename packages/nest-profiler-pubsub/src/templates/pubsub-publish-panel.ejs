@@ -1,0 +1,118 @@
+<%
+  const messages = data || [];
+  const totalDuration = messages.reduce((sum, m) => sum + m.duration, 0);
+  const totalSize = messages.reduce((sum, m) => sum + (m.size || 0), 0);
+  const hasTag = (m, id) => (m.tags || []).some(t => t.id === id);
+  const slowCount = messages.filter(m => hasTag(m, 'slow')).length;
+  const errorCount = messages.filter(m => m.error).length;
+  const topicCount = new Set(messages.map(m => m.topic)).size;
+  const nPlusOneGroups = new Set(
+    messages.filter(m => hasTag(m, 'n-plus-one') && m.fingerprint).map(m => m.fingerprint)
+  );
+  const slowSev = sevOfTag(messages, 'slow');
+  const nPlusOneSev = sevOfTag(messages, 'n-plus-one');
+  // Worst severity among a row's performance tags (excluding `error`, surfaced separately) — tints the row.
+  const rowSev = (m) => {
+    let best = null;
+    for (const t of (m.tags || [])) {
+      if (t.id === 'error') continue;
+      if (best === null || t.severity === 'danger' || (t.severity === 'warning' && best === 'info')) best = t.severity;
+    }
+    return best;
+  };
+  const formatBytes = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  // Message properties worth showing inline — omitted entirely when there is none.
+  const propsOf = (m) => {
+    const props = {};
+    if (m.messageId) props['messageId'] = m.messageId;
+    if (m.projectId) props['project'] = m.projectId;
+    if (m.orderingKey) props['orderingKey'] = m.orderingKey;
+    if (m.size !== undefined) props['size'] = formatBytes(m.size);
+    return props;
+  };
+%>
+
+<div class="flex items-center justify-between mb-4">
+  <div class="flex items-center gap-4 text-xs text-foreground-muted">
+    <span><strong class="text-foreground"><%= messages.length %></strong> message<%= messages.length !== 1 ? 's' : '' %> published</span>
+    <% if (topicCount > 1) { %>
+      <span><strong class="text-foreground"><%= topicCount %></strong> topics</span>
+    <% } %>
+    <span><strong class="text-foreground"><%= totalDuration %></strong>ms total</span>
+    <% if (totalSize > 0) { %>
+      <span><strong class="text-foreground"><%= formatBytes(totalSize) %></strong></span>
+    <% } %>
+    <% if (slowCount > 0) { %>
+      <span class="<%= sevTextClass(slowSev) %>"><strong><%= slowCount %></strong> slow</span>
+    <% } %>
+    <% if (nPlusOneGroups.size > 0) { %>
+      <span class="<%= sevTextClass(nPlusOneSev) %>"><strong><%= nPlusOneGroups.size %></strong> N+1</span>
+    <% } %>
+    <% if (errorCount > 0) { %>
+      <span class="<%= sevTextClass('danger') %>"><strong><%= errorCount %></strong> error<%= errorCount !== 1 ? 's' : '' %></span>
+    <% } %>
+  </div>
+</div>
+
+<% if (messages.length === 0) { %>
+  <div class="py-8 text-center bg-surface-muted border border-line rounded-lg">
+    <p class="text-foreground-muted text-sm">No Pub/Sub message published during this request.</p>
+  </div>
+<% } else { %>
+  <div class="space-y-3">
+    <% for (const m of messages) { %>
+      <div class="rounded-lg border border-line overflow-hidden <%= sevBgClass(rowSev(m)) %>">
+        <div class="flex items-center justify-between gap-3 bg-surface-muted border-b border-line py-2 px-4">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-1.5 py-0.5 rounded text-2xs font-bold tracking-wide badge-post">PUBLISH</span>
+            <code class="text-code-text text-xs break-all"><%= m.topic %></code>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <% const slowTag = (m.tags || []).find(t => t.id === 'slow'); %>
+            <span class="text-foreground-faint text-xs tabular-nums"><%= timeOnly(m.startedAt) %></span>
+            <span class="text-xs tabular-nums <%= slowTag ? sevTextClass(slowTag.severity) + ' font-bold' : 'text-foreground-secondary' %>" title="Includes the time the message waited in the client batch"><%= m.duration %>ms</span>
+            <% if (m.publishSnippet) { %>
+              <%- copyBtn(m.publishSnippet, 'Copy publish') %>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="p-4 space-y-3">
+          <% if (m.tags && m.tags.length > 0) { %>
+            <div class="flex flex-wrap gap-1"><%- tagBadges(m.tags) %></div>
+          <% } %>
+
+          <% if (m.error) { %>
+            <p class="text-danger text-xs break-all">Error: <%= m.error %></p>
+          <% } %>
+
+          <% const props = propsOf(m); %>
+          <% if (Object.keys(props).length > 0) { %>
+            <div>
+              <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-1">Properties</h3>
+              <%- kvTable(props) %>
+            </div>
+          <% } %>
+
+          <% if (m.attributes && Object.keys(m.attributes).length > 0) { %>
+            <div>
+              <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold mb-1">Attributes</h3>
+              <%- kvTable(m.attributes) %>
+            </div>
+          <% } %>
+
+          <% if (m.payload !== undefined) { %>
+            <% const isText = typeof m.payload === 'string'; %>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-foreground-muted text-2xs uppercase tracking-widest font-semibold">Payload</h3>
+                <% if (isText) { %><span class="text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-line text-foreground-faint">plain text</span><% } %>
+              </div>
+              <pre class="bg-surface-muted border border-line rounded-lg p-3 text-xs overflow-x-auto leading-relaxed m-0"><code<%= isText ? '' : ' class="language-json"' %>><%= isText ? m.payload : toJson(m.payload) %></code></pre>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+<% } %>

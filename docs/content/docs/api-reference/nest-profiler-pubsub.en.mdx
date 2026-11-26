@@ -1,0 +1,62 @@
+---
+title: nest-profiler-pubsub
+description: Types and API of the Google Cloud Pub/Sub publish collector.
+seo:
+  title: Pub/Sub collector API reference
+  description: 'Complete API reference for @eleven-labs/nest-profiler-pubsub: the types and options of the collector that lists the messages published through @google-cloud/pubsub.'
+---
+
+`PubSubPublishCollectorModule` lists the messages the application **publishes** to Google Cloud Pub/Sub in a **Pub/Sub** panel.
+
+## PubSubPublishEntry
+
+One row of the **Pub/Sub** panel — a message the profiled request published through `Topic.publishMessage` (or `publishJSON` / `publish`, which route through it).
+
+<AutoTypeTable
+  path="packages/nest-profiler-pubsub/src/pubsub-publish-collector.interface.ts"
+  name="PubSubPublishEntry"
+/>
+
+## Public exports
+
+```ts
+import { PubSubPublishCollectorModule } from '@eleven-labs/nest-profiler-pubsub';
+import { PubSubPublishCollector } from '@eleven-labs/nest-profiler-pubsub';
+
+import type { PubSubPublishEntry } from '@eleven-labs/nest-profiler-pubsub';
+import type { PubSubPublishCollectorModuleOptions } from '@eleven-labs/nest-profiler-pubsub';
+import type { PubSubPublishCollectorModuleAsyncOptions } from '@eleven-labs/nest-profiler-pubsub';
+```
+
+## PubSubPublishCollectorModuleOptions
+
+<AutoTypeTable
+  path="packages/nest-profiler-pubsub/src/pubsub-publish-collector.interface.ts"
+  name="PubSubPublishCollectorModuleOptions"
+/>
+
+A publish carries no status code, so `error` rests on `publishMessage()` having failed — take over with `classify` when an error is expected. See [What counts as an error](/docs/packages/nest-profiler/error-classification).
+
+Registering the module is enough — publishers keep using their `PubSub` client and topics unchanged.
+
+```ts title="profiling/profiling.module.ts"
+PubSubPublishCollectorModule.forRoot();
+```
+
+Drive the options from `ConfigService` (or any provider) with `forRootAsync()` — it resolves option _values_ only, not `enabled`, so behind the runtime gate wrap it in `ConditionalModule.registerWhen(...)` as usual (see [Enabling and disabling the profiler](/docs/packages/nest-profiler/configuration#enabling-and-disabling-the-profiler)):
+
+```ts
+import { ConfigService } from '@nestjs/config';
+
+PubSubPublishCollectorModule.forRootAsync({
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    captureBody: config.get<boolean>('profiler.pubsubCaptureBody') ?? true,
+    maskAttributes: config.get<string[]>('profiler.maskAttributes') ?? [],
+  }),
+});
+```
+
+## See also
+
+- [Package guide](/docs/packages/nest-profiler-pubsub) - list the Google Cloud Pub/Sub messages your application publishes.

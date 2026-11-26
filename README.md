@@ -103,6 +103,7 @@ Each package is a self-contained NestJS module with its own README:
 - [`@eleven-labs/nest-profiler-graphql`](packages/nest-profiler-graphql/README.md) — GraphQL panel (Apollo / Mercurius / graphql-yoga)
 - [`@eleven-labs/nest-profiler-commander`](packages/nest-profiler-commander/README.md) — Command panel (CLI / nest-commander)
 - [`@eleven-labs/nest-profiler-rabbitmq`](packages/nest-profiler-rabbitmq/README.md) — RabbitMQ panel (messages consumed via `@RabbitSubscribe`)
+- [`@eleven-labs/nest-profiler-pubsub`](packages/nest-profiler-pubsub/README.md) — Pub/Sub panel (messages published via `@google-cloud/pubsub`)
 - [`@eleven-labs/nest-profiler-event-emitter`](packages/nest-profiler-event-emitter/README.md) — Events panel (domain events dispatched via `@nestjs/event-emitter`)
 - [`@eleven-labs/nest-profiler-ai`](packages/nest-profiler-ai/README.md) — AI panel (AI SDK calls, agents and tool runs; published under the `alpha` dist-tag)
 

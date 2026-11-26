@@ -45,6 +45,9 @@ flag_management:
     - name: nest-profiler-mongoose
       paths:
         - packages/nest-profiler-mongoose/
+    - name: nest-profiler-pubsub
+      paths:
+        - packages/nest-profiler-pubsub/
     - name: nest-profiler-typeorm
       paths:
         - packages/nest-profiler-typeorm/

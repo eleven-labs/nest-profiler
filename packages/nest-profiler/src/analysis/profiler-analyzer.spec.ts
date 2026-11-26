@@ -95,6 +95,20 @@ describe('analyzeProfile', () => {
     expect(tag?.detail).toBe('Same request executed 2 times');
   });
 
+  it.each(['rabbitmq', 'pubsub'])('labels repeated %s publishes as repeated messages', (domain) => {
+    const profile = makeProfile();
+    const entries: TaggableEntry[] = [
+      { duration: 5, fingerprint: 'orders' },
+      { duration: 6, fingerprint: 'orders' },
+    ];
+    const collector = makeCollector(`${domain}-publish`, domain, profile, entries);
+
+    analyzeProfile(profile, [collector], BUILTIN_PERFORMANCE_RULES);
+
+    const tag = entries[0]?.tags?.find((t) => t.id === 'n-plus-one');
+    expect(tag?.detail).toBe('Same message executed 2 times');
+  });
+
   it('respects a higher nPlusOneThreshold', () => {
     const profile = makeProfile();
     const entries: TaggableEntry[] = [

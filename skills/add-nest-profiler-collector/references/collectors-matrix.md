@@ -23,6 +23,7 @@ Detection confidence:
 | `@nestjs/graphql` + `graphql`               | hard (`graphql`), optional (`@nestjs/graphql`) | `@eleven-labs/nest-profiler-graphql`       | `collectors-simple.md`      |
 | `nest-commander`                            | optional                                       | `@eleven-labs/nest-profiler-commander`     | `collectors-simple.md`      |
 | `@golevelup/nestjs-rabbitmq` + `amqplib`    | optional                                       | `@eleven-labs/nest-profiler-rabbitmq`      | `collectors-simple.md`      |
+| `@google-cloud/pubsub`                      | hard                                           | `@eleven-labs/nest-profiler-pubsub`        | `collectors-simple.md`      |
 | `@nestjs/event-emitter`                     | hard                                           | `@eleven-labs/nest-profiler-event-emitter` | `collectors-simple.md`      |
 | _(any REST/GraphQL/microservice/CLI app)_   | always available (opt-in panel)                | `@eleven-labs/nest-profiler-routes`        | `collectors-simple.md`      |
 
