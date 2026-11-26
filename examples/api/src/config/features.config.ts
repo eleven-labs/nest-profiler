@@ -66,6 +66,9 @@ export const isGraphQLEnabled = enabled('FEATURE_GRAPHQL', true);
 export const isPinoLoggerEnabled = enabled('FEATURE_PINO_LOGGER', true);
 // Needs a RabbitMQ broker (run: docker compose up -d rabbitmq).
 export const isRabbitMqEnabled = enabled('FEATURE_RABBITMQ');
+// Publishes the catalog's product events to Google Cloud Pub/Sub instead of in-process. Needs the
+// emulator (run: docker compose up -d pubsub).
+export const isPubSubEnabled = enabled('FEATURE_PUBSUB');
 // Batches the GraphQL author lookups (`Review.author`) into a single HTTP call. Off by default so
 // the demo query keeps its observable N+1; turn it on to compare the two waterfalls.
 export const isDataloaderEnabled = enabled('FEATURE_DATALOADER');
@@ -85,6 +88,7 @@ export default registerAs('features', () => ({
   graphql: isGraphQLEnabled(process.env),
   pinoLogger: isPinoLoggerEnabled(process.env),
   rabbitmq: isRabbitMqEnabled(process.env),
+  pubsub: isPubSubEnabled(process.env),
   dataloader: isDataloaderEnabled(process.env),
   ai: isAiEnabled(process.env),
   aiHarness: isAiHarnessEnabled(process.env),

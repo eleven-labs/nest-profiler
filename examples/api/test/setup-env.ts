@@ -22,6 +22,9 @@ process.env['FEATURE_DATALOADER'] ??= 'false';
 // No spec exercises RabbitMQ, and a local `.env` enabling it would hang every bootstrap on a
 // broker the suite never starts.
 process.env['FEATURE_RABBITMQ'] = 'false';
+// Same for Pub/Sub: no spec exercises it, and it would take product.created away from the
+// in-process emitter that `events.e2e-spec` asserts on.
+process.env['FEATURE_PUBSUB'] = 'false';
 process.env['FEATURE_PINO_LOGGER'] = 'true';
 // The AI context needs no infrastructure: `ai.e2e-spec` swaps the language model for a mock, so
 // no request ever reaches OpenRouter and the key below is never used.

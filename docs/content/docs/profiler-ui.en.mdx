@@ -118,7 +118,13 @@ The **RabbitMQ** publish collector (same package, `RabbitMqPublishCollectorModul
 
 The **Pub/Sub** collector (requires [`@eleven-labs/nest-profiler-pubsub`](/docs/packages/nest-profiler-pubsub)) does the same for Google Cloud Pub/Sub: one row per message the profiled request published through `@google-cloud/pubsub`, with its topic, attributes, ordering key, payload, server-assigned message id, duration and outcome — plus a copy button holding a runnable `pubsub.topic(...).publishMessage(...)` snippet.
 
+![Pub/Sub panel showing a product.created message published to catalog.product-events, with its message id, attributes and JSON payload](/screenshots/profiler/pubsub.png)
+
 The **Events** collector (requires [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter)) covers `@nestjs/event-emitter` in both directions: the **Events** panel lists every `emit` / `emitAsync` the profiled execution made, and each `@OnEvent` handler run becomes an `event` profile of its own — with its own **Events** view in the sidebar, a **Status** filter, and every other panel (Logs, Database, HTTP Client…) describing what that handler did rather than what the publishing request did.
+
+![Events panel showing a product.created emission with one listener and its duration](/screenshots/profiler/events.png)
+
+![Events view listing the profiled @OnEvent handler executions with their event, handler, duration and status](/screenshots/profiler/events-list.png)
 
 The **Security** collector shows the authenticated user, roles, and decoded JWT claims.
 

@@ -49,6 +49,19 @@ services:
       timeout: 5s
       retries: 5
 
+  # Only needed when FEATURE_PUBSUB=true. In-memory: topics and messages are gone on restart.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    restart: unless-stopped
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=profiler-demo
+    ports:
+      - '8085:8085'
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:8085']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   mongodb_data:

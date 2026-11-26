@@ -12,6 +12,7 @@ A live instance is deployed on Vercel with a hosted Postgres for the catalog and
 SQL_ORM=mikro-orm       # catalog on the hosted Postgres (DATABASE_* / POSTGRES_* / PG*)
 FEATURE_MONGOOSE=false  # reviews / MongoDB disabled
 FEATURE_RABBITMQ=false  # no broker
+FEATURE_PUBSUB=false    # no Pub/Sub emulator
 FEATURE_GRAPHQL=true    # GraphQL served over the catalog
 NODE_OPTIONS=--experimental-require-module  # see below
 ```
@@ -33,7 +34,7 @@ NestJS 12 ships its packages as ESM, and CommonJS code loads them through Node's
 ### Prerequisites
 
 - Node.js 22+, pnpm 10+
-- Docker — PostgreSQL backs the catalog, so it is required; MongoDB and RabbitMQ are only needed when `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ` are on. `FEATURE_RABBITMQ=true` without a reachable broker aborts the boot after five seconds with `Failed to connect to a RabbitMQ broker within a timeout of 5000ms` — start the broker, or turn the flag off
+- Docker — PostgreSQL backs the catalog, so it is required; MongoDB, RabbitMQ and the Pub/Sub emulator are only needed when `FEATURE_MONGOOSE`/`FEATURE_RABBITMQ`/`FEATURE_PUBSUB` are on. `FEATURE_RABBITMQ=true` without a reachable broker aborts the boot after five seconds with `Failed to connect to a RabbitMQ broker within a timeout of 5000ms` — start the broker, or turn the flag off
 
 ### Start the infrastructure
 
@@ -43,7 +44,7 @@ A `docker-compose.yml` is provided at the **project root**:
 docker compose up -d
 ```
 
-This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7** (`27017`) for the Mongoose collector, and **RabbitMQ** (`5672`) for the messaging collector.
+This starts **PostgreSQL 16** (`5432`) for the SQL ORM collectors, **MongoDB 7** (`27017`) for the Mongoose collector, **RabbitMQ** (`5672`) for the messaging collector, and the **Pub/Sub emulator** (`8085`) for the Pub/Sub collector.
 
 ### Feature flags
 
@@ -56,6 +57,7 @@ The app uses flags to conditionally load infrastructure-dependent contexts. Ever
 | `FEATURE_MONGOOSE`            | `false`     | Load the Mongoose-backed `ReviewsModule` (needs MongoDB)                                                                                                                                                |
 | `FEATURE_GRAPHQL`             | `true`      | Expose the catalog over GraphQL (served over either catalog adapter)                                                                                                                                    |
 | `FEATURE_RABBITMQ`            | `false`     | Publish `review.created` to RabbitMQ + run the consumer, both profiled (`nest-profiler-rabbitmq`). Requires a reachable broker: the boot fails fast without one                                         |
+| `FEATURE_PUBSUB`              | `false`     | Publish the catalog's `product.created` to Google Cloud Pub/Sub instead of in-process, profiled (`nest-profiler-pubsub`). Needs the emulator (`PUBSUB_EMULATOR_HOST`, default `localhost:8085`)         |
 | `FEATURE_DATALOADER`          | `false`     | Batch the GraphQL `Product.reviews` + `Review.author` lookups with DataLoader: one MongoDB query and one HTTP call instead of N                                                                         |
 | `FEATURE_PINO_LOGGER`         | `true`      | Use the third-party `nestjs-pino` logger; `false` falls back to `ConsoleLogger`                                                                                                                         |
 | `FEATURE_AI`                  | `false`     | Load the `AiModule`: an OpenRouter-backed assistant — blocking, tool-calling, structured, streamed — plus a custom **AI** profiler panel. Needs `OPENROUTER_API_KEY`; not part of the Vercel deployment |
@@ -87,6 +89,9 @@ SQL_ORM=typeorm FEATURE_MONGOOSE=true FEATURE_RABBITMQ=true pnpm example:dev
 # Profile SQL queries through MikroORM instead of TypeORM
 SQL_ORM=mikro-orm FEATURE_MONGOOSE=true pnpm example:dev
 
+# Publish product.created to the Pub/Sub emulator instead of in-process
+FEATURE_PUBSUB=true pnpm example:dev
+
 # Profile outgoing HTTP through native fetch instead of axios
 HTTP_CLIENT=fetch pnpm example:dev
 
@@ -104,7 +109,7 @@ FEATURE_AI_HARNESS=true pnpm example:dev
 FEATURE_AI_HARNESS=true AI_HARNESS=codex AI_HARNESS_API_KEY=sk-... pnpm example:dev
 ```
 
-Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab.
+Domain events flow through the `EventPublisher` port, which has two live adapters. By default it is bound to the **in-process** `@nestjs/event-emitter` adapter: `POST /api/v1/products` publishes `product.created`, an `@OnEvent` listener reacts to it, and `nest-profiler-event-emitter` shows the emission in the request's **Events** panel plus the handler execution as its own `event` profile — no infrastructure needed. When `FEATURE_RABBITMQ=true`, the reviews context switches to the **RabbitMQ** adapter instead: `POST /api/v1/reviews` publishes `review.created` to the broker and a `@RabbitSubscribe` consumer reacts to it — profiled as a `rabbitmq` entrypoint with its own **Message** tab. When `FEATURE_PUBSUB=true`, the catalog switches to the **Pub/Sub** adapter: `POST /api/v1/products` publishes `product.created` to the `catalog.product-events` topic of the emulator, listed in the request's **Pub/Sub** panel.
 
 ### Run the application
 
@@ -258,7 +263,8 @@ AppModule (no controller — only global forRoot + feature modules)
 ├── HealthModule             → GET /health
 ├── DiagnosticsModule        → GET /api/v1/slow, /api/v1/crash + demo:greet CLI
 ├── CatalogModule → … also publishes product.created via the EventPublisher port:
-│     └── NotificationsEventEmitterModule [always]           → EventEmitterCollectorModule + @OnEvent listener
+│     ├── NotificationsEventEmitterModule [default]          → EventEmitterCollectorModule + @OnEvent listener
+│     └── NotificationsPubSubModule       [FEATURE_PUBSUB]   → PubSubPublishCollectorModule (nest-profiler-pubsub) + emulator topic
 ├── ReviewsModule [FEATURE_MONGOOSE]
 │     ├── ReviewApplicationModule → ReviewService, shared by the REST and GraphQL entrypoints
 │     │     ├── ReviewMongooseModule → MongooseCollectorModule (nest-profiler-mongoose)
@@ -367,7 +373,7 @@ const review = await this.repo.create({ ...data, status: data.status ?? 'pending
 await this.events.publish({ name: 'review.created', payload: { reviewId: review.id /* … */ } });
 ```
 
-`ReviewApplicationModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` always uses the latter. Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
+`ReviewApplicationModule` binds `EventPublisher` to the RabbitMQ adapter (`FEATURE_RABBITMQ=true`) or the in-process event-emitter adapter (default); `CatalogModule` picks the Pub/Sub adapter (`FEATURE_PUBSUB=true`) or the in-process one (default). Each adapter also registers the handler that reacts to the event — the `@RabbitSubscribe` consumer or the `@OnEvent` listener — so `mongoose` + `rabbitmq`, or `event-emitter` alone, light up together through one realistic use case.
 
 ## Available endpoints
 
@@ -377,15 +383,15 @@ All business routes are served under the global prefix **`/api/v1`**. Only `GET 
 
 Seeded automatically at startup (4 products). REST and GraphQL share the same `ProductService`.
 
-| Endpoint                      | What it demonstrates                                                         |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `GET /api/v1/products`        | **Database** — SELECT with type badge, duration bar, slow-query highlight    |
-| `GET /api/v1/products/export` | **Database** — streaming read (`QueryBuilder.stream()`), flagged `streaming` |
-| `GET /api/v1/products/:id`    | **Database** — SELECT by id, 404 when missing                                |
-| `POST /api/v1/products`       | **Validator** + INSERT + `product.created` in the **Events** panel           |
-| `PATCH /api/v1/products/:id`  | **Database** — an unknown id updates 0 rows, tagged `zero-rows`              |
-| `DELETE /api/v1/products/:id` | **Database** — DELETE                                                        |
-| `POST /graphql`               | **GraphQL** (GQL badge) — `products` / `product(id)` / `createProduct`       |
+| Endpoint                      | What it demonstrates                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `GET /api/v1/products`        | **Database** — SELECT with type badge, duration bar, slow-query highlight         |
+| `GET /api/v1/products/export` | **Database** — streaming read (`QueryBuilder.stream()`), flagged `streaming`      |
+| `GET /api/v1/products/:id`    | **Database** — SELECT by id, 404 when missing                                     |
+| `POST /api/v1/products`       | **Validator** + INSERT + `product.created` in the **Events** or **Pub/Sub** panel |
+| `PATCH /api/v1/products/:id`  | **Database** — an unknown id updates 0 rows, tagged `zero-rows`                   |
+| `DELETE /api/v1/products/:id` | **Database** — DELETE                                                             |
+| `POST /graphql`               | **GraphQL** (GQL badge) — `products` / `product(id)` / `createProduct`            |
 
 ```bash
 # Both adapters fill the Database tab; SQL_ORM=mikro-orm is the default, SQL_ORM=typeorm the other one.

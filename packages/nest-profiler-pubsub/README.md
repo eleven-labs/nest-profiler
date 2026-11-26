@@ -24,6 +24,8 @@
 
 `@eleven-labs/nest-profiler-pubsub` brings Google Cloud Pub/Sub (`@google-cloud/pubsub`) into the profiler: `PubSubPublishCollectorModule` lists every message published during a profiled request in a **Pub/Sub** panel, with its topic, attributes, ordering key, payload, server-assigned message id, duration and outcome.
 
+![Pub/Sub panel — a product.created message published to catalog.product-events, with its message id, attributes and JSON payload](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/pubsub.png)
+
 ## Installation
 
 ```bash
