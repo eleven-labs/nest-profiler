@@ -14,8 +14,10 @@
  * Two views can't share the main pass and get their own reboots afterwards:
  * `mikro-orm.png` (the catalog binds one SQL adapter per boot, so MikroORM runs
  * with SQL_ORM=mikro-orm) and the RabbitMQ shots (`rabbitmq.png` /
- * `rabbitmq-list.png`, which need the broker on and a consumed message). Each
- * boots with its own flags + storage and drives a single request.
+ * `rabbitmq-list.png`, which need the broker on and a consumed message), and
+ * `pubsub.png` (FEATURE_PUBSUB swaps the catalog's in-process emission for a
+ * Pub/Sub publish, so it needs the emulator and its own boot). Each boots with
+ * its own flags + storage and drives a single request.
  *
  * Run it directly:
  *   pnpm screenshots
@@ -29,8 +31,8 @@
  *
  * Other env: API_URL, PORT, OUT_DIR, PROFILER_DIR, CHROME_BIN, WIDTH, HEIGHT,
  * VIRTUAL_TIME_BUDGET, SQL_ORM, RUNTIME_SAMPLE_WAIT_MS. The main pass uses TypeORM (`database.png`); the
- * MikroORM and RabbitMQ passes run automatically after it whenever this script
- * manages the app (they need the Postgres/RabbitMQ containers up).
+ * MikroORM, RabbitMQ and Pub/Sub passes run automatically after it whenever this
+ * script manages the app (they need the Postgres/RabbitMQ/Pub/Sub containers up).
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -500,6 +502,9 @@ async function main(): Promise<void> {
         // Explicit: the RabbitMQ pass below owns that flag, and a local `.env` enabling it would
         // hang this boot on a broker no screenshot needs.
         FEATURE_RABBITMQ: 'false',
+        // Same for the Pub/Sub pass — and FEATURE_PUBSUB would take `product.created` away from
+        // the in-process emitter `events.png` shows.
+        FEATURE_PUBSUB: 'false',
         FEATURE_PINO_LOGGER: 'true',
       });
     }
@@ -591,7 +596,7 @@ async function main(): Promise<void> {
       capture('runtime.png', `${PROFILER_URL}?view=runtime`);
     }
 
-    // The next two passes reboot the app with different feature flags, so they
+    // The passes below reboot the app with different feature flags, so they
     // only run when this script manages the app (not under SKIP_APP) and when their
     // views are wanted (an ONLY run for other files skips these costly reboots).
     if (!skip('SKIP_APP') && wanted('mikro-orm.png')) {
@@ -682,6 +687,10 @@ async function main(): Promise<void> {
     //    section (mirrors command.png / command-list.png).
     if (!skip('SKIP_APP') && (wanted('rabbitmq.png') || wanted('rabbitmq-list.png'))) {
       console.log('  • rabbitmq.png + rabbitmq-list.png (FEATURE_RABBITMQ pass)');
+      // The previous app still holds the port when the passes before this one were not wanted
+      // (an ONLY run): the new boot would die on EADDRINUSE while the old app answered.
+      await stopAppAndWait(app);
+      app = undefined;
       const rmqDir = mkdtempSync(join(tmpdir(), 'profiler-rmq-'));
       try {
         app = await bootApp(logFile, rmqDir, {
@@ -716,8 +725,46 @@ async function main(): Promise<void> {
       }
     }
 
+    // 11. Pub/Sub publish — FEATURE_PUBSUB binds the catalog's EventPublisher to the Pub/Sub
+    //     adapter, so POST /products publishes `product.created` to the emulator. Shoot the
+    //     Pub/Sub panel of that request: topic, attributes, payload and message id.
+    if (!skip('SKIP_APP') && wanted('pubsub.png')) {
+      console.log('  • pubsub.png (FEATURE_PUBSUB pass)');
+      await stopAppAndWait(app);
+      app = undefined;
+      const pubsubDir = mkdtempSync(join(tmpdir(), 'profiler-pubsub-'));
+      try {
+        app = await bootApp(logFile, pubsubDir, {
+          SQL_ORM: 'typeorm',
+          FEATURE_MONGOOSE: 'false',
+          FEATURE_RABBITMQ: 'false',
+          FEATURE_PUBSUB: 'true',
+          FEATURE_GRAPHQL: 'false',
+          FEATURE_PINO_LOGGER: 'false',
+        });
+        await fetch(`${API_URL}${api('/products')}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: 'Mechanical Keyboard', price: 149.9, inStock: true }),
+        });
+        const publish = await waitForProfileIn(
+          pubsubDir,
+          (p) => isPost(p) && urlOf(p) === api('/products') && hasCollector(p, 'pubsub-publish'),
+        );
+        capture('pubsub.png', `${PROFILER_URL}/${publish.token}?tab=pubsub-publish`);
+      } catch (error) {
+        console.warn(
+          `  ⚠ SKIPPED pubsub shot (${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        stopApp(app);
+        app = undefined;
+        rmSync(pubsubDir, { recursive: true, force: true });
+      }
+    }
+
     console.log(
-      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config + MikroORM/RabbitMQ passes → ${OUT_DIR}`,
+      `▶ Done. ${resolved}/${TARGETS.length} detail targets + list/section/config + MikroORM/RabbitMQ/Pub/Sub passes → ${OUT_DIR}`,
     );
   } finally {
     if (app?.exitCode === null) {

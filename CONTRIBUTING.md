@@ -40,7 +40,7 @@ A pnpm + Turbo monorepo. Publishable packages live under `packages/`; everything
 ```text
 packages/
   nest-profiler/            core profiler engine, storage, and UI
-  nest-profiler-*/          optional collectors (typeorm, mikro-orm, mongoose, http, cache, auth, config, routes, validator, graphql, commander, rabbitmq, event-emitter, ai)
+  nest-profiler-*/          optional collectors (typeorm, mikro-orm, mongoose, http, cache, auth, config, routes, validator, graphql, commander, rabbitmq, pubsub, event-emitter, ai)
   configs/                  shared @repo/* tooling presets (eslint, jest, prettier, typescript)
 examples/
   api/                      NestJS demo app with all collectors enabled

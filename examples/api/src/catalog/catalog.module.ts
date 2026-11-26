@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
-import { isGraphQLEnabled, isSqlOrm } from '../config/features.config.js';
+import { isGraphQLEnabled, isPubSubEnabled, isSqlOrm } from '../config/features.config.js';
+import { not } from '../config/env-condition.js';
 import { ProductController } from './http/product.controller.js';
 import { ProductService } from './application/product.service.js';
 import { ProductResolver } from './graphql/product.resolver.js';
@@ -8,6 +9,7 @@ import { CatalogGraphQLModule } from './graphql/catalog-graphql.module.js';
 import { ProductTypeOrmModule } from './infrastructure/typeorm/product.typeorm.module.js';
 import { ProductMikroOrmModule } from './infrastructure/mikro-orm/product.mikro-orm.module.js';
 import { NotificationsEventEmitterModule } from '../notifications/infrastructure/event-emitter/notifications.event-emitter.module.js';
+import { NotificationsPubSubModule } from '../notifications/infrastructure/pubsub/notifications.pubsub.module.js';
 
 /**
  * Catalog bounded context (products). Owns the application layer + the REST and GraphQL entrypoints,
@@ -17,15 +19,20 @@ import { NotificationsEventEmitterModule } from '../notifications/infrastructure
  *
  * The GraphQL transport is only wired when `FEATURE_GRAPHQL` is on; `ProductResolver` stays a
  * harmless unused provider otherwise.
+ *
+ * `product.created` goes through the {@link EventPublisher} port: in-process by default, or to Google
+ * Cloud Pub/Sub when `FEATURE_PUBSUB` is on.
  */
 @Module({
   imports: [
     ConditionalModule.registerWhen(ProductTypeOrmModule, isSqlOrm('typeorm')),
     ConditionalModule.registerWhen(ProductMikroOrmModule, isSqlOrm('mikro-orm')),
     ConditionalModule.registerWhen(CatalogGraphQLModule, isGraphQLEnabled),
-    // Always-on, infrastructure-free messaging adapter: `product.created` is emitted and handled
+    // Default, infrastructure-free messaging adapter: `product.created` is emitted and handled
     // in-process, so the event-emitter collector has data out of the box.
-    NotificationsEventEmitterModule,
+    ConditionalModule.registerWhen(NotificationsEventEmitterModule, not(isPubSubEnabled)),
+    // Opt-in: `product.created` is published to Pub/Sub instead, and shows in the Pub/Sub panel.
+    ConditionalModule.registerWhen(NotificationsPubSubModule, isPubSubEnabled),
   ],
   controllers: [ProductController],
   providers: [ProductService, ProductResolver],

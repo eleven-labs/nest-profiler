@@ -18,7 +18,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
   <Card
     href="/docs/packages/nest-profiler"
     title="Packages"
-    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, HTTP, Cache, Commander, Auth, Config, Routes, Validator, GraphQL, RabbitMQ, event emitter."
+    description="Core profiler and all optional collector packages: TypeORM, MikroORM, Mongoose, HTTP, Cache, Commander, Auth, Config, Routes, Validator, GraphQL, RabbitMQ, Pub/Sub, event emitter."
   />
   <Card
     href="/docs/example-api"
@@ -54,6 +54,7 @@ The ecosystem is built around an **extensible collector architecture**: the core
 | [`@eleven-labs/nest-profiler-validator`](/docs/packages/nest-profiler-validator)         | Validator   | DTO validation results - property violations with constraint names                                    |
 | [`@eleven-labs/nest-profiler-graphql`](/docs/packages/nest-profiler-graphql)             | GraphQL     | GraphQL queries/mutations: operation type, name, query, variables                                     |
 | [`@eleven-labs/nest-profiler-rabbitmq`](/docs/packages/nest-profiler-rabbitmq)           | RabbitMQ    | Consumed `@RabbitSubscribe` messages, and published ones: exchange, routing key, payload              |
+| [`@eleven-labs/nest-profiler-pubsub`](/docs/packages/nest-profiler-pubsub)               | Pub/Sub     | Published Google Cloud Pub/Sub messages: topic, attributes, payload, message id                       |
 | [`@eleven-labs/nest-profiler-event-emitter`](/docs/packages/nest-profiler-event-emitter) | Events      | `@nestjs/event-emitter` emissions and each `@OnEvent` handler execution                               |
 
 ## Key features

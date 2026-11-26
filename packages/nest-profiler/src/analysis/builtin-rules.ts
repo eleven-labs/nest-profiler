@@ -8,7 +8,12 @@ import { unhandledExceptions } from './profiler-error.js';
 const defaultEntryIsError = resolveEntryErrorClassifier();
 
 /** Fallback `chattyThreshold` when a collector exposes none, per domain. */
-const DEFAULT_CHATTY_THRESHOLD: Record<string, number> = { query: 20, http: 10, rabbitmq: 10 };
+const DEFAULT_CHATTY_THRESHOLD: Record<string, number> = {
+  query: 20,
+  http: 10,
+  rabbitmq: 10,
+  pubsub: 10,
+};
 const DEFAULT_CHATTY_FALLBACK = 20;
 
 /**
@@ -16,7 +21,11 @@ const DEFAULT_CHATTY_FALLBACK = 20;
  * absent from the map fall back to {@link DEFAULT_NPLUSONE_SUBJECT} — the wording that fits
  * every query collector (SQL, Mongo, …).
  */
-const NPLUSONE_SUBJECT: Record<string, string> = { http: 'request', rabbitmq: 'message' };
+const NPLUSONE_SUBJECT: Record<string, string> = {
+  http: 'request',
+  rabbitmq: 'message',
+  pubsub: 'message',
+};
 const DEFAULT_NPLUSONE_SUBJECT = 'query';
 
 /** Structural view of an HTTP entry — the fields the error/payload rules read. */

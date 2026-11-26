@@ -85,6 +85,11 @@
       - any-glob-to-any-file:
           - 'packages/nest-profiler-rabbitmq/**'
 
+'package: nest-profiler-pubsub':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/nest-profiler-pubsub/**'
+
 'package: nest-profiler-routes':
   - changed-files:
       - any-glob-to-any-file:

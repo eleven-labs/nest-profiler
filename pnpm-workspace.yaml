@@ -32,5 +32,7 @@ allowBuilds:
   '@scarf/scarf': false
   better-sqlite3: true
   esbuild: true
+  # @google-cloud/pubsub dependency: its postinstall only prints a version warning
+  protobufjs: false
   sharp: true
   unrs-resolver: true

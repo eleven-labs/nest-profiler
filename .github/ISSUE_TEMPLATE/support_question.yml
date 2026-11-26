@@ -22,6 +22,7 @@ body:
         - '@eleven-labs/nest-profiler-commander'
         - '@eleven-labs/nest-profiler-event-emitter'
         - '@eleven-labs/nest-profiler-rabbitmq'
+        - '@eleven-labs/nest-profiler-pubsub'
         - '@eleven-labs/nest-profiler-routes'
         - 'example-api'
         - 'Documentation'

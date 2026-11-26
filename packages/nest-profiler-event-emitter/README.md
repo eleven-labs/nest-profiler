@@ -24,6 +24,10 @@
 
 `@eleven-labs/nest-profiler-event-emitter` captures the domain events an application dispatches through `@nestjs/event-emitter`. Every emission shows up in an **Events** panel on the profile that published it, every `@OnEvent` subscription is listed in the **Discover / Events** view, and — by default — each handler execution becomes a profile of its own, so the work an event triggers stops being invisible.
 
+![Events panel — a product.created emission with its listener count and duration](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/events.png)
+
+![Events view — every @OnEvent handler execution profiled with its event, handler, duration and status](https://raw.githubusercontent.com/eleven-labs/nest-profiler/main/docs/public/screenshots/profiler/events-list.png)
+
 ## Installation
 
 ```bash

@@ -1,6 +1,6 @@
-# Remaining collectors — Cache · GraphQL · Commander · Routes · RabbitMQ
+# Remaining collectors — Cache · GraphQL · Commander · Routes · RabbitMQ · Pub/Sub
 
-Mostly `enabled`-only collectors: for these the main decision is simply **whether to include them**. RabbitMQ is the one exception with capture options. All are registered in the `ProfilingModule` bundle (see `collectors-matrix.md`).
+Mostly `enabled`-only collectors: for these the main decision is simply **whether to include them**. RabbitMQ and Pub/Sub are the exceptions with capture options. All are registered in the `ProfilingModule` bundle (see `collectors-matrix.md`).
 
 ---
 
@@ -97,6 +97,31 @@ RoutesCollectorModule.forRoot(),
 // in ProfilingModule's imports:
 RabbitMqCollectorModule.forRoot(),
 RabbitMqPublishCollectorModule.forRoot(),
+```
+
+---
+
+## Pub/Sub — `@eleven-labs/nest-profiler-pubsub`
+
+- **Peers (required):** `@google-cloud/pubsub@^5 || ^6`, `nestjs-cls@^6 || ^7`.
+- **Module:** `PubSubPublishCollectorModule` (`forRoot` + `forRootAsync`).
+- **Placement:** the `ProfilingModule` bundle; the app keeps its `PubSub` client and topics in its own module.
+- **Behaviour:** patches `Topic.prototype.publishMessage` (which `publish` / `publishJSON` route through) for a **Pub/Sub** panel listing each published message: topic, attributes, ordering key, payload, message id, duration, outcome.
+- **⚠️ Gotcha:** an entry is recorded once the publish settles — a publish the request does not await and that settles after the profile is saved is missing from the panel.
+- Docs: <https://nest-profiler.eleven-labs.com/docs/packages/nest-profiler-pubsub>
+
+| Option              | Type       | Default   | Notes                                                         |
+| ------------------- | ---------- | --------- | ------------------------------------------------------------- |
+| `enabled`           | `boolean`  | `true`    | Synchronous.                                                  |
+| `captureAttributes` | `boolean`  | `true`    | —                                                             |
+| `captureBody`       | `boolean`  | `true`    | —                                                             |
+| `maskAttributes`    | `string[]` | built-ins | merged with the core's sensitive header list.                 |
+| `slowThreshold`     | `number`   | `100`     | includes the time spent in the client batch.                  |
+| `nPlusOneThreshold` | `number`   | `5`       | the client batches publishes in a row, so a few are expected. |
+
+```ts
+// in ProfilingModule's imports:
+PubSubPublishCollectorModule.forRoot(),
 ```
 
 ---
